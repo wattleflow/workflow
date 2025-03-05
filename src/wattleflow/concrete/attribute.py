@@ -4,7 +4,40 @@
 # License: Apache 2 Licence
 # Description: This modul contains attribute handling class.
 
+
+"""
+The Attribute class in wattleflow.helpers.attribute is a utility class for attribute management.
+It provides validation, type enforcement, dynamic class loading, and controlled attribute access.
+
+Key Responsibilities of Attribute
+    1. Type Validation and Enforcement
+        - evaluate(target, expected_type): Ensures objects match expected types.
+        - exists(name, cls): Checks if an attribute exists and is of the correct type.
+        - convert(name, cls, **kwargs): Converts an attribute to an enum type.
+
+    2. Class Loading and Dynamic Instantiation
+        - load_from_class(name, obj, cls, **kwargs): Loads and instantiates a class dynamically.
+        - mandatory(name, cls, **kwargs): Ensures a mandatory parameter exists and is
+          of the correct type.
+        - optional(name, cls, default, **kwargs): Handles optional parameters.
+
+    3. Controlled Attribute Access
+        - push(name, value): Dynamically sets an attribute.
+        - get(name, kwargs, cls, mandatory=True): Retrieves a parameter from kwargs and
+          enforces its type.
+
+    4. Attribute Access & Name Resolution
+        - find_name_by_variable(obj): Finds the variable name by inspecting stack frames.
+        - find_object_by_name(name): Retrieves an object from the local scope.
+
+    5. Security & Constraints
+        - allowed(allowed, **kwargs): Restricts allowed attributes and raises errors for
+          unexpected ones.
+"""
+
+
 import os
+import sys
 import inspect
 from typing import Optional, Union
 from importlib import import_module
@@ -53,24 +86,53 @@ class StrategyClassLoader(IStrategy):
         raise ModuleNotFoundError(class_path)
 
 
+# class ClassLoader:
+#     def __init__(self, class_path, **kwargs):
+#         self.loader_strategy = StrategyClassLoader()
+#         path_parts = os.path.dirname(os.path.abspath(__file__)).split(os.path.sep)
+#         root_path = os.path.sep.join(
+#             path_parts[:-CLASSLOADER_LEVELUP]
+#             if len(path_parts) > CLASSLOADER_LEVELUP
+#             else path_parts
+#         )
+#         self.cls = self.loader_strategy.execute(
+#             class_path=class_path, root_path=root_path
+#         )
+#         self.instance = self.cls(**kwargs)
+
+
 class ClassLoader:
     def __init__(self, class_path, **kwargs):
-        self.loader_strategy = StrategyClassLoader()
-        path_parts = os.path.dirname(os.path.abspath(__file__)).split(os.path.sep)
-        root_path = os.path.sep.join(
-            path_parts[:-CLASSLOADER_LEVELUP]
-            if len(path_parts) > CLASSLOADER_LEVELUP
-            else path_parts
-        )
-        self.cls = self.loader_strategy.execute(
-            class_path=class_path, root_path=root_path
-        )
+        # print(f"[DEBUG] Attempting to load: {class_path}")
+        try:
+            module_path, class_name = class_path.rsplit(".", 1)
+        except ValueError:
+            raise ValueError(f"Invalid class path format: {class_path}")
+
+        # print(f"[DEBUG] Module: {module_path}, Class: {class_name}")
+        root_path = os.path.dirname(os.path.abspath(__file__))
+        sys.path.append(root_path)
+
+        try:
+            module = import_module(module_path)
+            # print(f"[DEBUG] Successfully imported module: {module}")
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                f"Module not found: {module_path}. Ensure it's in sys.path"
+            )
+
+        if not hasattr(module, class_name):
+            raise ImportError(f"Class {class_name} not found in module {module_path}")
+
+        self.cls = getattr(module, class_name)
+        # print(f"[DEBUG] Loaded class: {self.cls}")
+
         self.instance = self.cls(**kwargs)
 
 
 class Attribute:
     @staticmethod
-    def find_name_by_variable(obj):
+    def find_name_by_variable_old(obj):
         depth = 0
         frame = inspect.currentframe()
         while frame and depth < 5:
@@ -83,11 +145,47 @@ class Attribute:
         return None
 
     @staticmethod
-    def find_object_by_name(name):
+    def find_name_by_variable(obj):
+        return getattr(obj, "__name__", "Unknown")
+
+    @staticmethod
+    def find_object_by_name_old(name):
         locals = inspect.currentframe().f_back.f_locals
         if name in locals:
             return locals[name]
         return None
+
+    @staticmethod
+    def find_object_by_name(self, obj):
+        return getattr(obj, "__name__", "Unknown")
+
+    def allowed(self, allowed, **kwargs) -> bool:
+        self.evaluate(allowed, list)
+
+        if not len(allowed) > 0:
+            return False
+
+        restricted = set(kwargs.keys()) - set(allowed)
+
+        if restricted:
+            raise AttributeError(f"Restricted: {_NC(self)}.allowed[{restricted}]")
+
+        return True
+
+    def convert(self, name: str, cls: type, **kwargs):
+        if name not in kwargs:
+            raise MissingAttribute(self, f"kwargs[{name}]")
+
+        value = kwargs[name]
+
+        for enum_member in cls:
+            if enum_member.name == value or enum_member.value == value:
+                kwargs[name] = enum_member
+                return
+
+        txt = "{}: unexpected type found [{}:{}] expected [{}]"
+        error = txt.format(_NC(self), value, _NT(value), cls.__class__.__name__)
+        raise TypeError(error)
 
     def evaluate(self, target, expected_type):
         if not expected_type:
@@ -107,39 +205,55 @@ class Attribute:
         if not isinstance(target, expected_type):
             raise TypeError(error)
 
-    def load_from_class(self, name: str, obj: object, cls: type, **kwargs):
-        if not isinstance(obj, str):
-            raise ReferenceError(f"Not a class value. [{name}]")
-
-        instance = ClassLoader(obj, **kwargs).instance
-
-        if not isinstance(instance, cls):
-            raise ReferenceError("Incorrect type.")
-
-        return instance
-
-    def get_name(self):
-        return self.__class__.__name__
-
-    def allowed(self, allowed, **kwargs) -> bool:
-        self.evaluate(allowed, list)
-
-        if not len(allowed) > 0:
-            return False
-
-        restricted = set(kwargs.keys()) - set(allowed)
-
-        if restricted:
-            raise AttributeError(f"Restricted: {_NC(self)}.allowed[{restricted}]")
-
-        return True
-
     def exists(self, name: str, cls: type):
         attr = getattr(self, name, None)
         if not attr:
             raise MissingAttribute(self, name)
 
         self.evaluate(attr, cls)
+
+    def load_from_class(self, name: str, obj: object, cls: type, **kwargs):
+        if not isinstance(obj, str):
+            raise TypeError(
+                f"Expected class path as string for {name}, got {type(obj).__name__}"
+            )
+
+        try:
+            instance = ClassLoader(obj, **kwargs).instance
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(f"Class {obj} not found in module.")
+        except Exception as e:
+            raise ValueError(f"Failed to instantiate {obj}: {e}")
+
+        if not isinstance(instance, cls):
+            raise TypeError(
+                f"Loaded instance of {obj} is not a subclass of {cls.__name__}"
+            )
+
+        return instance
+
+    def get_name(self):
+        return self.__class__.__name__
+
+    def mandatory(self, name: str, cls: type, **kwargs):
+        self.evaluate(kwargs, dict)
+
+        if name not in kwargs:
+            raise MissingAttribute(self, f"kwargs[{name}]")
+
+        obj = kwargs.pop(name, None)
+
+        if isinstance(obj, cls):
+            self.push(name, obj)
+            return obj
+
+        if cls in [int, dict, str, tuple, list]:
+            raise TypeError(f"kwargs[{name}]")
+
+        try:
+            self.load_from_class(name, obj, cls, **kwargs)
+        except Exception as e:
+            raise ValueError(f"Error loading class: kwargs[{name}]: {e}")
 
     def get(self, name: str, kwargs: dict, cls: Optional[type], mandatory=True):
         if mandatory:
@@ -164,44 +278,6 @@ class Attribute:
         except Exception as e:
             raise MissingAttribute(self, name, e)
 
-    def push(self, name: str, value: object):
-        setattr(self, name, value)
-
-    def convert(self, name: str, cls: type, **kwargs):
-        if name not in kwargs:
-            raise MissingAttribute(self, f"kwargs[{name}]")
-
-        value = kwargs[name]
-
-        for enum_member in cls:
-            if enum_member.name == value or enum_member.value == value:
-                kwargs[name] = enum_member
-                return
-
-        txt = "{}: unexpected type found [{}:{}] expected [{}]"
-        error = txt.format(_NC(self), value, _NT(value), cls.__class__.__name__)
-        raise TypeError(error)
-
-    def mandatory(self, name: str, cls: type, **kwargs):
-        self.evaluate(kwargs, dict)
-
-        if name not in kwargs:
-            raise MissingAttribute(self, f"kwargs[{name}]")
-
-        obj = kwargs.pop(name, None)
-
-        if isinstance(obj, cls):
-            self.push(name, obj)
-            return obj
-
-        if cls in [int, dict, str, tuple, list]:
-            raise TypeError(f"kwargs[{name}]")
-
-        try:
-            self.load_from_class(name, obj, cls, **kwargs)
-        except Exception as e:
-            raise ValueError(f"Error loading class: kwargs[{name}]: {e}")
-
     def optional(self, name: str, cls: type, default: Union[object], **kwargs):
         if (not kwargs) and (not default):
             return
@@ -218,6 +294,9 @@ class Attribute:
             self.evaluate(obj, cls)
 
         self.push(name, obj)
+
+    def push(self, name: str, value: object):
+        setattr(self, name, value)
 
     def __str__(self):
         attributes = ""

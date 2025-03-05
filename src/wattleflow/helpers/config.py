@@ -4,6 +4,32 @@
 # License: Apache 2 Licence
 # Description: This modul contains config class.
 
+"""
+1. Responsibilities
+ - Configuration Loading
+    - Loads YAML files (load_settings())
+    - Stores settings in self.data
+    - Uses CheckPath() to validate paths.
+
+- Key-Based Configuration Lookup
+    - Implements find(section, key, name, default) to retrieve nested configuration values.
+
+- Dynamic Class Loading
+    - (Commented out) Uses ClassLoader to instantiate classes dynamically.
+
+- Decryption Handling
+    - Stores self.decrypt, which is supposed to handle securely decrypting values.
+
+Relies on:
+    - yaml: Loads the configuration file.
+    - CheckPath: Ensures file paths are valid.
+    - Project: Determines project root path.
+    - ClassLoader: Dynamically loads a decryption class.
+    - ERROR_MISSING_ATTRIBUTE: Used for error handling.
+    - Enum-Based Mapping (Mapper):
+        - Converts string-based configuration values into Enum types.
+"""
+
 import yaml
 from enum import Enum
 from typing import Type
@@ -32,13 +58,17 @@ class Mapper:
                 dict_object[name] = enum_member
                 return
 
+        raise ValueError(f"Invalid enum value '{value}' for {cls.__name__}")
+
 
 class Config:
-    def __init__(self, project_path:str, level_up:int=2):
-        self.file_path = CheckPath("{}/{}".format(
-            Project(project_path, level_up).root_path,
-            CONFIG_FILE,
-        )).file_path
+    def __init__(self, project_path: str, level_up: int = 2):
+        self.file_path = CheckPath(
+            "{}/{}".format(
+                Project(project_path, level_up).root_path,
+                CONFIG_FILE,
+            )
+        ).file_path
         self.key_filename = None
         self.data = None
         self.decrypt = None
@@ -46,8 +76,13 @@ class Config:
         CheckPath(file_path=self.key_filename, owner=self)
 
     def load_settings(self):
-        with open(self.file_path, "r") as file:
-            self.data = yaml.safe_load(file)
+        try:
+            with open(self.file_path, "r") as file:
+                self.data = yaml.safe_load(file)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Configuration file not found: {self.file_path}")
+        except yaml.YAMLError as e:
+            raise ValueError(f"Invalid YAML file: {self.file_path}. Error: {e}")
 
         self.key_filename = self.find(
             section=KEY_SECTION_PROJECT, key=KEY_STRATEGY, name=KEY_SSH_KEY_FILENAME
@@ -57,12 +92,13 @@ class Config:
         class_name = self.find(
             section=KEY_SECTION_PROJECT, key=KEY_STRATEGY, name=KEY_CLASS_NAME
         )
-        # self.decrypt = ClassLoader(
-        #     class_path=class_name, key_filename=self.key_filename
-        # ).instance
 
-    def get(self, section, key, name=None, default=None):
-        self.find(section, key, name=None, default=None)
+        self.decrypt = ClassLoader(
+            class_path=class_name, key_filename=self.key_filename
+        ).instance
+
+    def get(self, section, key, name=None, default=None) -> str:  # Check
+        return self.find(section, key, name, default)
 
     def find(self, section, key, name=None, default=None):
         def find_root(branch, name):
@@ -102,5 +138,10 @@ class Config:
         return root
 
     def decrypt(self, section, key, name=None, default=None):
+        if not self.decrypt:
+            raise RuntimeError("Decryption method not initialized.")
         value = self.find(section, key, name, default)
         return self.decrypt.execute(value)
+
+        # value = self.find(section, key, name, default)
+        # return self.decrypt.execute(value)

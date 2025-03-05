@@ -4,6 +4,31 @@
 # License: Apache 2 Licence
 # Description: This modul contains concrete strategy classes.
 
+
+"""
+1. Generic Strategy Implementation
+    Strategy (Base Class)
+        - Defines call() and execute(), both abstract methods.
+        - Forces subclasses to implement their behavior.
+    GenericStrategy
+        - Implements call(), which:
+            - Calls execute()
+            - Ensures the output matches _expected_type.
+        - Enforces ITarget as the expected type by default.
+
+2. Concrete Strategies
+    StrategyGenerate
+        - Calls execute() for object generation.
+    StrategyCreate
+        - Calls execute() using a processor.
+        - Used for creating objects in a workflow.
+    StrategyRead
+        - Calls execute() to fetch an object by identifier.
+    StrategyWrite
+        - Calls execute() to store an object in a repository.
+        - Uses _expected_type = bool, meaning execution must return True/False.
+"""
+
 from abc import abstractmethod, ABC
 from typing import Optional
 from wattleflow.core import IStrategy
@@ -25,7 +50,7 @@ class Strategy(IStrategy, Attribute, ABC):
 
 class GenericStrategy(Strategy, ABC):
     def __init__(self, expected_type=ITarget):
-        self.name = self.__class__.__name__
+        super().__init__()
         self.evaluate(expected_type, ITarget)
         self._expected_type = expected_type
 
@@ -39,7 +64,6 @@ class GenericStrategy(Strategy, ABC):
         pass
 
 
-# Blackboard strategies - Generate | Create | Read | Write
 class StrategyGenerate(GenericStrategy):
     def generate(self, caller, *args, **kwargs) -> Optional[object]:
         return self.execute(caller, *args, **kwargs)

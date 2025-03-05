@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="wattleflow",
-    version="0.0.0.1",
+    version="0.0.0.2",
     description="WattleFlow Workflow for Data Engineers",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
@@ -28,9 +28,9 @@ setup(
     ],
     python_requires=">=3.9",
     install_requires=[
-        # Dodaj ovdje ovisnosti ako su potrebne
+        "yaml"
     ],
     extras_require={
-        #        "dev": ["pytest", "black", "mypy"],
+        # "dev": ["pytest", "black", "mypy"],
     },
 )

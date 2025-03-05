@@ -4,6 +4,46 @@
 # License: Apache 2 Licence
 # Description: This modul contains concrete base processor class.
 
+"""
+The GenericProcessor class is a concrete implementation of the IProcessor
+   interface in Wattleflow.
+1. Inheritance & Dependencies
+    Inherits from:
+        - IProcessor[T] (interface from wattleflow.core)
+        - Attribute (from wattleflow.concrete.attribute)
+        - ABC (abstract base class for enforcing @abstractmethod)
+    Uses:
+        - IStrategy: For auditing/logging.
+        - IBlackboard: Shared state management.
+        - IPipeline: Executes tasks within workflows.
+
+2. Core Responsibilities
+    Task Processing
+        - process_tasks(): Iterates over a dataset (self._iterator) and processes
+          items using pipelines.
+    Auditing
+        - Uses _strategy_audit to generate logs.
+    Blackboard Integration
+        - _blackboard.audit = self.audit: Hooks into the blackboard's auditing system.
+        - Ensures cleanup via __del__().
+    Configuration & Type Safety
+        - Uses evaluate() for runtime type checks.
+        - Limits allowed types for configuration parameters.
+    Iterator-Based Data Processing
+        - Implements __next__() for iterable behavior.
+        - Calls create_iterator() (abstract) to define data sources.
+
+3. Since GenericProcessor inherits from Attribute, it benefits from:
+    - Strict Type Validation
+    - evaluate() ensures strategy_audit, blackboard, pipelines match expected types.
+    - allowed(self._allowed, **kwargs) enforces allowed attributes.
+
+4. Dynamic Configuration
+    - configure(**kwargs) calls push() to store attributes dynamically.
+    - Restricts attributes to bool, dict, list, str.
+    - Class Instantiation & Injection
+"""
+
 from abc import abstractmethod, ABC
 from typing import Final, Generator, Iterator, List, TypeVar
 from wattleflow.core import IStrategy
@@ -99,7 +139,6 @@ class GenericProcessor(IProcessor[T], Attribute, ABC):
             raise AttributeError(e)
         except Exception as e:
             raise ProcessorException(caller=self, error=e)
-            # error=f"Processor caught exception: {e}")
 
     @abstractmethod
     def create_iterator(self) -> Generator[T, None, None]:

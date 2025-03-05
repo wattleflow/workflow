@@ -6,8 +6,6 @@
 
 import inspect
 from typing import final
-from sys import _getframe as frame
-
 from wattleflow.constants.enums import Event
 from wattleflow.constants.errors import ERROR_PATH_NOT_FOUND, ERROR_UNEXPECTED_TYPE
 from wattleflow.helpers.functions import _NC, _NT
@@ -19,24 +17,35 @@ from wattleflow.strategies.audit import StrategyWriteAuditEvent
 # --------------------------------------------------------------------------- #
 
 
+import traceback
+
+
 class ManagedException(Exception):
     def __init__(self, caller, error, **kwargs):
         self.name = _NC(caller)
         self.caller = caller
         self.error = error
-        self.frame = frame
-        self.filename = (
-            f"{frame(2).f_code.co_filename}:({frame(2).f_code.co_firstlineno})"
-        )
+        self.filename = self._get_call_context()
+
         self.audit_strategy = StrategyWriteAuditEvent()
-        self.audit_strategy.generate(
-            owner=caller,
-            caller=self,
-            event=Event.ErrorDetails,
-            error=error,
-            **kwargs,
-        )
+        if self.audit_strategy:
+            self.audit_strategy.generate(
+                owner=caller,
+                caller=self,
+                event=Event.ErrorDetails,
+                error=error,
+                **kwargs,
+            )
         super().__init__(self.error)
+
+    def _get_call_context(self):
+        """Retrieves calling filename and line number."""
+        try:
+            stack = traceback.extract_stack()
+            filename, lineno, _, _ = stack[-3]  # Caller frame (-1 is current)
+            return f"{filename}:({lineno})"
+        except Exception:
+            return "Unknown Location"
 
 
 class AuthenticationException(ManagedException):
@@ -82,6 +91,8 @@ class MissingException(ManagedException):
 
 class PathException(ManagedException):
     def __init__(self, caller, path):
+        if not path:
+            path = "Unknown Path"
         self.path = path
         super().__init__(caller=caller, error=ERROR_PATH_NOT_FOUND.format(path))
 
@@ -116,32 +127,35 @@ class SaltException(ManagedException):
 
 
 class NotFoundError(AttributeError):
-    def __init__(self, item, target):  # TODO: make a function
-        frame = inspect.currentframe().f_back  # Okvir pozivatelja
-        local_vars = frame.f_locals  # Lokalne varijable unutar metode koja je pozvala
-        var_name = None
-        for name, value in local_vars.items():
-            if value is item:
-                var_name = name
-                break
+    def __init__(self, item, target):
+        try:
+            _frame = inspect.currentframe().f_back  # Caller frame
+            var_name = next(
+                (name for name, value in _frame.f_locals.items() if value is item),
+                "Unknown Variable",
+            )
+        except Exception:
+            var_name = "Unknown Variable"
+
         msg = f"No [{var_name}] found in [{target.__class__.__name__}]"
         super().__init__(msg)
 
 
 class UnexpectedTypeError(TypeError):
     def __init__(self, caller, found, expected_type):
-        frame = inspect.currentframe().f_back  # Okvir pozivatelja
-        local_vars = frame.f_locals  # Lokalne varijable unutar metode koja je pozvala
-        var_name = None
-        for name, value in local_vars.items():
-            if value is found:
-                var_name = name
-                break
+        try:
+            _frame = inspect.currentframe().f_back
+            var_name = next(
+                (name for name, value in _frame.f_locals.items() if value is found),
+                "Unknown Variable",
+            )
+        except Exception:
+            var_name = "Unknown Variable"
 
         error = ERROR_UNEXPECTED_TYPE.format(
-            _NC(caller),
+            _NC(caller) if callable(_NC) else str(caller),
             var_name,
-            _NT(found),
+            _NT(found) if callable(_NT) else type(found).__name__,
             expected_type.__name__,
         )
         super().__init__(error)

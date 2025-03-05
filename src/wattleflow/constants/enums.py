@@ -58,6 +58,7 @@ class Event(Enum):
     Create = "Create"
     Creating = "Creating"
     Created = "Created"
+    DebugLog = "Debug log"
     Disconnect = "Disconnect"
     Disconnecting = "Disconnecting"
     Disconnected = "Disconnected"
