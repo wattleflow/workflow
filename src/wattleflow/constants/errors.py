@@ -9,7 +9,6 @@
 ERROR_AUTHENTICATION = "Authentication error: {}"
 
 # Classification
-ERROR_DATA_BREACH = "Data breach: {}"
 ERROR_CLASSIFICATION = "Classification error: {}"
 
 # Files, paths

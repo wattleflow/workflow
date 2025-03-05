@@ -4,7 +4,7 @@
 # License: Apache 2 Licence
 # Description: This modul contains DictDocument class.
 
-from concrete.document import Document
+from wattleflow.concrete.document import Document
 
 
 # Dict document (dict)

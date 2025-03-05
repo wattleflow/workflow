@@ -1,9 +1,4 @@
-from .audit import (
-    WattleflowConnectionStatus,
-    WattleflowEventLog,
-    WattleflowProtectiveMarkings,
-    WattleflowOSCAL,
-)
+from .audit import ConnectionStatus, EventLog, ProtectiveMarkings, WattleflowOSCAL
 from .enums import (
     Classification,
     ClassificationDLM,
@@ -13,9 +8,9 @@ from .enums import (
 )
 
 __all__ = [
-    "WattleflowConnectionStatus",
-    "WattleflowEventLog",
-    "WattleflowProtectiveMarkings",
+    "ConnectionStatus",
+    "EventLog",
+    "ProtectiveMarkings",
     "WattleflowOSCAL",
     "Classification",
     "ClassificationDLM",

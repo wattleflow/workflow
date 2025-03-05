@@ -15,7 +15,7 @@ class FileDocument(Document[str]):
         super().__init__()
         self._metadata = {}
         self._filename = filename
-        self.update_etadata()
+        self.update_metadata()
 
     @property
     def filename(self) -> str:
@@ -34,9 +34,9 @@ class FileDocument(Document[str]):
 
     def update_filename(self, filename):
         self._filename = filename
-        self.update_etadata()
+        self.update_metadata()
 
-    def update_etadata(self) -> None:
+    def update_metadata(self) -> None:
         if not path.exists(self.filename):
             print(
                 f"[WARNING] File does not exist yet: {self.filename}. Metadata will be empty."

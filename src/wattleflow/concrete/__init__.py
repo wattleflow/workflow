@@ -7,17 +7,7 @@ from .connection import (
     ConnectionObserverInterface,
     GenericConnection,
 )
-from .document import (
-    IDocument,
-    Document,
-    Child,
-    ItemDocument,
-    DictDocument,
-    FileDocument,
-    GraphDocument,
-    DocumentAdapter,
-    DocumentFacade,
-)
+from .document import Document, Child, DocumentAdapter, DocumentFacade
 from .exception import (
     ManagedException,
     AuthenticationException,
@@ -42,9 +32,11 @@ from .exception import (
 )
 from .manager import ConnectionManager
 from .memento import MementoClass, ObservableClass
+from .orchestrator import Orchestrator
 from .pipeline import GenericPipeline
 from .processor import GenericProcessor
 from .repository import GenericRepository
+from .scheduler import Scheduler
 from .strategy import (
     Strategy,
     GenericStrategy,
@@ -53,7 +45,7 @@ from .strategy import (
     StrategyRead,
     StrategyWrite,
 )
-from .unittest import WattleflowTestClass
+from .wattletest import WattleflowTestClass
 
 __all__ = [
     "MissingAttribute",
@@ -66,13 +58,8 @@ __all__ = [
     "Settings",
     "ConnectionObserverInterface",
     "GenericConnection",
-    "IDocument",
     "Document",
     "Child",
-    "ItemDocument",
-    "DictDocument",
-    "FileDocument",
-    "GraphDocument",
     "DocumentAdapter",
     "DocumentFacade",
     "ManagedException",
@@ -98,9 +85,11 @@ __all__ = [
     "ConnectionManager",
     "MementoClass",
     "ObservableClass",
+    "Orchestrator",
     "GenericPipeline",
     "GenericProcessor",
     "GenericRepository",
+    "Scheduler",
     "Strategy",
     "GenericStrategy",
     "StrategyGenerate",

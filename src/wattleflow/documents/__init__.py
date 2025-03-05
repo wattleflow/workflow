@@ -1,3 +1,6 @@
-# Author: (wattleflow@outlook.com.au)
-# Copyright: (c) 2022-2024 WattleFlow
-# License: Apache 2 Licence
+from .dictionary import DictDocument
+from .file import FileDocument
+from .graph import GraphDocument
+from .item import ItemDocument
+
+__all__ = ["DictDocument", "FileDocument", "GraphDocument", "ItemDocument"]

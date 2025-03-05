@@ -5,10 +5,20 @@ from .asymetric import (
     StrategyRSAEncrypt512,
     StrategyRSADecrypt512,
 )
-from .audit import DebugAuditStrategyWrite, StrategyWriteAuditEvent, StrategyWriteAuditEventDebug
+from .audit import (
+    DebugAuditStrategyWrite,
+    StrategyWriteAuditEvent,
+    StrategyWriteAuditEventDebug,
+)
 from .fernet import StrategyFernetGeneric, StrategyFernetEncrypt, StrategyFernetDecrypt
 from .files import StrategyFilename, StrategyFilterFiles
-from .hashlib import StrategyMD5, StrategySha224, StrategySha256, StrategySha384, StrategySha512
+from .hashlib import (
+    StrategyMD5,
+    StrategySha224,
+    StrategySha256,
+    StrategySha384,
+    StrategySha512,
+)
 from .loader import StrategyClassLoader
 
 __all__ = [

@@ -6,12 +6,10 @@
 
 from enum import Enum
 
-# class AttributeEvents(Enum):
-#     Exception = 'exception'
-#     Missing = 'missing'
-#     Mandatory = 'mandatory'
-#     IncorrectType = 'incorrect type'
-#     RestrictedValue = 'restricted value'
+
+class ProcessOperation(Enum):
+    Start = 1
+    Stop = 0
 
 
 # Classification
@@ -84,6 +82,9 @@ class Event(Enum):
     Iteration = "Iteration"
     Log = "Log"
     Missing = "Missing"
+    OrchestrationCompleted = "Orchestration completed"
+    OrchestrationStarted = "Orchestration started"
+    OrchestrationStopped = "Orchestration stopped"
     PipelineProces = "Pipeline process"
     Processed = "Processed"
     Processing = "Processing"

@@ -101,6 +101,11 @@ class PiplineException(ManagedException):
     pass
 
 
+class OrchestratorException(ManagedException):
+    error = "Unknown operation error."
+    pass
+
+
 class ProcessorException(ManagedException):
     pass
 

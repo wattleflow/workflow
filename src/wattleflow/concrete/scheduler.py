@@ -5,38 +5,11 @@
 # Description: This modul has Scheduler class.
 
 """
-# Example strategy
-class SampleStrategy(StrategyExecuteTask):
-    def execute(self, **kwargs):
-        print(
-            f"[{datetime.now()}] Executing strategy task: \
-              {kwargs.get('task_name', 'Unnamed Task')}")
+The Scheduler class:
+- Manage task execution using existing strategies and pipelines.
+- Use event-driven behavior from the observer pattern.
+- Support asynchronous execution and cron-like scheduling.
 
-# Example listener
-class TaskListener(IWattleflow)
-    def on_event(self, event, **kwargs):
-        print(f"Event Triggered: {event} - {kwargs}")
-
-# Define a sample task
-def sample_task():
-    print(f"[{datetime.now()}] Running scheduled task...")
-
-# Initialize scheduler
-scheduler = Scheduler(strategy_execute=SampleStrategy())
-
-# Register event listener
-listener = TaskListener()
-scheduler.register_listener(listener)
-
-# Schedule a repeating task every 5 seconds
-scheduler.schedule_task(sample_task, interval=5, repeat=True)
-
-# Start the scheduler
-scheduler.start()
-
-# Allow tasks to run for 20 seconds before stopping
-time.sleep(20)
-scheduler.stop()
 """
 
 import time
@@ -44,8 +17,7 @@ import threading
 from datetime import datetime
 from wattleflow.core import IEventSource, IEventListener, IStrategy, IFacade
 from wattleflow.concrete import Attribute, ManagedException
-from wattleflow.constants.enums import Event
-from wattleflow.helpers.functions import name_class
+from wattleflow.constants.enums import Event, ProcessOperation
 
 
 class Scheduler(IEventSource, IFacade, Attribute):
@@ -97,13 +69,25 @@ class Scheduler(IEventSource, IFacade, Attribute):
                 sleep_time = max(0, interval - execution_time)
 
                 self.emit_event(
-                    Event.TaskExecuted, task=name_class(task), duration=execution_time
+                    Event.TaskExecuted,
+                    task=type(task).__name__,
+                    duration=execution_time,
                 )
 
                 time.sleep(sleep_time)
         except Exception as e:
             raise ManagedException(
-                self, f"Error executing task {name_class(task)}: {e}"
+                self, f"Error executing task {type(task).__name__}: {e}"
+            )
+
+    def operation(self, action: ProcessOperation):
+        if action == ProcessOperation.Start:
+            self.start()
+        elif action == ProcessOperation.Stop:
+            self.stop()
+        else:
+            raise ChildProcessError(
+                caller=self, error=f"Urecognised operation! [{action}]"
             )
 
     def start(self):

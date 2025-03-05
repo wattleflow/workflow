@@ -4,34 +4,12 @@
 # License: Apache 2 Licence
 # Description: This modul contains GraphDocument class.
 
-
-"""
-from wattleflow.documents.graph_document import GraphDocument
-
-# Initialize a new RDF document
-graph_doc = GraphDocument()
-
-# Add some RDF triples
-graph_doc.add_triple("http://example.org/alice", FOAF.name, "Alice")
-graph_doc.add_triple("http://example.org/bob", FOAF.name, "Bob")
-
-# Query the graph
-query_result = graph_doc.query_graph("SELECT ?s ?p ?o WHERE { ?s ?p ?o }")
-for row in query_result:
-    print(row)
-
-# Save the graph to a file
-graph_doc.save_graph("example_graph.ttl")
-
-# Load an RDF file
-graph_doc.load_graph("example_graph.ttl")
-
-"""
 from os import path
 from datetime import datetime
-from rdflib import Graph, URIRef, Literal, Namespace
-from rdflib.namespace import RDF, RDFS, FOAF
+from rdflib import Graph, URIRef, Literal  # Namespace
 from wattleflow.concrete.document import Document
+
+# from rdflib.namespace import RDF, RDFS, FOAF
 
 
 class GraphDocument(Document[Graph]):

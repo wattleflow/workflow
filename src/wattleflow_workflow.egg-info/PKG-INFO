@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: wattleflow-workflow
-Version: 0.0.0.1
+Version: 0.0.0.4
 Summary: Wattleflow Workflow - Data engineering framework.
 Home-page: https://github.com/wattleflow/wattleflow.git
 Author: WattleFlow
@@ -225,7 +225,7 @@ Classifier: License :: OSI Approved :: Apache Software License
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: wattleflow>=0.0.0.3
+Requires-Dist: wattleflow>=0.0.0.5
 Dynamic: author
 Dynamic: home-page
 Dynamic: requires-python
@@ -244,19 +244,17 @@ built to last and grow.
 
 | Characteristic           | Value                                                      |
 | ------------------------ | ---------------------------------------------------------- |
-| **Version**              | 0.0.0.1 (latest stable release)                              |
-| **License**              | Apache 2.0 License                                          |
-| **Python Compatibility** | Python >=3.9                                |
-| **Dependencies**         | wattleflow                                       |
+| **Version**              | 0.0.0.2 (latest stable release)                            |
+| **License**              | Apache 2.0 License                                         |
+| **Python Compatibility** | Python >=3.9                                               |
+| **Dependencies**         | wattleflow                                                 |
 | **Size**                 | nimble                                                     |
 | **Documentation**        | [WattleFlow Core Documentation](https://github.com/wattleflow/docs.git) |
 
 
 # WattleFlow Workflow
-
-Wattleflow Workflow is Scalable and modular `workflow` based on a `wattleflow` `core` framework.
-
-WattleFlow workflow provides a building blocks to enable efficient data engineering workflows.
+WattleFlow Workflow is a data engineering framework designed for flow-based programming based on a well-defined design patterns. 
+`Workflow` provides a modular and scalable architecture that can integrate different subsystems, ensuring flexible and efficient workflow orchestration.
 
 
 # Installation

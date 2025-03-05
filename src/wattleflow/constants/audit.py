@@ -17,12 +17,7 @@
 # https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-37r2.pdf
 # https://github.com/usnistgov/oscal-content/blob/main/examples/catalog/basic-catalog.md
 # https://pages.nist.gov/OSCAL/resources/concepts/layer/control/catalog/
-# https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/ism/using-information-security-manual
-# https://github.com/AustralianCyberSecurityCentre/ism-oscal/blob/main/ISM_SECRET-baseline_profile.yaml
-# https://github.com/usnistgov/oscal-content/blob/main/nist.gov/SP800-53/rev5/yaml/NIST_SP-800-53_rev5_HIGH-baseline_profile.yaml
-# https://www.cyber.gov.au/ism/oscal/v2024.10.4
-# https://csrc.nist.gov/pubs/sp/800/37/r2/final
-#
+
 # This publication describes the Risk Management Framework (RMF) and provides
 # guidelines for applying the RMF to information systems and organizations.
 #
@@ -52,7 +47,7 @@ from enum import Enum
 
 
 # Connection status
-class WattleflowConnectionStatus(Enum):
+class ConnectionStatus(Enum):
     CONNECTING = "a0e1a519-f04a-9b3e-9837-233d253b10ae"
     CONNECTED = "1f914c43-86c0-676e-e418-458a20c91d9d"
     DISCONNECTING = "ad7b66a9-13a4-6286-8e32-d16cae6ab3bd"
@@ -62,7 +57,7 @@ class WattleflowConnectionStatus(Enum):
 
 
 # Event logging and monitoring
-class WattleflowEventLog(Enum):
+class EventLog(Enum):
     AUDIT_EVENT = "91a8c41c-bf8c-f0ac-5516-85124f1df375"
     DEBUG_EVENT = "b68c763b-9c01-b2bf-0b75-26ea6fcf5a55"
     LOG_EVENT = "7c77d0ef-187a-0e7c-f162-6d53d110c4d1"
@@ -72,7 +67,7 @@ class WattleflowEventLog(Enum):
     VERSION = "0.0.0.1"
 
 
-class WattleflowProtectiveMarkings(Enum):
+class ProtectiveMarkings(Enum):
     BASELINE = "678bf03b-47ad-9601-2e4b-7cf24f90a91a"
     PROTECTED = "a2da5a89-14a4-3f9d-2ff7-883c5125f70c"
     SECRET = "0917b13a-9091-915d-54b6-336f45909539"

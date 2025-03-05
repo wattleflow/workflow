@@ -69,7 +69,6 @@ KEY_SALT = "salt"
 KEY_PIPELINES = "pipelines"
 KEY_REMOTE_PATH = "remote_path"
 KEY_REMOTE_PATTERN = "pattern"
-# KEY_CONFIG = 'config'
 
 # Server
 KEY_SERVER_URL = "server_url"
