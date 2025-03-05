@@ -1,0 +1,34 @@
+# Ignoriraj testove i privremene datoteke
+prune tests
+prune .github
+prune docs
+
+# Ignoriraj specifične datoteke
+exclude .gitignore
+exclude .pytest_cache
+exclude __pycache__
+exclude *.pyc
+exclude *.pyo
+exclude .DS_Store
+exclude .vscode
+exclude .dist
+exclude .pylintrc
+exclude config.yaml
+exclude Makefile
+exclude .env
+exclude .flake8
+exclude .idea
+exclude .gitignore
+exclude .github/*
+exclude .scraps
+exclude .vscode
+exclude .vscode
+exclude backup/*
+exclude data/*
+exclude dockers/
+exclude tests/*
+exclude utils/*
+exclude Makefile
+include README.md LICENSE
+recursive-include src/wattleflow/ *.py
+
