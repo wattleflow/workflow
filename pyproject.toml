@@ -1,10 +1,15 @@
 [build-system]
-requires = ["setuptools>=64", "wheel"]
+requires = ["setuptools", "setuptools_scm", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+write_to = "src/wattleflow/concrete/_version.py"
+#version_scheme = "post-release"
+#local_scheme = "node-and-date"
 
 [project]
 name = "wattleflow-workflow"
-version = "0.0.0.4"
+version = "0.0.0.5"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -30,9 +35,9 @@ dependencies = [
 ]
 
 [project.urls]
-homepage = "https://github.com/wattleflow/wattleflow.git"
-repository = "https://github.com/wattleflow/wattleflow.git"
-documentation = "https://github.com/wattleflow/wattleflow.git"
+homepage = "https://github.com/wattleflow/workflow.git"
+repository = "https://github.com/wattleflow/workflow.git"
+documentation = "https://github.com/wattleflow/workflow.git"
 
 [tool.setuptools]
 package-dir = {"" = "src"}  

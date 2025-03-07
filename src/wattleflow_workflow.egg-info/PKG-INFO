@@ -1,8 +1,8 @@
 Metadata-Version: 2.2
 Name: wattleflow-workflow
-Version: 0.0.0.4
+Version: 0.0.0.5
 Summary: Wattleflow Workflow - Data engineering framework.
-Home-page: https://github.com/wattleflow/wattleflow.git
+Home-page: https://github.com/wattleflow/workflow.git
 Author: WattleFlow
 Author-email: wattleflow <wattleflow@outlook.com>
 License:                                  Apache License
@@ -207,9 +207,9 @@ License:                                  Apache License
            See the License for the specific language governing permissions and
            limitations under the License.
         
-Project-URL: homepage, https://github.com/wattleflow/wattleflow.git
-Project-URL: repository, https://github.com/wattleflow/wattleflow.git
-Project-URL: documentation, https://github.com/wattleflow/wattleflow.git
+Project-URL: homepage, https://github.com/wattleflow/workflow.git
+Project-URL: repository, https://github.com/wattleflow/workflow.git
+Project-URL: documentation, https://github.com/wattleflow/workflow.git
 Keywords: wattleflow,workflow,data,engineering,framework,python,library,software engineering
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3.9
@@ -244,7 +244,7 @@ built to last and grow.
 
 | Characteristic           | Value                                                      |
 | ------------------------ | ---------------------------------------------------------- |
-| **Version**              | 0.0.0.2 (latest stable release)                            |
+| **Version**              | 0.0.0.5 (latest stable release)                            |
 | **License**              | Apache 2.0 License                                         |
 | **Python Compatibility** | Python >=3.9                                               |
 | **Dependencies**         | wattleflow                                                 |

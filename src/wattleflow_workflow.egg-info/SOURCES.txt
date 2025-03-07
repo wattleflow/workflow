@@ -3,11 +3,14 @@ MANIFEST.in
 README.md
 pyproject.toml
 setup.py
+doc/wattleflow.png
 src/wattleflow/__init__.py
+src/wattleflow/_version.py
 src/wattleflow/api/__init__.py
 src/wattleflow/audit/__init__.py
 src/wattleflow/blackboards/__init__.py
 src/wattleflow/concrete/__init__.py
+src/wattleflow/concrete/_version.py
 src/wattleflow/concrete/attribute.py
 src/wattleflow/concrete/blackboard.py
 src/wattleflow/concrete/collection.py
@@ -32,6 +35,7 @@ src/wattleflow/constants/enums.py
 src/wattleflow/constants/errors.py
 src/wattleflow/constants/keys.py
 src/wattleflow/constants/logs.py
+src/wattleflow/core/_version.py
 src/wattleflow/documents/__init__.py
 src/wattleflow/documents/dictionary.py
 src/wattleflow/documents/file.py
@@ -46,9 +50,11 @@ src/wattleflow/helpers/macros.py
 src/wattleflow/helpers/streams.py
 src/wattleflow/helpers/system.py
 src/wattleflow/managers/__init__.py
+src/wattleflow/orchestrators/__init__.py
 src/wattleflow/pipelines/__init__.py
 src/wattleflow/processors/__init__.py
 src/wattleflow/repositories/__init__.py
+src/wattleflow/schedulers/__init__.py
 src/wattleflow/strategies/__init__.py
 src/wattleflow/strategies/asymetric.py
 src/wattleflow/strategies/audit.py

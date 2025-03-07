@@ -2,17 +2,16 @@ from setuptools import setup, find_packages
 
 setup(
     name="wattleflow",
-    version="0.0.0.4",
-    description="WattleFlow Workflow for Data Engineers",
+    description="WattleFlow Workflow",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     author="WattleFlow",
     author_email="wattleflow@outlook.com",
-    url="https://github.com/wattleflow/wattleflow.git",
+    url="https://github.com/wattleflow/workflow.git",
     license="Apache-2.0",
-    packages=find_packages(where="src"),  # Pronalazi sve podpakete unutar src/
-    package_dir={"": "src"},  # Označava src/ kao root za pakete
-    include_package_data=True,  # Ako ima dodatne datoteke kao .json, .yaml, itd.
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
+    include_package_data=True,
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Programming Language :: Python :: 3.9",
@@ -27,10 +26,12 @@ setup(
         "License :: OSI Approved :: Apache Software License",
     ],
     python_requires=">=3.9",
+    setup_requires=["setuptools_scm"], 
+    use_scm_version=True,
     install_requires=[
-        "yaml"
+        "pyyaml", 
+        "cryptography",
     ],
     extras_require={
-        # "dev": ["pytest", "black", "mypy"],
     },
 )

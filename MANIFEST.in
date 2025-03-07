@@ -21,6 +21,7 @@ exclude .vscode
 exclude config.yaml
 exclude Makefile
 exclude src/wattleflow/api
+exclude src/wattleflow/core
 exclude src/wattleflow/audit
 exclude src/wattleflow/blackboards
 exclude src/wattleflow/managers
