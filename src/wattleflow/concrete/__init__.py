@@ -1,4 +1,9 @@
-from .attribute import MissingAttribute, StrategyClassLoader, ClassLoader, Attribute
+from .attribute import (
+    Attribute,
+    ClassLoader,
+    MissingAttribute,
+    StrategyClassLoader,
+)
 from .blackboard import GenericBlackboard
 from .collection import DequeList
 from .connection import (

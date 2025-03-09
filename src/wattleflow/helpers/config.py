@@ -31,20 +31,20 @@ Relies on:
 """
 
 import yaml
+from typing import final, Union
 from enum import Enum
 from typing import Type
-from wattleflow.concrete.attribute import ClassLoader
+from wattleflow.concrete import ClassLoader
 from wattleflow.constants.errors import ERROR_MISSING_ATTRIBUTE
 from wattleflow.constants.keys import (
-    CONFIG_FILE,
     KEY_CLASS_NAME,
     KEY_STRATEGY,
     KEY_SECTION_PROJECT,
     KEY_SSH_KEY_FILENAME,
 )
-from wattleflow.helpers.system import Project, CheckPath
 
 
+@final
 class Mapper:
     @staticmethod
     def convert(name: str, cls: Type[Enum], dict_object: dict):
@@ -61,48 +61,60 @@ class Mapper:
         raise ValueError(f"Invalid enum value '{value}' for {cls.__name__}")
 
 
+@final
 class Config:
-    def __init__(self, project_path: str, level_up: int = 2):
-        self.file_path = CheckPath(
-            "{}/{}".format(
-                Project(project_path, level_up).root_path,
-                CONFIG_FILE,
-            )
-        ).file_path
+    def __init__(self, config_file: str, check_key_exist: bool = False):
+        self.config_file = config_file
         self.key_filename = None
         self.data = None
-        self.decrypt = None
+        self._strategy = None
         self.load_settings()
-        CheckPath(file_path=self.key_filename, owner=self)
 
     def load_settings(self):
         try:
-            with open(self.file_path, "r") as file:
+            with open(self.config_file, "r") as file:
                 self.data = yaml.safe_load(file)
         except FileNotFoundError:
-            raise FileNotFoundError(f"Configuration file not found: {self.file_path}")
+            raise FileNotFoundError(f"Configuration file not found: {self.config_file}")
         except yaml.YAMLError as e:
-            raise ValueError(f"Invalid YAML file: {self.file_path}. Error: {e}")
+            raise ValueError(f"Invalid YAML file: {self.config_file}. Error: {e}")
 
-        self.key_filename = self.find(
+        self.key_filename = self.get(
             section=KEY_SECTION_PROJECT, key=KEY_STRATEGY, name=KEY_SSH_KEY_FILENAME
         )
 
-        CheckPath(self.key_filename, self)
-        class_name = self.find(
+        if not self.key_filename:
+            raise ValueError("Config:key_filename not given.")
+
+        # lazy loading (to avoid circular import)
+        from wattleflow.helpers import LocalPath
+        if not LocalPath(self.key_filename).exists():
+            return FileNotFoundError(
+                f"Config:key_filename not found: {self.key_filename}"
+            )
+
+        class_name = self.get(
             section=KEY_SECTION_PROJECT, key=KEY_STRATEGY, name=KEY_CLASS_NAME
         )
 
-        self.decrypt = ClassLoader(
+        self._strategy = ClassLoader(
             class_path=class_name, key_filename=self.key_filename
         ).instance
 
-    def get(self, section, key, name=None, default=None) -> str:  # Check
-        return self.find(section, key, name, default)
+    from typing import Any
 
-    def find(self, section, key, name=None, default=None):
+    def find(self, *keys) -> Any:
+        result = self.data
+        try:
+            for key in keys:
+                result = result[key]
+            return result
+        except (KeyError, TypeError):
+            return None
+
+    def get(self, section, key, name=None, default=None) -> Union[dict, str, list]:
         def find_root(branch, name):
-            if not branch:
+            if branch is None:
                 return None
             if isinstance(branch, dict):
                 if name in branch:
@@ -123,7 +135,8 @@ class Config:
 
         root = find_root(self.data, section)
         if not root:
-            return None
+            # print(f"DEBUG: missing value for [root]. [{section}, {key}, {name}]")
+            raise ValueError(f"Config:[root] not found. [{section}, {key}, {name}]")
 
         branch = find_root(root, key)
         if not branch:
@@ -132,16 +145,14 @@ class Config:
         root = find_root(branch, name)
         if not root:
             if name:
-                raise AttributeError(ERROR_MISSING_ATTRIBUTE.format(name), name, self)
+                # print(f"DEBUG: missing value for [name]. [{section}, {key}, {name}]")
+                raise ValueError(f"Config:[name] not found. [{section}, {key}, {name}]")
             return branch
 
         return root
 
-    def decrypt(self, section, key, name=None, default=None):
-        if not self.decrypt:
-            raise RuntimeError("Decryption method not initialized.")
-        value = self.find(section, key, name, default)
-        return self.decrypt.execute(value)
+    def decrypt(self, value) -> str:
+        if not self._strategy:
+            raise RuntimeError("Decryption strategy not initialized.")
 
-        # value = self.find(section, key, name, default)
-        # return self.decrypt.execute(value)
+        return self._strategy.execute(value)

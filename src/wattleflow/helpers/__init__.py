@@ -2,7 +2,12 @@ from .config import Mapper, Config
 from .dictionaries import AttributeDict, Dictionary
 from .macros import TextMacros
 from .streams import TextStream, TextListStream
-from .system import Project, CheckPath, LocalPath, ShellExecutor
+from .system import (
+    CheckPath,
+    LocalPath,
+    Project,
+    ShellExecutor,
+)
 
 __all__ = [
     "Mapper",
@@ -12,8 +17,8 @@ __all__ = [
     "TextMacros",
     "TextStream",
     "TextListStream",
-    "Project",
     "CheckPath",
     "LocalPath",
+    "Project",
     "ShellExecutor",
 ]

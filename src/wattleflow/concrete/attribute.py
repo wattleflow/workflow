@@ -39,7 +39,7 @@ Key Responsibilities of Attribute
 import os
 import sys
 import inspect
-from typing import Optional, Union
+from typing import final, Optional, Union
 from importlib import import_module
 from wattleflow.core import IStrategy
 
@@ -86,21 +86,7 @@ class StrategyClassLoader(IStrategy):
         raise ModuleNotFoundError(class_path)
 
 
-# class ClassLoader:
-#     def __init__(self, class_path, **kwargs):
-#         self.loader_strategy = StrategyClassLoader()
-#         path_parts = os.path.dirname(os.path.abspath(__file__)).split(os.path.sep)
-#         root_path = os.path.sep.join(
-#             path_parts[:-CLASSLOADER_LEVELUP]
-#             if len(path_parts) > CLASSLOADER_LEVELUP
-#             else path_parts
-#         )
-#         self.cls = self.loader_strategy.execute(
-#             class_path=class_path, root_path=root_path
-#         )
-#         self.instance = self.cls(**kwargs)
-
-
+@final
 class ClassLoader:
     def __init__(self, class_path, **kwargs):
         # print(f"[DEBUG] Attempting to load: {class_path}")

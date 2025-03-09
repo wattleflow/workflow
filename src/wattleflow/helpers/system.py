@@ -5,52 +5,69 @@
 # Description: This modul contains path handling system classes and methods.
 
 
-import subprocess
+import os
 import platform
-from os import path, makedirs
+import subprocess
+from typing import final
 
 
+@final
 class Project:
-    def __init__(self, dir: str, level_up: int = 3):
-        start_path = path.dirname(path.abspath(dir))
-        path_parts = start_path.split(path.sep)
+    root: str = ""
+    config: str = ""
 
-        self.root_path = (
-            str(path.sep).join(path_parts[:-level_up])
-            if (len(path_parts) > level_up)
-            else start_path
-        )
+    def __init__(
+        self,
+        file_path: str,
+        root_marker: str,
+        config_name: str = "config.yaml",
+    ):
+        path = os.path.abspath(file_path)
+        parts = path.split(os.sep)
+        marker_parts = root_marker.split("/")
 
-        if not path.exists(self.root_path):
-            raise FileNotFoundError(f"Project [{self.root_path}] path is not found.")
+        try:
+            index = parts.index(marker_parts[0])
+            for i, part in enumerate(marker_parts[1:], start=1):
+                if parts[index + i] != part:
+                    raise ValueError("Root marker not found in a given path.")
+            self.root = os.sep.join(parts[: index + len(marker_parts)])
+        except (ValueError, IndexError):
+            self.root = os.path.dirname(path)
+
+        if not os.path.exists(self.root):
+            raise FileNotFoundError(f"Project [{self.root}] path is not found.")
+
+        self.config = "{}{}{}".format(self.root, os.path.sep, config_name)
 
 
+@final
 class CheckPath:
     def __init__(self, file_path, owner=None):
-        self.file_path = str(file_path) if isinstance(file_path, list) else file_path
+        self.path = str(file_path) if isinstance(file_path, list) else file_path
 
-        if not path.exists(self.file_path):
-            raise FileNotFoundError(f"Path [{self.file_path}] is not found.")
+        if not os.path.exists(self.path):
+            raise FileNotFoundError(f"Path not found: {self.path}.")
 
     def __str__(self):
-        return self.file_path
+        return self.path
 
 
+@final
 class LocalPath:
     def __init__(self, file_path, owner=None):
         self.owner = owner
-        self.file_path = str(file_path) if isinstance(file_path, list) else file_path
+        self.path = str(file_path) if isinstance(file_path, list) else file_path
 
-    def exists(self):
-        if not path.exists(self.file_path):
-            raise FileNotFoundError(self.file_path)
+    def exists(self) -> bool:
+        return not os.path.exists(self.path)
 
     def create(self, existok=True, mode=None):
-        if not path.exists(self.file_path):
+        if not os.path.exists(self.path):
             if mode:
-                makedirs(self.file_path, exist_ok=existok, mode=mode)
+                os.makedirs(self.path, exist_ok=existok, mode=mode)
             else:
-                makedirs(self.file_path, exist_ok=existok)
+                os.makedirs(self.path, exist_ok=existok)
 
 
 class ShellExecutor:

@@ -26,9 +26,8 @@ class FileDocument(Document[str]):
         return self._metadata
 
     def refresh_metadata(self):
-        """Manually refreshes metadata for the current file."""
         if path.exists(self.filename):
-            self.update_etadata()
+            self.update_metadata()
         else:
             print(f"[WARNING] Cannot refresh metadata: {self.filename} does not exist.")
 

@@ -1,4 +1,9 @@
-from .audit import ConnectionStatus, EventLog, ProtectiveMarkings, WattleflowOSCAL
+from .audit import (
+    ConnectionStatus,
+    EventLog,
+    ProtectiveMarkings,
+    WattleflowOSCAL,
+)
 from .enums import (
     Classification,
     ClassificationDLM,

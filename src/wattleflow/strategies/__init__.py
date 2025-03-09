@@ -6,9 +6,8 @@ from .asymetric import (
     StrategyRSADecrypt512,
 )
 from .audit import (
-    DebugAuditStrategyWrite,
-    StrategyWriteAuditEvent,
-    StrategyWriteAuditEventDebug,
+    StrategyAuditEvent,
+    DebugAuditEvent,
 )
 from .fernet import StrategyFernetGeneric, StrategyFernetEncrypt, StrategyFernetDecrypt
 from .files import StrategyFilename, StrategyFilterFiles
@@ -28,8 +27,8 @@ __all__ = [
     "StrategyRSAEncrypt512",
     "StrategyRSADecrypt512",
     "DebugAuditStrategyWrite",
-    "StrategyWriteAuditEvent",
-    "StrategyWriteAuditEventDebug",
+    "StrategyAuditEvent",
+    "DebugAuditEvent",
     "StrategyFernetGeneric",
     "StrategyFernetEncrypt",
     "StrategyFernetDecrypt",

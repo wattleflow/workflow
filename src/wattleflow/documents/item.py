@@ -4,7 +4,7 @@
 # License: Apache 2 Licence
 # Description: This modul has ItemDocument class.
 
-from wattleflow.concrete.document import Document
+from wattleflow.concrete import Document
 
 
 # Document that works with item

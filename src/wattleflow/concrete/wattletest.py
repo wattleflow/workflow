@@ -20,6 +20,10 @@ TEST_DIR = "/tmp/wattleflow"
 
 
 class WattleflowTestClass(TestCase, Attribute):
+    _cleanup: bool = True
+    _config_path: str = ""
+    _paths: str = {}
+
     def find_by_pattern(self, directory, pattern) -> Generator[str, None, None]:
         for root, _, files in walk(directory):
             for file in files:
@@ -85,8 +89,6 @@ class WattleflowTestClass(TestCase, Attribute):
         # super().tearDownClass(cls)
 
     def setUp(self):
-        self._paths = {}
-        self.cleanup = True
         super().setUp()
         self.set_path(TEST_NAME, TEST_DIR)
         for name, folder in self._paths.items():
@@ -94,10 +96,10 @@ class WattleflowTestClass(TestCase, Attribute):
                 self.set_path(name=name, folder=folder)
 
     def tearDown(self) -> None:
-        if hasattr(self, "cleanup"):
-            if self.cleanup:
-                for folder in self._paths.values():
-                    if path.exists(folder):
-                        rmtree(folder)
+        if hasattr(self, "_cleanup") and self._cleanup:
+            for folder in self._paths.values():
+                if path.exists(folder):
+                    rmtree(folder)
+
         gc.collect()
         return super().tearDown()

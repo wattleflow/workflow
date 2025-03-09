@@ -51,7 +51,6 @@ class Orchestrator(IEventSource, IFacade):
         self._strategy_execute = strategy_execute
 
     def _start_processor(self, processor: IProcessor):
-        """Executes a processor and logs execution time."""
         try:
             start_time = datetime.now()
             processor.process_tasks()
@@ -72,7 +71,6 @@ class Orchestrator(IEventSource, IFacade):
 
     def add_processor(self, processor: IProcessor):
         """
-        Adds a processor to the orchestrator.
         Ensures the processor has the `process_tasks()` method.
         """
         if not hasattr(processor, "process_tasks"):
@@ -85,12 +83,10 @@ class Orchestrator(IEventSource, IFacade):
         self._processors.append(processor)
 
     def emit_event(self, event: Event, **kwargs):
-        """Notifies all listeners of an event."""
         for listener in self._listeners:
             listener.on_event(event, **kwargs)
 
     def register_listener(self, listener: IEventListener) -> None:
-        """Registers an event listener for monitoring execution."""
         if listener not in self._listeners:
             self._listeners.append(listener)
 
@@ -127,6 +123,5 @@ class Orchestrator(IEventSource, IFacade):
         self.emit_event(Event.OrchestrationCompleted)
 
     def stop(self):
-        """Stops the orchestrator."""
         self._running = False
         self.emit_event(Event.OrchestrationStopped)

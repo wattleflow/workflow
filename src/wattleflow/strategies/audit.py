@@ -8,38 +8,12 @@ from datetime import datetime
 from wattleflow.core import IWattleflow
 from wattleflow.concrete.strategy import StrategyGenerate
 from wattleflow.constants.enums import Event
-from wattleflow.helpers.functions import _NC
 
-DEBUG = 3
-
-
-class DebugAuditStrategyWrite(StrategyGenerate):
-    def __init__(self, *args, **kwargs):
-        super().__init__()
-
-    def execute(self, caller, owner, event, *args, **kwargs):
-        level = kwargs.get("level", 5)
-        if DEBUG >= level:
-            __prnt__ = lambda k, v: (
-                f"{k}:{v}"
-                if isinstance(v, (str, int, bool))
-                else f"{k}: {type(v).__name__}"
-            )
-
-            print(
-                "{} : {} - {} - {} - {}".format(
-                    datetime.now(),
-                    _NC(caller),
-                    _NC(owner),
-                    event.value,
-                    [__prnt__(k, v) for k, v in kwargs.items()] or None,
-                )
-            )
-        return True
+DEBUG = 4
 
 
-class StrategyWriteAuditEvent(StrategyGenerate):
-    def execute(self, caller: IWattleflow, event: Event, **kwargs) -> str:
+class StrategyAuditEvent(StrategyGenerate):
+    def execute(self, caller: IWattleflow, event: Event, **kwargs) -> None:
         level = kwargs.pop("level", 0)
         if level > DEBUG:
             return None
@@ -54,12 +28,11 @@ class StrategyWriteAuditEvent(StrategyGenerate):
         name = getattr(caller, "name", caller.__class__.__name__)
         msg = "{} : {} - {} {}".format(timestamp, name, event, info)
         print(msg)
-        return msg
 
 
-class StrategyWriteAuditEventDebug(StrategyWriteAuditEvent):
-    def execute(self, caller, owner, event, *args, **kwargs):
+class DebugAuditEvent(StrategyAuditEvent):
+    def execute(self, caller, owner, event, *args, **kwargs) -> None:
         level = kwargs.pop("level", 0)
-        if DEBUG > level:
-            return super().generate(caller, owner, event, kwargs)
-        return None
+        if DEBUG >= level:
+            owner_name = getattr(owner, "__class__", type(owner)).__name__
+            super().execute(caller, event, owner=owner_name, **kwargs)

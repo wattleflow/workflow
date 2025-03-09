@@ -9,7 +9,7 @@ from typing import final
 from wattleflow.constants.enums import Event
 from wattleflow.constants.errors import ERROR_PATH_NOT_FOUND, ERROR_UNEXPECTED_TYPE
 from wattleflow.helpers.functions import _NC, _NT
-from wattleflow.strategies.audit import StrategyWriteAuditEvent
+from wattleflow.strategies.audit import StrategyAuditEvent
 
 
 # --------------------------------------------------------------------------- #
@@ -27,7 +27,7 @@ class ManagedException(Exception):
         self.error = error
         self.filename = self._get_call_context()
 
-        self.audit_strategy = StrategyWriteAuditEvent()
+        self.audit_strategy = StrategyAuditEvent()
         if self.audit_strategy:
             self.audit_strategy.generate(
                 owner=caller,
