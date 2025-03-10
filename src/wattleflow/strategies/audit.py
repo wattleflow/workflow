@@ -20,7 +20,7 @@ class StrategyAuditEvent(StrategyGenerate):
 
         timestamp = datetime.now()
         info = (
-            [f"{k}:{v}" for k, v in kwargs.items() if len(str(v).strip()) > 0]
+            [f"{k}: {v}" for k, v in kwargs.items() if len(str(v).strip()) > 0]
             if isinstance(kwargs, dict)
             else kwargs
         )

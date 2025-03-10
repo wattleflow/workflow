@@ -5,7 +5,6 @@
 # Description: This modul contains concrete sftp connection class.
 
 import paramiko
-import paramiko._version
 from paramiko import AutoAddPolicy
 from contextlib import contextmanager
 
@@ -13,6 +12,7 @@ from wattleflow.concrete import GenericConnection, SFTPConnectionError
 from wattleflow.concrete.connection import Settings
 from wattleflow.constants import Event, Operation
 from wattleflow.constants.keys import (
+    KEY_NAME,
     KEY_HOST,
     KEY_PASSWORD,
     KEY_PASSPHRASE,
@@ -21,6 +21,7 @@ from wattleflow.constants.keys import (
     KEY_SSH_KEY_FILENAME,
     KEY_ALLOW_AGENT,
     KEY_LOOK_FOR_KEYS,
+    KEY_COMPRESS,
 )
 from wattleflow.helpers import TextStream
 
@@ -29,10 +30,10 @@ class SFTParamiko(GenericConnection):
     def __init__(self, strategy_audit, **settings):
         super().__init__(strategy_audit, **settings)
         self._client = paramiko.SSHClient()
-        self._version = paramiko._version
 
     def create_connection(self, **settings):
         allowed = [
+            KEY_NAME,
             KEY_ALLOW_AGENT,
             KEY_LOOK_FOR_KEYS,
             KEY_HOST,
@@ -41,12 +42,12 @@ class SFTParamiko(GenericConnection):
             KEY_PORT,
             KEY_USER,
             KEY_SSH_KEY_FILENAME,
+            KEY_COMPRESS,
         ]
         self._config = Settings(allowed=allowed, **settings)
         self.audit(
             owner=self,
             event=Event.Configuring,
-            version=paramiko._version,
             connected=self._connected,
             level=4,
         )
@@ -91,7 +92,6 @@ class SFTParamiko(GenericConnection):
             self.audit(
                 owner=self,
                 event=Event.Connected,
-                version=self._version,
                 connected=self._connected,
                 level=3,
             )
@@ -118,7 +118,6 @@ class SFTParamiko(GenericConnection):
             self.audit(
                 owner=self,
                 event=Event.Disconnected,
-                version=self._version,
                 connected=self._connected,
                 level=3,
             )
@@ -133,7 +132,6 @@ class SFTParamiko(GenericConnection):
         self.audit(
             owner=self,
             event=Event.Disconnected,
-            version=self._version,
             connected=self._connected,
             level=3,
         )
@@ -153,56 +151,3 @@ class SFTParamiko(GenericConnection):
             if k.lower() not in ["_strategy_audit", "password", "framework"]
         ]
         return f"{conn}"
-
-    # def getcwd(self) -> bool:
-    #     if not self.connect():
-    #         raise ConnectionError("SFTP connection is not established.")
-
-    #     try:
-    #         result = self.connection.getcwd()
-    #     except Exception as e:
-    #         self.audit(event=Event.Failed, status=f"Upload failed: {e}")
-    #     finally:
-    #         self.disconnect()
-    #     return result
-
-    # def listdir(self, path:str) -> bool:
-    #     if not self.connect():
-    #         raise ConnectionError("SFTP connection is not established.")
-
-    #     try:
-    #         result = self.connection.listdir(path)
-    #     except Exception as e:
-    #         self.audit(event=Event.Failed, status=f"Upload failed: {e}")
-    #     finally:
-    #         self.disconnect()
-    #     return result
-
-    # def upload(self, local_path: str, remote_path: str):
-    #     if not self.connect():
-    #         raise ConnectionError("SFTP connection is not established.")
-
-    #     try:
-    #         self.connection.put(local_path, remote_path)
-    #         self.audit(
-    #             event=Event.Completed, status=f"Uploaded {local_path} to {remote_path}"
-    #         )
-    #     except Exception as e:
-    #         self.audit(event=Event.Failed, status=f"Upload failed: {e}")
-    #     finally:
-    #         self.disconnect()
-
-    # def download(self, remote_path: str, local_path: str):
-    #     if not self.connection:
-    #         raise ConnectionError("SFTP connection is not established.")
-
-    #     try:
-    #         self.connection.get(remote_path, local_path)
-    #         self.audit(
-    #             event=Event.Completed,
-    #             status=f"Downloaded {remote_path} to {local_path}",
-    #         )
-    #     except Exception as e:
-    #         self.audit(event=Event.Failed, status=f"Download failed: {e}")
-    #     finally:
-    #         self.disconnect()

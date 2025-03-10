@@ -6,6 +6,8 @@
 
 
 # All keys, must be in a small caps.
+KEY_NAME = 'name'
+KEY_CONFIG_FILE_NAME = "config.yaml"
 
 KEY_AUDIT_MANAGER = "audit_manager"
 
@@ -65,23 +67,24 @@ KEY_PATH = "path"
 KEY_PKEY = "pkey"
 KEY_SALT = "salt"
 
-# Sftp
-KEY_PIPELINES = "pipelines"
-KEY_REMOTE_PATH = "remote_path"
-KEY_REMOTE_PATTERN = "pattern"
 
 # Server
 KEY_SERVER_URL = "server_url"
 
+# Sftp
+KEY_PIPELINES = "pipelines"
+KEY_REMOTE_PATH = "remote_path"
+KEY_REMOTE_PATTERN = "pattern"
+KEY_PASSPHRASE = "passphrase"
+KEY_LOOK_FOR_KEYS = "look_for_keys"
+KEY_ALLOW_AGENT = "allow_agent"
+KEY_COMPRESS = 'compress'
 # Database
 KEY_DATABASE = "database"
 KEY_HOST = "host"
 KEY_PORT = "port"
 KEY_USER = "user"
 KEY_PASSWORD = "password"
-KEY_PASSPHRASE = "passphrase"
-KEY_LOOK_FOR_KEYS = "look_for_keys"
-KEY_ALLOW_AGENT = "allow_agent"
 KEY_QUERY_TIMESTAMP = "query_timestamp"
 KEY_QUERY_DURATION = "query_duration"
 KEY_PRIVILEGES = "privileges"

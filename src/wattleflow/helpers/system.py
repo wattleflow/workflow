@@ -10,6 +10,7 @@ import platform
 import subprocess
 import functools
 from typing import final
+from wattleflow.constants.keys import KEY_CONFIG_FILE_NAME
 
 
 class Proxy:
@@ -55,10 +56,7 @@ class Project:
     config: str = ""
 
     def __init__(
-        self,
-        file_path: str,
-        root_marker: str,
-        config_name: str = "config.yaml",
+        self, file_path: str, root_marker: str, config_name: str = KEY_CONFIG_FILE_NAME
     ):
         path = os.path.abspath(file_path)
         parts = path.split(os.sep)

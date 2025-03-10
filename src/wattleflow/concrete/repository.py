@@ -91,4 +91,6 @@ class GenericRepository(IRepository, Attribute, ABC):
             self._counter += 1
             return self._strategy_write.write(pipeline, self, item=item, **kwargs)
         except Exception as e:
-            raise RuntimeError(f"Write operation failed in {self.__class__.__name__}: {e}")
+            raise RuntimeError(
+                f"Write operation failed in {self.__class__.__name__}: {e}"
+            )

@@ -8,7 +8,7 @@
 1. Responsibilities
  - Configuration Loading
     - Loads YAML files (load_settings())
-    - Stores settings in self.data
+    - Stores settings in self._data
     - Uses CheckPath() to validate paths.
 
 - Key-Based Configuration Lookup
@@ -31,7 +31,7 @@ Relies on:
 """
 
 import yaml
-from typing import final, Union
+from typing import Any, final, Union
 from enum import Enum
 from typing import Type
 from wattleflow.concrete import ClassLoader
@@ -65,32 +65,33 @@ class Mapper:
 class Config:
     def __init__(self, config_file: str, check_key_exist: bool = False):
         self.config_file = config_file
-        self.key_filename = None
-        self.data = None
+        self._key_filename = None
+        self._data = None
         self._strategy = None
         self.load_settings()
 
     def load_settings(self):
         try:
             with open(self.config_file, "r") as file:
-                self.data = yaml.safe_load(file)
+                self._data = yaml.safe_load(file)
         except FileNotFoundError:
             raise FileNotFoundError(f"Configuration file not found: {self.config_file}")
         except yaml.YAMLError as e:
             raise ValueError(f"Invalid YAML file: {self.config_file}. Error: {e}")
 
-        self.key_filename = self.get(
+        self._key_filename = self.get(
             section=KEY_SECTION_PROJECT, key=KEY_STRATEGY, name=KEY_SSH_KEY_FILENAME
         )
 
-        if not self.key_filename:
-            raise ValueError("Config:key_filename not given.")
+        if not self._key_filename:
+            raise ValueError("Config._key_filename not given.")
 
         # lazy loading (to avoid circular import)
         from wattleflow.helpers import LocalPath
-        if not LocalPath(self.key_filename).exists():
+
+        if not LocalPath(self._key_filename).exists():
             return FileNotFoundError(
-                f"Config:key_filename not found: {self.key_filename}"
+                f"Config._key_filename not found: {self._key_filename}"
             )
 
         class_name = self.get(
@@ -98,13 +99,11 @@ class Config:
         )
 
         self._strategy = ClassLoader(
-            class_path=class_name, key_filename=self.key_filename
+            class_path=class_name, key_filename=self._key_filename
         ).instance
 
-    from typing import Any
-
     def find(self, *keys) -> Any:
-        result = self.data
+        result = self._data
         try:
             for key in keys:
                 result = result[key]
@@ -133,7 +132,7 @@ class Config:
             else:
                 return None
 
-        root = find_root(self.data, section)
+        root = find_root(self._data, section)
         if not root:
             # print(f"DEBUG: missing value for [root]. [{section}, {key}, {name}]")
             raise ValueError(f"Config:[root] not found. [{section}, {key}, {name}]")

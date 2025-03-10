@@ -45,9 +45,9 @@ The GenericProcessor class is a concrete implementation of the IProcessor
 """
 
 from abc import abstractmethod, ABC
-from typing import Final, Generator, Iterator, List, Optional, TypeVar
+from typing import Final, Generator, Iterator, Optional, Type, TypeVar
 from wattleflow.core import IStrategy
-from wattleflow.core import IBlackboard, IProcessor, IPipeline
+from wattleflow.core import IBlackboard, IProcessor
 from wattleflow.concrete.attribute import Attribute
 from wattleflow.concrete.exception import ProcessorException
 from wattleflow.helpers.functions import _NC
@@ -56,36 +56,36 @@ T = TypeVar("T")
 
 
 class GenericProcessor(IProcessor[T], Attribute, ABC):
+    _expected_type: Type[T] = T
     _cycle: int = 0
     _current: Optional[T] = None
     _blackboard: IBlackboard = None
-    _pipelines: Final[List[IPipeline]]
+    _pipelines: Final[list]
     _iterator: Iterator[T]
+    _allowed: list = []
 
     def __init__(
         self,
         strategy_audit: IStrategy,
         blackboard: IBlackboard,
-        pipelines: List[IPipeline],
+        pipelines: list,
         allowed: list = [],
-        *args,
         **kwargs,
     ):
         super().__init__()
-        self.evaluate(pipelines, List)
+        self.evaluate(pipelines, list)
         if not len(pipelines) > 0:
             raise ValueError("Empty list: [pipelines].")
 
         self.evaluate(strategy_audit, IStrategy)
         self.evaluate(blackboard, IBlackboard)
-        self.evaluate(allowed, List)
-
-        self._allowed = allowed
-        self.configure(**kwargs)
-
+        self.evaluate(allowed, list)
         self._strategy_audit = strategy_audit
         self._blackboard = blackboard
         self._pipelines = pipelines
+        self._allowed = allowed
+        self.configure(**kwargs)
+
         # hack ...
         self._blackboard.audit = self.audit
         self._iterator = self.create_iterator()

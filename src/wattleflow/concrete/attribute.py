@@ -154,7 +154,7 @@ class Attribute:
         restricted = set(kwargs.keys()) - set(allowed)
 
         if restricted:
-            raise AttributeError(f"Restricted: {_NC(self)}.allowed[{restricted}]")
+            raise AttributeError(f"{_NC(self)} - Restricted : [{restricted}]")
 
         return True
 

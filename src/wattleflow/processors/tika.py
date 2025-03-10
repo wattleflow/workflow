@@ -43,4 +43,4 @@ class TikaTextProcessor(GenericProcessor[DocumentFacade]):
                     content=content,
                 )
             else:
-                print("WARNING")
+                print(f"[WARNING] Empty file: {file_path}")
