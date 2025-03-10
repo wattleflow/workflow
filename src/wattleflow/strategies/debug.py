@@ -7,12 +7,12 @@
 
 import datetime
 from wattleflow.concrete.attribute import _NC
-from wattleflow.concrete.strategy import StrategyGenerate
+from wattleflow.concrete.strategy import StrategyWrite
 
 DEBUG = 3
 
 
-class DebugAuditStrategyWrite(StrategyGenerate):
+class DebugAuditStrategyWrite(StrategyWrite):
     def __init__(self, *args, **kwargs):
         super().__init__()
 

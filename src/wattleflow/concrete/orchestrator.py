@@ -25,11 +25,11 @@ from wattleflow.core import (
 )
 from wattleflow.constants.enums import (
     Event,
-    ProcessOperation,
+    Operation,
 )
 from wattleflow.concrete import (
+    OrchestratorException,
     ConnectionManager,
-    ManagedException,
 )
 
 
@@ -64,7 +64,7 @@ class Orchestrator(IEventSource, IFacade):
             )
 
         except Exception as e:
-            raise ManagedException(
+            raise OrchestratorException(
                 self,
                 f"Error processing {getattr(processor, "name", "unknown")}: {e}",
             )
@@ -90,10 +90,10 @@ class Orchestrator(IEventSource, IFacade):
         if listener not in self._listeners:
             self._listeners.append(listener)
 
-    def operation(self, action: ProcessOperation):
-        if action == ProcessOperation.Start:
+    def operation(self, action: Operation):
+        if action == Operation.Start:
             self.start()
-        elif action == ProcessOperation.Stop:
+        elif action == Operation.Stop:
             self.stop()
         else:
             raise ChildProcessError(

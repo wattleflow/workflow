@@ -17,7 +17,7 @@
 
 3. Auditing & Logging
     - Calls self.audit(event=Event.Registering, name=name) during registration.
-    - Uses _strategy_audit.write() for event logging.
+    - Uses _strategy_audit.generate() for event logging.
 
 4. Observer Pattern (update())
     - Defines update(*args, **kwargs), but currently does nothing.
@@ -42,7 +42,7 @@ class ConnectionManager(IObserver, Attribute):
         self._connections: Dict[str, IObserver] = {}
 
     def audit(self, event, **kwargs):
-        self._strategy_audit.write(caller=self, event=event, **kwargs)
+        self._strategy_audit.generate(owner=self, caller=self, event=event, **kwargs)
 
     def connect(self, name: str) -> object:
         self.operation(name, Operation.Connect)

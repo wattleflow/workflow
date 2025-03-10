@@ -7,11 +7,6 @@
 from enum import Enum
 
 
-class ProcessOperation(Enum):
-    Start = 1
-    Stop = 0
-
-
 # Classification
 class Classification(Enum):
     UNCLASSIFIED = "UNCLASSIFIED"
@@ -72,8 +67,9 @@ class Event(Enum):
     Executed = "Executed"
     Error = "Error"
     ErrorSource = "Error source"
-    WattleflowException = "Exception"
+    Exception = "Exception"
     ErrorDetails = "Error details"
+    Failed = "Failed"
     Get = "Get"
     Getting = "Getting"
     Initialising = "Initialising"
@@ -111,6 +107,13 @@ class Event(Enum):
     Uploaded = "Uploaded"
     Writting = "Writting"
     Written = "Written"
+
+
+class Operation(Enum):
+    Start = 1
+    Stop = 0
+    Connect = 3
+    Disconnect = 4
 
 
 # Action

@@ -8,7 +8,45 @@
 import os
 import platform
 import subprocess
+import functools
 from typing import final
+
+
+class Proxy:
+    def __init__(self, target_method, before_call=None, after_call=None):
+        """
+        Proxy for dependency method call dependency injection.
+
+        :param target_method: Original interecepted method name
+        :param before_call: Method to be called before the method
+        :param after_call: Function to be called after the method
+        """
+        self.target_method = target_method
+        self.before_call = before_call
+        self.after_call = after_call
+
+    def __call__(self, *args, **kwargs):
+        if self.before_call:
+            self.before_call(*args, **kwargs)
+
+        result = self.target_method(*args, **kwargs)
+
+        if self.after_call:
+            self.after_call(result)
+
+        return result
+
+
+def decorator(target_method):
+    """
+    Decorator for replacing the method with object.
+    """
+
+    @functools.wraps(target_method)
+    def wrapper(*args, **kwargs):
+        return Proxy(target_method)(*args, **kwargs)
+
+    return wrapper
 
 
 @final

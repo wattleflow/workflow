@@ -1,4 +1,4 @@
 from .postgres import PostgresConnection
-from .sftp import SFTPConnection
+from .sftp_paramiko import SFTParamiko
 
-__all__ = ["PostgresConnection", "SFTPConnection"]
+__all__ = ["PostgresConnection", "SFTParamiko"]

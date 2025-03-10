@@ -7,14 +7,14 @@
 from typing import Optional
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine.base import Engine  # Connection
-from wattleflow.core import IObserver, IStrategy
+from wattleflow.core import IStrategy
 from wattleflow.concrete.connection import (
     GenericConnection,
     Operation,
     Settings,
 )
 from wattleflow.helpers.streams import TextStream
-from wattleflow.constants.enums import Events
+from wattleflow.constants.enums import Event
 from wattleflow.constants.keys import (
     KEY_DATABASE,
     KEY_HOST,
@@ -55,9 +55,9 @@ from wattleflow.constants.keys import (
 
 
 class PostgresConnection(GenericConnection):
-    def __init__(self, strategy_audit: IStrategy, manager: IObserver, **settings):
+    def __init__(self, strategy_audit: IStrategy, **settings):
         self._engine: Optional[Engine] = None
-        super().__init__(strategy_audit, manager, **settings)
+        super().__init__(strategy_audit, **settings)
         self._engine: Engine = None
         self._driver: str = "<driver>"
         self._connection: Engine = None
@@ -103,14 +103,14 @@ class PostgresConnection(GenericConnection):
         self.audit(
             caller=self,
             owner=None,
-            event=Events.Connected,
+            event=Event.Connected,
             engine=str(self._engine),
             apilevel=str(self._apilevel),
             driver=self._driver,
         )
 
     def clone(self) -> GenericConnection:
-        return PostgresConnection(self._strategy_audit, self._manager, self._settings)
+        return PostgresConnection(self._strategy_audit, self._settings)
 
     def operation(self, action: Operation) -> bool:
         if action == Operation.Connect:
@@ -144,6 +144,6 @@ class PostgresConnection(GenericConnection):
         conn << [
             f"{k}: {v}"
             for k, v in self.__dict__.items()
-            if k.lower() not in ["_strategy_audit", "_manager", "password", "framework"]
+            if k.lower() not in ["_strategy_audit", "password", "framework"]
         ]
         return f"{conn}"

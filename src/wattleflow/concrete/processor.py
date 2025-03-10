@@ -45,7 +45,7 @@ The GenericProcessor class is a concrete implementation of the IProcessor
 """
 
 from abc import abstractmethod, ABC
-from typing import Final, Generator, Iterator, List, TypeVar
+from typing import Final, Generator, Iterator, List, Optional, TypeVar
 from wattleflow.core import IStrategy
 from wattleflow.core import IBlackboard, IProcessor, IPipeline
 from wattleflow.concrete.attribute import Attribute
@@ -57,7 +57,7 @@ T = TypeVar("T")
 
 class GenericProcessor(IProcessor[T], Attribute, ABC):
     _cycle: int = 0
-    _current: T = None
+    _current: Optional[T] = None
     _blackboard: IBlackboard = None
     _pipelines: Final[List[IPipeline]]
     _iterator: Iterator[T]

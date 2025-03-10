@@ -20,7 +20,7 @@ from wattleflow.strategies.audit import StrategyAuditEvent
 import traceback
 
 
-class ManagedException(Exception):
+class AuditException(Exception):
     def __init__(self, caller, error, **kwargs):
         self.name = _NC(caller)
         self.caller = caller
@@ -48,48 +48,52 @@ class ManagedException(Exception):
             return "Unknown Location"
 
 
-class AuthenticationException(ManagedException):
+class AuthenticationException(AuditException):
     pass
 
 
-class BlackboardException(ManagedException):
+class BlackboardException(AuditException):
     pass
 
 
-class ConnectionException(ManagedException):
+class ConnectionException(AuditException):
     pass
 
 
-class SFTPConnection(ConnectionException):
+class SFTPConnectionError(ConnectionException):
     pass
 
 
-class DocumentException(ManagedException):
+class DocumentException(AuditException):
     pass
 
 
-class EventObserverException(ManagedException):
+class EventObserverException(AuditException):
     pass
 
 
-class ClassificationException(ManagedException):
+class ClassificationException(AuditException):
     pass
 
 
-class ClassInitialisationException(ManagedException):
+class ClassInitialisationException(AuditException):
     pass
 
 
-class ClassLoaderException(ManagedException):
+class ClassLoaderException(AuditException):
     pass
 
 
 @final
-class MissingException(ManagedException):
+class MissingException(AuditException):
     pass
 
 
-class PathException(ManagedException):
+class OrchestratorException(AuditException):
+    pass
+
+
+class PathException(AuditException):
     def __init__(self, caller, path):
         if not path:
             path = "Unknown Path"
@@ -97,32 +101,27 @@ class PathException(ManagedException):
         super().__init__(caller=caller, error=ERROR_PATH_NOT_FOUND.format(path))
 
 
-class PiplineException(ManagedException):
+class PiplineException(AuditException):
     pass
 
 
-class OrchestratorException(ManagedException):
-    error = "Unknown operation error."
+class ProcessorException(AuditException):
     pass
 
 
-class ProcessorException(ManagedException):
+class PKeyException(AuditException):
     pass
 
 
-class PKeyException(ManagedException):
+class PrometheusException(AuditException):
     pass
 
 
-class PrometheusException(ManagedException):
+class RepositoryException(AuditException):
     pass
 
 
-class RepositoryException(ManagedException):
-    pass
-
-
-class SaltException(ManagedException):
+class SaltException(AuditException):
     pass
 
 

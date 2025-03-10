@@ -8,6 +8,7 @@ from .enums import (
     Classification,
     ClassificationDLM,
     Event,
+    Operation,
     PipelineAction,
     PipelineType,
 )
@@ -20,6 +21,7 @@ __all__ = [
     "Classification",
     "ClassificationDLM",
     "Event",
+    "Operation",
     "PipelineAction",
     "PipelineType",
 ]

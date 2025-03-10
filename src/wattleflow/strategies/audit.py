@@ -34,5 +34,5 @@ class DebugAuditEvent(StrategyAuditEvent):
     def execute(self, caller, owner, event, *args, **kwargs) -> None:
         level = kwargs.pop("level", 0)
         if DEBUG >= level:
-            owner_name = getattr(owner, "__class__", type(owner)).__name__
+            owner_name = getattr(owner, "__class__", type(owner)).__name__ if owner else "unknown"
             super().execute(caller, event, owner=owner_name, **kwargs)

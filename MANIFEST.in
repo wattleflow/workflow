@@ -1,9 +1,8 @@
-# Ignoriraj testove i privremene datoteke
-# prune tests
+prune __pycache__
+prune .pytest_cache
+
 # Ignoriraj specifične datoteke
 exclude .gitignore
-exclude .pytest_cache
-exclude __pycache__
 exclude *.pyc
 exclude *.pyo
 exclude .DS_Store
@@ -25,7 +24,6 @@ exclude src/wattleflow/core
 exclude src/wattleflow/audit
 exclude src/wattleflow/blackboards
 exclude src/wattleflow/managers
-exclude src/wattleflow/processors
 exclude src/wattleflow/repositories
 exclude src/wattleflow/schedulers
 include README.md LICENSE
