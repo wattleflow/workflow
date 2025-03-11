@@ -4,9 +4,18 @@
 # License: Apache 2 Licence
 # Description: This modul contains concrete sftp connection class.
 
+
+# --------------------------------------------------------------------------- #
+# IMPORTANT:
+# This connection requires the paramiko library.
+# The library is used for the connection with a SFTP server.
+#   pip install paramiko
+# --------------------------------------------------------------------------- #
+
 import paramiko
 from paramiko import AutoAddPolicy
 from contextlib import contextmanager
+from typing import Generator
 
 from wattleflow.concrete import GenericConnection, SFTPConnectionError
 from wattleflow.concrete.connection import Settings
@@ -64,7 +73,7 @@ class SFTParamiko(GenericConnection):
             raise UserWarning("Unknown operation")
 
     @contextmanager
-    def connect(self):
+    def connect(self) -> Generator[GenericConnection, None, None]:
         if self._connected:
             return self
 
@@ -135,13 +144,6 @@ class SFTParamiko(GenericConnection):
             connected=self._connected,
             level=3,
         )
-
-    def __enter__(self):
-        self.connect()
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.disconnect()
 
     def __str__(self) -> str:
         conn = TextStream()

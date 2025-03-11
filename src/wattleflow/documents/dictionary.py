@@ -1,4 +1,4 @@
-# Module Name: core/helpers/dictionary.py
+# Module Name: documents/dictionary.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
