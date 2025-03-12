@@ -51,10 +51,14 @@ class Settings(Attribute):
         for name, value in kwargs.items():
             self.push(name, value)
 
-    def get(self, name: str):
-        if hasattr(self, name):
-            return getattr(self, name) if name != "password" else None
-        return None
+    def __getattr__(self, name):
+        try:
+            return self.__dict__[name]
+        except KeyError:
+            return None
+
+    def get(self, name: str, default: str = None):
+        return getattr(self, name, default)
 
     def todict(self):
         return self.__dict__
@@ -81,11 +85,11 @@ class GenericConnection(
     _connection: Optional[object] = None
     _connected: bool = False
 
-    def __init__(self, strategy_audit: IStrategy, **settings):
+    def __init__(self, strategy_audit: IStrategy, **configuration):
         super().__init__()
         self.evaluate(strategy_audit, IStrategy)
         self._strategy_audit = strategy_audit
-        self.create_connection(**settings)
+        self.create_connection(**configuration)
 
     @property
     def connected(self) -> bool:
@@ -120,7 +124,7 @@ class GenericConnection(
         self.disconnect()
 
     @abstractmethod
-    def create_connection(self, **settings) -> None:
+    def create_connection(self, **configuration) -> None:
         pass
 
     @abstractmethod

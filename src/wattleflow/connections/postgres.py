@@ -15,7 +15,7 @@
 from typing import Optional, Generator
 from contextlib import contextmanager
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine.base import Engine  # Connection
+from sqlalchemy.engine.base import Engine, Connection
 from wattleflow.core import IStrategy
 from wattleflow.concrete.connection import (
     GenericConnection,
@@ -32,6 +32,7 @@ from wattleflow.constants.keys import (
     KEY_PASSWORD,
     KEY_PORT,
     KEY_USER,
+    KEY_PUBLISHER,
     # KEY_SCHEMA,
 )
 
@@ -42,17 +43,17 @@ class PostgresConnection(GenericConnection):
     _version: str = "<version>"
     _publisher: str = "<publisher>"
     _database: str = "<database>"
+    _connection: Optional[Connection] = None
 
-    def __init__(self, strategy_audit: IStrategy, **settings):
+    def __init__(self, strategy_audit: IStrategy, **configuration):
         self._engine: Optional[Engine] = None
-        self._connection: Engine = None
-        super().__init__(strategy_audit, **settings)
+        super().__init__(strategy_audit, **configuration)
 
     @property
     def engine(self) -> Engine:
         return self._engine
 
-    def create_connection(self, **settings):
+    def create_connection(self, **configuration):
         allowed = [
             KEY_NAME,
             KEY_DATABASE,
@@ -60,9 +61,10 @@ class PostgresConnection(GenericConnection):
             KEY_PASSWORD,
             KEY_PORT,
             KEY_USER,
+            KEY_PUBLISHER,
         ]
 
-        self._config = Settings(allowed=allowed, **settings)
+        self._config = Settings(allowed=allowed, **configuration)
         uri = "postgresql://{}:{}@{}:{}/{}".format(
             self._config.user,
             self._config.password,
@@ -73,10 +75,11 @@ class PostgresConnection(GenericConnection):
         self._engine = create_engine(uri)
         self._driver = self._engine.driver
         self._apilevel = self._engine.dialect.dbapi.apilevel
+        self._publisher = self._config.publisher
 
         self.audit(
             owner=self,
-            event=Event.Connected,
+            event=Event.Authenticating,
             engine=str(self._engine),
             apilevel=str(self._apilevel),
             driver=self._driver,
@@ -100,20 +103,20 @@ class PostgresConnection(GenericConnection):
         try:
             self.audit(
                 owner=self,
-                event=Event.Authenticate,
+                event=Event.Connecting,
                 status=Event.Authenticating,
                 level=4,
             )
 
             self._connection = self._engine.connect()
+            self._connected = True
+
             result = self._connection.execute(text("SELECT version();"))
             self._version = result.scalar()
             self._driver = self._engine.driver
             self._apilevel = self._engine.dialect.dbapi.apilevel
-            self._database = self._settings.database
-            self._privileges = self._settings.user
-            self._publisher = "unknown"
-            self._connected = True
+            self._database = self._config.database
+            self._privileges = self._config.user
             yield self
         except Exception as e:
             raise ConnectionException(
@@ -123,33 +126,27 @@ class PostgresConnection(GenericConnection):
             self.disconnect()
 
     def disconnect(self):
-        if not self._connected:
+        if self._connection:
+            self._connection.close()
+            self._connection = None
+            self._connected = False
+
             self.audit(
                 owner=self,
                 event=Event.Disconnected,
                 connected=self._connected,
                 level=3,
             )
-            return
+
+    def __del__(self):
+        if self._connection:
+            self._connection.close()
+            self._connection = None
+            self._connected = False
 
         if self._engine:
             self._engine.dispose()
             self._engine = None
-
-        self._connected = False
-
-        self.audit(
-            owner=self,
-            event=Event.Disconnected,
-            connected=self._connected,
-            level=3,
-        )
-
-    def __del__(self):
-        if self._connection:
-            self._connection.dispose()
-            self._connection = None
-            self._connected = False
 
     def __str__(self) -> str:
         conn = TextStream()

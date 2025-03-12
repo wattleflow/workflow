@@ -87,13 +87,13 @@ class SFTParamiko(GenericConnection):
 
             self._client.set_missing_host_key_policy(AutoAddPolicy())
             self._client.connect(
-                hostname=self._config.get(KEY_HOST),
-                port=int(self._config.get(KEY_PORT)),
-                username=self._config.get(KEY_USER),
-                password=self._config.get(KEY_PASSWORD),
-                passphrase=self._config.get(KEY_PASSPHRASE),
-                key_filename=self._config.get(KEY_SSH_KEY_FILENAME),
-                look_for_keys=self._config.get(KEY_LOOK_FOR_KEYS),
+                hostname=self._config.host,
+                port=int(self._config.port),
+                username=self._config.user,
+                password=self._config.password,
+                passphrase=self._config.passphrase,
+                key_filename=self._config.key_filename,
+                look_for_keys=self._config.look_for_keys,
             )
             self._connection = self._client.open_sftp()
             self._connected = True
