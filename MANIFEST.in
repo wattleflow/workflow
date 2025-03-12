@@ -1,7 +1,5 @@
 prune __pycache__
 prune .pytest_cache
-
-# Ignoriraj specifične datoteke
 exclude .gitignore
 exclude *.pyc
 exclude *.pyo
@@ -17,8 +15,10 @@ exclude .github/*
 exclude .scraps
 exclude .vscode
 exclude .vscode
-exclude config.yaml
+exclude tests/config.yaml
+exclude tests/scheduler.yaml
 exclude Makefile
+exclude tests/
 exclude src/wattleflow/api
 exclude src/wattleflow/core
 exclude src/wattleflow/audit
@@ -26,6 +26,7 @@ exclude src/wattleflow/blackboards
 exclude src/wattleflow/managers
 exclude src/wattleflow/repositories
 exclude src/wattleflow/schedulers
+include doc/wattleflow.png
 include README.md LICENSE
 recursive-include src/wattleflow/ *.py
 
