@@ -6,7 +6,8 @@
 
 import os
 from wattleflow.core import IProcessor
-from wattleflow.concrete import StrategyWrite, _NC
+from wattleflow.concrete.attribute import _NC
+from wattleflow.concrete.strategy import StrategyWrite
 from wattleflow.helpers import TextStream
 from wattleflow.constants import Event
 

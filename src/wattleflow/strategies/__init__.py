@@ -21,7 +21,7 @@ from .cryptography.fernet import StrategyFernetGeneric, StrategyFernetEncrypt, S
 from .files import StrategyFilename, StrategyFilterFiles
 from .loader import StrategyClassLoader
 from .write.debug import DebugAuditStrategyWrite
-from .write.test_document import WriteTextDocumentToFile
+from .write.text_document import WriteTextDocumentToFile
 
 __all__ = [
     "CreateTextDocument",

@@ -5,9 +5,10 @@
 # Description: This modul contains create text strategy classes.
 
 from wattleflow.core import IProcessor, T
-from wattleflow.concrete import DocumentFacade, FileDocument, TextStream
-from wattleflow.concrete import StrategyCreate
+from wattleflow.concrete.document import DocumentFacade
+from wattleflow.concrete.strategy import StrategyCreate
 from wattleflow.constants import Event
+from wattleflow.helpers import TextStream
 
 
 class CreateTextDocument(StrategyCreate):
@@ -23,6 +24,7 @@ class CreateTextDocument(StrategyCreate):
             filename=self.file_path,
             level=5,
         )
+        from wattleflow.documents.file import FileDocument
 
         document = DocumentFacade(FileDocument(self.file_path))
         document.update_content(content)
