@@ -1,4 +1,4 @@
-# Module Name: name core/helpers/macros.py
+# Module Name: name helpers/macros.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence

@@ -1,4 +1,4 @@
-# Module Name: name core/helpers/streams.py
+# Module Name: name helpers/streams.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
@@ -57,7 +57,7 @@ class TextStream(str):
 class TextListStream(str):
     def __new__(cls, text="", macros=None):
         obj = super().__new__(cls, text)
-        obj._words: list = []
+        obj._words = []
         obj._macros = TextMacros()
         if macros is not None:
             if not isinstance(macros, list):

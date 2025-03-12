@@ -12,7 +12,7 @@ from wattleflow.concrete import DocumentFacade, GenericProcessor, ConnectionMana
 from wattleflow.concrete.processor import T
 
 
-class PostgressReadProcessor(GenericProcessor[DocumentFacade]):
+class PostgresReadProcessor(GenericProcessor[DocumentFacade]):
     def __init__(
         self,
         strategy_audit: IStrategy,

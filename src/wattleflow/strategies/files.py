@@ -1,4 +1,4 @@
-# Module Name: name core/strategies/files.py
+# Module Name: name strategies/files.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence

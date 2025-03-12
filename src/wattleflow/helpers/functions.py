@@ -1,4 +1,4 @@
-# Module Name: core/helpers/functions.py
+# Module Name: helpers/functions.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence

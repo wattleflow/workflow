@@ -1,8 +1,8 @@
-# Module Name: core/strategies/asymetric.py
+# Module Name: strategies/asymetric.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains concrete asymetric cryptographic strategies classes.
+# Description: This modul contains asymetric cryptographic strategies classes.
 
 from abc import abstractmethod
 

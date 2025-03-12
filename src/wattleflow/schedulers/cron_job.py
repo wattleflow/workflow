@@ -1,6 +1,8 @@
-# Author: (wattleflow@outlook.com.au)
+# Module Name: name schedulers/cron_job.py
+# Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
+# Description: This modul contains concrete cron job class.
 
 import time
 from concrete.scheduler import Scheduler
