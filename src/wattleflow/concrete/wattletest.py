@@ -20,9 +20,9 @@ TEST_DIR = "/tmp/wattleflow"
 
 
 class WattleflowTestClass(TestCase, Attribute):
-    _cleanup: bool = True
     _config_path: str = ""
     _paths: str = {}
+    cleanup: bool = True
 
     def find_by_pattern(self, directory, pattern) -> Generator[str, None, None]:
         for root, _, files in walk(directory):
@@ -96,7 +96,7 @@ class WattleflowTestClass(TestCase, Attribute):
                 self.set_path(name=name, folder=folder)
 
     def tearDown(self) -> None:
-        if hasattr(self, "_cleanup") and self._cleanup:
+        if self.cleanup:
             for folder in self._paths.values():
                 if path.exists(folder):
                     rmtree(folder)

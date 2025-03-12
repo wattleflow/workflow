@@ -1,4 +1,4 @@
-# Module Name: core/strategies/debug.py
+# Module Name: strategies/debug.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence

@@ -1,4 +1,4 @@
-# Module Name: core/strategies/fernet.py
+# Module Name: strategies/fernet.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence

@@ -5,7 +5,7 @@
 # Description: This modul contains concrete connection classes.
 
 from abc import abstractmethod, ABC
-from typing import Dict, Optional
+from typing import Dict, Generator, Optional
 from wattleflow.core import (
     IStrategy,
     IObservable,
@@ -124,7 +124,7 @@ class GenericConnection(
         self.disconnect()
 
     @abstractmethod
-    def create_connection(self, **configuration) -> None:
+    def create_connection(self, **configuration):
         pass
 
     @abstractmethod
@@ -132,7 +132,7 @@ class GenericConnection(
         pass
 
     @abstractmethod
-    def connect(self) -> bool:
+    def connect(self) -> Generator['GenericConnection', None, None]:
         pass
 
     @abstractmethod

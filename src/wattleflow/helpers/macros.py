@@ -15,7 +15,7 @@ class TextMacros:
                 raise TypeError(f"Expected list, got {type(macros).__name__}")
             self.add(macros)
 
-    def add(self, macros):
+    def add(self, macros: list):
         for macro in macros:
             if len(macro) == 2:
                 pattern, replacement = macro
