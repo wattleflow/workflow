@@ -6,7 +6,6 @@
 
 from .macros import TextMacros
 
-
 class TextStream(str):
     def __new__(cls, text="", macros=None):
         obj = super().__new__(cls, text)
@@ -45,7 +44,8 @@ class TextStream(str):
         return self + item
 
     def __repr__(self) -> str:
-        return f'TextStream(size:{self.size}, {self._macros}, "{self._content}")'
+        return f'TextStream(content:"{self._content}")'
+        # return f'TextStream(size:{self.size}, macros:{self._macros}, content:"{self._content}")'
 
     def __str__(self) -> str:
         return self._content.strip()

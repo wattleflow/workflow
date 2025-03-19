@@ -15,6 +15,7 @@ exclude .github/*
 exclude .scraps
 exclude .vscode
 exclude .vscode
+exclude models
 exclude tests/config.yaml
 exclude tests/scheduler.yaml
 exclude Makefile

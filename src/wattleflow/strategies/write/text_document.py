@@ -11,11 +11,7 @@ from wattleflow.concrete.strategy import StrategyWrite
 from wattleflow.helpers import TextStream
 from wattleflow.constants import Event
 
-
 class WriteTextDocumentToFile(StrategyWrite):
-    def __init__(self, same_dir: bool = False):
-        super().__init__()
-
     def execute(self, pipeline, repository, item, *args, **kwargs) -> bool:
         self.mandatory(name="processor", cls=IProcessor, **kwargs)
 

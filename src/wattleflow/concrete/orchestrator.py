@@ -66,7 +66,7 @@ class Orchestrator(IEventSource, IFacade):
         except Exception as e:
             raise OrchestratorException(
                 self,
-                f"Error processing {getattr(processor, "name", "unknown")}: {e}",
+                "Error processing {}: {}".format(getattr(processor, "name", "unknown"), e),
             )
 
     def add_processor(self, processor: IProcessor):

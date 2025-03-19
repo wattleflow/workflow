@@ -27,8 +27,7 @@ class CreateTextDocument(StrategyCreate):
         from wattleflow.documents.file import FileDocument
 
         document = DocumentFacade(FileDocument(self.file_path))
-        document.update_content(content)
-
+        document.update_content(str(content))
         processor.audit(
             caller=self,
             event=Event.Created,
