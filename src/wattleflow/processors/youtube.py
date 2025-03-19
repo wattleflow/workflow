@@ -7,7 +7,12 @@
 import re
 from typing import Generator
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import CouldNotRetrieveTranscript, NotTranslatable, NoTranscriptFound, TranscriptsDisabled,
+from youtube_transcript_api._errors import (
+    CouldNotRetrieveTranscript,
+    NotTranslatable,
+    NoTranscriptFound,
+    TranscriptsDisabled,
+)
 from wattleflow.concrete import DocumentFacade, GenericProcessor
 from wattleflow.concrete.processor import T
 
@@ -45,7 +50,7 @@ class YoutubeTranscriptProcessor(GenericProcessor[DocumentFacade]):
                 item=video_id,
                 content=content,
             )
-        # from youtube_transcript_api import _errors 
+        # from youtube_transcript_api import _errors
         # print(dir(_errors))
         except CouldNotRetrieveTranscript:
             return "Could not retrieve the transcript for this video."
@@ -57,7 +62,6 @@ class YoutubeTranscriptProcessor(GenericProcessor[DocumentFacade]):
             return "No transcript is available for this video."
         except Exception as e:
             raise ConnectionError(e)
-
 
     def create_iterator(self) -> Generator[T, None, None]:
         for url in self._videos:
