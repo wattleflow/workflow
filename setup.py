@@ -26,12 +26,16 @@ setup(
         "License :: OSI Approved :: Apache Software License",
     ],
     python_requires=">=3.9",
-    setup_requires=["setuptools_scm"], 
+    setup_requires=["setuptools_scm"],
     use_scm_version=True,
     install_requires=[
-        "pyyaml", 
+        "pyyaml",
         "cryptography",
+        "wattleflow>=0.0.0.7",
+        "pytesseract>=0.3.10",
+        "rdflib>=7.1.2",
+        "tika>=2.6.0",
+        "youtube-transcript-api>=0.6.3",
     ],
-    extras_require={
-    },
+    extras_require={},
 )

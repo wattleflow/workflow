@@ -9,7 +9,7 @@ write_to = "src/wattleflow/concrete/_version.py"
 
 [project]
 name = "wattleflow-workflow"
-version = "0.0.0.13"
+version = "0.0.0.14"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -31,7 +31,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "wattleflow>=0.0.0.7"
+    "wattleflow>=0.0.0.7",
 ]
 
 [project.urls]
