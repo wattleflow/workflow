@@ -1,8 +1,8 @@
-# Module Name: core/helpers/document.py
+# Module Name: helpers/document.py
+# Description: This modul contains concrete document handling class.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains document handling class.
 
 """
 This library manages document abstraction and handling.

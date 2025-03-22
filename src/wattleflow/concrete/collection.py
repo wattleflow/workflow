@@ -1,8 +1,8 @@
-# Module Name: core/concrete/collections.py
+# Module Name: concrete/collections.py
+# Description: This modul contains concrete collection classes.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains concrete collection classes.
 
 from collections import deque
 from wattleflow.core import IWattleflow

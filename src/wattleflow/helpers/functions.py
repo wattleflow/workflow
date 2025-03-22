@@ -1,8 +1,9 @@
 # Module Name: helpers/functions.py
+# Description: This modul contains helper methods.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains helper methods.
+
 import re
 
 list_all = lambda o: [print(f"{k}: {v}") for k, v in o.__dict__.items()]

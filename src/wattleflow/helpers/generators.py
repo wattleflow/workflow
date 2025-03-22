@@ -1,8 +1,8 @@
 # Module Name: helpers/generators.py
+# Description: This modul contains python generator methods.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains python generator methods.
 
 import re
 import numpy as np

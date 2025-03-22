@@ -1,8 +1,8 @@
-# Module Name: core/concrete/pipeline.py
+# Module Name: concrete/pipeline.py
+# Description: This modul contains pipeline classes.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains concrete pipeline classes.
 
 from abc import abstractmethod
 from wattleflow.core import IProcessor

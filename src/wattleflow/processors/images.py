@@ -22,7 +22,8 @@ from wattleflow.helpers import TextStream
 
 
 class ImageToTextProcessor(GenericProcessor[DocumentFacade]):
-    _search_path:str = ""
+    _search_path: str = ""
+
     def __init__(self, strategy_audit, blackboard, pipelines, allowed, **kwargs):
         super().__init__(strategy_audit, blackboard, pipelines, allowed, **kwargs)
         mask = (
@@ -37,7 +38,9 @@ class ImageToTextProcessor(GenericProcessor[DocumentFacade]):
         for file_path in glob(self._search_path, recursive=self.recursive):
             if os.access(file_path, os.R_OK) and os.stat(file_path).st_size > 0:
                 image = Image.open(file_path)
-                content = TextStream(pytesseract.image_to_string(image), macros=self.macros)
+                content = TextStream(
+                    pytesseract.image_to_string(image), macros=self.macros
+                )
                 yield self.blackboard.create(
                     processor=self,
                     file_path=file_path,

@@ -1,8 +1,8 @@
-# Module Name: core/concrete/processor.py
+# Module Name: concrete/processor.py
+# Description: This modul contains concrete base processor class.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains concrete base processor class.
 
 """
 The GenericProcessor class is a concrete implementation of the IProcessor

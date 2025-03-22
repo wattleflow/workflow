@@ -1,8 +1,10 @@
-# Module Name: core/concrete/manager.py
+# Module Name: concrete/manager.py
+# Description: This modul contains concrete manager classes.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains concrete manager classes.
+
+
 """
 1. Connection Management
     - Stores registered connections in _connections: Dict[str, IObserver].

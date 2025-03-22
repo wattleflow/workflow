@@ -1,9 +1,8 @@
-# Module Name: core/helpers/attribute.py
+# Module Name: concrete/attribute.py
+# Description: This modul contains concrete attribute handling class.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains attribute handling class.
-
 
 """
 The Attribute class in wattleflow.helpers.attribute is a utility class for attribute management.

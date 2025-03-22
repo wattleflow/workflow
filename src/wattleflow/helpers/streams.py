@@ -1,10 +1,11 @@
 # Module Name: name helpers/streams.py
+# Description: This modul contains concrete name stream classes.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains concrete name stream classes.
 
 from .macros import TextMacros
+
 
 class TextStream(str):
     def __new__(cls, text="", macros=None):
@@ -45,7 +46,6 @@ class TextStream(str):
 
     def __repr__(self) -> str:
         return f'TextStream(content:"{self._content}")'
-        # return f'TextStream(size:{self.size}, macros:{self._macros}, content:"{self._content}")'
 
     def __str__(self) -> str:
         return self._content.strip()

@@ -1,8 +1,8 @@
-# Module Name: core/concrete/memento.py
+# Module Name: concrete/memento.py
+# Description: This modul contains concrete memento classes.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains concrete memento classes.
 
 import copy
 from wattleflow.core import IMemento, IObservable

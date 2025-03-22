@@ -1,8 +1,8 @@
-# Module Name: core/concrete/exceptions.py
+# Module Name: concrete/exceptions.py
+# Description: This modul contains concrete exception classes.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains concrete exception classes.
 
 import inspect
 from typing import final

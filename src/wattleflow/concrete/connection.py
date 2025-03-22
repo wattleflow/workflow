@@ -1,8 +1,8 @@
-# Module Name: core/concrete/connection.py
+# Module Name: concrete/connection.py
+# Description: This modul contains concrete connection classes.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains concrete connection classes.
 
 from abc import abstractmethod, ABC
 from typing import Dict, Generator, Optional

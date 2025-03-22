@@ -1,8 +1,8 @@
 # Module Name: helpers/config.py
+# Description: This modul contains config class.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains config class.
 
 """
 1. Responsibilities

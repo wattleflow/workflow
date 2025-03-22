@@ -1,8 +1,8 @@
-# Module Name: core/concrete/blackboard.py
+# Module Name: concrete/blackboard.py
+# Description: This modul contains concrete blackboard classes.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains concrete blackboard classes.
 
 """
 1. Storage Management

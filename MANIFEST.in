@@ -16,6 +16,8 @@ exclude .scraps
 exclude .vscode
 exclude .vscode
 exclude models
+exclude helpers/audit.py
+exclude helpers/logger.py
 exclude tests/config.yaml
 exclude tests/scheduler.yaml
 exclude Makefile

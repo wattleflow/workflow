@@ -1,8 +1,9 @@
-# Module Name: core/concrete/orchestrator.py
+# Module Name: concrete/orchestrator.py
+# Description: This modul contains concrete orchestrator classes.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul has Orchestrator class.
+
 """
 Orchestrator Implementation for WattleFlow Workflow
 The Orchestrator class will:
@@ -66,7 +67,9 @@ class Orchestrator(IEventSource, IFacade):
         except Exception as e:
             raise OrchestratorException(
                 self,
-                "Error processing {}: {}".format(getattr(processor, "name", "unknown"), e),
+                "Error processing {}: {}".format(
+                    getattr(processor, "name", "unknown"), e
+                ),
             )
 
     def add_processor(self, processor: IProcessor):

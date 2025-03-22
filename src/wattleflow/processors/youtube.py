@@ -18,7 +18,7 @@ from wattleflow.concrete.processor import T
 
 # --------------------------------------------------------------------------- #
 # IMPORTANT:
-# This test case requires the youtube-transcript-api library.
+# This processor requires the youtube-transcript-api library.
 # Ensure you have it installed using:
 #   pip install youtube-transcript-api
 # The library is used to fetch transcripts (subtitles) from YouTube videos.

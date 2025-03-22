@@ -1,8 +1,8 @@
-# Module Name: core/concrete/scheduler.py
+# Module Name: concrete/scheduler.py
+# Description: This modul contains scheduler classes.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul has Scheduler class.
 
 """
 The Scheduler class:
