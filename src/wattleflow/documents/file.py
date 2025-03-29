@@ -4,15 +4,18 @@
 # License: Apache 2 Licence
 # Description: This modul contains FileDocument class.
 
+from stat import filemode
 from os import path, stat
+from logging import WARNING
 from datetime import datetime
-from wattleflow.concrete.document import Document
+from wattleflow.concrete import Document, AuditLogger
 
 
 # Document based on file, with automatic retrieval of metadata
-class FileDocument(Document[str]):
+class FileDocument(Document[str], AuditLogger):
     def __init__(self, filename: str):
-        super().__init__()
+        Document.__init__(self=self)
+        AuditLogger.__init__(self, level=WARNING)
         self._metadata = {}
         self._filename = filename
         self.update_metadata()
@@ -29,7 +32,8 @@ class FileDocument(Document[str]):
         if path.exists(self.filename):
             self.update_metadata()
         else:
-            print(f"[WARNING] Cannot refresh metadata: {self.filename} does not exist.")
+            self.warning(f"Cannot refresh metadata: {self.filename} does not exist.")
+            # print(f"[WARNING] Cannot refresh metadata: {self.filename} does not exist.")
 
     def update_filename(self, filename):
         self._filename = filename
@@ -37,9 +41,10 @@ class FileDocument(Document[str]):
 
     def update_metadata(self) -> None:
         if not path.exists(self.filename):
-            print(
-                f"[WARNING] File does not exist yet: {self.filename}. Metadata will be empty."
-            )
+            self.warning(f"File does not exist yet: {self.filename}. Metadata will be empty.")
+            # print(
+            #     f"[WARNING] File does not exist yet: {self.filename}. Metadata will be empty."
+            # )
             return
 
         try:
@@ -49,17 +54,20 @@ class FileDocument(Document[str]):
                 "mtime": datetime.fromtimestamp(stats.st_mtime),
                 "atime": datetime.fromtimestamp(stats.st_atime),
                 "ctime": datetime.fromtimestamp(stats.st_ctime),
-                "file_permissions": stat.filemode(stats.st_mode),
+                "file_permissions": filemode(stats.st_mode),
                 "uid": stats.st_uid,
                 "gid": stats.st_gid,
             }
         except FileNotFoundError:
-            print(
-                f"[ERROR] File not found: {self.filename}. Metadata will remain empty."
-            )
+            self.error(f"File not found: {self.filename}. Metadata will remain empty.")
+            # print(
+            #     f"[ERROR] File not found: {self.filename}. Metadata will remain empty."
+            # )
         except PermissionError:
-            print(
-                f"[ERROR] Permission denied for file: {self.filename}. Cannot retrieve metadata."
-            )
+            self.error(f"[ERROR] Permission denied for file: {self.filename}. Cannot retrieve metadata.")
+            # print(
+            #     f"[ERROR] Permission denied for file: {self.filename}. Cannot retrieve metadata."
+            # )
         except Exception as e:
-            print(f"[ERROR] Unexpected error while accessing {self.filename}: {e}")
+            self.error("Unexpected error while accessing {self.filename}: {e}")
+            # print(f"[ERROR] Unexpected error while accessing {self.filename}: {e}")

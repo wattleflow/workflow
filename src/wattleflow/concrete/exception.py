@@ -5,37 +5,28 @@
 # License: Apache 2 Licence
 
 import inspect
+from logging import DEBUG
 from typing import final
-from wattleflow.constants.enums import Event
+from wattleflow.concrete import AuditLogger
 from wattleflow.constants.errors import ERROR_PATH_NOT_FOUND, ERROR_UNEXPECTED_TYPE
 from wattleflow.helpers.functions import _NC, _NT
-from wattleflow.strategies.audit import StrategyAuditEvent
 
 
 # --------------------------------------------------------------------------- #
 # Exceptions
 # --------------------------------------------------------------------------- #
 
-
 import traceback
 
 
-class AuditException(Exception):
+class AuditException(Exception, AuditLogger):
     def __init__(self, caller, error, **kwargs):
+        AuditLogger.__init__(self, level=DEBUG)
         self.name = _NC(caller)
         self.caller = caller
         self.error = error
-        self.filename = self._get_call_context()
-
-        self.audit_strategy = StrategyAuditEvent()
-        if self.audit_strategy:
-            self.audit_strategy.generate(
-                owner=caller,
-                caller=self,
-                event=Event.ErrorDetails,
-                error=error,
-                **kwargs,
-            )
+        self.critical(msg=error, caller=caller)
+        # self.filename = self._get_call_context()
         super().__init__(self.error)
 
     def _get_call_context(self):

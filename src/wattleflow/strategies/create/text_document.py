@@ -18,22 +18,19 @@ class CreateTextDocument(StrategyCreate):
         self.mandatory(name="content", cls=str, **kwargs)
 
         content = TextStream(self.content)
-        processor.audit(
-            caller=self,
-            event=Event.Creating,
-            filename=self.file_path,
-            level=5,
+        self.debug(
+            msg=Event.ProcessingTask.value,
+            file_path=self.file_path,
         )
+
         from wattleflow.documents.file import FileDocument
 
         document = DocumentFacade(FileDocument(self.file_path))
         document.update_content(str(content))
-        processor.audit(
-            caller=self,
-            event=Event.Created,
+        self.info(
+            msg=Event.TaskCompleted.value,
             id=document.identifier,
             size=content.size,
-            level=4,
         )
 
         return document

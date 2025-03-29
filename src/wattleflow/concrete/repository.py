@@ -36,35 +36,45 @@
     - Ensures the document returned by read() is an ITarget.
 """
 from abc import ABC
-from typing import TypeVar
-from wattleflow.core import IStrategy
-from wattleflow.core import ITarget
-from wattleflow.core import IPipeline, IRepository
+from logging import Handler, NOTSET
+from typing import Optional
+from wattleflow.core import IStrategy, ITarget, IPipeline, IRepository, T
 from wattleflow.constants.enums import Event
-from wattleflow.concrete.attribute import Attribute
-from wattleflow.helpers.functions import _NC
+from wattleflow.concrete import Attribute, AuditLogger, _NC
 
 
-T = TypeVar("T")
-
-
-class GenericRepository(IRepository, Attribute, ABC):
+class GenericRepository(IRepository, Attribute, AuditLogger, ABC):
     def __init__(
         self,
         strategy_read: IStrategy,
         strategy_write: IStrategy,
         allowed: list = [],
+        level: int = NOTSET,
+        handler: Optional[Handler] = None,
         *args,
         **kwargs,
     ):
-        super().__init__()
+        IRepository.__init__(self)
+        AuditLogger.__init__(self, level=level, handler=handler)
+
         self.evaluate(strategy_read, IStrategy)
         self.evaluate(strategy_write, IStrategy)
+
         self._counter: int = 0
         self._strategy_read = strategy_read
         self._strategy_write = strategy_write
         self._allowed = allowed
+
+        self.debug(
+            msg=Event.Constructor.value,
+            strategy_read=self._strategy_read,
+            strategy_write=self._strategy_write,
+            allowed=allowed,
+        )
+
         self.configure(**kwargs)
+
+        self.debug(msg=Event.Constructor.value, status="finalised")
 
     @property
     def count(self) -> int:
@@ -76,21 +86,31 @@ class GenericRepository(IRepository, Attribute, ABC):
         for name, value in kwargs.items():
             if isinstance(value, (bool, dict, list, str)):
                 self.push(name, value)
+                self.debug(msg=Event.Configuring.value, name=name, value=value)
             else:
                 error = f"{_NC(value)}) is restricted type. [bool, dict, list, str]"
+                self.error(msg=error, name=name)
                 raise AttributeError(error)
 
     def read(self, identifier: str) -> T:
         document = self._strategy_read.read(caller=self, id=identifier)
         self.evaluate(document, ITarget)
-        self.audit(event=Event.Reading, id=identifier, success=True)
+        self.info(
+            msg=Event.Retrieved.value, id=identifier, success=True, document=document
+        )
         return document
 
     def write(self, pipeline: IPipeline, item: T, **kwargs) -> bool:
         try:
             self._counter += 1
+            self.info(
+                msg=Event.Writting.value,
+                counter=self._counter,
+                pipeline=pipeline.name,
+                item=item,
+            )
             return self._strategy_write.write(pipeline, self, item=item, **kwargs)
         except Exception as e:
-            raise RuntimeError(
-                f"Write operation failed in {self.__class__.__name__}: {e}"
-            )
+            error = f"Write operation failed in {self.__class__.__name__}: {e}"
+            self.exception(msg=error, counter=self._counter)
+            raise RuntimeError(error)

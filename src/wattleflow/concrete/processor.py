@@ -21,10 +21,7 @@ The GenericProcessor class is a concrete implementation of the IProcessor
     Task Processing
         - process_tasks(): Iterates over a dataset (self._iterator) and processes
           items using pipelines.
-    Auditing
-        - Uses _strategy_audit to generate logs.
     Blackboard Integration
-        - _blackboard.audit = self.audit: Hooks into the blackboard's auditing system.
         - Ensures cleanup via __del__().
     Configuration & Type Safety
         - Uses evaluate() for runtime type checks.
@@ -35,7 +32,6 @@ The GenericProcessor class is a concrete implementation of the IProcessor
 
 3. Since GenericProcessor inherits from Attribute, it benefits from:
     - Strict Type Validation
-    - evaluate() ensures strategy_audit, blackboard, pipelines match expected types.
     - allowed(self._allowed, **kwargs) enforces allowed attributes.
 
 4. Dynamic Configuration
@@ -45,17 +41,15 @@ The GenericProcessor class is a concrete implementation of the IProcessor
 """
 
 from abc import abstractmethod, ABC
-from typing import Final, Generator, Iterator, Optional, Type, TypeVar
-from wattleflow.core import IStrategy
-from wattleflow.core import IBlackboard, IProcessor
-from wattleflow.concrete.attribute import Attribute
-from wattleflow.concrete.exception import ProcessorException
+from logging import Handler, INFO
+from typing import Final, Generator, Iterator, Optional, Type
+from wattleflow.core import IBlackboard, IProcessor, T
+from wattleflow.concrete import Attribute, AuditLogger, ProcessorException
+from wattleflow.constants.enums import Event
 from wattleflow.helpers.functions import _NC
 
-T = TypeVar("T")
 
-
-class GenericProcessor(IProcessor[T], Attribute, ABC):
+class GenericProcessor(IProcessor[T], Attribute, AuditLogger, ABC):
     _expected_type: Type[T] = T
     _cycle: int = 0
     _current: Optional[T] = None
@@ -66,28 +60,41 @@ class GenericProcessor(IProcessor[T], Attribute, ABC):
 
     def __init__(
         self,
-        strategy_audit: IStrategy,
         blackboard: IBlackboard,
         pipelines: list,
         allowed: list = [],
+        level: int = INFO,
+        handler: Optional[Handler] = None,
         **kwargs,
     ):
-        super().__init__()
-        self.evaluate(pipelines, list)
-        if not len(pipelines) > 0:
-            raise ValueError("Empty list: [pipelines].")
+        IProcessor.__init__(self)
+        AuditLogger.__init__(self, level=level, handler=handler)
 
-        self.evaluate(strategy_audit, IStrategy)
+        self.evaluate(pipelines, list)
+
+        if not len(pipelines) > 0:
+            error = "Pipelines can not be empty."
+            self.critical(msg=error)
+            raise ValueError(error)
+
         self.evaluate(blackboard, IBlackboard)
         self.evaluate(allowed, list)
-        self._strategy_audit = strategy_audit
+
         self._blackboard = blackboard
         self._pipelines = pipelines
         self._allowed = allowed
+
+        self.debug(
+            msg=Event.Constructor.value,
+            blackboard=self._blackboard.name,
+            pipelines=self._pipelines,
+            allowed=allowed,
+            **kwargs
+        )
+
         self.configure(**kwargs)
 
-        # hack ...
-        self._blackboard.audit = self.audit
+        # Child processor must make this call
         self._iterator = self.create_iterator()
 
     @property
@@ -110,9 +117,6 @@ class GenericProcessor(IProcessor[T], Attribute, ABC):
         except StopIteration:
             raise
 
-    def audit(self, caller, *args, **kwargs):
-        self._strategy_audit.generate(caller=self, owner=caller, *args, **kwargs)
-
     def configure(self, **kwargs):
         if not self.allowed(self._allowed, **kwargs):
             return
@@ -120,25 +124,34 @@ class GenericProcessor(IProcessor[T], Attribute, ABC):
         for name, value in kwargs.items():
             if isinstance(value, (bool, dict, list, str)):
                 self.push(name, value)
+                self.debug(msg=Event.Configuring.value, name=name, value=value)
             else:
                 error = f"Restricted type: {_NC(value)}.{name}. [bool, dict, list, str]"
+                self.error(msg=error, name=name)
                 raise AttributeError(error)
 
     def reset(self):
+        self.debug(msg="reset")
         self._iterator = self.create_iterator()
         self._step = 0
 
     def process_tasks(self):
+        self.debug(msg=Event.Processing.value, message="BEGIN")
         try:
             for item in self:
                 for pipeline in self._pipelines:
+                    self.debug(msg=Event.ProcessingTask.value, item=item, pipeline=pipeline)
                     pipeline.process(processor=self, item=item)
         except StopIteration:
+            self.debug(msg="Stopping iteration")
             pass
         except AttributeError as e:
+            self.critical(msg="Attribute error", error=str(e))
             raise AttributeError(e)
         except Exception as e:
+            self.critical(msg="Exception", error=e)
             raise ProcessorException(caller=self, error=e)
+        self.debug(msg=Event.Processing.value, message="END")
 
     @abstractmethod
     def create_iterator(self) -> Generator[T, None, None]:

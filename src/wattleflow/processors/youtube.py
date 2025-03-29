@@ -5,16 +5,19 @@
 # Description: This modul contains youtube transcript processor class.
 
 import re
-from typing import Generator
+from typing import Generator, Optional
+from logging import Handler, INFO, DEBUG
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import (
     CouldNotRetrieveTranscript,
     NotTranslatable,
     NoTranscriptFound,
+    NoTranscriptAvailable,
     TranscriptsDisabled,
 )
+from wattleflow.core import T
 from wattleflow.concrete import DocumentFacade, GenericProcessor
-from wattleflow.concrete.processor import T
+from wattleflow.constants import Event
 
 # --------------------------------------------------------------------------- #
 # IMPORTANT:
@@ -25,46 +28,131 @@ from wattleflow.concrete.processor import T
 # --------------------------------------------------------------------------- #
 
 
+class TranscriptError(Exception):
+    def __init__(self, reason, error):
+        self.reason = reason
+        self.error = error
+        super().__init__(reason, error)
+
+
 class YoutubeTranscriptProcessor(GenericProcessor[DocumentFacade]):
     def __init__(
-        self, strategy_audit, blackboard, pipelines, storage_path: str, videos: list
+        self,
+        blackboard,
+        pipelines,
+        level: int = INFO,
+        handler: Optional[Handler] = None,
+        **kwargs
+        # storage_path: str,
+        # videos: list,
+        # level: int = INFO,
+        # handler: Optional[Handler] = None,
     ):
-        super().__init__(strategy_audit, blackboard, pipelines)
+        GenericProcessor.__init__(
+            self,
+            blackboard=blackboard,
+            pipelines=pipelines,
+            level=level,
+            handler=handler,
+            **kwargs
+        )
 
-        if not len(videos) > 0:
-            raise ValueError("Missing youtube video list.")
+        self._storage_path = self.storage_path
+        self._videos = self.videos
 
-        self._storage_path = storage_path
-        self._videos = videos
-        self._iterator = self.create_iterator()
+        if not len(self.videos) > 0:
+            error = "Missing youtube video list."
+            self.warning(msg=error)
+            raise ValueError(error)
+
+        self.debug(
+            msg=Event.Initialised.value,
+            storage_path=self.storage_path,
+            videos=self.videos,
+        )
 
     def __get_video_id(self, uri):
         match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11})", uri)
+
+        self.debug(
+            msg=Event.Retrieving.value,
+            call="__get_video_id",
+            uri=uri,
+            match=match,
+        )
+
         return match.group(1) if match else None
 
     def get_transcript_document(self, video_id) -> T:
         try:
+            self.debug(
+                msg=Event.Retrieving.value,
+                call="get_transcript_document",
+                video_id=video_id,
+            )
+
             content = YouTubeTranscriptApi.get_transcript(video_id)
+
+            if not len(content) > 0:
+                self.warning(
+                    msg="Video transcript is missing!",
+                    size=len(content),
+                )
+
             return self.blackboard.create(
                 self,
                 item=video_id,
                 content=content,
             )
-        # from youtube_transcript_api import _errors
-        # print(dir(_errors))
-        except CouldNotRetrieveTranscript:
-            return "Could not retrieve the transcript for this video."
-        except NotTranslatable:
-            return "This video can not be translated."
-        except TranscriptsDisabled:
-            return "Transcripts are disabled for this video."
-        except NoTranscriptFound:
-            return "No transcript is available for this video."
+
+        except CouldNotRetrieveTranscript as e:
+            raise TranscriptError(
+                reason="Transcript can not be retrieved.", error=str(e)
+            )
+        except NotTranslatable as e:
+            raise TranscriptError(
+                reason="This video transcript can't be translated.", error=str(e)
+            )
+        except NoTranscriptFound as e:
+            raise TranscriptError(
+                reason="Transcript is not found for this video.", error=str(e)
+            )
+        except TranscriptsDisabled as e:
+            raise TranscriptError(
+                reason="Transcripts are disabled for this video.", error=str(e)
+            )
+        except NoTranscriptAvailable as e:
+            raise TranscriptError(
+                reason="No transcript is available for this video.", error=str(e)
+            )
         except Exception as e:
-            raise ConnectionError(e)
+            raise Exception(e)
 
     def create_iterator(self) -> Generator[T, None, None]:
         for url in self._videos:
+            self.debug(msg=Event.Iterating.value, url=url)
             video_id = self.__get_video_id(url)
-            if video_id:
-                yield self.get_transcript_document(video_id)
+            try:
+                if video_id:
+                    self.info(
+                        msg=Event.Iterating.value,
+                        url=url,
+                        id=video_id,
+                    )
+                    item = self.get_transcript_document(video_id)
+                    yield item
+                else:
+                    self.warning(msg="No video_id is allocated.")
+            except TranscriptError as e:
+                self.critical(
+                    msg=e.reason,
+                    url=url,
+                    error=e.error,
+                )
+
+            except Exception as e:
+                self.critical(
+                    msg=url,
+                    error=str(e),
+                    url=url,
+                )

@@ -1,4 +1,4 @@
-from .debug import DebugAuditStrategyWrite
+from .audit import StrategyAuditEvent
 from .text_document import WriteTextDocumentToFile
 
-__all__ = ["DebugAuditStrategyWrite", "WriteTextDocumentToFile"]
+__all__ = ["StrategyAuditEvent", "WriteTextDocumentToFile"]

@@ -24,69 +24,106 @@
 """
 
 from uuid import uuid4
+from logging import Handler, NOTSET
 from typing import (
     Dict,
     Generic,
     List,
     Optional,
     Type,
-    TypeVar,
 )
 from wattleflow.core import (
     IBlackboard,
     IPipeline,
     IRepository,
     IProcessor,
+    T,
 )
-from wattleflow.concrete.attribute import Attribute
+from wattleflow.concrete import Attribute, AuditLogger
 from wattleflow.concrete.strategy import StrategyCreate
+from wattleflow.constants import Event
 
-T = TypeVar("T")
 
+class GenericBlackboard(IBlackboard, Attribute, AuditLogger, Generic[T]):
+    def __init__(
+        self,
+        expected_type: Type[T],
+        strategy_create: StrategyCreate,
+        level: int = NOTSET,
+        handler: Optional[Handler] = None,
+    ):
+        IBlackboard.__init__(self)
+        AuditLogger.__init__(self, level=level, handler=handler)
 
-class GenericBlackboard(IBlackboard, Attribute, Generic[T]):
-    def __init__(self, expected_type: Type[T], strategy_create: StrategyCreate):
-        super().__init__()
         self.evaluate(strategy_create, StrategyCreate)
+
         self._expected_type = expected_type
         self._strategy_create = strategy_create
         self._storage: Dict[str, T] = {}
         self._repositories: List[IRepository] = []
+
+        self.debug(
+            msg=Event.Constructor.value,
+            expected_type=expected_type,
+            strategy_create=strategy_create,
+        )
+
+    def __exit__(self):
+        self.debug(msg=Event.Destructor.value)
 
     @property
     def count(self) -> int:
         return len(self._storage)
 
     def clean(self):
+        self.info(msg="clean")
         self._repositories.clear()
         self._storage.clear()
 
     def create(self, processor: IProcessor, *args, **kwargs) -> T:
         self.evaluate(processor, IProcessor)
+        self.info(msg=Event.Creating.value, processor=processor.name, **kwargs)
         return self._strategy_create.create(processor, *args, **kwargs)
 
     def delete(self, identifier: str) -> None:
+        self.info(msg=Event.Delete.value, identifier=identifier)
         if identifier in self._storage:
             del self._storage[identifier]
         else:
-            print(f"[WARNING] Identifier {identifier} not found in Blackboard.")
+            self.warning(
+                msg=Event.Deleting.value,
+                reason="not in blackboard",
+                identifier=identifier,
+            )
 
     def read(self, identifier: str) -> Optional[T]:
+        self.info(msg=Event.Reading.value, identifier=identifier)
         return self._storage.get(identifier, None)
 
-    def subscribe(self, repository: IRepository) -> None:
+    def register(self, repository: IRepository) -> None:
         self.evaluate(repository, IRepository)
+        self.info(msg=Event.Registered.value, repository=repository.name)
         self._repositories.append(repository)
 
     def write(self, pipeline: IPipeline, item: T, *args, **kwargs) -> str:
         self.evaluate(pipeline, IPipeline)
         self.evaluate(item, self._expected_type)
 
+        self.debug(
+            msg=Event.Write.value,
+            pipeline=pipeline.name,
+            item=item,
+            expected_type=self._expected_type,
+            **kwargs,
+        )
+
         identifier = getattr(item, "identifier", str(uuid4().hex))
         self._storage[identifier] = item
 
-        valid_repositories = [repo for repo in self._repositories if isinstance(repo, IRepository)]
-        for repository in valid_repositories:
+        self.info(msg=Event.Stored.value, item=item, identifier=identifier, **kwargs)
+
+        for repository in self._repositories:
+            self.debug(msg=Event.Writting.value, to=repository.name, **kwargs)
             repository.write(pipeline, item, *args, **kwargs)
 
         return identifier

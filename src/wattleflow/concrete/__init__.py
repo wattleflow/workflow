@@ -3,8 +3,9 @@ from .attribute import (
     ClassLoader,
     MissingAttribute,
     StrategyClassLoader,
+    _NC
 )
-from .audit import AsyncAuditHandler
+from .logger import AuditLogger, AsyncHandler
 from .blackboard import GenericBlackboard
 from .collection import DequeList
 from .connection import (
@@ -54,8 +55,10 @@ from .strategy import (
 from .wattletest import WattleflowTestClass
 
 __all__ = [
+    "_NC",
     "Attribute",
-    "AsyncAuditHandler",
+    "AuditLogger",
+    "AsyncHandler",
     "MissingAttribute",
     "StrategyClassLoader",
     "ClassLoader",

@@ -30,15 +30,22 @@
 """
 
 from abc import abstractmethod, ABC
+from logging import Handler, NOTSET
 from typing import Optional
-from wattleflow.core import IStrategy
-from wattleflow.core import ITarget
-from wattleflow.core import IPipeline, IProcessor, IRepository
-from wattleflow.concrete.attribute import Attribute
+from wattleflow.core import (
+    IPipeline,
+    IProcessor,
+    IRepository,
+    IStrategy,
+    ITarget,
+)
+from wattleflow.concrete import Attribute, AuditLogger
 
 
 # Generic strategy
 class Strategy(IStrategy, Attribute, ABC):
+    _expected_type = None
+
     @abstractmethod
     def call(self, caller, *args, **kwargs) -> object:
         pass
@@ -48,11 +55,17 @@ class Strategy(IStrategy, Attribute, ABC):
         pass
 
 
-class GenericStrategy(Strategy, ABC):
-    def __init__(self, expected_type=ITarget):
-        super().__init__()
-        self.evaluate(expected_type, ITarget)
+class GenericStrategy(Strategy, AuditLogger, ABC):
+    def __init__(
+        self,
+        expected_type=ITarget,
+        level: int = NOTSET,
+        handler: Optional[Handler] = None,
+    ):
         self._expected_type = expected_type
+
+        Strategy.__init__(self)
+        AuditLogger.__init__(self, level=level, handler=handler)
 
     def call(self, caller, *args, **kwargs) -> object:
         output = self.execute(caller, *args, **kwargs)
@@ -80,8 +93,17 @@ class StrategyRead(GenericStrategy):
 
 
 class StrategyWrite(GenericStrategy):
-    def __init__(self):
-        self._expected_type = bool
+    def __init__(
+        self,
+        expected_type=bool,
+        level: int = NOTSET,
+        handler: Optional[Handler] = None,
+    ):
+        self.evaluate(expected_type, bool)
+
+        GenericStrategy.__init__(
+            self, expected_type=expected_type, level=level, handler=handler
+        )
 
     def write(
         self, pipeline: IPipeline, repository: IRepository, item, *args, **kwargs
