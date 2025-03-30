@@ -87,7 +87,7 @@ class GenericProcessor(IProcessor[T], Attribute, AuditLogger, ABC):
         self.debug(
             msg=Event.Constructor.value,
             blackboard=self._blackboard.name,
-            pipelines=self._pipelines,
+            pipelines=[p.name for p in self._pipelines],
             allowed=allowed,
             **kwargs
         )

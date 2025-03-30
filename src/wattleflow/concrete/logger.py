@@ -36,7 +36,7 @@
 
 from abc import ABC
 from typing import Optional
-from logging import Formatter, getLogger, Handler, Logger, NOTSET, StreamHandler
+from logging import Formatter, getLogger, Handler, Logger, StreamHandler, NOTSET
 from wattleflow.core import ILogger, ISingleton
 
 

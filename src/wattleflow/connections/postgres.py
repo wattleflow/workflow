@@ -13,13 +13,12 @@
 # --------------------------------------------------------------------------- #
 
 from typing import Optional, Generator
+from logging import Handler, ERROR
 from contextlib import contextmanager
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine.base import Engine, Connection
-from wattleflow.core import IStrategy
+from sqlalchemy.engine.base import Engine
 from wattleflow.concrete.connection import (
     GenericConnection,
-    Operation,
     Settings,
 )
 from wattleflow.concrete.exception import ConnectionException
@@ -38,16 +37,20 @@ from wattleflow.constants.keys import (
 
 
 class PostgresConnection(GenericConnection):
+    _engine: Optional[Engine] = None
     _apilevel: str = "<apilevel>"
     _driver: str = "<driver>"
     _version: str = "<version>"
     _publisher: str = "<publisher>"
     _database: str = "<database>"
-    _connection: Optional[Connection] = None
 
-    def __init__(self, strategy_audit: IStrategy, **configuration):
-        self._engine: Optional[Engine] = None
-        super().__init__(strategy_audit, **configuration)
+    def __init__(
+        self,
+        level: int = ERROR,
+        handler: Optional[Handler] = None,
+        **configuration,
+    ):
+        GenericConnection.__init__(self, level=level, handler=handler, **configuration)
 
     @property
     def engine(self) -> Engine:
@@ -63,7 +66,7 @@ class PostgresConnection(GenericConnection):
             KEY_USER,
             KEY_PUBLISHER,
         ]
-
+        self.debug(msg="create_connection", allowed=allowed)
         self._config = Settings(allowed=allowed, **configuration)
         uri = "postgresql://{}:{}@{}:{}/{}".format(
             self._config.user,
@@ -72,28 +75,22 @@ class PostgresConnection(GenericConnection):
             self._config.port,
             self._config.database,
         )
+        self.debug(msg=Event.Authenticating.value, allowed=allowed)
         self._engine = create_engine(uri)
         self._driver = self._engine.driver
         self._apilevel = self._engine.dialect.dbapi.apilevel
         self._publisher = self._config.publisher
-
-        self.audit(
-            owner=self,
-            event=Event.Authenticating,
+        self.debug(
+            msg=Event.Authenticated.value,
             engine=str(self._engine),
             apilevel=str(self._apilevel),
             driver=self._driver,
-            level=4,
         )
 
     def clone(self) -> GenericConnection:
-        return PostgresConnection(self._strategy_audit, self._settings)
-
-    def operation(self, action: Operation) -> bool:
-        if action == Operation.Connect:
-            self.connect()
-        else:
-            self.disconnect()
+        return PostgresConnection(
+            level=self._level, handler=self._handler, **self._settings
+        )
 
     @contextmanager
     def connect(self) -> Generator[GenericConnection, None, None]:
@@ -101,22 +98,29 @@ class PostgresConnection(GenericConnection):
             return self
 
         try:
-            self.audit(
-                owner=self,
-                event=Event.Connecting,
-                status=Event.Authenticating,
-                level=4,
+            self.debug(
+                msg=Event.Connecting.value,
+                status=Event.Authenticating.value,
             )
 
             self._connection = self._engine.connect()
             self._connected = True
-
             result = self._connection.execute(text("SELECT version();"))
             self._version = result.scalar()
             self._driver = self._engine.driver
             self._apilevel = self._engine.dialect.dbapi.apilevel
             self._database = self._config.database
             self._privileges = self._config.user
+
+            self.info(
+                msg=Event.Connected.value,
+                db=self._database,
+                privilages=self._privileges,
+                api=self._apilevel,
+                driver=self._driver,
+                ver=self._version,
+            )
+
             yield self
         except Exception as e:
             raise ConnectionException(
@@ -126,19 +130,15 @@ class PostgresConnection(GenericConnection):
             self.disconnect()
 
     def disconnect(self):
+        self.debug(msg=Event.Disconnecting.value, connected=self._connected)
         if self._connection:
             self._connection.close()
             self._connection = None
             self._connected = False
-
-            self.audit(
-                owner=self,
-                event=Event.Disconnected,
-                connected=self._connected,
-                level=3,
-            )
+            self.debug(msg=Event.Disconnected.value, connected=self._connected)
 
     def __del__(self):
+        self.debug(msg="__del__")
         if self._connection:
             self._connection.close()
             self._connection = None
@@ -153,6 +153,6 @@ class PostgresConnection(GenericConnection):
         conn << [
             f"{k}: {v}"
             for k, v in self.__dict__.items()
-            if k.lower() not in ["_strategy_audit", "password", "framework"]
+            if k.lower() not in ["password", "framework"]
         ]
         return f"{conn}"

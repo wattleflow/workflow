@@ -5,16 +5,16 @@
 # License: Apache 2 Licence
 
 from abc import abstractmethod, ABC
+from logging import Handler, NOTSET
 from typing import Dict, Generator, Optional
 from wattleflow.core import (
-    IStrategy,
     IObservable,
     IObserver,
     IPrototype,
     IFacade,
 )
-from wattleflow.concrete import Attribute
-from wattleflow.constants import Operation
+from wattleflow.concrete import Attribute, AuditLogger
+from wattleflow.constants import Event, Operation
 
 
 """
@@ -66,6 +66,7 @@ class Settings(Attribute):
 
 class ConnectionObserverInterface(IObservable):
     def __init__(self):
+        IObservable.__init__(self)
         self._observers: Dict[str, IObserver] = {}
 
     def subscribe(self, observer: IObserver) -> None:
@@ -78,18 +79,33 @@ class ConnectionObserverInterface(IObservable):
 
 
 class GenericConnection(
-    IFacade, IPrototype, Attribute, ConnectionObserverInterface, ABC
+    IFacade,
+    IPrototype,
+    Attribute,
+    AuditLogger,
+    ConnectionObserverInterface,
+    ABC,
 ):
     _name: str = None
     _config: Settings = None
     _connection: Optional[object] = None
     _connected: bool = False
+    _level: int = NOTSET
+    _handler: Optional[Handler] = None
 
-    def __init__(self, strategy_audit: IStrategy, **configuration):
-        super().__init__()
-        self.evaluate(strategy_audit, IStrategy)
-        self._strategy_audit = strategy_audit
+    def __init__(
+        self,
+        level: int,
+        handler: Optional[Handler] = None,
+        **configuration,
+    ):
+        IFacade.__init__(self)
+        ConnectionObserverInterface.__init__(self)
+        AuditLogger.__init__(self, level=level, handler=handler)
+        self._level = level
+        self._handler = handler
         self.create_connection(**configuration)
+        self.debug(msg=Event.Constructor.value)
 
     @property
     def connected(self) -> bool:
@@ -101,10 +117,9 @@ class GenericConnection(
             return self._connection
         return None
 
-    def audit(self, event, **kwargs) -> None:
-        self._strategy_audit.generate(caller=self, event=event, **kwargs)
-
     def operation(self, action: Operation) -> bool:
+        self.debug(msg="operation", action=action.value)
+
         if action == Operation.Connect:
             return self.connect()
         elif action == Operation.Disconnect:
@@ -117,10 +132,12 @@ class GenericConnection(
             )
 
     def __enter__(self):
+        self.debug(msg="__enter__")
         self.connect()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        self.debug(msg="__exit__")
         self.disconnect()
 
     @abstractmethod
@@ -132,7 +149,7 @@ class GenericConnection(
         pass
 
     @abstractmethod
-    def connect(self) -> Generator['GenericConnection', None, None]:
+    def connect(self) -> Generator["GenericConnection", None, None]:
         pass
 
     @abstractmethod

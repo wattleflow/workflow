@@ -32,11 +32,17 @@ class ImageToTextProcessor(GenericProcessor[DocumentFacade]):
         pipelines: IPipeline,
         level: int = INFO,
         handler: Optional[Handler] = None,
-        **kwargs
+        **kwargs,
     ):
-        GenericProcessor.__init__(self, blackboard, pipelines, level=level, handler=handler, **kwargs)
+        GenericProcessor.__init__(
+            self, blackboard, pipelines, level=level, handler=handler, **kwargs
+        )
 
-        mask = "**{}{}".format(os.path.sep, self.pattern) if self.recursive else self.pattern
+        mask = (
+            "**{}{}".format(os.path.sep, self.pattern)
+            if self.recursive
+            else self.pattern
+        )
         self._search_path = os.path.join(self.source_path, mask)
 
     def create_iterator(self) -> Generator[T, None, None]:
@@ -46,7 +52,7 @@ class ImageToTextProcessor(GenericProcessor[DocumentFacade]):
                 if os.access(file_path, os.R_OK) and os.stat(file_path).st_size > 0:
                     image = Image.open(file_path)
                     content = TextStream(
-                        pytesseract.image_to_string(image), 
+                        pytesseract.image_to_string(image),
                         macros=self.macros,
                     )
 

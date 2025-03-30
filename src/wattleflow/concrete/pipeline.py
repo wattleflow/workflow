@@ -57,7 +57,6 @@ class GenericPipeline(IPipeline, Attribute, AuditLogger, ABC):
     ):
         IPipeline.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
-
         self._allowed = allowed
         self.debug(msg="__init__", allowed=allowed)
         self.configure(**kwargs)
@@ -85,7 +84,8 @@ class GenericPipeline(IPipeline, Attribute, AuditLogger, ABC):
             raise ValueError(msg)
 
         self.debug(
-            msg="process", processor=processor.name, 
+            msg="process",
+            processor=processor.name,
             item=item.identifier if hasattr(item, "identifier") else "unknown",
-            kwargs=kwargs
+            kwargs=kwargs,
         )

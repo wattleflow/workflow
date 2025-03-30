@@ -32,8 +32,11 @@ class FileDocument(Document[str], AuditLogger):
         if path.exists(self.filename):
             self.update_metadata()
         else:
-            self.warning(f"Cannot refresh metadata: {self.filename} does not exist.")
-            # print(f"[WARNING] Cannot refresh metadata: {self.filename} does not exist.")
+            self.warning(
+                msg="Cannot refresh metadata.",
+                filename=self.filename,
+                error="File does not exist.",
+            )
 
     def update_filename(self, filename):
         self._filename = filename
@@ -41,10 +44,11 @@ class FileDocument(Document[str], AuditLogger):
 
     def update_metadata(self) -> None:
         if not path.exists(self.filename):
-            self.warning(f"File does not exist yet: {self.filename}. Metadata will be empty.")
-            # print(
-            #     f"[WARNING] File does not exist yet: {self.filename}. Metadata will be empty."
-            # )
+            self.warning(
+                msg="File does not exist yet.",
+                filename=self.filename,
+                error="Metadata will be empty.",
+            )
             return
 
         try:
@@ -59,15 +63,20 @@ class FileDocument(Document[str], AuditLogger):
                 "gid": stats.st_gid,
             }
         except FileNotFoundError:
-            self.error(f"File not found: {self.filename}. Metadata will remain empty.")
-            # print(
-            #     f"[ERROR] File not found: {self.filename}. Metadata will remain empty."
-            # )
+            self.error(
+                msg="File not found!",
+                filename=self.filename,
+                error="Metadata will remain empty.",
+            )
         except PermissionError:
-            self.error(f"[ERROR] Permission denied for file: {self.filename}. Cannot retrieve metadata.")
-            # print(
-            #     f"[ERROR] Permission denied for file: {self.filename}. Cannot retrieve metadata."
-            # )
+            self.error(
+                msg="Permission denied for file.",
+                filename=self.filename,
+                error="Cannot retrieve metadata.",
+            )
         except Exception as e:
-            self.error("Unexpected error while accessing {self.filename}: {e}")
-            # print(f"[ERROR] Unexpected error while accessing {self.filename}: {e}")
+            self.error(
+                msg="Unexpected error while accessing file.",
+                file=self.filename,
+                error=str(e),
+            )

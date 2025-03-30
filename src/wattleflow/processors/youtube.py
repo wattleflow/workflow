@@ -6,7 +6,7 @@
 
 import re
 from typing import Generator, Optional
-from logging import Handler, INFO, DEBUG
+from logging import Handler, ERROR
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import (
     CouldNotRetrieveTranscript,
@@ -40,13 +40,9 @@ class YoutubeTranscriptProcessor(GenericProcessor[DocumentFacade]):
         self,
         blackboard,
         pipelines,
-        level: int = INFO,
+        level: int = ERROR,
         handler: Optional[Handler] = None,
-        **kwargs
-        # storage_path: str,
-        # videos: list,
-        # level: int = INFO,
-        # handler: Optional[Handler] = None,
+        **kwargs,
     ):
         GenericProcessor.__init__(
             self,
@@ -54,7 +50,7 @@ class YoutubeTranscriptProcessor(GenericProcessor[DocumentFacade]):
             pipelines=pipelines,
             level=level,
             handler=handler,
-            **kwargs
+            **kwargs,
         )
 
         self._storage_path = self.storage_path

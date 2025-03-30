@@ -12,10 +12,11 @@
 #   pip install paramiko
 # --------------------------------------------------------------------------- #
 
+from logging import Handler, NOTSET
 import paramiko
 from paramiko import AutoAddPolicy
 from contextlib import contextmanager
-from typing import Generator
+from typing import Generator, Optional
 
 from wattleflow.concrete import GenericConnection, SFTPConnectionError
 from wattleflow.concrete.connection import Settings
@@ -36,9 +37,15 @@ from wattleflow.helpers import TextStream
 
 
 class SFTParamiko(GenericConnection):
-    def __init__(self, strategy_audit, **settings):
-        super().__init__(strategy_audit, **settings)
+    def __init__(
+        self,
+        level: int = NOTSET,
+        handler: Optional[Handler] = None,
+        **configuration,
+    ):
+        GenericConnection.__init__(self, level=level, handler=handler, **configuration)
         self._client = paramiko.SSHClient()
+        self.debug(msg=Event.Constructor.value)
 
     def create_connection(self, **settings):
         allowed = [
@@ -54,35 +61,40 @@ class SFTParamiko(GenericConnection):
             KEY_COMPRESS,
         ]
         self._config = Settings(allowed=allowed, **settings)
-        self.audit(
-            owner=self,
-            event=Event.Configuring,
+        self.debug(
+            msg=Event.Configuring.value,
             connected=self._connected,
-            level=4,
         )
 
     def clone(self) -> object:
-        return SFTParamiko(self._strategy_audit, **self._config.todict())
+        self.debug(msg="clone")
+        return SFTParamiko(
+            level=self._level,
+            handler=self._handler,
+            **self._config.todict(),
+        )
 
     def operation(self, action: Operation) -> bool:
+        self.debug(msg=action.value)
         if action == Operation.Connect:
             return self.connect()
         elif action == Operation.Disconnect:
             self.disconnect()
         else:
-            raise UserWarning("Unknown operation")
+            error = "Unknown operation"
+            self.warning(msg=error)
+            raise UserWarning(error)
 
     @contextmanager
     def connect(self) -> Generator[GenericConnection, None, None]:
+        self.debug(msg=Event.Connect)
         if self._connected:
             return self
 
         try:
-            self.audit(
-                owner=self,
-                event=Event.Authenticate,
-                status=Event.Authenticating,
-                level=4,
+            self.debug(
+                msg=Event.Authenticate.value,
+                status=Event.Authenticating.value,
             )
 
             self._client.set_missing_host_key_policy(AutoAddPolicy())
@@ -98,11 +110,9 @@ class SFTParamiko(GenericConnection):
             self._connection = self._client.open_sftp()
             self._connected = True
 
-            self.audit(
-                owner=self,
-                event=Event.Connected,
+            self.info(
+                msg=Event.Connected.value,
                 connected=self._connected,
-                level=3,
             )
             yield self
         except paramiko.AuthenticationException as e:
@@ -124,11 +134,9 @@ class SFTParamiko(GenericConnection):
 
     def disconnect(self):
         if not self._connected:
-            self.audit(
-                owner=self,
-                event=Event.Disconnected,
+            self.debug(
+                msg=Event.Disconnected.value,
                 connected=self._connected,
-                level=3,
             )
             return
 
@@ -138,11 +146,9 @@ class SFTParamiko(GenericConnection):
         self._client.close()
         self._connected = False
 
-        self.audit(
-            owner=self,
-            event=Event.Disconnected,
+        self.debug(
+            msg=Event.Disconnected.value,
             connected=self._connected,
-            level=3,
         )
 
     def __str__(self) -> str:
@@ -150,6 +156,6 @@ class SFTParamiko(GenericConnection):
         conn << [
             f"{k}: {v}"
             for k, v in self.__dict__.items()
-            if k.lower() not in ["_strategy_audit", "password", "framework"]
+            if k.lower() not in ["password", "framework"]
         ]
         return f"{conn}"

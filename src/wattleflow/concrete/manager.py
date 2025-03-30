@@ -26,36 +26,37 @@
     - Expected to allow the manager to react to external events in future extensions.
 """
 
-from typing import Dict
-from wattleflow.core import IObserver, IStrategy
-from wattleflow.concrete.attribute import Attribute
-from wattleflow.concrete.connection import (
+from logging import Handler, INFO
+from typing import Dict, Optional
+from wattleflow.core import IObserver
+from wattleflow.concrete import (
+    Attribute,
+    AuditLogger,
     GenericConnection,
-    Operation,
 )
-from wattleflow.constants.enums import Event
+from wattleflow.constants import Event, Operation
 
 
-class ConnectionManager(IObserver, Attribute):
-    def __init__(self, strategy_audit: IStrategy):
-        super().__init__()
-        self.evaluate(strategy_audit, IStrategy)
-        self._strategy_audit = strategy_audit
+class ConnectionManager(IObserver, Attribute, AuditLogger):
+    def __init__(self, level: int = INFO, handler: Optional[Handler] = None):
+        IObserver.__init__(self)
+        AuditLogger.__init__(self, level=level, handler=handler)
         self._connections: Dict[str, IObserver] = {}
-
-    def audit(self, event, **kwargs):
-        self._strategy_audit.generate(owner=self, caller=self, event=event, **kwargs)
+        self.debug(msg=Event.Constructor.value, level=level)
 
     def connect(self, name: str) -> object:
+        self.debug(msg=Event.Connecting.value, name=name)
         self.operation(name, Operation.Connect)
+        self.info(msg=Event.Connected.value, name=name)
         return self._connections[name]
 
     def disconnect(self, name: str) -> bool:
         try:
             success = self.operation(name, Operation.Disconnect)
+            self.info(msg=Event.Disconnected.value, name=name)
             return self._connections[name]._connected if success else False
         except Exception as e:
-            print(f"[ERROR] Failed to disconnect {name}: {e}")
+            self.error(msg="Failed to disconnect!", name=name, error=str(e))
             return False
 
     def get_connection(self, name: str) -> GenericConnection:
@@ -64,11 +65,13 @@ class ConnectionManager(IObserver, Attribute):
         return self._connections[name]
 
     def register_connection(self, name: str, connection: GenericConnection) -> None:
-        self.audit(event=Event.Registering, name=name)
+        self.debug(msg=Event.Registering.value, name=name)
 
         if name in self._connections:
-            print(
-                f"[WARNING] Connection '{name}' is already registered. Skipping registration."
+            self.warning(
+                "Connection is already registered.",
+                name=name,
+                desc="Skipping registration.",
             )
             return
 
@@ -78,8 +81,8 @@ class ConnectionManager(IObserver, Attribute):
         if name in self._connections:
             del self._connections[name]
         else:
-            print(
-                f"[WARNING] Attempted to unregister a non-existent connection: {name}"
+            self.warning(
+                msg="Trying to unregister a non-existent connection", name=name
             )
 
     def operation(self, name: str, action: Operation) -> bool:
