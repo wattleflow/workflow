@@ -1,6 +1,7 @@
 from .config import Mapper, Config
 from .dictionaries import AttributeDict, Dictionary
 from .macros import TextMacros
+from .pathadder import show_paths, override_paths
 from .streams import TextStream, TextListStream
 from .system import (
     CheckPath,
@@ -25,4 +26,6 @@ __all__ = [
     "TextListStream",
     "TextMacros",
     "TextStream",
+    "show_paths",
+    "override_paths",
 ]

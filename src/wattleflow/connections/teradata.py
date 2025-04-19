@@ -1,29 +1,17 @@
-# Module Name: connection/postgress_alchemy.py
+# Module Name: connection/teradata.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains concrete postgres connection class.
+# Description: This modul contains concrete taradata databse connection class.
 
-
-# --------------------------------------------------------------------------- #
-# IMPORTANT:
-# This connection requires the SQLAlchemy library.
-# The library is used for the connection with a postgres server.
-#   pip install SQLAlchemy
-# --------------------------------------------------------------------------- #
-
-from typing import Optional, Generator
 from logging import Handler, NOTSET
 from contextlib import contextmanager
-from sqlalchemy import create_engine, text
+from typing import Generator, Optional
+from sqlalchemy import create_engine
 from sqlalchemy.engine.base import Engine
-from wattleflow.concrete.connection import (
-    GenericConnection,
-    Settings,
-)
-from wattleflow.concrete.exception import ConnectionException
-from wattleflow.helpers.streams import TextStream
-from wattleflow.constants.enums import Event
+from wattleflow.concrete import GenericConnection, Settings, ConnectionException
+from wattleflow.constants import Event
+from wattleflow.helpers import TextStream
 from wattleflow.constants.keys import (
     KEY_NAME,
     KEY_DATABASE,
@@ -32,11 +20,10 @@ from wattleflow.constants.keys import (
     KEY_PORT,
     KEY_USER,
     KEY_PUBLISHER,
-    # KEY_SCHEMA,
 )
 
 
-class PostgresConnection(GenericConnection):
+class TeradataConnection(GenericConnection):
     _engine: Optional[Engine] = None
     _apilevel: str = "<apilevel>"
     _driver: str = "<driver>"
@@ -68,7 +55,7 @@ class PostgresConnection(GenericConnection):
         ]
         self.debug(msg="create_connection", allowed=allowed)
         self._config = Settings(allowed=allowed, **configuration)
-        uri = "postgresql://{}:{}@{}:{}/{}".format(
+        uri = "teradata://{}:{}@{}:{}/{}".format(
             self._config.user,
             self._config.password,
             self._config.host,
@@ -88,7 +75,7 @@ class PostgresConnection(GenericConnection):
         )
 
     def clone(self) -> GenericConnection:
-        return PostgresConnection(
+        return TeradataConnection(
             level=self._level, handler=self._handler, **self._settings
         )
 
@@ -105,7 +92,7 @@ class PostgresConnection(GenericConnection):
 
             self._connection = self._engine.connect()
             self._connected = True
-            result = self._connection.execute(text("SELECT version();"))
+            result = self._connection.execute(str("SELECT * FROM dbc.dbcinfo;"))
             self._version = result.scalar()
             self._driver = self._engine.driver
             self._apilevel = self._engine.dialect.dbapi.apilevel

@@ -5,48 +5,59 @@
 # Description: This modul contains processor for handling postgres records.
 
 import pandas as pd
+from logging import Handler, NOTSET
+from typing import Generator, Optional
 from uuid import uuid4
-from typing import Generator
-from wattleflow.core import IBlackboard, IStrategy
+from wattleflow.core import IBlackboard, T
 from wattleflow.concrete import DocumentFacade, GenericProcessor, ConnectionManager
-from wattleflow.concrete.processor import T
+from wattleflow.constants import Event
 
 
 class PostgresReadProcessor(GenericProcessor[DocumentFacade]):
     def __init__(
         self,
-        strategy_audit: IStrategy,
         blackboard: IBlackboard,
         pipelines: list,
         queries: list,
         manager: ConnectionManager,
         connection_name: str,
+        level: int = NOTSET,
+        handler: Optional[Handler] = None,
     ):
-        super().__init__(
-            strategy_audit=strategy_audit,
+        GenericProcessor.__init__(
+            self,
             blackboard=blackboard,
             pipelines=pipelines,
             queries=queries,
             manager=manager,
             connection_name=connection_name,
+            level=level,
+            handler=handler,
         )
         self._current = None
         self._queries: list = queries
         self._manager: ConnectionManager = manager
         self._connection_name = connection_name
-        self._iterator = self.create_iterator()
+        self.debug(
+            msg=Event.Constructor.value,
+            queries=len(queries),
+            connection=self._connection_name,
+        )
 
     def _read_data(self, sql):
+        self.debug(msg="_read_data", sql=sql)
         with self._manager.get_connection(self._connection_name) as db:
             with db.connect():
+                self.debug(msg=Event.Retrieving.value, connection=self._connection_name)
                 return pd.read_sql_query(sql, db.connection)
 
     def create_iterator(self) -> Generator[T, None, None]:
+        self.debug(msg=Event.Iterating.value)
         for sql in self._queries:
             data = self._read_data(sql)
-            item = self.blackboard.create(
+            self.info(msg=Event.Iterating.value, sql=sql)
+            yield self.blackboard.create(
                 processor=self,
                 filename=str(uuid4()),
                 content=data.to_dict(),
             )
-            yield item
