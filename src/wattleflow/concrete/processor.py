@@ -70,6 +70,14 @@ class GenericProcessor(IProcessor[T], Attribute, AuditLogger, ABC):
         IProcessor.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
 
+        self.debug(
+            msg=Event.Constructor.value,
+            blackboard=blackboard.name,
+            pipelines=[p.name for p in pipelines],
+            allowed=allowed,
+            **kwargs
+        )
+
         self.evaluate(pipelines, list)
 
         if not len(pipelines) > 0:
@@ -83,14 +91,6 @@ class GenericProcessor(IProcessor[T], Attribute, AuditLogger, ABC):
         self._blackboard = blackboard
         self._pipelines = pipelines
         self._allowed = allowed
-
-        self.debug(
-            msg=Event.Constructor.value,
-            blackboard=self._blackboard.name,
-            pipelines=[p.name for p in self._pipelines],
-            allowed=allowed,
-            **kwargs
-        )
 
         self.configure(**kwargs)
 
@@ -119,6 +119,7 @@ class GenericProcessor(IProcessor[T], Attribute, AuditLogger, ABC):
 
     def configure(self, **kwargs):
         if not self.allowed(self._allowed, **kwargs):
+            self.debug("Properties are not allowed.")
             return
 
         for name, value in kwargs.items():
@@ -126,7 +127,7 @@ class GenericProcessor(IProcessor[T], Attribute, AuditLogger, ABC):
                 self.push(name, value)
                 self.debug(msg=Event.Configuring.value, name=name, value=value)
             else:
-                error = f"Restricted type: {_NC(value)}.{name}. [bool, dict, list, str]"
+                error = f"Restricted properties found: {_NC(value)}.{name}. [bool, dict, list, str]"
                 self.error(msg=error, name=name)
                 raise AttributeError(error)
 

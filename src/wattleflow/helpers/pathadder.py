@@ -1,5 +1,5 @@
-# Module Name: name helpers/search.py
-# Description: This modul contains concrete pathadder methods.
+# Module Name: name pathadder.py
+# Description: This modul contains pathadder methods.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
@@ -22,13 +22,13 @@ show_paths()
 """
 
 
-def get_source_path():
-    source_path = os.getenv("SOURCE_PATH", "src/wattleflow/core/_version.py")
+def get_source_path(path: str):
+    source_path = os.getenv("SOURCE_PATH", path)
     return source_path
 
 
-def override_paths(show=False):
-    search_path = get_source_path()
+def override_paths(show=False, path: str = "."):
+    search_path = get_source_path(path)
 
     to_search = sys.path[:]
 
@@ -62,8 +62,3 @@ def override_paths(show=False):
 def show_paths():
     for p in sys.path:
         print(p)
-
-
-# if __name__ == "__main__":
-#     override_paths()
-#     show_paths()

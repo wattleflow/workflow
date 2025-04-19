@@ -87,11 +87,6 @@ class DocumentAdapter(Generic[U], IAdapter):
             raise TypeError("IAdaptee must be used.")
         super().__init__(adaptee)
 
-    # def __init__(self, adaptee: U):
-    #     if not isinstance(adaptee, IAdaptee):
-    #         raise TypeError("IAdaptee must be used.")
-    #     super(DocumentAdapter, self).__init__(adaptee)  # Explicitly calls parent constructor
-
     def request(self):
         return self._adaptee.specific_request()
 

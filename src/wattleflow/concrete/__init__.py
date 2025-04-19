@@ -6,7 +6,7 @@ from .attribute import (
     _NC
 )
 from .logger import AuditLogger, AsyncHandler
-from .blackboard import GenericBlackboard
+from .blackboard import GenericBlackboard, GenericBlackboardRW
 from .collection import DequeList
 from .connection import (
     Settings,
@@ -63,6 +63,7 @@ __all__ = [
     "StrategyClassLoader",
     "ClassLoader",
     "GenericBlackboard",
+    "GenericBlackboardRW",
     "DequeList",
     "Settings",
     "ConnectionObserverInterface",

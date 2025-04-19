@@ -40,6 +40,8 @@ class YoutubeTranscriptProcessor(GenericProcessor[DocumentFacade]):
         self,
         blackboard,
         pipelines,
+        storage_path: str,
+        videos: list,
         level: int = ERROR,
         handler: Optional[Handler] = None,
         **kwargs,
@@ -50,22 +52,21 @@ class YoutubeTranscriptProcessor(GenericProcessor[DocumentFacade]):
             pipelines=pipelines,
             level=level,
             handler=handler,
-            **kwargs,
+            allowed=["storage_path", "videos"],
+            storage_path=storage_path,
+            videos=videos,
         )
-
-        self._storage_path = self.storage_path
-        self._videos = self.videos
-
-        if not len(self.videos) > 0:
-            error = "Missing youtube video list."
-            self.warning(msg=error)
-            raise ValueError(error)
 
         self.debug(
             msg=Event.Initialised.value,
             storage_path=self.storage_path,
             videos=self.videos,
         )
+
+        if not len(self.videos) > 0:
+            error = "Missing youtube video list."
+            self.warning(msg=error)
+            raise ValueError(error)
 
     def __get_video_id(self, uri):
         match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11})", uri)
@@ -125,7 +126,7 @@ class YoutubeTranscriptProcessor(GenericProcessor[DocumentFacade]):
             raise Exception(e)
 
     def create_iterator(self) -> Generator[T, None, None]:
-        for url in self._videos:
+        for url in self.videos:
             self.debug(msg=Event.Iterating.value, url=url)
             video_id = self.__get_video_id(url)
             try:

@@ -8,24 +8,61 @@ import re
 
 
 class TextMacros:
-    def __init__(self, macros=[]):
+    """
+    Usage example:
+        import yaml
+
+        yaml_data = \"""
+        macros:
+            - pattern: '\\\\S+@\\\\S+'
+            replacement: ''
+        \"""
+
+        macros_data = yaml.safe_load(yaml_data)['macros']
+        self.text_macros = TextMacros(macros_data)
+
+        # Create instance
+        text_macros = TextMacros(macros_data)
+
+        # Apply macro to text
+        text = "My email is example@example.com"
+        modified_text = text_macros.run(text)
+
+        print(modified_text)  # Expected output: "My email is "
+    """
+
+    def __init__(self, list_of_macros: list = []):
         self._macros = []
-        if macros is not None:
-            if not isinstance(macros, list):
-                raise TypeError(f"Expected list, got {type(macros).__name__}")
-            self.add(macros)
+        if list_of_macros is not None:
+            if not isinstance(list_of_macros, list):
+                raise TypeError(f"Expected list, found {type(list_of_macros).__name__}")
+            self.add(list_of_macros)
 
-    def add(self, macros: list):
-        for macro in macros:
-            if len(macro) == 2:
-                pattern, replacement = macro
-                pattern = re.compile(pattern)
-            elif len(macro) == 3:
-                pattern, replacement, flags = macro
-                pattern = re.compile(pattern, flags)
+    def add(self, list_of_macros: list):
+        for macro in list_of_macros:
+            if isinstance(macro, tuple):
+                if len(macro) == 2:
+                    pattern, replacement = macro
+                    pattern = re.compile(pattern)
+                elif len(macro) == 3:
+                    pattern, replacement, flags = macro
+                    pattern = re.compile(pattern, flags)
+                else:
+                    raise ValueError(
+                        "Tuple macro must be: (pattern, replacement) or (pattern, replacement, flags)."
+                    )
+            elif isinstance(macro, dict):
+                if "pattern" in macro and "replacement" in macro:
+                    pattern = macro["pattern"]
+                    replacement = macro["replacement"]
+                    flags = macro.get("flags", 0)
+                    pattern = re.compile(pattern, flags)
+                else:
+                    raise ValueError(
+                        "Dict macro must contain 'pattern' and 'replacement'."
+                    )
             else:
-                raise ValueError("Macro must be: (pattern, replacement and flags).")
-
+                raise ValueError("Macro must be either a tuple or a dict.")
             self._macros.append((pattern, replacement))
 
     def run(self, text):

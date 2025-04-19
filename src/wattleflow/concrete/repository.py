@@ -38,7 +38,7 @@
 from abc import ABC
 from logging import Handler, NOTSET
 from typing import Optional
-from wattleflow.core import IStrategy, ITarget, IPipeline, IRepository, T
+from wattleflow.core import IBlackboard, IStrategy, ITarget, IPipeline, IRepository, T
 from wattleflow.constants.enums import Event
 from wattleflow.concrete import Attribute, AuditLogger, _NC
 
@@ -92,11 +92,18 @@ class GenericRepository(IRepository, Attribute, AuditLogger, ABC):
                 self.error(msg=error, name=name)
                 raise AttributeError(error)
 
-    def read(self, identifier: str) -> T:
-        document = self._strategy_read.read(caller=self, id=identifier)
+    def read(self, identifier: str, item: ITarget, **kwargs) -> T:
+        self.debug("read", id=identifier, item=item.identifier, kwargs=kwargs)
+        self.evaluate(item, ITarget)
+
+        document = self._strategy_read.read(caller=self, item=item, identifier=identifier, **kwargs)
         self.evaluate(document, ITarget)
+
         self.info(
-            msg=Event.Retrieved.value, id=identifier, success=True, document=document
+            msg=Event.Retrieved.value,
+            id=item.identifier,
+            success=True,
+            document=document,
         )
         return document
 

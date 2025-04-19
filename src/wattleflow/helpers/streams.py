@@ -4,100 +4,72 @@
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
 
+
+from typing import Any, List
 from .macros import TextMacros
 
 
-class TextStream(str):
-    def __new__(cls, text="", macros=None):
-        obj = super().__new__(cls, text)
+class TextStream:
+    def __init__(self, text: str = "", list_of_macros: List = None):
+        if list_of_macros is None:
+            list_of_macros = []
+        self._macros = TextMacros(list_of_macros)
+        self._segments: List[str] = []
+        if text:
+            self.__append__(text)
 
-        obj._macros = TextMacros()
-        if macros is not None:
-            if not isinstance(macros, list):
-                raise TypeError(f"Wrong [list] type: {type(macros).__name__}.")
-            obj._macros.add(macros)
-        obj._content = ""
-        obj << text
-        return obj
+    def __add__(self, value: Any) -> "TextStream":
+        return self.__append__(value)
+
+    def __append__(self, value: Any) -> "TextStream":
+        if not value:
+            return self
+
+        if isinstance(value, (list, tuple)):
+            new_content = "\n".join(map(str, value)) + " "
+        elif isinstance(value, dict):
+            new_content = "\n".join(f"{k}: {v}" for k, v in value.items()) + " "
+        else:
+            new_content = f"{value} "
+
+        processed = self._macros.run(new_content)
+        self._segments.append(processed)
+        return self
+
+    def __lshift__(self, item: Any) -> "TextStream":
+        return self.__append__(item)
 
     @property
-    def size(self):
-        if not self._content:
-            return 0
-        return len(self._content.strip())
-
-    def __add__(self, text):
-        if not text:
-            return self
-
-        if isinstance(text, (list, tuple)):
-            new_content = "\n".join(map(str, text)) + " "
-        elif isinstance(text, dict):
-            new_content = "\n".join(f"{k}: {v}" for k, v in text.items()) + " "
-        else:
-            new_content = f"{text} "
-
-        self._content += self._macros.run(new_content)
-
-        return self._content
-
-    def __lshift__(self, item):
-        return self + item
-
-    def __repr__(self) -> str:
-        return f'TextStream(content:"{self._content}")'
-
-    def __str__(self) -> str:
-        return self._content.strip()
-
-    def clear(self):
-        self._content = ""
-
-
-class TextListStream(str):
-    def __new__(cls, text="", macros=None):
-        obj = super().__new__(cls, text)
-        obj._words = []
-        obj._macros = TextMacros()
-        if macros is not None:
-            if not isinstance(macros, list):
-                raise TypeError(f"Expected list, got {type(macros).__name__}")
-            obj.add(macros)
-        obj << text
-        return obj
-
-    def __add__(self, text):
-        if not text:
-            return self
-
-        if isinstance(text, (list, tuple)):
-            new_content = "\n".join(map(str, text)) + " "
-        elif isinstance(text, dict):
-            new_content = "\n".join(f"{k}: {v}" for k, v in text.items()) + " "
-        else:
-            new_content = f"{text} "
-
-        content = self._macros.run(new_content)
-
-        for word in content.split(" "):
-            word = word.strip()
-            if word not in self._words:
-                if not word == "":
-                    self._words.append(word)
-
-        return self._words
-
-    def __lshift__(self, text):
-        return self + text
-
-    def __str__(self) -> str:
-        if not len(self._words) > 0:
-            return ""
-        return "\n".join(self._words)
-
-    def __repr__(self) -> str:
-        return f'TextDictionaryStream("size:{self.size}, {self._words}")'
+    def content(self) -> str:
+        return "".join(self._segments)
 
     @property
     def size(self) -> int:
-        return len(self._words)
+        return len(self.content.strip())
+
+    def __str__(self) -> str:
+        return self.content.strip()
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.content!r})"
+
+    def clear(self) -> None:
+        self._segments.clear()
+
+
+class TextFileStream(TextStream):
+    def __init__(self, file_path: str = "", list_of_macros: List = None):
+        self.file_path = file_path
+
+        from os import path
+
+        if not path.exists(file_path):
+            raise FileNotFoundError("{}:{}".format(self.__class__.__name__, file_path))
+
+        with open(file_path, "r") as file:
+            content = file.read()
+
+        return super().__init__(content, list_of_macros)
+
+    def __repr__(self) -> str:
+        return f'TextFileStream(content:"{self._content}")'

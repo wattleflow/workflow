@@ -88,8 +88,8 @@ class StrategyCreate(GenericStrategy):
 
 
 class StrategyRead(GenericStrategy):
-    def read(self, pipeline: IPipeline, identifier: str, **kwargs) -> Optional[ITarget]:
-        return self.call(caller=pipeline, identifier=identifier, **kwargs)
+    def read(self, identifier: str, item: ITarget, **kwargs) -> Optional[ITarget]:
+        return self.call(identifier=identifier, item=item, **kwargs)
 
 
 class StrategyWrite(GenericStrategy):
@@ -106,6 +106,11 @@ class StrategyWrite(GenericStrategy):
         )
 
     def write(
-        self, pipeline: IPipeline, repository: IRepository, item, *args, **kwargs
+        self,
+        pipeline: IPipeline,
+        repository: IRepository,
+        item: ITarget,
+        *args,
+        **kwargs,
     ) -> bool:
         return self.call(pipeline, repository, item=item, **kwargs)
