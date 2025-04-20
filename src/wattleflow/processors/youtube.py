@@ -8,13 +8,6 @@ import re
 from typing import Generator, Optional
 from logging import Handler, ERROR
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import (
-    CouldNotRetrieveTranscript,
-    NotTranslatable,
-    NoTranscriptFound,
-    NoTranscriptAvailable,
-    TranscriptsDisabled,
-)
 from wattleflow.core import T
 from wattleflow.concrete import DocumentFacade, GenericProcessor
 from wattleflow.constants import Event
@@ -102,26 +95,6 @@ class YoutubeTranscriptProcessor(GenericProcessor[DocumentFacade]):
                 content=content,
             )
 
-        except CouldNotRetrieveTranscript as e:
-            raise TranscriptError(
-                reason="Transcript can not be retrieved.", error=str(e)
-            )
-        except NotTranslatable as e:
-            raise TranscriptError(
-                reason="This video transcript can't be translated.", error=str(e)
-            )
-        except NoTranscriptFound as e:
-            raise TranscriptError(
-                reason="Transcript is not found for this video.", error=str(e)
-            )
-        except TranscriptsDisabled as e:
-            raise TranscriptError(
-                reason="Transcripts are disabled for this video.", error=str(e)
-            )
-        except NoTranscriptAvailable as e:
-            raise TranscriptError(
-                reason="No transcript is available for this video.", error=str(e)
-            )
         except Exception as e:
             raise Exception(e)
 
