@@ -4,41 +4,10 @@
 # License: Apache 2 Licence
 # Description: This modul contains repository classes.
 
-"""
-1. Inheritance & Dependencies
-- Inherits from:
-    - IRepository: Defines the repository interface.
-    - Attribute: Provides dynamic attribute handling (evaluate, push, allowed).
-    - ABC: Enforces abstraction.
-- Depends on:
-    - IStrategy: Defines how reading (_strategy_read) and writing (_strategy_write) work.
-    - IPipeline: Passed to write() for processing.
-    - ITarget: Used for data validation in read().
-
-2. Core Responsibilities
-- Reading Data (read)
-    - Uses _strategy_read.read() to fetch a document.
-    - Ensures the returned document is of type ITarget.
-    - Uses audit(event=Event.Reading, id=identifier) for logging.
-
-- Writing Data (write)
-    - Uses _strategy_write.write() to store the data.
-    - Passes pipeline, self (repository), and item to _strategy_write.write().
-    - Increments _counter on each write operation.
-
-- Dynamic Configuration (configure)
-    - Uses allowed(self._allowed, **kwargs) to filter attributes.
-    - Restricts accepted types to bool, dict, list, str.
-    - Raises an AttributeError for invalid types.
-
-- Type Validation (evaluate)
-    - Ensures strategy_read and strategy_write are valid instances of IStrategy.
-    - Ensures the document returned by read() is an ITarget.
-"""
 from abc import ABC
 from logging import Handler, NOTSET
 from typing import Optional
-from wattleflow.core import IBlackboard, IStrategy, ITarget, IPipeline, IRepository, T
+from wattleflow.core import IStrategy, ITarget, IPipeline, IRepository, T
 from wattleflow.constants.enums import Event
 from wattleflow.concrete import Attribute, AuditLogger, _NC
 
@@ -93,13 +62,15 @@ class GenericRepository(IRepository, Attribute, AuditLogger, ABC):
                 raise AttributeError(error)
 
     def read(self, identifier: str, item: ITarget, **kwargs) -> T:
-        self.debug("read", id=identifier, item=item.identifier, kwargs=kwargs)
+        self.debug(Event.Reading.value, id=identifier, item=item.identifier, kwargs=kwargs)
         self.evaluate(item, ITarget)
 
-        document = self._strategy_read.read(caller=self, item=item, identifier=identifier, **kwargs)
+        document = self._strategy_read.read(
+            caller=self, item=item, identifier=identifier, **kwargs
+        )
         self.evaluate(document, ITarget)
 
-        self.info(
+        self.debug(
             msg=Event.Retrieved.value,
             id=item.identifier,
             success=True,
@@ -109,15 +80,17 @@ class GenericRepository(IRepository, Attribute, AuditLogger, ABC):
 
     def write(self, pipeline: IPipeline, item: T, **kwargs) -> bool:
         try:
+            self.evaluate(item, ITarget)
             self._counter += 1
-            self.info(
-                msg=Event.Writting.value,
+            self.debug(
+                msg=Event.Storing.value,
                 counter=self._counter,
+                id=item.identifier,
                 pipeline=pipeline.name,
                 item=item,
             )
             return self._strategy_write.write(pipeline, self, item=item, **kwargs)
         except Exception as e:
-            error = f"Write operation failed in {self.__class__.__name__}: {e}"
+            error = f"[{self.__class__.__name__}] Write strategy failed: {e}"
             self.exception(msg=error, counter=self._counter)
             raise RuntimeError(error)

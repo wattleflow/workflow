@@ -43,6 +43,7 @@ from wattleflow.concrete import Attribute, AuditLogger
 from wattleflow.concrete.strategy import StrategyCreate
 from wattleflow.constants import Event
 
+
 # Generic blackboard with write support to multiple repositories
 class GenericBlackboard(IBlackboard, Attribute, AuditLogger, Generic[T]):
     def __init__(
@@ -128,6 +129,7 @@ class GenericBlackboard(IBlackboard, Attribute, AuditLogger, Generic[T]):
 
         return identifier
 
+
 # Generic blackboard with only one repository and read and write from it
 class GenericBlackboardRW(IBlackboard, Attribute, AuditLogger, Generic[T]):
     def __init__(
@@ -188,10 +190,12 @@ class GenericBlackboardRW(IBlackboard, Attribute, AuditLogger, Generic[T]):
     def read(self, identifier: str) -> Optional[T]:
         self.info(msg=Event.Reading.value, identifier=identifier)
 
-        if not identifier in self.storage:
+        if identifier not in self.storage:
             raise ValueError(f"Item not found: {identifier}")
 
-        return self._repository.read(identifier=identifier, item=self.storage[identifier])
+        return self._repository.read(
+            identifier=identifier, item=self.storage[identifier]
+        )
 
     def register(self, repository: IRepository) -> None:
         self.evaluate(repository, IRepository)

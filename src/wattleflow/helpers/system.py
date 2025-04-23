@@ -60,7 +60,7 @@ class Project:
     ):
         path = os.path.abspath(file_path)
         parts = path.split(os.sep)
-        marker_parts = root_marker.split("/")
+        marker_parts = root_marker.split(os.path.sep)
 
         try:
             index = parts.index(marker_parts[0])

@@ -4,31 +4,6 @@
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
 
-"""
-1. Responsibilities
- - Configuration Loading
-    - Loads YAML files (load_settings())
-    - Stores settings in self._data
-    - Uses CheckPath() to validate paths.
-
-- Key-Based Configuration Lookup
-    - Implements find(section, key, name, default) to retrieve nested configuration values.
-
-- Dynamic Class Loading
-    - (Commented out) Uses ClassLoader to instantiate classes dynamically.
-
-- Decryption Handling
-    - Stores self.decrypt, which is supposed to handle securely decrypting values.
-
-Relies on:
-    - yaml: Loads the configuration file.
-    - CheckPath: Ensures file paths are valid.
-    - Project: Determines project root path.
-    - ClassLoader: Dynamically loads a decryption class.
-    - ERROR_MISSING_ATTRIBUTE: Used for error handling.
-    - Enum-Based Mapping (Mapper):
-        - Converts string-based configuration values into Enum types.
-"""
 
 import yaml
 from typing import Any, final, Union
@@ -63,7 +38,7 @@ class Mapper:
 
 @final
 class Config:
-    def __init__(self, config_file: str, check_key_exist: bool = False):
+    def __init__(self, config_file: str):
         self.config_file = config_file
         self._key_filename = None
         self._data = None
@@ -79,12 +54,13 @@ class Config:
         except yaml.YAMLError as e:
             raise ValueError(f"Invalid YAML file: {self.config_file}. Error: {e}")
 
-        self._key_filename = self.get(
-            section=KEY_SECTION_PROJECT, key=KEY_STRATEGY, name=KEY_SSH_KEY_FILENAME
+        self._key_filename = self.find(
+            KEY_SECTION_PROJECT, KEY_STRATEGY, KEY_SSH_KEY_FILENAME
         )
+        class_name = self.find(KEY_SECTION_PROJECT, KEY_STRATEGY, KEY_CLASS_NAME)
 
-        if not self._key_filename:
-            raise ValueError("Config._key_filename not given.")
+        if not self._key_filename or not self.class_name:
+            return
 
         # lazy loading (to avoid circular import)
         from wattleflow.helpers import LocalPath
@@ -93,10 +69,6 @@ class Config:
             return FileNotFoundError(
                 f"Config._key_filename not found: {self._key_filename}"
             )
-
-        class_name = self.get(
-            section=KEY_SECTION_PROJECT, key=KEY_STRATEGY, name=KEY_CLASS_NAME
-        )
 
         self._strategy = ClassLoader(
             class_path=class_name, key_filename=self._key_filename

@@ -49,6 +49,7 @@ from wattleflow.constants.enums import Event
 from wattleflow.helpers.functions import _NC
 
 
+# TODO: Add metrics
 class GenericProcessor(IProcessor[T], Attribute, AuditLogger, ABC):
     _expected_type: Type[T] = T
     _cycle: int = 0
@@ -75,7 +76,7 @@ class GenericProcessor(IProcessor[T], Attribute, AuditLogger, ABC):
             blackboard=blackboard.name,
             pipelines=[p.name for p in pipelines],
             allowed=allowed,
-            **kwargs
+            **kwargs,
         )
 
         self.evaluate(pipelines, list)
@@ -141,7 +142,9 @@ class GenericProcessor(IProcessor[T], Attribute, AuditLogger, ABC):
         try:
             for item in self:
                 for pipeline in self._pipelines:
-                    self.debug(msg=Event.ProcessingTask.value, item=item, pipeline=pipeline)
+                    self.debug(
+                        msg=Event.ProcessingTask.value, item=item, pipeline=pipeline
+                    )
                     pipeline.process(processor=self, item=item)
         except StopIteration:
             self.debug(msg="Stopping iteration")

@@ -40,43 +40,6 @@ from logging import Formatter, getLogger, Handler, Logger, StreamHandler, NOTSET
 from wattleflow.core import ILogger, ISingleton
 
 
-"""
-from asyncio import Queue
-from queue import Queue
-from concurrent.futures import ThreadPoolExecutor
-from logging.handlers import MemoryHandler # QueueHandler, QueueListener, SysLogHandler
-class AuditHandler(Handler):
-    def __init__(self, target_handler, capacity=10):
-        super().__init__()
-        self.memory_handler = MemoryHandler(capacity=capacity, target=target_handler)
-
-    def emit(self, record):
-        self.memory_handler.emit(record)
-
-class AuditLogger:
-    def __init__(self, name: str, level: int):
-        super().__init__(name, level)
-        self._observers = []
-
-    def add_observer(self, observer: IObserver):
-        self._observers.append(observer)
-
-    def remove_observer(self, observer: IObserver):
-        self._observers.remove(observer)
-
-    def notify_observers(self):
-        for observer in self._observers:
-            observer.update(self)
-
-    def log(self, level, msg, *args, **kwargs):
-        super().log(level, msg, *args, **kwargs)
-        self.notify_observers()
-
-    def get_message(self):
-        return "Log message"
-"""
-
-
 class AsyncHandler(Handler):
     def __init__(self, queue):
         super().__init__()
@@ -90,10 +53,15 @@ class AsyncHandler(Handler):
 
 
 class AuditLogger(ISingleton, ILogger, ABC):
-    _logger: Optional[Logger] = None
+    _logger = None
     _level: int = NOTSET
 
-    def __init__(self, level: int, handler: Optional[Handler] = None):
+    def __init__(
+        self,
+        level: int,
+        logger: Optional[Logger] = None,
+        handler: Optional[Handler] = None,
+    ):
         ISingleton.__init__(self)
         if (
             hasattr(self, "_instances")
@@ -103,8 +71,10 @@ class AuditLogger(ISingleton, ILogger, ABC):
             return
 
         self._level = level
-        self._logger = getLogger(f"[{self.__class__.__name__}]")
-        self._logger.setLevel(self._level)
+
+        if not logger:
+            self._logger = getLogger(f"[{self.__class__.__name__}]")
+            self._logger.setLevel(self._level)
 
         if not handler:
             handler = StreamHandler()
@@ -158,6 +128,6 @@ class AuditLogger(ISingleton, ILogger, ABC):
 
     def subscribe(self, subscriber):
         if not isinstance(subscriber, Handler):
-            raise TypeError("Only Hanler can be subscriber.")
+            raise TypeError('Can subscribe only "Handler" class.')
 
         self._logger.addHandler(subscriber)
