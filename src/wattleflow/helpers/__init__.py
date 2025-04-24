@@ -3,7 +3,7 @@ from .config import Mapper, Config
 from .configuration import Configuration, Preset
 from .dictionaries import AttributeDict, Dictionary
 from .macros import TextMacros
-from .models import DownloadedModels, StoredModels
+from .localmodels import DownloadedModels, StoredModels
 from .pathadder import show_paths, override_paths
 from .streams import TextStream, TextFileStream
 from .system import (
