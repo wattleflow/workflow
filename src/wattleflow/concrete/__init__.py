@@ -40,7 +40,7 @@ from .exception import (
 from .manager import ConnectionManager
 from .memento import MementoClass, ObservableClass
 from .orchestrator import Orchestrator
-from .pipeline import GenericPipeline
+from .pipeline import GenericPipeline, GenericPipelineWithPreset
 from .processor import GenericProcessor
 from .repository import GenericRepository
 from .scheduler import Scheduler
@@ -98,6 +98,7 @@ __all__ = [
     "ObservableClass",
     "Orchestrator",
     "GenericPipeline",
+    "GenericPipelineWithPreset",
     "GenericProcessor",
     "GenericRepository",
     "Scheduler",

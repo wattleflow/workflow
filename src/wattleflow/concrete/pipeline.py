@@ -12,7 +12,38 @@ from wattleflow.concrete import AuditLogger
 from wattleflow.helpers import Attributes, Preset
 
 
-class GenericPipeline(IPipeline, Attributes, AuditLogger, Preset, ABC):
+class GenericPipeline(IPipeline, Attributes, AuditLogger, ABC):
+    _allowed: list
+
+    def __init__(
+        self,
+        level: int = NOTSET,
+        handler: Optional[Handler] = None,
+        *args,
+        **kwargs,
+    ):
+        IPipeline.__init__(self)
+        Attributes.__init__(self)
+        AuditLogger.__init__(self, level=level, handler=handler)
+        self.debug(msg="__init__", level=level, args=args, kwargs=kwargs)
+
+    @abstractmethod
+    def process(self, processor: IProcessor, item, *args, **kwargs) -> None:
+        self.evaluate(processor, IProcessor)
+        if item is None:
+            msg = f"{self.name}.process: Received None as item, cannot process."
+            self.error(msg=msg)
+            raise ValueError(msg)
+
+        self.debug(
+            msg="process",
+            processor=processor.name,
+            item=item.identifier if hasattr(item, "identifier") else "unknown",
+            kwargs=kwargs,
+        )
+
+
+class GenericPipelineWithPreset(GenericPipeline, Preset, ABC):
     _allowed: list
 
     def __init__(
@@ -28,18 +59,3 @@ class GenericPipeline(IPipeline, Attributes, AuditLogger, Preset, ABC):
         # Preset.__init__(self)
         self.debug(msg="__init__", level=level, args=args, kwargs=kwargs)
         self.configure(*args, **kwargs)
-
-    @abstractmethod
-    def process(self, processor: IProcessor, item, *args, **kwargs) -> None:
-        self.evaluate(processor, IProcessor)
-        if item is None:
-            msg = f"{self.__class__.__name__}.process: Received None as item, cannot process."
-            self.error(msg=msg)
-            raise ValueError(msg)
-
-        self.debug(
-            msg="process",
-            processor=processor.name,
-            item=item.identifier if hasattr(item, "identifier") else "unknown",
-            kwargs=kwargs,
-        )

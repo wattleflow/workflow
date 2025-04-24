@@ -10,13 +10,13 @@ built to last and grow.
 
 ---
 
-| Characteristic           | Value                                                      |
-| ------------------------ | ---------------------------------------------------------- |
-| **Version**              | 0.0.0.18 (latest release)                                  |
-| **License**              | Apache 2.0 License                                         |
-| **Python Compatibility** | Python >=3.9                                               |
-| **Dependencies**         | wattleflow                                                 |
-| **Size**                 | nimble                                                     |
+| Characteristic           | Value                                                                   |
+| ------------------------ | ----------------------------------------------------------------------- |
+| **Version**              | 0.0.0.24 (latest release)                                               |
+| **License**              | Apache 2.0 License                                                      |
+| **Python Compatibility** | Python >=3.9                                                            |
+| **Dependencies**         | wattleflow                                                              |
+| **Size**                 | nimble                                                                  |
 | **Documentation**        | [WattleFlow Core Documentation](https://github.com/wattleflow/docs.git) |
 
 

@@ -1,10 +1,11 @@
 # Module Name: helpers/configuration.py
-# Description: This modul contains config class.
+# Description: This modul contains Configuration and Preset classes.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
 
 
+import os
 import yaml
 from typing import Any, final, Union
 from wattleflow.core import IWattleflow
@@ -12,11 +13,18 @@ from wattleflow.core import IWattleflow
 
 @final
 class Configuration:
-    def __init__(self, config_file: str):
+    def __init__(self, config_file: str = None):
         self.config_file = config_file
         self._key_filename = None
         self._data = None
         self._strategy = None
+
+        if not os.path.exists(self.config_file):
+            raise FileNotFoundError(self.config_file)
+
+        if os.path.isdir(self.config_file):
+            raise FileNotFoundError(f"Directory given instead of file: {self.config_file}")
+
         self.load_settings()
 
     def load_settings(self):
@@ -125,22 +133,3 @@ class Preset:
                                 key,
                             )
                         )
-
-
-@final
-class PresetProto:
-    def configure(self, *, debug_callback=None, allowed=None, **kwargs):
-        if debug_callback:
-            debug_callback(msg="configure", **kwargs)
-
-        if allowed is not None and not self.allowed(allowed, **kwargs):
-            return
-
-        for name, value in kwargs.items():
-            if isinstance(value, (bool, dict, list, str)):
-                self.push(name, value)
-            else:
-                error = f"Restricted type: {type(value).__name__}.{name}. [bool, dict, list, str]"
-                if debug_callback:
-                    debug_callback(msg="configure_error", error=error)
-                raise AttributeError(error)
