@@ -11,6 +11,9 @@ _ON = _obj_name = lambda o: o.__name__ if hasattr(o, "__name__") else None
 _NC = _cls_name = lambda o: o.__class__.__name__ if hasattr(o, "__class__") else None
 _NT = _typ_name = lambda o: type(o).__name__
 
+CONVERT_TYPE_ERR = "{}: unexpected type found [{}:{}] expected [{}]"
+EVAL_TYPE_ERR = "{}.{}: Unexpected type [{}], expected [{}]"
+
 
 @final
 class Attributes:
@@ -47,7 +50,7 @@ class Attributes:
                 kwargs[name] = enum_member
                 return
 
-        error = f"{_NC(self)}: unexpected type found [{value}:{_NT(value)}] expected [{cls.__name__}]"
+        error = CONVERT_TYPE_ERR.format(_NC(self), value, _NT(value), cls.__name__)
         raise TypeError(error)
 
     def evaluate(self, target, expected_type):
@@ -60,7 +63,9 @@ class Attributes:
             expected = expected_type.__name__
             owner = getattr(self, "__name__", type(self).__name__)
             raise TypeError(
-                f"{owner}.{self.find_name_by_variable(target)}: Unexpected type [{name}], expected [{expected}]"
+                EVAL_TYPE_ERR.format(
+                    owner, self.find_name_by_variable(target), name, expected
+                )
             )
 
     def exists(self, name: str, cls: type):

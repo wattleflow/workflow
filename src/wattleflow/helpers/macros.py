@@ -6,6 +6,10 @@
 
 import re
 
+ADD_VALUE_ERROR = (
+    "Tuple macro must be: (pattern, replacement) or (pattern, replacement, flags)."
+)
+
 
 class TextMacros:
     """
@@ -48,9 +52,7 @@ class TextMacros:
                     pattern, replacement, flags = macro
                     pattern = re.compile(pattern, flags)
                 else:
-                    raise ValueError(
-                        "Tuple macro must be: (pattern, replacement) or (pattern, replacement, flags)."
-                    )
+                    raise ValueError(ADD_VALUE_ERROR)
             elif isinstance(macro, dict):
                 if "pattern" in macro and "replacement" in macro:
                     pattern = macro["pattern"]

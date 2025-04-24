@@ -120,7 +120,10 @@ class Preset:
                         self.push(key, val)
                     else:
                         raise AttributeError(
-                            f"Restricted type: {type(val).__name__}.{key}. Allowed: bool, dict, list, str"
+                            "Restricted type: {}.{}. Allowed: bool, dict, list, str".format(
+                                type(val).__name__,
+                                key,
+                            )
                         )
 
 
