@@ -107,9 +107,25 @@ class AuditLogger(ISingleton, ILogger, ABC):
 
     def critical(self, msg, *args, **kwargs):
         self._log_msg(self._logger.critical, msg, **kwargs)
+        self.details(msg=msg, *args, **kwargs)
 
     def debug(self, msg, *args, **kwargs):
         self._log_msg(self._logger.debug, msg, **kwargs)
+
+    def details(self, msg, *args, **kwargs):
+        import sys
+        import traceback
+        exc_type, exc_value, exc_tb = sys.exc_info()
+        tb = traceback.extract_tb(exc_tb)[-1]
+        self._log_msg(
+            method=self._logger.debug,
+            msg=msg,
+            file=tb.filename,
+            line=tb.lineno,
+            code=tb.line.strip() if tb.line else "N/A",
+            error_type=exc_type.__name__,
+            error=exc_value,
+        )
 
     def exception(self, msg, *args, **kwargs):
         self._log_msg(self._logger.exception, msg, **kwargs)
@@ -119,6 +135,7 @@ class AuditLogger(ISingleton, ILogger, ABC):
 
     def fatal(self, msg, *args, **kwargs):
         self._log_msg(self._logger.fatal, msg, **kwargs)
+        self.details(msg=msg, *args, **kwargs)
 
     def info(self, msg, *args, **kwargs):
         self._log_msg(self._logger.info, msg, **kwargs)

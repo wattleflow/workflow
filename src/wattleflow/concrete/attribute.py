@@ -145,6 +145,9 @@ class Attribute:
         return getattr(obj, "__name__", "Unknown")
 
     def allowed(self, allowed, **kwargs) -> bool:
+        if allowed is None:
+            return False
+
         self.evaluate(allowed, list)
 
         if not len(allowed) > 0:

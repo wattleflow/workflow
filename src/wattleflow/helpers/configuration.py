@@ -23,7 +23,9 @@ class Configuration:
             raise FileNotFoundError(self.config_file)
 
         if os.path.isdir(self.config_file):
-            raise FileNotFoundError(f"Directory given instead of file: {self.config_file}")
+            raise FileNotFoundError(
+                f"Directory given instead of file: {self.config_file}"
+            )
 
         self.load_settings()
 
@@ -124,12 +126,8 @@ class Preset:
         for preset in self._allowed:
             if preset in kwargs:
                 for key, val in kwargs[preset].items():
-                    if isinstance(val, (bool, dict, list, str)):
+                    if isinstance(val, (bool, dict, list, int, float, str)):
                         self.push(key, val)
                     else:
-                        raise AttributeError(
-                            "Restricted type: {}.{}. Allowed: bool, dict, list, str".format(
-                                type(val).__name__,
-                                key,
-                            )
-                        )
+                        error = "Restricted type: {}.{}. Allowed: bool, dict, list, int, float, str"
+                        raise AttributeError(error.format(type(val).__name__, key,))

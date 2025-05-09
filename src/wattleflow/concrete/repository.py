@@ -17,7 +17,7 @@ class GenericRepository(IRepository, Attribute, AuditLogger, ABC):
         self,
         strategy_read: IStrategy,
         strategy_write: IStrategy,
-        allowed: list = [],
+        allowed: list = None,
         level: int = NOTSET,
         handler: Optional[Handler] = None,
         *args,

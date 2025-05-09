@@ -4,24 +4,6 @@
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
 
-"""
-1. Storage Management
-    - _storage: Dict[str, T]: Stores objects using a unique identifier.
-    - _repositories: List[IRepository]: Keeps track of subscribed repositories.
-
-2. Object Lifecycle
-    - create(processor, *args, **kwargs): Uses _strategy_create to create objects.
-    - write(pipeline, item, *args, **kwargs): Stores items and forwards them to repositories.
-    - delete(identifier): Removes an item from storage.
-
-3. Repository Subscription
-    - subscribe(repository): Adds a repository to _repositories.
-    - When an item is written, all subscribed repositories receive the item.
-
-4. Access & Cleanup
-    - read(identifier): Retrieves an item or raises NotFoundError if missing.
-    - clean(): Clears _storage and _repositories.
-"""
 
 from uuid import uuid4
 from logging import Handler, NOTSET
@@ -168,7 +150,7 @@ class GenericBlackboardRW(IBlackboard, Attribute, AuditLogger, Generic[T]):
 
     def clean(self):
         self.info(msg="clean")
-        self._repositories.clear()
+        self._repository.clear()
         self._storage.clear()
 
     def create(self, processor: IProcessor, *args, **kwargs) -> T:
@@ -192,6 +174,10 @@ class GenericBlackboardRW(IBlackboard, Attribute, AuditLogger, Generic[T]):
 
         if identifier not in self.storage:
             raise ValueError(f"Item not found: {identifier}")
+
+        if self._repository is None:
+            self.warning(msg=Event.Reading.value, error="Repository not assigned!")
+            return self.storage[identifier]
 
         return self._repository.read(
             identifier=identifier, item=self.storage[identifier]

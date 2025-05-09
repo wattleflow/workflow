@@ -9,7 +9,8 @@ from logging import Handler, NOTSET
 from typing import Optional
 from wattleflow.core import IProcessor, IPipeline
 from wattleflow.concrete import AuditLogger
-from wattleflow.helpers import Attributes, Preset
+from wattleflow.helpers.attributes import Attributes
+from wattleflow.helpers.configuration import Preset
 
 
 class GenericPipeline(IPipeline, Attributes, AuditLogger, ABC):
@@ -31,7 +32,7 @@ class GenericPipeline(IPipeline, Attributes, AuditLogger, ABC):
     def process(self, processor: IProcessor, item, *args, **kwargs) -> None:
         self.evaluate(processor, IProcessor)
         if item is None:
-            msg = f"{self.name}.process: Received None as item, cannot process."
+            msg = f"{self.name}.process: Received None as item!."
             self.error(msg=msg)
             raise ValueError(msg)
 
@@ -44,8 +45,6 @@ class GenericPipeline(IPipeline, Attributes, AuditLogger, ABC):
 
 
 class GenericPipelineWithPreset(GenericPipeline, Preset, ABC):
-    _allowed: list
-
     def __init__(
         self,
         level: int = NOTSET,
@@ -56,6 +55,5 @@ class GenericPipelineWithPreset(GenericPipeline, Preset, ABC):
         IPipeline.__init__(self)
         Attributes.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
-        # Preset.__init__(self)
         self.debug(msg="__init__", level=level, args=args, kwargs=kwargs)
         self.configure(*args, **kwargs)
