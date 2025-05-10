@@ -2,8 +2,9 @@ from .attributes import Attributes
 from .config import Mapper, Config
 from .configuration import Configuration, Preset
 from .dictionaries import AttributeDict, Dictionary
-from .macros import TextMacros
+from .handlers import TraceHandler
 from .localmodels import DownloadedModels, StoredModels
+from .macros import TextMacros
 from .pathadder import show_paths, override_paths
 from .streams import TextStream, TextFileStream
 from .system import (
@@ -19,21 +20,22 @@ __all__ = [
     "Attributes",
     "AttributeDict",
     "Config",
-    "Configuration",
-    "Preset",
-    "Dictionary",
     "CheckPath",
+    "Configuration",
     "decorator",
+    "DownloadedModels",
+    "Dictionary",
     "LocalPath",
     "Mapper",
+    "Preset",
+    "override_paths",
     "Project",
     "Proxy",
     "ShellExecutor",
+    "show_paths",
     "TextMacros",
-    "DownloadedModels",
+    "TraceHandler",
     "StoredModels",
     "TextStream",
     "TextFileStream",
-    "show_paths",
-    "override_paths",
 ]
