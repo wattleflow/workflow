@@ -26,6 +26,7 @@ exclude src/wattleflow/api
 exclude src/wattleflow/core
 exclude src/wattleflow/audit
 exclude src/wattleflow/blackboards
+exclude src/wattleflow/connections
 exclude src/wattleflow/managers
 exclude src/wattleflow/processors
 exclude src/wattleflow/repositories

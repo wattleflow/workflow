@@ -12,7 +12,7 @@ built to last and grow.
 
 | Characteristic           | Value                                                                   |
 | ------------------------ | ----------------------------------------------------------------------- |
-| **Version**              | 0.0.0.25 (latest release)                                               |
+| **Version**              | 0.0.0.26 (latest release)                                               |
 | **License**              | Apache 2.0 License                                                      |
 | **Python Compatibility** | Python >=3.9                                                            |
 | **Dependencies**         | wattleflow                                                              |
@@ -21,9 +21,8 @@ built to last and grow.
 
 
 # WattleFlow Workflow
-WattleFlow Workflow is a data engineering framework designed for flow-based programming based on a well-defined design patterns. 
-`Workflow` provides a modular and scalable architecture that can integrate different subsystems, ensuring flexible and efficient workflow orchestration.
-
+WattleFlow `Workflow` is a data engineering framework for flow-based programming, built on well-defined design patterns.
+It offers a modular and scalable architecture for integrating diverse subsystems, enabling flexible and efficient workflow orchestration.
 
 # Installation
 ```bash
@@ -35,12 +34,20 @@ pip install wattleflow-workflow
 
 # Key Features
 
-Modular Architecture – Designed with extensibility in mind, allowing seamless development through reuse of design patterns as components.
+---
+
+| Key Features         | Characteristic                                                             |
+| ---------------------| -------------------------------------------------------------------------- |
+| Modular Architecture | Designed for extensibility and maintainability.                            |
+| Code Reusability     | Facilitates development by encouraging the reuse of framework components.  |
+| Secure by Design     | Developed with a focus on simplicity and no unnecessary security exposure. |
+| Scalable and Clear   | Suitable for both small and enterprise-level workflow orchestration.       |
+| Modular Architecture | Designed with extensibility and zero security in mind. Allows seamless development through reuse of framework classes and code. |
 
 
 # Documentation
 
-For full documentation, visit [WattleFlow](https://github.com/wattleflow/docs.git) documentation.
+Comprehensive documentation will be available at the [Git Hub](https://github.com/wattleflow/docs.git).
 
 # Contributing
 
@@ -48,4 +55,5 @@ We welcome contributions! Please check our GitHub repository for guidelines.
 
 # License
 
-WattleFlow Core is licensed under the Apache 2.0 License. See the LICENSE file for more details.
+WattleFlow Core is licensed under the Apache 2.0 License. 
+See the LICENSE file for more details.

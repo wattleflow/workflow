@@ -1,14 +1,16 @@
+from pathlib import Path
 from setuptools import setup, find_packages
+
+long_description = Path("README.md").read_text(encoding="utf-8")
 
 setup(
     name="wattleflow",
     description="WattleFlow Workflow",
-    long_description=open("README.md").read(),
+    long_description=long_description,
     long_description_content_type="text/markdown",
     author="WattleFlow",
     author_email="wattleflow@outlook.com",
     url="https://github.com/wattleflow/workflow.git",
-    license="Apache-2.0",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     include_package_data=True,
@@ -23,19 +25,9 @@ setup(
         "Intended Audience :: Developers",
         "Topic :: Software Development :: Libraries",
         "Topic :: Software Development :: Libraries :: Python Modules",
-        "License :: OSI Approved :: Apache Software License",
     ],
     python_requires=">=3.9",
     setup_requires=["setuptools_scm"],
     use_scm_version=True,
-    install_requires=[
-        "pyyaml",
-        "cryptography",
-        "wattleflow>=0.0.0.7",
-        "pytesseract>=0.3.10",
-        "rdflib>=7.1.2",
-        "tika>=2.6.0",
-        "youtube-transcript-api>=0.6.3",
-    ],
     extras_require={},
 )

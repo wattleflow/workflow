@@ -1,6 +1,7 @@
 import logging
 import traceback
 
+
 class TraceHandler(logging.StreamHandler):
     def emit(self, record):
         if isinstance(record, BaseException):
