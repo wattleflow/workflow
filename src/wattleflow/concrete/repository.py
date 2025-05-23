@@ -6,17 +6,17 @@
 
 from abc import ABC
 from logging import Handler, NOTSET
-from typing import Optional
-from wattleflow.core import IStrategy, ITarget, IPipeline, IRepository, T
+from typing import Generic, Optional
+from wattleflow.core import IPipeline, IRepository, IStrategy, ITarget, T
 from wattleflow.constants.enums import Event
 from wattleflow.concrete import Attribute, AuditLogger, _NC
 
 
-class GenericRepository(IRepository, Attribute, AuditLogger, ABC):
+class GenericRepository(IRepository, Generic[T], Attribute, AuditLogger, ABC):
     def __init__(
         self,
-        strategy_read: IStrategy,
         strategy_write: IStrategy,
+        strategy_read: Optional[IStrategy] = None,
         allowed: list = None,
         level: int = NOTSET,
         handler: Optional[Handler] = None,
@@ -26,7 +26,7 @@ class GenericRepository(IRepository, Attribute, AuditLogger, ABC):
         IRepository.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
 
-        self.evaluate(strategy_read, IStrategy)
+        # self.evaluate(strategy_read, IStrategy)
         self.evaluate(strategy_write, IStrategy)
 
         self._counter: int = 0
@@ -49,6 +49,10 @@ class GenericRepository(IRepository, Attribute, AuditLogger, ABC):
     def count(self) -> int:
         return self._counter
 
+    def clear(self) -> None:
+        self.debug(msg=Event.Cleaning.value)
+        self._counter = 0
+
     def configure(self, **kwargs):
         self.allowed(self._allowed, **kwargs)
 
@@ -62,11 +66,23 @@ class GenericRepository(IRepository, Attribute, AuditLogger, ABC):
                 raise AttributeError(error)
 
     def read(self, identifier: str, item: ITarget, **kwargs) -> T:
-        self.debug(Event.Reading.value, id=identifier, item=item.identifier, kwargs=kwargs)
+        if not self._strategy_read:
+            self.warning(msg="Missing:self._strategy_read")
+            return None
+
+        self.debug(
+            Event.Reading.value,
+            id=identifier,
+            item=item.identifier,
+            kwargs=kwargs,
+        )
         self.evaluate(item, ITarget)
 
         document = self._strategy_read.read(
-            caller=self, item=item, identifier=identifier, **kwargs
+            caller=self,
+            item=item,
+            identifier=identifier,
+            **kwargs,
         )
         self.evaluate(document, ITarget)
 
@@ -78,7 +94,7 @@ class GenericRepository(IRepository, Attribute, AuditLogger, ABC):
         )
         return document
 
-    def write(self, pipeline: IPipeline, item: T, **kwargs) -> bool:
+    def write(self, item: ITarget, pipeline: IPipeline, **kwargs) -> bool:
         try:
             self.evaluate(item, ITarget)
             self._counter += 1
@@ -89,7 +105,7 @@ class GenericRepository(IRepository, Attribute, AuditLogger, ABC):
                 pipeline=pipeline.name,
                 item=item,
             )
-            return self._strategy_write.write(pipeline, self, item=item, **kwargs)
+            return self._strategy_write.write(caller=pipeline, item=item, repository=self, **kwargs)  # noqa: E501
         except Exception as e:
             error = f"[{self.__class__.__name__}] Write strategy failed: {e}"
             self.exception(msg=error, counter=self._counter)

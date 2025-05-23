@@ -6,7 +6,7 @@ from .attribute import (
     _NC
 )
 from .logger import AuditLogger, AsyncHandler
-from .blackboard import GenericBlackboard, GenericBlackboardRW
+from .blackboard import GenericBlackboard
 from .collection import DequeList
 from .connection import (
     Settings,

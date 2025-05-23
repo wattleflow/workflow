@@ -65,8 +65,8 @@ class AuditLogger(ISingleton, ILogger, ABC):
         ISingleton.__init__(self)
         if (
             hasattr(self, "_instances")
-            and self.__class__ in self._instances
-            and self._logger
+            and self.__class__ in self._instances  # noqa: W503
+            and self._logger  # noqa: W503
         ):
             return
 

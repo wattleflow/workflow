@@ -59,7 +59,7 @@ class Config:
         )
         class_name = self.find(KEY_SECTION_PROJECT, KEY_STRATEGY, KEY_CLASS_NAME)
 
-        if not self._key_filename or not self.class_name:
+        if not self._key_filename or not class_name:
             return
 
         # lazy loading (to avoid circular import)

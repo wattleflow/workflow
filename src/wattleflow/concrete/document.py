@@ -53,8 +53,8 @@ class Document(IDocument[T], ABC):
     def update_content(self, data: T):
         if (
             self._data is not None
-            and data is not None
-            and not isinstance(data, type(self._data))
+            and data is not None                        # noqa: W503
+            and not isinstance(data, type(self._data))  # noqa: W503
         ):
             raise TypeError(f"Expected type {type(self._data)}, found {type(data)}")
         self._data = data

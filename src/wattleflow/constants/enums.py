@@ -13,7 +13,7 @@ class Classification(Enum):
     OFFICIAL = "OFFICIAL"
     PROTECTED = "PROTECTED"
     SECRET = "SECRET"
-    TOP_SECRET = "TOP_SECRET"
+    TOP_SECRET = "TOP SECRET"
     UNDEFINED = ""
 
 
@@ -41,6 +41,8 @@ class Event(Enum):
     Checking = "Checking"
     Classification = "Classification"
     Classifying = "Classifying"
+    Cleaning = "Cleaning"
+    Clearing = "Clearing"
     Completed = "Completed"
     Constructor = "Constructor"
     Connect = "Connect"

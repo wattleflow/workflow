@@ -6,121 +6,151 @@
 
 from abc import abstractmethod, ABC
 from logging import Handler, INFO
-from typing import Final, Generator, Iterator, Optional, Type
+from typing import AsyncGenerator, Generator, Generic, Optional
 from wattleflow.core import IBlackboard, IProcessor, T
-from wattleflow.concrete import Attribute, AuditLogger, ProcessorException
+from wattleflow.concrete import Attribute, AuditLogger   # ProcessorException
 from wattleflow.constants.enums import Event
-from wattleflow.helpers.functions import _NC
 
 
-# TODO: Add metrics
-class GenericProcessor(IProcessor[T], Attribute, AuditLogger, ABC):
-    _expected_type: Type[T] = T
-    _cycle: int = 0
-    _current: Optional[T] = None
-    _blackboard: IBlackboard = None
-    _pipelines: Final[list]
-    _iterator: Iterator[T]
-    _allowed: list = []
-
+class GenericProcessor(IProcessor, AuditLogger, Attribute, Generic[T], ABC):
     def __init__(
         self,
         blackboard: IBlackboard,
         pipelines: list,
-        allowed: list = [],
+        allowed: list[str] = None,
         level: int = INFO,
         handler: Optional[Handler] = None,
         **kwargs,
     ):
+        if allowed is None:
+            allowed = []
+
         IProcessor.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
+        Attribute.__init__(self)
+
+        self._blackboard: IBlackboard = blackboard
+        self._pipelines: list = pipelines
+        self._allowed: list = allowed
+        self._generator: Optional[Generator[T]] = None
+        self._current: Optional[T] = None
+        self._cycle: int = 0
+
+        self.evaluate(self._pipelines, list)
+        self.evaluate(self._allowed, list)
+
+        if not self._pipelines:
+            self.critical("Pipelines can not be empty.")
+            raise ValueError("Pipelines can not be empty.")
 
         self.debug(
-            msg=Event.Constructor.value,
-            blackboard=blackboard.name,
+            msg="Processor constructed",
             pipelines=[p.name for p in pipelines],
             allowed=allowed,
-            **kwargs,
         )
 
-        self.evaluate(pipelines, list)
-
-        if not len(pipelines) > 0:
-            error = "Pipelines can not be empty."
-            self.critical(msg=error)
-            raise ValueError(error)
-
-        self.evaluate(blackboard, IBlackboard)
-        self.evaluate(allowed, list)
-
-        self._blackboard = blackboard
-        self._pipelines = pipelines
-        self._allowed = allowed
-
         self.configure(**kwargs)
-
-        # Child processor must make this call
-        self._iterator = self.create_iterator()
 
     @property
     def blackboard(self) -> IBlackboard:
         return self._blackboard
 
-    @property
-    def cycle(self) -> int:
-        return self._cycle
-
-    def __del__(self):
-        if self._blackboard:
-            self._blackboard.clean()
-
-    def __next__(self) -> T:
-        try:
-            self._current = next(self._iterator)
-            self._cycle += 1
-            return self._current
-        except StopIteration:
-            raise
-
     def configure(self, **kwargs):
         if not self.allowed(self._allowed, **kwargs):
-            self.debug("Properties are not allowed.")
+            self.debug("No configurable properties allowed.")
             return
 
         for name, value in kwargs.items():
-            if isinstance(value, (bool, dict, list, str)):
+            if isinstance(value, (bool, str, list, dict)):
                 self.push(name, value)
                 self.debug(msg=Event.Configuring.value, name=name, value=value)
             else:
-                error = f"Restricted properties found: {_NC(value)}.{name}. [bool, dict, list, str]"
-                self.error(msg=error, name=name)
+                error = (
+                    f"Restricted property: {name} ({type(value).__name__}) "
+                    f"Allowed types: bool, str, list, dict"
+                )
+                self.error(msg=error)
                 raise AttributeError(error)
 
-    def reset(self):
-        self.debug(msg="reset")
-        self._iterator = self.create_iterator()
-        self._step = 0
+    @abstractmethod
+    def create_generator(self) -> Generator[T, None, None]:
+        pass
 
-    def process_tasks(self):
-        self.debug(msg=Event.Processing.value, message="BEGIN")
-        try:
-            for item in self:
-                for pipeline in self._pipelines:
-                    self.debug(
-                        msg=Event.ProcessingTask.value, item=item, pipeline=pipeline
-                    )
-                    pipeline.process(processor=self, item=item)
-        except StopIteration:
-            self.debug(msg="Stopping iteration")
-            pass
-        except AttributeError as e:
-            self.critical(msg="Attribute error", error=str(e))
-            raise AttributeError(e)
-        except Exception as e:
-            self.critical(msg="Exception", error=str(e))
-            raise ProcessorException(caller=self, error=e)
-        self.debug(msg=Event.Processing.value, message="END")
+    def start(self) -> None:
+        if self._generator is None:
+            self._generator = self.create_generator()
+
+        for item in self._generator:
+            self._current = item
+            self._cycle += 1
+
+            for pipeline in self._pipelines:
+                self.debug(
+                    msg=Event.Processing.value, item=item, pipeline=pipeline.name
+                )
+                pipeline.process(processor=self, item=item)
+
+
+class GenericAsyncProcessor(IProcessor, AuditLogger, Attribute, Generic[T], ABC):
+    def __init__(
+        self,
+        blackboard: IBlackboard,
+        pipelines: list,
+        allowed: Optional[list[str]] = None,
+        level: int = 20,
+        handler=None,
+        **kwargs,
+    ):
+        AuditLogger.__init__(self, level=level, handler=handler)
+        Attribute.__init__(self)
+
+        self._blackboard = blackboard
+        self._pipelines = pipelines
+        self._allowed = allowed or []
+        self._cycle: int = 0
+        self._current: Optional[T] = None
+
+        self.evaluate(self._pipelines, list)
+        self.evaluate(self._allowed, list)
+
+        if not self._pipelines:
+            self.critical("Pipelines cannot be empty.")
+            raise ValueError("Pipelines cannot be empty.")
+
+        self.debug(
+            msg="AsyncProcessor constructed",
+            pipelines=[p.name for p in self._pipelines],
+            allowed=self._allowed,
+        )
+
+        self.configure(**kwargs)
+
+    def configure(self, **kwargs):
+        if not self.allowed(self._allowed, **kwargs):
+            self.debug("No configurable properties allowed.")
+            return
+
+        for name, value in kwargs.items():
+            if isinstance(value, (bool, str, list, dict)):
+                self.push(name, value)
+                self.debug(msg="Configuring", name=name, value=value)
+            else:
+                error = f"Invalid config type: {name} ({type(value).__name__})"
+                self.error(msg=error)
+                raise AttributeError(error)
 
     @abstractmethod
-    def create_iterator(self) -> Generator[T, None, None]:
+    async def create_generator(self) -> AsyncGenerator[T, None]:
         pass
+
+    async def start(self) -> None:
+        async for item in await self.create_generator():
+            self._current = item
+            self._cycle += 1
+            for pipeline in self._pipelines:
+                try:
+                    self.debug(msg="Processing item", item=item, pipeline=pipeline.name)
+                    await pipeline.process(processor=self, item=item)
+                except Exception as e:
+                    self.error(msg="Pipeline failed", error=str(e))
+                    raise

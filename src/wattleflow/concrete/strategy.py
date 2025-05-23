@@ -5,40 +5,10 @@
 # License: Apache 2 Licence
 
 
-"""
-1. Generic Strategy Implementation
-    Strategy (Base Class)
-        - Defines call() and execute(), both abstract methods.
-        - Forces subclasses to implement their behavior.
-    GenericStrategy
-        - Implements call(), which:
-            - Calls execute()
-            - Ensures the output matches _expected_type.
-        - Enforces ITarget as the expected type by default.
-
-2. Concrete Strategies
-    StrategyGenerate
-        - Calls execute() for object generation.
-    StrategyCreate
-        - Calls execute() using a processor.
-        - Used for creating objects in a workflow.
-    StrategyRead
-        - Calls execute() to fetch an object by identifier.
-    StrategyWrite
-        - Calls execute() to store an object in a repository.
-        - Uses _expected_type = bool, meaning execution must return True/False.
-"""
-
 from abc import abstractmethod, ABC
 from logging import Handler, NOTSET
-from typing import Optional
-from wattleflow.core import (
-    IPipeline,
-    IProcessor,
-    IRepository,
-    IStrategy,
-    ITarget,
-)
+from typing import Any, Generic, Optional
+from wattleflow.core import IStrategy, ITarget, T, C
 from wattleflow.concrete import Attribute, AuditLogger
 
 
@@ -47,70 +17,54 @@ class Strategy(IStrategy, Attribute, ABC):
     _expected_type = None
 
     @abstractmethod
-    def call(self, caller, *args, **kwargs) -> object:
+    def call(self, caller: C, *args, **kwargs) -> Any:
         pass
 
     @abstractmethod
-    def execute(self, caller, *args, **kwargs) -> object:
+    def execute(self, caller: C, *args, **kwargs) -> Any:
         pass
 
 
-class GenericStrategy(Strategy, AuditLogger, ABC):
+class GenericStrategy(Strategy, AuditLogger, Generic[T], ABC):
     def __init__(
         self,
-        expected_type=ITarget,
         level: int = NOTSET,
         handler: Optional[Handler] = None,
     ):
-        self._expected_type = expected_type
-
         Strategy.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
 
-    def call(self, caller, *args, **kwargs) -> object:
+    def call(self, caller: C, *args, **kwargs) -> Optional[T]:
         output = self.execute(caller, *args, **kwargs)
-        self.evaluate(output, self._expected_type)
+        type_hint = kwargs.get("type_hint")
+        if type_hint and not isinstance(
+            output, (type_hint if isinstance(type_hint, tuple) else (type_hint,))
+        ):
+            raise TypeError(f"Expected {type_hint}, got {type(output)}")
+
         return output
 
     @abstractmethod
-    def execute(self, caller, *args, **kwargs) -> Optional[ITarget]:
+    def execute(self, caller: C, *args, **kwargs) -> Optional[T]:
         pass
 
 
 class StrategyGenerate(GenericStrategy):
-    def generate(self, caller, *args, **kwargs) -> Optional[object]:
+    # must be object for if implemented as bool
+    def generate(self, caller: C, *args, **kwargs) -> Optional[T]:
         return self.execute(caller, *args, **kwargs)
 
 
 class StrategyCreate(GenericStrategy):
-    def create(self, processor: IProcessor, *args, **kwargs) -> Optional[ITarget]:
-        return self.call(caller=processor, *args, **kwargs)
+    def create(self, caller: C, *args, **kwargs) -> T:
+        return self.execute(caller, *args, **kwargs)
 
 
 class StrategyRead(GenericStrategy):
-    def read(self, identifier: str, item: ITarget, **kwargs) -> Optional[ITarget]:
-        return self.call(identifier=identifier, item=item, **kwargs)
+    def read(self, caller: C, identifier: str, *args, **kwargs) -> Optional[T]:
+        return self.call(caller=caller, identifier=identifier, *args, **kwargs)
 
 
 class StrategyWrite(GenericStrategy):
-    def __init__(
-        self,
-        expected_type=bool,
-        level: int = NOTSET,
-        handler: Optional[Handler] = None,
-    ):
-        self.evaluate(expected_type, bool)
-
-        GenericStrategy.__init__(
-            self, expected_type=expected_type, level=level, handler=handler
-        )
-
-    def write(
-        self,
-        pipeline: IPipeline,
-        repository: IRepository,
-        item: ITarget,
-        *args,
-        **kwargs,
-    ) -> bool:
-        return self.call(pipeline, repository, item=item, **kwargs)
+    def write(self, caller: C, item: ITarget, *args, **kwargs) -> Optional[T]:
+        return self.call(caller=caller, item=item, *args, **kwargs)
