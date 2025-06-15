@@ -5,36 +5,63 @@
 # License: Apache 2 Licence
 
 import gc
+import os
 import re
 import glob
-from unittest import TestCase
-from typing import Generator
+import logging
+import tempfile
+from abc import ABC
+from fnmatch import fnmatch
 from os import path, makedirs, walk
+from typing import Generator, Optional
 from shutil import copy2, copytree, rmtree
+from unittest import TestCase
 from wattleflow.concrete.attribute import Attribute
-from wattleflow.helpers.system import CheckPath
-from wattleflow.helpers.system import ShellExecutor
+from wattleflow.concrete.logger import AuditLogger
+from wattleflow.helpers.system import CheckPath, ShellExecutor
+
+
 
 TEST_NAME = "test_dir"
-TEST_DIR = "/tmp/wattleflow"
+TEST_DIR = "{}{}wattleflow".format(tempfile.gettempdir(), os.path.sep)
 
 
-class WattleflowTestClass(TestCase, Attribute):
-    _config_path: str = ""
-    _paths: str = {}
-    cleanup: bool = True
+class WattleflowTestClass(TestCase, Attribute, AuditLogger, ABC):
+    # Used instead of __init__
+    def setUp(
+        self,
+        level: int = logging.INFO,
+        handler: Optional[logging.Handler] = None,
+    ):
+        self.cleanup: bool = True
+        self._config_path: str = ""
+        self._paths: dict = {}
+
+        super().setUp()
+        Attribute.__init__(self)
+        AuditLogger.__init__(self, level=level, handler=handler)
+
+        # self._config_path: str = ""
+        # self._paths: str = {}
+        # self.cleanup: bool = True
+
+        self.set_path(TEST_NAME, TEST_DIR)
+        for name, folder in self._paths.items():
+            if not path.exists(folder):
+                self.set_path(name=name, folder=folder)
 
     def find_by_pattern(self, directory, pattern) -> Generator[str, None, None]:
         for root, _, files in walk(directory):
             for file in files:
-                if glob.fnmatch.fnmatch(file, pattern):
+                # if glob.fnmatch.fnmatch(file, pattern):
+                if fnmatch(file, pattern):
                     yield path.join(root, file)
 
     def copy_file(self, src, dst, normalise=False):
         CheckPath(src, self)
 
         if normalise:
-            dst = path.join(dst, self.self.normalise_file_name(src))
+            dst = path.join(dst, self.normalise_file_name(src))
 
         if not path.exists(dst):
             copy2(src=src, dst=dst)
@@ -88,15 +115,9 @@ class WattleflowTestClass(TestCase, Attribute):
         pass
         # super().tearDownClass(cls)
 
-    def setUp(self):
-        super().setUp()
-        self.set_path(TEST_NAME, TEST_DIR)
-        for name, folder in self._paths.items():
-            if not path.exists(folder):
-                self.set_path(name=name, folder=folder)
-
     def tearDown(self) -> None:
-        if self.cleanup:
+        cleanup =  getattr(self, "cleanup", None)
+        if cleanup:
             for folder in self._paths.values():
                 if path.exists(folder):
                     rmtree(folder)

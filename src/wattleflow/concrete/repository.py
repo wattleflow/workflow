@@ -7,7 +7,7 @@
 from abc import ABC
 from logging import Handler, NOTSET
 from typing import Generic, Optional
-from wattleflow.core import IPipeline, IRepository, IStrategy, ITarget, T
+from wattleflow.core import IRepository, IStrategy, ITarget, T, C
 from wattleflow.constants.enums import Event
 from wattleflow.concrete import Attribute, AuditLogger, _NC
 
@@ -17,7 +17,7 @@ class GenericRepository(IRepository, Generic[T], Attribute, AuditLogger, ABC):
         self,
         strategy_write: IStrategy,
         strategy_read: Optional[IStrategy] = None,
-        allowed: list = None,
+        allowed: Optional[list] = None,
         level: int = NOTSET,
         handler: Optional[Handler] = None,
         *args,
@@ -94,7 +94,7 @@ class GenericRepository(IRepository, Generic[T], Attribute, AuditLogger, ABC):
         )
         return document
 
-    def write(self, item: ITarget, pipeline: IPipeline, **kwargs) -> bool:
+    def write(self, item: ITarget, caller: C, **kwargs) -> bool:
         try:
             self.evaluate(item, ITarget)
             self._counter += 1
@@ -102,10 +102,12 @@ class GenericRepository(IRepository, Generic[T], Attribute, AuditLogger, ABC):
                 msg=Event.Storing.value,
                 counter=self._counter,
                 id=item.identifier,
-                pipeline=pipeline.name,
+                caller=caller.name,
                 item=item,
             )
-            return self._strategy_write.write(caller=pipeline, item=item, repository=self, **kwargs)  # noqa: E501
+            return self._strategy_write.write(
+                caller=caller, item=item, repository=self, **kwargs
+            )
         except Exception as e:
             error = f"[{self.__class__.__name__}] Write strategy failed: {e}"
             self.exception(msg=error, counter=self._counter)

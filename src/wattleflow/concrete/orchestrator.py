@@ -99,9 +99,8 @@ class Orchestrator(IEventSource, IFacade):
         elif action == Operation.Stop:
             self.stop()
         else:
-            raise ChildProcessError(
-                caller=self, error=f"Urecognised operation! [{action}]"
-            )
+            msg = f"{type(self).__name__}: Unrecognised operation! [{action}]"
+            raise ChildProcessError(msg)
 
     def start(self, parallel: bool = False):
         """Starts processor execution (sequentially or in parallel)."""
@@ -128,3 +127,8 @@ class Orchestrator(IEventSource, IFacade):
     def stop(self):
         self._running = False
         self.emit_event(Event.OrchestrationStopped)
+
+if __name__ == "__main__":
+    import gc, unittest
+    unittest.main()
+    gc.collect()

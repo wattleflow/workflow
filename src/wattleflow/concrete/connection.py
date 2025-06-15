@@ -17,32 +17,6 @@ from wattleflow.concrete import Attribute, AuditLogger
 from wattleflow.constants import Event, Operation
 
 
-"""
-1. Connection Lifecycle Management
-    - operation(action: Operation) → bool
-        - Delegates connection actions to connect() and disconnect().
-        - Raises ConnectionException for unknown operations.
-    - create_connection() (Abstract)
-        - Meant to be implemented in concrete subclasses.
-
-2. Observer Pattern Implementation
-    - ConnectionObserverInterface
-        - Maintains a _observers dictionary for tracking connected observers.
-        - subscribe(observer): Registers observers to listen for changes.
-        - notify(owner, **kwargs): Notifies observers of state changes.
-
-3. Settings Management
-    - Settings Class
-        - Ensures only allowed settings are stored.
-        - Handles mandatory settings validation using self.mandatory().
-
-4. Connection Cloning (Prototype Pattern)
-    - clone() (Abstract)
-        - Enables creating a copy of an existing connection.
-        - Expected to be implemented by subclasses.
-"""
-
-
 class Settings(Attribute):
     def __init__(self, allowed: list, **kwargs):
         self.allowed(allowed=allowed, **kwargs)
@@ -57,10 +31,13 @@ class Settings(Attribute):
         except KeyError:
             return None
 
-    def get(self, name: str, default: str = None):
-        return getattr(self, name, default)
+    def get(self, name: str, default: Optional[str] = None):
+        result = getattr(self, name, default)
+        if result is None:
+            return default
+        return result
 
-    def todict(self):
+    def to_dict(self):
         return self.__dict__
 
 
@@ -70,6 +47,9 @@ class ConnectionObserverInterface(IObservable):
         self._observers: Dict[str, IObserver] = {}
 
     def subscribe(self, observer: IObserver) -> None:
+        self.subscribe_observer(observer)
+
+    def subscribe_observer(self, observer: IObserver) -> None:
         if observer.name not in self._observers:
             self._observers[observer.name] = observer
 
@@ -86,22 +66,23 @@ class GenericConnection(
     ConnectionObserverInterface,
     ABC,
 ):
-    _name: str = None
-    _config: Settings = None
-    _connection: Optional[object] = None
-    _connected: bool = False
-    _level: int = NOTSET
-    _handler: Optional[Handler] = None
-
     def __init__(
         self,
         level: int,
         handler: Optional[Handler] = None,
         **configuration,
     ):
+        self._name: Optional[str] = None
+        self._config: Optional[Settings] = None
+        self._connection: Optional[object] = None
+        self._connected: bool = False
+        self._level: int = NOTSET
+        self._handler: Optional[Handler] = None
+
         IFacade.__init__(self)
         ConnectionObserverInterface.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
+
         self._level = level
         self._handler = handler
         self.create_connection(**configuration)
@@ -133,7 +114,8 @@ class GenericConnection(
 
     def __enter__(self):
         self.debug(msg="__enter__")
-        self.connect()
+        # self.connect()
+        next(self.connect())  # aktivira generator
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):

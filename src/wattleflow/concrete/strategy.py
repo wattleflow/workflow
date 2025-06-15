@@ -25,7 +25,7 @@ class Strategy(IStrategy, Attribute, ABC):
         pass
 
 
-class GenericStrategy(Strategy, AuditLogger, Generic[T], ABC):
+class GenericStrategy(Strategy, Generic[T], AuditLogger, ABC):
     def __init__(
         self,
         level: int = NOTSET,
@@ -49,22 +49,21 @@ class GenericStrategy(Strategy, AuditLogger, Generic[T], ABC):
         pass
 
 
-class StrategyGenerate(GenericStrategy):
-    # must be object for if implemented as bool
+class StrategyGenerate(GenericStrategy, Generic[T], ABC):
     def generate(self, caller: C, *args, **kwargs) -> Optional[T]:
         return self.execute(caller, *args, **kwargs)
 
 
-class StrategyCreate(GenericStrategy):
+class StrategyCreate(GenericStrategy, Generic[T], ABC):
     def create(self, caller: C, *args, **kwargs) -> T:
         return self.execute(caller, *args, **kwargs)
 
 
-class StrategyRead(GenericStrategy):
+class StrategyRead(GenericStrategy, Generic[T], ABC):
     def read(self, caller: C, identifier: str, *args, **kwargs) -> Optional[T]:
         return self.call(caller=caller, identifier=identifier, *args, **kwargs)
 
 
-class StrategyWrite(GenericStrategy):
+class StrategyWrite(GenericStrategy, Generic[T], ABC):
     def write(self, caller: C, item: ITarget, *args, **kwargs) -> Optional[T]:
         return self.call(caller=caller, item=item, *args, **kwargs)

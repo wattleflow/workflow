@@ -21,6 +21,8 @@ from wattleflow.constants.keys import (
 
 @final
 class Mapper:
+    __slots__ = ()  # Reduce memory footprint and eliminate __dict__ i __weakref__
+
     @staticmethod
     def convert(name: str, cls: Type[Enum], dict_object: dict):
         if name not in dict_object:

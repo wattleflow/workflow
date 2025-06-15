@@ -21,6 +21,7 @@ class CreateTextDocument(StrategyCreate):
         self.debug(
             msg=Event.ProcessingTask.value,
             file_path=self.file_path,
+            size=len(content),
         )
 
         from wattleflow.documents.file import FileDocument

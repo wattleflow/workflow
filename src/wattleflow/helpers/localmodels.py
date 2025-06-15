@@ -7,9 +7,11 @@
 
 import os
 import glob
+from typing import Optional
 
 
 class StoredModels:
+
     def __init__(self, name: str, path: str):
         self.name = name
         self.base_path = os.path.abspath(path)
@@ -37,10 +39,20 @@ class StoredModels:
 
 
 class DownloadedModels:
-    def __init__(self, base_path: str = None):
-        self.base_path = os.path.abspath(
-            base_path or os.path.expanduser("~/.cache/huggingface")
-        )
+    def __init__(self, base_path: Optional[str] = None):
+
+        import importlib.util
+        transformers_spec = importlib.util.find_spec("transformers")
+
+        if base_path is None and transformers_spec:
+            from transformers.utils.hub import TRANSFORMERS_CACHE
+            self.base_path = TRANSFORMERS_CACHE
+            # self.base_path = transformers_spec.utils.hub.TRANSFORMERS_CACHE
+        elif base_path is not None:
+            self.base_path = base_path
+        else:
+            self.base_path = os.path.expanduser("~/.cache/huggingface")
+        # self.base_path = os.path.abspath(base_path or TRANSFORMERS_CACHE)
 
     def copy_models(self, destination: str):
         destination = os.path.abspath(destination)
@@ -57,6 +69,27 @@ class DownloadedModels:
                 print(f"ℹ Preskočeno (već postoji): {model_name}")
 
     def list_models(self) -> list:
+        # Provjera da li već sadrži 'hub'
+        if "hub" not in self.base_path:
+            models_dir = os.path.join(self.base_path, "hub")
+        else:
+            models_dir = self.base_path
+
+        print(f"INFO: {models_dir}")
+
+        # Ispravan pattern za HuggingFace modele
+        search_pattern = os.path.join(models_dir, "models--*", "snapshots", "*")
+
+        model_paths = []
+        for path in glob.glob(search_pattern):
+            if self._is_valid_model_dir(path):
+                model_name = self._extract_model_name(path)
+                model_paths.append((model_name, path))
+
+        return model_paths
+
+    def list_models_old(self) -> list:
+        print(f"INFO: {self.base_path}")
         models_dir = os.path.join(self.base_path, "hub")
         search_pattern = os.path.join(models_dir, "models--*", "snapshots", "*")
 

@@ -17,7 +17,7 @@ EVAL_TYPE_ERR = "{}.{}: Unexpected type [{}], expected [{}]"
 
 @final
 class Attributes:
-    __slots__ = ()
+    __slots__ = ()  # Reduce memory footprint and eliminate __dict__ i __weakref__
 
     @staticmethod
     def find_name_by_variable(obj):

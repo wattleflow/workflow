@@ -5,27 +5,6 @@
 # License: Apache 2 Licence
 
 
-"""
-1. Connection Management
-    - Stores registered connections in _connections: Dict[str, IObserver].
-    - Supports registering (register_connection()) and unregistering
-      (unregister_connection()) connections.
-
-2. Connection Lookup & Lifecycle
-    - get_connection(name): Retrieves a connection by name.
-    - operation(name, action): Executes an operation (Connect, Disconnect, etc.) on a connection.
-    - connect(name): Initiates a connection.
-    - disconnect(name): Terminates a connection.
-
-3. Auditing & Logging
-    - Calls self.audit(event=Event.Registering, name=name) during registration.
-    - Uses _strategy_audit.generate() for event logging.
-
-4. Observer Pattern (update())
-    - Defines update(*args, **kwargs), but currently does nothing.
-    - Expected to allow the manager to react to external events in future extensions.
-"""
-
 from logging import Handler, INFO
 from typing import Dict, Optional
 from wattleflow.core import IObserver
@@ -54,7 +33,8 @@ class ConnectionManager(IObserver, Attribute, AuditLogger):
         try:
             success = self.operation(name, Operation.Disconnect)
             self.info(msg=Event.Disconnected.value, name=name)
-            return self._connections[name]._connected if success else False
+            # return self._connections[name]._connected if success else False
+            return success
         except Exception as e:
             self.error(msg="Failed to disconnect!", name=name, error=str(e))
             return False

@@ -4,37 +4,6 @@
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
 
-"""
-The Attribute class in wattleflow.helpers.attribute is a utility class for attribute management.
-It provides validation, type enforcement, dynamic class loading, and controlled attribute access.
-
-Key Responsibilities of Attribute
-    1. Type Validation and Enforcement
-        - evaluate(target, expected_type): Ensures objects match expected types.
-        - exists(name, cls): Checks if an attribute exists and is of the correct type.
-        - convert(name, cls, **kwargs): Converts an attribute to an enum type.
-
-    2. Class Loading and Dynamic Instantiation
-        - load_from_class(name, obj, cls, **kwargs): Loads and instantiates a class dynamically.
-        - mandatory(name, cls, **kwargs): Ensures a mandatory parameter exists and is
-          of the correct type.
-        - optional(name, cls, default, **kwargs): Handles optional parameters.
-
-    3. Controlled Attribute Access
-        - push(name, value): Dynamically sets an attribute.
-        - get(name, kwargs, cls, mandatory=True): Retrieves a parameter from kwargs and
-          enforces its type.
-
-    4. Attribute Access & Name Resolution
-        - find_name_by_variable(obj): Finds the variable name by inspecting stack frames.
-        - find_object_by_name(name): Retrieves an object from the local scope.
-
-    5. Security & Constraints
-        - allowed(allowed, **kwargs): Restricts allowed attributes and raises errors for
-          unexpected ones.
-"""
-
-
 import os
 import sys
 import inspect

@@ -7,13 +7,14 @@
 
 import os
 import yaml
-from typing import Any, final, Union
+from typing import Any, final, Optional, Union
 from wattleflow.core import IWattleflow
 
 
 @final
 class Configuration:
-    def __init__(self, config_file: str = None):
+
+    def __init__(self, config_file: Optional[str] = None):
         self.config_file = config_file
         self._key_filename = None
         self._data = None
@@ -109,11 +110,10 @@ class Configuration:
         return self._data.get("presets", {}).get(key, {})
 
 
-@final
 class Preset:
     __slots__ = ()  # Reduce memory footprint and eliminate __dict__ i __weakref__
 
-    def configure(self, allowed: list = None, *args, **kwargs):  # config: dict = None):
+    def configure(self, allowed: Optional[list] = None, *args, **kwargs):  # config: dict = None):
         if kwargs is None:
             return
 

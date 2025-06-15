@@ -14,6 +14,7 @@ from wattleflow.constants.keys import KEY_CONFIG_FILE_NAME
 
 
 class Proxy:
+
     def __init__(self, target_method, before_call=None, after_call=None):
         """
         Proxy for dependency method call dependency injection.

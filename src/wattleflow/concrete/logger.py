@@ -53,8 +53,6 @@ class AsyncHandler(Handler):
 
 
 class AuditLogger(ISingleton, ILogger, ABC):
-    _logger = None
-    _level: int = NOTSET
 
     def __init__(
         self,
@@ -62,6 +60,8 @@ class AuditLogger(ISingleton, ILogger, ABC):
         logger: Optional[Logger] = None,
         handler: Optional[Handler] = None,
     ):
+        self._logger: Optional[Logger] = None
+        self._level: Optional[int] = NOTSET
         ISingleton.__init__(self)
         if (
             hasattr(self, "_instances")
@@ -84,7 +84,7 @@ class AuditLogger(ISingleton, ILogger, ABC):
 
         self.subscribe(handler)
 
-    def _log_msg(self, method, msg, **kwargs):
+    def _log_msg(self, method, msg, **kwargs) -> None:
         if not kwargs:
             method(msg=msg)
             return
@@ -105,17 +105,23 @@ class AuditLogger(ISingleton, ILogger, ABC):
             print(f"[ERROR] {e}\nmethod:{method}")
             raise
 
-    def critical(self, msg, *args, **kwargs):
+    def critical(self, msg, *args, **kwargs) -> None:
         self._log_msg(self._logger.critical, msg, **kwargs)
         self.details(msg=msg, *args, **kwargs)
 
-    def debug(self, msg, *args, **kwargs):
+    def debug(self, msg, *args, **kwargs) -> None:
         self._log_msg(self._logger.debug, msg, **kwargs)
 
-    def details(self, msg, *args, **kwargs):
+    def details(self, msg, *args, **kwargs) -> None:
         import sys
         import traceback
+
         exc_type, exc_value, exc_tb = sys.exc_info()
+
+        if exc_tb is None:
+            self.warning(msg="Traceback not available [exec_info].", error=msg)
+            return
+
         tb = traceback.extract_tb(exc_tb)[-1]
         self._log_msg(
             method=self._logger.debug,
@@ -127,24 +133,29 @@ class AuditLogger(ISingleton, ILogger, ABC):
             error=exc_value,
         )
 
-    def exception(self, msg, *args, **kwargs):
+    def exception(self, msg, *args, **kwargs) -> None:
         self._log_msg(self._logger.exception, msg, **kwargs)
 
-    def error(self, msg, *args, **kwargs):
+    def error(self, msg, *args, **kwargs) -> None:
         self._log_msg(self._logger.error, msg, **kwargs)
 
-    def fatal(self, msg, *args, **kwargs):
+    def fatal(self, msg, *args, **kwargs) -> None:
         self._log_msg(self._logger.fatal, msg, **kwargs)
         self.details(msg=msg, *args, **kwargs)
 
-    def info(self, msg, *args, **kwargs):
+    def info(self, msg, *args, **kwargs) -> None:
         self._log_msg(self._logger.info, msg, **kwargs)
 
-    def warning(self, msg, *args, **kwargs):
+    def warning(self, msg, *args, **kwargs) -> None:
         self._log_msg(self._logger.warning, msg, **kwargs)
 
-    def subscribe(self, subscriber):
+    def subscribe(self, subscriber: Handler) -> None:
+        self.subscribe_handler(subscriber)
+
+    def subscribe_handler(self, subscriber: Handler) -> None:
         if not isinstance(subscriber, Handler):
-            raise TypeError('Can subscribe only "Handler" class.')
+            raise TypeError(
+                '[AuditLogger].subscribe: Can subscribe only "Handler" class.'
+            )
 
         self._logger.addHandler(subscriber)

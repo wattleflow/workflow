@@ -12,7 +12,7 @@ built to last and grow.
 
 | Characteristic           | Value                                                                   |
 | ------------------------ | ----------------------------------------------------------------------- |
-| **Version**              | 0.0.0.27 (latest release)                                               |
+| **Version**              | 0.0.0.28 (latest release)                                               |
 | **License**              | Apache 2.0 License                                                      |
 | **Python Compatibility** | Python >=3.9                                                            |
 | **Dependencies**         | wattleflow                                                              |
@@ -42,7 +42,6 @@ pip install wattleflow-workflow
 | Code Reusability     | Facilitates development by encouraging the reuse of framework components.  |
 | Secure by Design     | Developed with a focus on simplicity and no unnecessary security exposure. |
 | Scalable and Clear   | Suitable for both small and enterprise-level workflow orchestration.       |
-| Modular Architecture | Designed with extensibility and zero security in mind. Allows seamless development through reuse of framework classes and code. |
 
 
 # Documentation

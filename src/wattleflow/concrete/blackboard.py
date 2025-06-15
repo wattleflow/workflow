@@ -20,6 +20,7 @@ from wattleflow.core import (
     IRepository,
     IProcessor,
     T,
+    C
 )
 from wattleflow.concrete import Attribute, AuditLogger
 from wattleflow.concrete.strategy import StrategyCreate
@@ -30,7 +31,7 @@ from wattleflow.constants import Event
 class GenericBlackboard(IBlackboard, Attribute, AuditLogger, Generic[T], ABC):
     def __init__(
         self,
-        strategy_create: StrategyCreate,
+        strategy_create: Optional[StrategyCreate],
         flush_on_write: bool = True,
         level: int = NOTSET,
         handler: Optional[Handler] = None,
@@ -38,11 +39,12 @@ class GenericBlackboard(IBlackboard, Attribute, AuditLogger, Generic[T], ABC):
         IBlackboard.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
 
-        self.evaluate(strategy_create, StrategyCreate)
+        self._strategy_create = strategy_create
+        if strategy_create:
+            self.evaluate(strategy_create, StrategyCreate)
 
         self._flush_on_write = flush_on_write
         self._storage: Dict[str, T] = {}
-        self._strategy_create = strategy_create
         self._repositories: Dict[str, IRepository] = {}
 
         self.debug(
@@ -64,7 +66,11 @@ class GenericBlackboard(IBlackboard, Attribute, AuditLogger, Generic[T], ABC):
         self._repositories.clear()
         self._storage.clear()
 
-    def create(self, processor: IProcessor, *args, **kwargs) -> T:
+    def create(self, processor: IProcessor, *args, **kwargs) -> Optional[T]:
+        if not self._strategy_create:
+            self.warning(msg=Event.Audit.value, error="Missing self._strategy_create")
+            return None
+
         self.evaluate(processor, IProcessor)
         self.info(msg=Event.Creating.value, processor=processor.name, **kwargs)
         return self._strategy_create.create(processor, *args, **kwargs)
@@ -80,8 +86,7 @@ class GenericBlackboard(IBlackboard, Attribute, AuditLogger, Generic[T], ABC):
                 identifier=identifier,
             )
 
-    def flush(self, pipeline: IPipeline, *args, **kwargs) -> None:
-        self.evaluate(pipeline, IPipeline)
+    def flush(self, caller: C, *args, **kwargs) -> None:
         self.info(msg="Flushing blackboard to repositories", count=len(self._storage))
 
         for identifier, item in self._storage.items():
@@ -89,7 +94,7 @@ class GenericBlackboard(IBlackboard, Attribute, AuditLogger, Generic[T], ABC):
                 self.debug(
                     msg=Event.Writting.value, to=repository.name, identifier=identifier
                 )
-                repository.write(item, pipeline=pipeline, *args, **kwargs)
+                repository.write(item, caller=caller, *args, **kwargs)
 
         self._storage.clear()
         self.info(msg="Storage cleared after flush")

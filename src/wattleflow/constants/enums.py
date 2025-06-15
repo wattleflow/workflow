@@ -54,6 +54,7 @@ class Event(Enum):
     Create = "Create"
     Creating = "Creating"
     Created = "Created"
+    CriticalError = "Critical error"
     DebugLog = "Debug log"
     Debug = "Debug"
     Debuging = "Debuging"

@@ -10,6 +10,7 @@ from .macros import TextMacros
 
 
 class TextStream:
+
     def __init__(self, text: str = "", list_of_macros: List = None):
         if list_of_macros is None:
             list_of_macros = []

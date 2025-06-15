@@ -7,8 +7,8 @@
 from abc import abstractmethod, ABC
 from logging import Handler, INFO
 from typing import AsyncGenerator, Generator, Generic, Optional
-from wattleflow.core import IBlackboard, IProcessor, T
-from wattleflow.concrete import Attribute, AuditLogger   # ProcessorException
+from wattleflow.core import IBlackboard, IPipeline, IProcessor, T
+from wattleflow.concrete import Attribute, AuditLogger  # ProcessorException
 from wattleflow.constants.enums import Event
 
 
@@ -39,13 +39,16 @@ class GenericProcessor(IProcessor, AuditLogger, Attribute, Generic[T], ABC):
         self.evaluate(self._pipelines, list)
         self.evaluate(self._allowed, list)
 
-        if not self._pipelines:
-            self.critical("Pipelines can not be empty.")
-            raise ValueError("Pipelines can not be empty.")
+        if not self._pipelines or not len(self._pipelines) > 0:
+            error = "Valid list of pipelines excpected."
+            self.critical(msg=error)
+            raise ValueError(error)
+
+        from wattleflow.core import IPipeline
 
         self.debug(
-            msg="Processor constructed",
-            pipelines=[p.name for p in pipelines],
+            msg=Event.Constructor.value,
+            pipelines=[p.name if isinstance(p, IPipeline) else p for p in pipelines],
             allowed=allowed,
         )
 
@@ -85,10 +88,18 @@ class GenericProcessor(IProcessor, AuditLogger, Attribute, Generic[T], ABC):
             self._cycle += 1
 
             for pipeline in self._pipelines:
-                self.debug(
-                    msg=Event.Processing.value, item=item, pipeline=pipeline.name
-                )
-                pipeline.process(processor=self, item=item)
+                if isinstance(pipeline, IPipeline):
+                    self.debug(
+                        msg=Event.Processing.value,
+                        item=item,
+                        pipeline=pipeline.name,
+                    )
+                    pipeline.process(processor=self, item=item)
+                else:
+                    self.error(
+                        msg="Assigned object is not a pipline.",
+                        reason=pipeline.__class__.__name__,
+                    )
 
 
 class GenericAsyncProcessor(IProcessor, AuditLogger, Attribute, Generic[T], ABC):

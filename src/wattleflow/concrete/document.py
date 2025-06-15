@@ -4,44 +4,25 @@
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
 
-"""
-This library manages document abstraction and handling.
-
-1. Design Patterns
-- Adapter Pattern (DocumentAdapter)
-    - Converts IAdaptee into a compatible interface (IAdapter).
-    - Implements request() by calling specific_request() on IAdaptee.
-
-- Facade Pattern (DocumentFacade)
-    - Wraps DocumentAdapter to provide a simpler API (ITarget).
-
-- Composite Pattern (Commented Out)
-    - Document class previously stored child documents but was commented out.
-
-2. Document Types Implemented
-- Document[T] (Base Class)
-    - Generic document class storing _data and _identifier.
-    - Supports update_content() for modifying content.
-"""
-
 from abc import ABC
-from uuid import uuid4
 from datetime import datetime
-from typing import Dict, Generic, TypeVar
-from wattleflow.core import IDocument, IAdaptee, IAdapter, ITarget
+from logging import Handler, NOTSET
+from typing import Dict, Generic, Optional, TypeVar
+from uuid import uuid4
+from wattleflow.core import IDocument, IAdaptee, IAdapter, ITarget, T
+from wattleflow.concrete import AuditLogger
 
-T = TypeVar("T")
-U = TypeVar("U", bound=IAdaptee)
-
+A = TypeVar("A", bound=IAdaptee)
 
 # GenericDocument
-class Document(IDocument[T], ABC):
-    def __init__(self):
+class Document(IDocument[T], AuditLogger, ABC):
+    def __init__(self, level: int = NOTSET, handler: Optional[Handler] = None):
+        AuditLogger.__init__(self, level=level, handler=handler)
         self._identifier: str = str(uuid4())
-        self._children: Dict[str, U] = {}
+        self._children: Dict[str, IAdaptee] = {}
         self._created: datetime = datetime.now()
         self._lastchange: datetime = self._created
-        self._data: T = None
+        self._data: Optional[T] = None
 
     @property
     def identifier(self) -> str:
@@ -61,28 +42,28 @@ class Document(IDocument[T], ABC):
         self._lastchange = datetime.now()
 
     @property
-    def children(self) -> Dict[str, U]:
+    def children(self) -> Dict[str, IAdaptee]:
         return self._children
 
     @property
     def count(self) -> int:
         return len(self._children)
 
-    def add(self, child_id: str, child: U) -> None:
+    def add(self, child_id: str, child: A) -> None:
         self._children[child_id] = child
 
-    def request(self, identifier: str) -> U:
+    def request(self, identifier: str) -> A:
         return self._children.get(identifier, None)
 
 
 # Child Document
-class Child(Document[U], ABC):
+class Child(Document[A], ABC):
     pass
 
 
 # Adapter with specific_request adaptee object call
-class DocumentAdapter(Generic[U], IAdapter):
-    def __init__(self, adaptee: U):
+class DocumentAdapter(Generic[A], IAdapter):
+    def __init__(self, adaptee: A):
         if not isinstance(adaptee, IAdaptee):
             raise TypeError("IAdaptee must be used.")
         super().__init__(adaptee)
@@ -92,8 +73,8 @@ class DocumentAdapter(Generic[U], IAdapter):
 
 
 # Facade implements ITarget and delegates access methods adaptee object
-class DocumentFacade(Generic[U], ITarget):
-    def __init__(self, adaptee: U):
+class DocumentFacade(Generic[A], ITarget):
+    def __init__(self, adaptee: A):
         if not isinstance(adaptee, IAdaptee):
             raise TypeError("IAdaptee must be used.")
         self._adapter = DocumentAdapter(adaptee)

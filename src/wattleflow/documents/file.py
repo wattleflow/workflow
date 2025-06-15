@@ -6,23 +6,23 @@
 
 from stat import filemode
 from os import path, stat
-from logging import WARNING
+from logging import NOTSET, Handler
 from datetime import datetime
+from typing import Optional
 from wattleflow.concrete import Document, AuditLogger
 
 
 # Document based on file, with automatic retrieval of metadata
 class FileDocument(Document[str], AuditLogger):
-    def __init__(self, filename: str):
-        Document.__init__(self=self)
-        AuditLogger.__init__(self, level=WARNING)
+    def __init__(self, file_path: str, level: int = NOTSET, handler: Optional[Handler] = None):
+        Document.__init__(self, level=level, handler=handler)
         self._metadata = {}
-        self._filename = filename
+        self.file_path = file_path
         self.update_metadata()
 
     @property
     def filename(self) -> str:
-        return self._filename
+        return self.file_path
 
     @property
     def metadata(self) -> dict:
@@ -38,21 +38,21 @@ class FileDocument(Document[str], AuditLogger):
                 error="File does not exist.",
             )
 
-    def update_filename(self, filename):
-        self._filename = filename
+    def update_filename(self, file_path):
+        self._file_path = file_path
         self.update_metadata()
 
     def update_metadata(self) -> None:
         if not path.exists(self.filename):
             self.warning(
                 msg="File does not exist yet.",
-                filename=self.filename,
+                filename=self.file_path,
                 error="Metadata will be empty.",
             )
             return
 
         try:
-            stats = stat(self.filename)
+            stats = stat(self.file_path)
             self._metadata = {
                 "size": stats.st_size,
                 "mtime": datetime.fromtimestamp(stats.st_mtime),
@@ -65,18 +65,18 @@ class FileDocument(Document[str], AuditLogger):
         except FileNotFoundError:
             self.error(
                 msg="File not found!",
-                filename=self.filename,
+                filename=self.file_path,
                 error="Metadata will remain empty.",
             )
         except PermissionError:
             self.error(
                 msg="Permission denied for file.",
-                filename=self.filename,
+                filename=self.file_path,
                 error="Cannot retrieve metadata.",
             )
         except Exception as e:
             self.error(
                 msg="Unexpected error while accessing file.",
-                file=self.filename,
+                file=self.file_path,
                 error=str(e),
             )
