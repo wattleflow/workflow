@@ -44,8 +44,6 @@ class GenericProcessor(IProcessor, AuditLogger, Attribute, Generic[T], ABC):
             self.critical(msg=error)
             raise ValueError(error)
 
-        from wattleflow.core import IPipeline
-
         self.debug(
             msg=Event.Constructor.value,
             pipelines=[p.name if isinstance(p, IPipeline) else p for p in pipelines],

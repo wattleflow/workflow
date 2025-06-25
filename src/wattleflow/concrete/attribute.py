@@ -196,7 +196,7 @@ class Attribute:
         self.evaluate(kwargs, dict)
 
         if name not in kwargs:
-            raise MissingAttribute(self, f"kwargs[{name}]")
+            raise MissingAttribute(self, f"Name not found: kwargs[{name}]")
 
         obj = kwargs.pop(name, None)
 
@@ -205,7 +205,7 @@ class Attribute:
             return obj
 
         if cls in [int, dict, str, tuple, list]:
-            raise TypeError(f"kwargs[{name}]")
+            raise TypeError(f"Incorrect type: kwargs[{name}]")
 
         try:
             self.load_from_class(name, obj, cls, **kwargs)

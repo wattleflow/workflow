@@ -54,7 +54,7 @@ class WattleflowTestClass(TestCase, Attribute, AuditLogger, ABC):
         for root, _, files in walk(directory):
             for file in files:
                 # if glob.fnmatch.fnmatch(file, pattern):
-                if fnmatch(file, pattern):
+                if fnmatch(file, pattern) or fnmatch(file, pattern.lower()):
                     yield path.join(root, file)
 
     def copy_file(self, src, dst, normalise=False):

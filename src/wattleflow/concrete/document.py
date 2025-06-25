@@ -11,13 +11,18 @@ from typing import Dict, Generic, Optional, TypeVar
 from uuid import uuid4
 from wattleflow.core import IDocument, IAdaptee, IAdapter, ITarget, T
 from wattleflow.concrete import AuditLogger
+from wattleflow.constants import Event
 
 A = TypeVar("A", bound=IAdaptee)
+
 
 # GenericDocument
 class Document(IDocument[T], AuditLogger, ABC):
     def __init__(self, level: int = NOTSET, handler: Optional[Handler] = None):
         AuditLogger.__init__(self, level=level, handler=handler)
+
+        self.debug(msg=Event.Constructor.value, level=level, handler=handler)
+
         self._identifier: str = str(uuid4())
         self._children: Dict[str, IAdaptee] = {}
         self._created: datetime = datetime.now()
@@ -32,9 +37,11 @@ class Document(IDocument[T], AuditLogger, ABC):
         return self
 
     def update_content(self, data: T):
+        self.debug(msg=Event.Updating.value, data=data)
+
         if (
             self._data is not None
-            and data is not None                        # noqa: W503
+            and data is not None  # noqa: W503
             and not isinstance(data, type(self._data))  # noqa: W503
         ):
             raise TypeError(f"Expected type {type(self._data)}, found {type(data)}")
@@ -50,9 +57,11 @@ class Document(IDocument[T], AuditLogger, ABC):
         return len(self._children)
 
     def add(self, child_id: str, child: A) -> None:
+        self.debug(msg=Event.Adding.value, child_id=child_id, child=child)
         self._children[child_id] = child
 
     def request(self, identifier: str) -> A:
+        self.debug(msg=Event.Retrieving.value, identifier=identifier)
         return self._children.get(identifier, None)
 
 
