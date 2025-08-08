@@ -7,7 +7,8 @@
 import os
 import sys
 import inspect
-from typing import final, Optional, Union
+from enum import Enum
+from typing import Any, final, Optional
 from importlib import import_module
 from wattleflow.core import IStrategy
 
@@ -34,7 +35,7 @@ class MissingAttribute(TypeError):
         msg = f"{_NC(caller)}.{error}"
         if kwargs:
             msg += f" {kwargs}"
-        super().__init__(f"Missing: [{msg}].")
+        super().__init__(f"Attribute not found: [{msg}].")
 
 
 class StrategyClassLoader(IStrategy):
@@ -110,7 +111,7 @@ class Attribute:
         return None
 
     @staticmethod
-    def find_object_by_name(self, obj):
+    def find_object_by_name(obj):
         return getattr(obj, "__name__", "Unknown")
 
     def allowed(self, allowed, **kwargs) -> bool:
@@ -129,19 +130,41 @@ class Attribute:
 
         return True
 
-    def convert(self, name: str, cls: type, **kwargs):
+    def convert(self, name: str, cls: type, **kwargs) -> Any:
         if name not in kwargs:
             raise MissingAttribute(self, f"kwargs[{name}]")
 
         value = kwargs[name]
 
-        for enum_member in cls:
-            if enum_member.name == value or enum_member.value == value:
-                kwargs[name] = enum_member
+        # for enum_member in cls:
+        #     if enum_member.name == value or enum_member.value == value:
+        #         kwargs[name] = enum_member
+        #         return
+
+        # Ako je cls Enum, iteriramo po članovima
+        if isinstance(cls, type) and issubclass(cls, Enum):
+            for enum_member in cls:
+                if enum_member.name == value or enum_member.value == value:
+                    kwargs[name] = enum_member
+                    return 
+            expected = f"one of {[m.name for m in cls]}"
+        else:
+            if isinstance(value, cls):
                 return
+            try:
+                kwargs[name] = cls(value)
+                return
+            except Exception:
+                expected = cls.__class__.__name__
 
         txt = "{}: unexpected type found [{}:{}] expected [{}]"
-        error = txt.format(_NC(self), value, _NT(value), cls.__class__.__name__)
+        # error = txt.format(_NC(self), value, _NT(value), cls.__class__.__name__)
+        error = txt.format(
+            _NC(self),
+            value,
+            _NT(value),
+            expected
+        )
         raise TypeError(error)
 
     def evaluate(self, target, expected_type):
@@ -235,7 +258,7 @@ class Attribute:
         except Exception as e:
             raise MissingAttribute(self, name, e)
 
-    def optional(self, name: str, cls: type, default: Union[object], **kwargs):
+    def optional(self, name: str, cls: type, default: Optional[object], **kwargs):
         if (not kwargs) and (not default):
             return
 

@@ -17,7 +17,7 @@ class StoredModels:
         self.base_path = os.path.abspath(path)
 
     @property
-    def model(self) -> str:
+    def model_name(self) -> str:
         safe_name = self.name.replace("/", "--")
         search_pattern = os.path.join(
             self.base_path, f"models--{safe_name}", "snapshots", "*"

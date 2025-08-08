@@ -27,26 +27,7 @@ class Document(IDocument[T], AuditLogger, ABC):
         self._children: Dict[str, IAdaptee] = {}
         self._created: datetime = datetime.now()
         self._lastchange: datetime = self._created
-        self._data: Optional[T] = None
-
-    @property
-    def identifier(self) -> str:
-        return self._identifier
-
-    def specific_request(self) -> T:
-        return self
-
-    def update_content(self, data: T):
-        self.debug(msg=Event.Updating.value, data=data)
-
-        if (
-            self._data is not None
-            and data is not None  # noqa: W503
-            and not isinstance(data, type(self._data))  # noqa: W503
-        ):
-            raise TypeError(f"Expected type {type(self._data)}, found {type(data)}")
-        self._data = data
-        self._lastchange = datetime.now()
+        self._content: Optional[T] = None
 
     @property
     def children(self) -> Dict[str, IAdaptee]:
@@ -56,13 +37,50 @@ class Document(IDocument[T], AuditLogger, ABC):
     def count(self) -> int:
         return len(self._children)
 
+    @property
+    def identifier(self) -> str:
+        return self._identifier
+
+    @property
+    def size(self) -> int:
+        if self._content is None:
+            return 0
+        return len(self._content)
+
     def add(self, child_id: str, child: A) -> None:
         self.debug(msg=Event.Adding.value, child_id=child_id, child=child)
         self._children[child_id] = child
 
-    def request(self, identifier: str) -> A:
+    def get(self, identifier: str) -> A:
         self.debug(msg=Event.Retrieving.value, identifier=identifier)
-        return self._children.get(identifier, None)
+        child = self._children.get(identifier, None)
+        if child is None:
+            self.warning(
+                msg=Event.Getting.value,
+                id=identifier,
+                error="child not found",
+                child=child,
+            )
+
+    def request(self, identifier: str) -> Optional[A]:
+        self.debug(msg=Event.Retrieving.value, identifier=identifier)
+        return self.self._content
+
+    def specific_request(self) -> T:
+        return self
+
+    def update_content(self, content: T) -> None:
+        self.debug(msg=Event.Updating.value, data=content)
+
+        if (
+            self._content is not None
+            and content is not None  # noqa: W503
+            and not isinstance(content, type(self._content))  # noqa: W503
+        ):
+            raise TypeError(f"Expected type {type(self._content)}, found {type(content)}")
+
+        self._content = content
+        self._lastchange = datetime.now()
 
 
 # Child Document

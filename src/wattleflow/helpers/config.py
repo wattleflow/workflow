@@ -1,7 +1,7 @@
 # Module Name: helpers/config.py
 # Description: This modul contains config class.
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: 2022-2025 Copyright WattleFlow
 # License: Apache 2 Licence
 
 
@@ -85,10 +85,16 @@ class Config:
         except (KeyError, TypeError):
             return None
 
-    def get(self, section, key, name=None, default=None) -> Union[dict, str, list]:
+    def get(
+        self, section: str, key: str, name=None, default=None
+    ) -> Union[dict, str, list]:
         def find_root(branch, name):
             if branch is None:
                 return None
+
+            if name is None:
+                return branch
+
             if isinstance(branch, dict):
                 if name in branch:
                     return branch[name]

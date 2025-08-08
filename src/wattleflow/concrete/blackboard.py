@@ -24,8 +24,8 @@ from wattleflow.constants import Event
 class GenericBlackboard(IBlackboard, Attribute, AuditLogger, Generic[T], ABC):
     def __init__(
         self,
-        strategy_create: Optional[StrategyCreate],
-        flush_on_write: bool = True,
+        strategy_create: StrategyCreate,
+        write_on_flush_only: bool = False,
         level: int = NOTSET,
         handler: Optional[Handler] = None,
     ):
@@ -36,7 +36,7 @@ class GenericBlackboard(IBlackboard, Attribute, AuditLogger, Generic[T], ABC):
         if strategy_create:
             self.evaluate(strategy_create, StrategyCreate)
 
-        self._flush_on_write = flush_on_write
+        self._write_on_flush_only = write_on_flush_only
         self._storage: Dict[str, T] = {}
         self._repositories: Dict[str, IRepository] = {}
 
@@ -53,6 +53,17 @@ class GenericBlackboard(IBlackboard, Attribute, AuditLogger, Generic[T], ABC):
     @property
     def count(self) -> int:
         return len(self._storage)
+
+    def _write_document(self, identifier: str, document: T, caller: C, *args, **kwargs) -> None:
+        for repository in self._repositories.values():
+            self.debug(
+                msg=Event.Storing.value,
+                identifier=identifier,
+                to=repository.name,
+                caller=caller,
+                **kwargs,
+            )
+            repository.write(document=document, caller=caller, *args, **kwargs)
 
     def clear(self):
         self.info(msg="clean")
@@ -82,23 +93,20 @@ class GenericBlackboard(IBlackboard, Attribute, AuditLogger, Generic[T], ABC):
             )
 
     def flush(self, caller: C, *args, **kwargs) -> None:
-        self.info(
-            msg="Flushing blackboard to repositories",
+        self.debug(
+            msg="Flushing blackboard content to repositories",
             caller=caller,
             count=len(self._storage),
             *args,
             **kwargs,
         )
 
-        for identifier, item in self._storage.items():
-            for repository in self._repositories.values():
-                self.debug(
-                    msg=Event.Writting.value, to=repository.name, identifier=identifier
-                )
-                repository.write(item, caller=caller, *args, **kwargs)
+        if self._write_on_flush_only:
+            for identifier, document in self._storage.items():
+                self._write_document(identifier=identifier, document=document, caller=caller, *args, **kwargs)
 
         self._storage.clear()
-
+        
     def read(self, identifier: str) -> Optional[T]:
         self.info(msg=Event.Reading.value, identifier=identifier)
         return self._storage.get(identifier, None)
@@ -130,35 +138,33 @@ class GenericBlackboard(IBlackboard, Attribute, AuditLogger, Generic[T], ABC):
 
         self._repositories[repository.name] = repository
 
-    def write(self, item: T, pipeline: IPipeline, *args, **kwargs) -> str:
+    def write(self, document: T, pipeline: IPipeline, *args, **kwargs) -> str:
         self.info(
             msg=Event.Writting.value,
-            item=item,
+            document=document,
             pipeline=pipeline,
             *args,
             **kwargs,
         )
 
-        self.evaluate(item, type(item))
+        self.evaluate(document, type(document))
         self.evaluate(pipeline, IPipeline)
 
-        identifier = getattr(item, "identifier", str(uuid4().hex))
-        self._storage[identifier] = item
+        identifier = getattr(document, "identifier", str(uuid4().hex))
+        self._storage[identifier] = document
 
         self.debug(
             msg=Event.Stored.value,
             id=identifier,
-            item=item,
+            document=document,
             pipeline=pipeline.name,
-            flush=self._flush_on_write,
+            flush=self._write_on_flush_only,
         )
 
         if not len(self._repositories) > 0:
             self.warning(msg="You have no registered repositories.")
 
-        if self._flush_on_write:
-            for repository in self._repositories.values():
-                # self.debug(msg=Event.Flushing.value,to=repository.name,identifier=identifier)
-                repository.write(item=item, caller=pipeline, *args, **kwargs)
+        if not self._write_on_flush_only:
+            self._write_document(document=document, caller=pipeline, *args, **kwargs)
 
         return identifier

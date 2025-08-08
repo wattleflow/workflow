@@ -79,6 +79,8 @@ class Event(Enum):
     Exception = "Exception"
     ErrorDetails = "Error details"
     Failed = "Failed"
+    Generating = "Generating"
+    Generated = "Generated"
     Get = "Get"
     Getting = "Getting"
     Initialising = "Initialising"

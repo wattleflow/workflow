@@ -143,3 +143,6 @@ class TeradataConnection(GenericConnection):
             if k.lower() not in ["password", "framework"]
         ]
         return f"{conn}"
+
+
+from wattleflow.concrete import ConnectionManager
