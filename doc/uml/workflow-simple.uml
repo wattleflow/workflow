@@ -1,0 +1,57 @@
+@startuml
+title WattleFlow Workflow – Class Diagram
+
+package "wattleflow.workflow" {
+
+  class GenericProcessor {
+    - level: int
+    - handler: Handler
+    - pipelines: List<Pipeline>
+    - blackboard: IBlackboard
+    + process_task():
+  }
+
+  package "wattleflow.workflow.persistance" {
+    class GenericBlackboard {
+      - level: int
+      - handler: Handler
+      + register_repository(repository: IRepository)
+    }
+
+    class GenericRepository {
+      - read_strategy: IStratgy
+      - write_strategy: IStratgy
+      + read(identifier:str) : IDocumentFacade
+      + write(identifier:str, document: IDocumentFacade) : str
+    }
+
+    class CreateStrategy {
+      - execute()
+      + create()
+    }
+
+    class ReadStrategy {
+      - execute()
+      + read()
+    }
+
+    class WriteStrategy {
+      - execute()
+      + write()
+    }
+  }
+
+  class Pipeline {
+    - id: str
+    + process()
+  }
+  
+  GenericProcessor  "1" *-- "many" Pipeline
+  GenericProcessor  "1" o-- "1" GenericBlackboard
+  GenericBlackboard "1" o-- "many" GenericRepository
+  GenericBlackboard "1" o-- "1" CreateStrategy
+  GenericRepository "1" o-- "1" ReadStrategy
+  GenericRepository "1" o-- "1" WriteStrategy
+
+}
+@enduml
