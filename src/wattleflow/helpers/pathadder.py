@@ -1,7 +1,7 @@
 # Module Name: name pathadder.py
 # Description: This modul contains pathadder methods.
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 
 import os

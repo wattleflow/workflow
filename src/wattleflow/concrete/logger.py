@@ -1,7 +1,7 @@
 # Module Name: concrete/logger.py
 # Description: This modul contains audit logger classes.
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 
 # ---------------------------------------------------------------------------------------
@@ -34,7 +34,6 @@
 # logging system that can handle diverse requirements
 # ---------------------------------------------------------------------------------------
 
-from abc import ABC
 from typing import Optional
 from logging import Formatter, getLogger, Handler, Logger, StreamHandler, NOTSET
 from wattleflow.core import ILogger, ISingleton
@@ -52,110 +51,76 @@ class AsyncHandler(Handler):
             self.handleError(record)
 
 
-class AuditLogger(ISingleton, ILogger, ABC):
-
+class AuditLogger(ISingleton, ILogger):
     def __init__(
         self,
         level: int,
         logger: Optional[Logger] = None,
         handler: Optional[Handler] = None,
     ):
-        self._logger: Optional[Logger] = None
-        self._level: Optional[int] = NOTSET
         ISingleton.__init__(self)
-        if (
-            hasattr(self, "_instances")
-            and self.__class__ in self._instances  # noqa: W503
-            and self._logger  # noqa: W503
-        ):
+        ILogger.__init__(self)
+
+        if getattr(self, "_initialized", False):
             return
 
-        self._level = level
+        self._level: int = level
+        self._logger: Logger = logger or getLogger(self.__class__.__name__)
+        self._logger.setLevel(self._level)
+        # self._logger.propagate = False
 
-        if not logger:
-            self._logger = getLogger(f"[{self.__class__.__name__}]")
-            self._logger.setLevel(self._level)
-
-        if not handler:
+        if handler is None:
             handler = StreamHandler()
-            handler.formatter = Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            handler.setLevel(self._level)
+            handler.setFormatter(
+                Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             )
 
-        self.subscribe(handler)
+        self.subscribe_handler(handler)
+        self._initialized = True
 
-    def _log_msg(self, method, msg, **kwargs) -> None:
-        if not kwargs:
-            method(msg=msg)
-            return
+    def _log_msg(self, method, msg: str, *args, **kwargs) -> None:
+        # logging-specific keys
+        LOG_KW = {"exc_info", "stack_info", "stacklevel", "extra"}
+        pass_through = {k: v for k, v in kwargs.items() if k in LOG_KW}
+        data = {k: v for k, v in kwargs.items() if k not in LOG_KW}
 
-        formatted_items = []
-        for k, v in kwargs.items():
-            if isinstance(v, (str, int, dict, list, tuple)):
-                formatted_items.append(f"{k}: {v}")
-            else:
-                formatted_items.append(f"{k}: {type(v).__name__}")
+        if data:
+            # key=value; repr
+            suffix = ", ".join(f"{k}={repr(v)}" for k, v in data.items())
+            msg = f"{msg} | {suffix}"
 
-        if len(formatted_items) > 0:
-            msg += f" {formatted_items}"
+        method(msg, *args, **pass_through)
 
-        try:
-            method(msg=msg)
-        except Exception as e:
-            print(f"[ERROR] {e}\nmethod:{method}")
-            raise
+    def exception(self, msg: str, *args, **kwargs) -> None:
+        kwargs.setdefault("exc_info", True)
+        self._log_msg(self._logger.error, msg, *args, **kwargs)
 
-    def critical(self, msg, *args, **kwargs) -> None:
-        self._log_msg(self._logger.critical, msg, **kwargs)
-        self.details(msg=msg, *args, **kwargs)
+    def critical(self, msg: str, *args, **kwargs) -> None:
+        self._log_msg(self._logger.critical, msg, *args, **kwargs)
 
-    def debug(self, msg, *args, **kwargs) -> None:
-        self._log_msg(self._logger.debug, msg, **kwargs)
+    def debug(self, msg: str, *args, **kwargs) -> None:
+        self._log_msg(self._logger.debug, msg, *args, **kwargs)  # alias
 
-    def details(self, msg, *args, **kwargs) -> None:
-        import sys
-        import traceback
+    def error(self, msg: str, *args, **kwargs) -> None:
+        self._log_msg(self._logger.error, msg, *args, **kwargs)  # alias
 
-        exc_type, exc_value, exc_tb = sys.exc_info()
+    def fatal(self, msg: str, *args, **kwargs) -> None:
+        self._log_msg(self._logger.fatal, msg, *args, **kwargs)  # alias
 
-        if exc_tb is None:
-            self.warning(msg="Traceback not available [exec_info].", error=msg)
-            return
+    def info(self, msg: str, *args, **kwargs) -> None:
+        self._log_msg(self._logger.info, msg, *args, **kwargs)  # alias
 
-        tb = traceback.extract_tb(exc_tb)[-1]
-        self._log_msg(
-            method=self._logger.debug,
-            msg=msg,
-            file=tb.filename,
-            line=tb.lineno,
-            code=tb.line.strip() if tb.line else "N/A",
-            error_type=exc_type.__name__,
-            error=exc_value,
-        )
-
-    def exception(self, msg, *args, **kwargs) -> None:
-        self._log_msg(self._logger.exception, msg, **kwargs)
-
-    def error(self, msg, *args, **kwargs) -> None:
-        self._log_msg(self._logger.error, msg, **kwargs)
-
-    def fatal(self, msg, *args, **kwargs) -> None:
-        self._log_msg(self._logger.fatal, msg, **kwargs)
-        self.details(msg=msg, *args, **kwargs)
-
-    def info(self, msg, *args, **kwargs) -> None:
-        self._log_msg(self._logger.info, msg, **kwargs)
-
-    def warning(self, msg, *args, **kwargs) -> None:
-        self._log_msg(self._logger.warning, msg, **kwargs)
-
-    def subscribe(self, subscriber: Handler) -> None:
-        self.subscribe_handler(subscriber)
+    def warning(self, msg: str, *args, **kwargs) -> None:
+        self._log_msg(self._logger.warning, msg, *args, **kwargs)  # alias
 
     def subscribe_handler(self, subscriber: Handler) -> None:
         if not isinstance(subscriber, Handler):
-            raise TypeError(
-                '[AuditLogger].subscribe: Can subscribe only "Handler" class.'
-            )
+            raise TypeError("subscribe_handler: expected logging.Handler")
 
-        self._logger.addHandler(subscriber)
+        # avoid duplicte from same handler
+        if subscriber not in self._logger.handlers:
+            self._logger.addHandler(subscriber)
+
+    def subscribe(self, observer: Handler) -> None:
+        self.subscribe_handler(observer)

@@ -1,7 +1,7 @@
 # Module Name: concrete/collections.py
 # Description: This modul contains concrete collection classes.
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 
 from collections import deque
@@ -37,8 +37,8 @@ class DequeList(IWattleflow, deque):
         if len(item) == 0:
             value = ", ".join(f"{key}={value}" for key, value in kwargs.items())
             raise ValueError(ERROR_NOT_FOUND.format("Item", value))
-        else:
-            super().remove(item)
+
+        super().remove(item)
 
     def update(self, new_object, *args, **kwargs):
         replace_all = kwargs.pop(REPLACE_ALL, False)

@@ -1,49 +1,64 @@
 # Module Name: concrete/repository.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 # Description: This modul contains repository classes.
 
 from abc import ABC
 from logging import Handler, NOTSET
-from typing import Generic, Optional
-from wattleflow.core import IRepository, IStrategy, ITarget, T, C
+from typing import Optional
+from wattleflow.core import IRepository, IStrategy, ITarget, IWattleflow
 from wattleflow.constants.enums import Event
-from wattleflow.concrete import Attribute, AuditLogger, _NC
+from wattleflow.concrete import (
+    AuditLogger,
+)
+from wattleflow.concrete.strategy import StrategyRead, StrategyWrite
+from wattleflow.helpers import Attribute, Preset
+
+PERMITED_SLOTS = (
+    "_allowed",
+    "_counter",
+    "_strategy_read",
+    "_strategy_write",
+    "_preset",
+)
 
 
-class GenericRepository(IRepository, Generic[T], Attribute, AuditLogger, ABC):
+class GenericRepository(IRepository, AuditLogger, ABC):
+    __slots__ = PERMITED_SLOTS
+
     def __init__(
         self,
-        strategy_write: IStrategy,
-        strategy_read: Optional[IStrategy] = None,
-        allowed: Optional[list] = None,
+        strategy_write: StrategyWrite,
+        strategy_read: Optional[StrategyRead] = None,
         level: int = NOTSET,
         handler: Optional[Handler] = None,
         *args,
         **kwargs,
     ):
+
         IRepository.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
 
-        # self.evaluate(strategy_read, IStrategy)
-        self.evaluate(strategy_write, IStrategy)
-
-        self._counter: int = 0
-        self._strategy_read = strategy_read
-        self._strategy_write = strategy_write
-        self._allowed = allowed
-
         self.debug(
             msg=Event.Constructor.value,
-            strategy_read=self._strategy_read,
-            strategy_write=self._strategy_write,
-            allowed=allowed,
+            strategy_read=strategy_read,
+            strategy_write=strategy_write,
+            *args,
+            **kwargs,
         )
 
-        self.configure(**kwargs)
+        Attribute.evaluate(caller=self, target=strategy_read, expected_type=IStrategy)
+        Attribute.evaluate(caller=self, target=strategy_write, expected_type=IStrategy)
 
-        self.debug(msg=Event.Constructor.value, status="finalised")
+        self._counter: int = 0
+        self._strategy_write: StrategyWrite = strategy_write
+        self._strategy_read: Optional[StrategyRead] = strategy_read
+
+        self._preset = Preset()
+        self._preset.configure(self, raise_errors=True, **kwargs)
+
+        self.debug(msg=Event.Constructor.value, status="created")
 
     @property
     def count(self) -> int:
@@ -53,62 +68,56 @@ class GenericRepository(IRepository, Generic[T], Attribute, AuditLogger, ABC):
         self.debug(msg=Event.Cleaning.value)
         self._counter = 0
 
-    def configure(self, **kwargs):
-        self.allowed(self._allowed, **kwargs)
-
-        for name, value in kwargs.items():
-            if isinstance(value, (bool, dict, list, str)):
-                self.push(name, value)
-                self.debug(msg=Event.Configuring.value, name=name, value=value)
-            else:
-                error = f"{_NC(value)}) is restricted type. [bool, dict, list, str]"
-                self.error(msg=error, name=name)
-                raise AttributeError(error)
-
-    def read(self, identifier: str, item: ITarget, **kwargs) -> T:
-        if not self._strategy_read:
-            self.warning(msg="Missing:self._strategy_read")
-            return None
-
+    def read(self, identifier: str, *args, **kwargs) -> ITarget:
         self.debug(
             Event.Reading.value,
             id=identifier,
-            item=item.identifier,
-            kwargs=kwargs,
-        )
-        self.evaluate(item, ITarget)
-
-        document = self._strategy_read.read(
-            caller=self,
-            item=item,
-            identifier=identifier,
             **kwargs,
         )
-        self.evaluate(document, ITarget)
 
-        self.debug(
+        document: ITarget = self._strategy_read.read(  # type: ignore
+            caller=self,
+            identifier=identifier,
+            *args,
+            **kwargs,
+        )
+
+        self.info(
             msg=Event.Retrieved.value,
-            id=item.identifier,
-            success=True,
+            id=Attribute.get_attr(document, "identifier"),
             document=document,
         )
+
         return document
 
-    def write(self, item: ITarget, caller: C, **kwargs) -> bool:
+    def write(self, caller: IWattleflow, document: ITarget, *args, **kwargs) -> bool:
+        self.debug(
+            msg=Event.Storing.value,
+            counter=self._counter,
+            caller=caller.name,
+            document=document,
+        )
+
         try:
-            self.evaluate(item, ITarget)
+            Attribute.evaluate(caller=self, target=document, expected_type=ITarget)
             self._counter += 1
-            self.debug(
-                msg=Event.Storing.value,
-                counter=self._counter,
-                id=item.identifier,
-                caller=caller.name,
-                item=item,
+            result: bool = self._strategy_write.write(
+                caller=caller,
+                document=document,
+                repository=self,
+                **kwargs,
             )
-            return self._strategy_write.write(
-                caller=caller, item=item, repository=self, **kwargs
-            )
+            return result
+
         except Exception as e:
             error = f"[{self.__class__.__name__}] Write strategy failed: {e}"
             self.exception(msg=error, counter=self._counter)
-            raise RuntimeError(error)
+            raise RuntimeError(error) from e
+
+    def __getattr__(self, name: str) -> object:
+        obj: object = Attribute.get_attr(caller=self, name=name)
+
+        if obj is not None:
+            return obj
+
+        return Attribute.get_attr(caller=self._preset, name=name)

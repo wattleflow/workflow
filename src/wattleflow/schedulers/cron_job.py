@@ -1,6 +1,6 @@
 # Module Name: name schedulers/cron_job.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 # Description: This modul contains concrete cron job class.
 

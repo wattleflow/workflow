@@ -1,13 +1,16 @@
 # Module Name: concrete/exceptions.py
 # Description: This modul contains concrete exception classes.
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 
 import inspect
+import traceback
 from logging import DEBUG
 from typing import final
+from wattleflow.core import IWattleflow
 from wattleflow.concrete import AuditLogger
+from wattleflow.constants import Event
 from wattleflow.constants.errors import ERROR_PATH_NOT_FOUND, ERROR_UNEXPECTED_TYPE
 from wattleflow.helpers.functions import _NC, _NT
 
@@ -16,18 +19,19 @@ from wattleflow.helpers.functions import _NC, _NT
 # Exceptions
 # --------------------------------------------------------------------------- #
 
-import traceback
-
 
 class AuditException(Exception, AuditLogger):
-    def __init__(self, caller, error, **kwargs):
+    def __init__(self, caller: IWattleflow, error: str, *args, **kwargs):
+        self.debug(
+            msg=Event.Constructor.value, caller=caller, error=error, *args, **kwargs
+        )
         AuditLogger.__init__(self, level=DEBUG)
-        self.name = _NC(caller)
-        self.caller = caller
-        self.error = error
-        self.critical(msg=error, caller=caller)
-        # self.filename = self._get_call_context()
-        super().__init__(self.error)
+        self.caller: IWattleflow = caller
+        self.name: str = caller.name
+        self.reason: str = error
+        self.error(msg=self.reason, caller=caller, **kwargs)
+        self.filename = self._get_call_context()
+        super().__init__(self.reason)
 
     def _get_call_context(self):
         """Retrieves calling filename and line number."""
@@ -44,6 +48,14 @@ class AuthenticationException(AuditException):
 
 
 class BlackboardException(AuditException):
+    pass
+
+
+class ConstructorException(AuditException):
+    pass
+
+
+class ConfigurationException(AuditException):
     pass
 
 

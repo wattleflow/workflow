@@ -1,6 +1,6 @@
 # Module Name: core/constants/enum.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 # Description: This modul contains wattleflow enumerated types.
 
@@ -119,7 +119,7 @@ class Event(Enum):
     Uploading = "Uploading"
     Uploaded = "Uploaded"
     Write = "Write"
-    Writting = "Writting"
+    Writing = "Writing"
     Written = "Written"
 
 

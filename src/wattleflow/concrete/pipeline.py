@@ -1,21 +1,19 @@
 # Module Name: concrete/pipeline.py
 # Description: This modul contains pipeline classes.
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 
 from abc import ABC, abstractmethod
 from logging import Handler, NOTSET
 from typing import Optional
-from wattleflow.core import IProcessor, IPipeline
+from wattleflow.core import IProcessor, IPipeline, ITarget
 from wattleflow.concrete import AuditLogger
 from wattleflow.constants import Event
-from wattleflow.helpers import Attributes, Preset
+from wattleflow.helpers import Attribute, MissingAttribute, Preset
 
 
-class GenericPipeline(IPipeline, Attributes, AuditLogger, ABC):
-    # _allowed: list
-
+class GenericPipeline(IPipeline, AuditLogger, ABC):
     def __init__(
         self,
         level: int = NOTSET,
@@ -24,8 +22,8 @@ class GenericPipeline(IPipeline, Attributes, AuditLogger, ABC):
         **kwargs,
     ):
         IPipeline.__init__(self)
-        Attributes.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
+
         self.debug(
             msg=Event.Constructor.value,
             level=level,
@@ -33,35 +31,29 @@ class GenericPipeline(IPipeline, Attributes, AuditLogger, ABC):
             *args,
             **kwargs,
         )
+        self._preset = Preset()
+        self._preset.configure(caller=self, raise_errors=False, **kwargs)
 
     @abstractmethod
-    def process(self, processor: IProcessor, item, *args, **kwargs) -> None:
-        self.info(
+    def process(
+        self,
+        processor: IProcessor,
+        document: ITarget,
+        *args,
+        **kwargs,
+    ) -> None:
+        self.debug(
             msg=Event.Processing.value,
             processor=processor,
-            id=item.identifier if hasattr(item, "identifier") else "unknown",
-            item=item,
+            id=document.identifier if hasattr(document, "identifier") else "unknown",
+            document=document,
             *args,
             **kwargs,
         )
 
-        self.evaluate(processor, IProcessor)
+        Attribute.evaluate(caller=self, target=processor, expected_type=IProcessor)
 
-        if item is None:
-            msg = f"{self.name}.process: Received None as item!."
-            self.error(msg=msg)
-            raise ValueError(msg)
-
-class GenericPipelineWithPreset(GenericPipeline, Preset, ABC):
-    def __init__(
-        self,
-        level: int = NOTSET,
-        handler: Optional[Handler] = None,
-        *args,
-        **kwargs,
-    ):
-        IPipeline.__init__(self)
-        Attributes.__init__(self)
-        AuditLogger.__init__(self, level=level, handler=handler)
-
-        self.configure(*args, **kwargs)
+        if document is None:
+            error = f"{self.name!r}.process: document parameter is not assigned!."
+            self.error(msg=msg, document=document, **kwargs)
+            raise MissingAttribute(caller=self, error=error)

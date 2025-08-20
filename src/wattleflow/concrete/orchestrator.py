@@ -1,7 +1,7 @@
 # Module Name: concrete/orchestrator.py
 # Description: This modul contains concrete orchestrator classes.
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 
 """
@@ -128,7 +128,9 @@ class Orchestrator(IEventSource, IFacade):
         self._running = False
         self.emit_event(Event.OrchestrationStopped)
 
+
 if __name__ == "__main__":
-    import gc, unittest
+    import gc
+    import unittest
     unittest.main()
     gc.collect()

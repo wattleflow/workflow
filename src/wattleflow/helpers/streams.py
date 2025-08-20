@@ -1,7 +1,7 @@
 # Module Name: name helpers/streams.py
 # Description: This modul contains concrete name stream classes.
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 
 
@@ -35,6 +35,7 @@ class TextStream:
 
         processed = self._macros.run(new_content)
         self._segments.append(processed)
+
         return self
 
     def __lshift__(self, item: Any) -> "TextStream":

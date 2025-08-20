@@ -9,9 +9,9 @@ from contextlib import contextmanager
 from typing import Generator, Optional
 from sqlalchemy import create_engine
 from sqlalchemy.engine.base import Engine
-from wattleflow.concrete import GenericConnection, Settings, ConnectionException
+from wattleflow.concrete import GenericConnection, ConnectionException
 from wattleflow.constants import Event
-from wattleflow.helpers import TextStream
+from wattleflow.helpers import Preset, TextStream
 from wattleflow.constants.keys import (
     KEY_NAME,
     KEY_DATABASE,
@@ -54,19 +54,19 @@ class TeradataConnection(GenericConnection):
             KEY_PUBLISHER,
         ]
         self.debug(msg="create_connection", allowed=allowed)
-        self._config = Settings(allowed=allowed, **configuration)
+        self._preset = Preset(allowed=allowed, **configuration)
         uri = "teradata://{}:{}@{}:{}/{}".format(
-            self._config.user,
-            self._config.password,
-            self._config.host,
-            self._config.port,
-            self._config.database,
+            self._preset.user,
+            self._preset.password,
+            self._preset.host,
+            self._preset.port,
+            self._preset.database,
         )
         self.debug(msg=Event.Authenticating.value, allowed=allowed)
         self._engine = create_engine(uri)
         self._driver = self._engine.driver
-        self._apilevel = self._engine.dialect.dbapi.apilevel
-        self._publisher = self._config.publisher
+        self._apilevel = self._preset.dialect.dbapi.apilevel
+        self._publisher = self._preset.publisher
         self.debug(
             msg=Event.Authenticated.value,
             engine=str(self._engine),
@@ -143,6 +143,3 @@ class TeradataConnection(GenericConnection):
             if k.lower() not in ["password", "framework"]
         ]
         return f"{conn}"
-
-
-from wattleflow.concrete import ConnectionManager

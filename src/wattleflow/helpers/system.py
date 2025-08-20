@@ -1,155 +1,346 @@
 # Module Name: helpers/system.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains path handling system classes and methods.
-
+# Description: This module contains path handling system classes and methods.
 
 import os
 import platform
 import subprocess
 import functools
-from typing import final
+import inspect
+import shutil
+import shlex
+
+from abc import ABC
+from importlib import import_module
+from logging import NOTSET, Handler, getLogger
+from os import PathLike
+from pathlib import Path
+from typing import Sequence, Mapping, Union
+
+try:  # Python 3.8+
+    from typing import final, Optional
+except Exception:  # Python 3.7 fallback
+    from typing_extensions import final, Optional  # type: ignore
+
+from wattleflow.core import IWattleflow
+from wattleflow.concrete.logger import AuditLogger
+from wattleflow.constants import Event
 from wattleflow.constants.keys import KEY_CONFIG_FILE_NAME
 
 
-class Proxy:
-
-    def __init__(self, target_method, before_call=None, after_call=None):
-        """
-        Proxy for dependency method call dependency injection.
-
-        :param target_method: Original interecepted method name
-        :param before_call: Method to be called before the method
-        :param after_call: Function to be called after the method
-        """
-        self.target_method = target_method
-        self.before_call = before_call
-        self.after_call = after_call
-
-    def __call__(self, *args, **kwargs):
-        if self.before_call:
-            self.before_call(*args, **kwargs)
-
-        result = self.target_method(*args, **kwargs)
-
-        if self.after_call:
-            self.after_call(result)
-
-        return result
-
-
-def decorator(target_method):
+class ClassLoader(IWattleflow, ABC):  # ttttype: ignore
     """
-    Decorator for replacing the method with object.
+    Dynamic class loader with audit logging.
     """
-
-    @functools.wraps(target_method)
-    def wrapper(*args, **kwargs):
-        return Proxy(target_method)(*args, **kwargs)
-
-    return wrapper
-
-
-@final
-class Project:
-    root: str = ""
-    config: str = ""
 
     def __init__(
-        self, file_path: str, root_marker: str, config_name: str = KEY_CONFIG_FILE_NAME
+        self,
+        class_path: str,
+        level: int = NOTSET,
+        handler: Optional[Handler] = None,
+        *args,
+        **kwargs,
     ):
-        path = os.path.abspath(file_path)
-        parts = path.split(os.sep)
-        marker_parts = root_marker.split(os.path.sep)
+
+        IWattleflow.__init__(self)
+
+        self._logger = getLogger(f"[{self.__class__.__name__}]")
+        self._logger.setLevel(level)
+        self.log = AuditLogger(level=level, logger=self._logger, handler=handler)
+
+        self.log.debug(
+            msg=Event.Constructor.value,
+            class_path=class_path,
+            level=level,
+            handler=handler,
+            *args,
+            **kwargs,
+        )
 
         try:
-            index = parts.index(marker_parts[0])
-            for i, part in enumerate(marker_parts[1:], start=1):
-                if parts[index + i] != part:
-                    raise ValueError("Root marker not found in a given path.")
-            self.root = os.sep.join(parts[: index + len(marker_parts)])
-        except (ValueError, IndexError):
-            self.root = os.path.dirname(path)
+            module_path, class_name = class_path.rsplit(".", 1)
+        except ValueError as e:
+            self.log.error(
+                msg=Event.Constructor.value,
+                reason=str(e),
+                class_path=class_path,
+                error=e,
+            )
+            raise ValueError(f"Invalid class path: {class_path}") from e
 
-        if not os.path.exists(self.root):
-            raise FileNotFoundError(f"Project [{self.root}] path is not found.")
+        self.log.debug(
+            msg=Event.Constructor.value,
+            module_path=module_path,
+            class_name=class_name,
+        )
 
-        self.config = "{}{}{}".format(self.root, os.path.sep, config_name)
+        try:
+            module = import_module(module_path)
+        except ModuleNotFoundError as e:
+            self.log.error(
+                msg="Module not found",
+                reason=str(e),
+                module_path=module_path,
+                error=e,
+            )
+            raise
+
+        cls = getattr(module, class_name)
+        self.cls = cls
+        try:
+            self.instance = cls(*args, **kwargs)
+        except Exception as e:
+            self.log.error(
+                msg="Class instantiation failed",
+                cls=cls,
+                error=e,
+                reason=str(e),
+            )
+            raise
+
+        self.log.debug(
+            msg=Event.Constructor.value, status="Class loaded", cls=cls.__name__
+        )
+
+        # if not hasattr(module, class_name):
+        #     error = f"Class {class_name} not found in module {module_path}"
+        #     self.error(
+        #         msg=Event.Constructor.value,
+        #         reason=error,
+        #         class_name=class_name,
+        #         module=module,
+        #     )
+        #     raise AttributeError(error)
+
+        # self.cls = getattr(module, class_name)
+        # self.instance = self.cls(*args, **kwargs)
+        # self.debug(msg=Event.Constructor.value, status="Class loaded", cls=self.cls)
 
 
-@final
-class CheckPath:
-    def __init__(self, file_path, owner=None):
-        self.path = str(file_path) if isinstance(file_path, list) else file_path
+Command = Union[str, Sequence[str]]
+Pathish = Union[str, PathLike[str], Path]
 
-        if not os.path.exists(self.path):
-            raise FileNotFoundError(f"Path not found: {self.path}.")
 
-    def __str__(self):
-        return self.path
+def check_path(path: Pathish, raise_error: bool = True) -> bool:
+    if path is None:
+        if raise_error:
+            raise FileNotFoundError("Path must be assigned! [None].")
+        return False
+
+    p = Path(path)
+    if not p.exists():
+        if raise_error:
+            raise FileNotFoundError(f"Path not found: {p}")
+        return False
+    return True
+
+
+def decorator(*dargs, **dkwargs):
+    if dargs and callable(dargs[0]) and not dkwargs:
+        fn = dargs[0]
+
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            return Proxy(fn)(*args, **kwargs)
+
+        return wrapper
+
+    before_call = dkwargs.get("before_call")
+    after_call = dkwargs.get("after_call")
+
+    def _outer(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            return Proxy(fn, before_call=before_call, after_call=after_call)(
+                *args, **kwargs
+            )
+
+        return wrapper
+
+    return _outer
 
 
 @final
 class LocalPath:
-    def __init__(self, file_path, owner=None):
+    """
+    Utility for working with local filesystem paths.
+    """
+
+    def __init__(self, path: Pathish, owner: object = None):
         self.owner = owner
-        self.path = str(file_path) if isinstance(file_path, list) else file_path
+        self.path = str(Path(path))
 
     def exists(self) -> bool:
-        return not os.path.exists(self.path)
+        return check_path(self.path, raise_error=False)
 
-    def create(self, existok=True, mode=None):
-        if not os.path.exists(self.path):
-            if mode:
-                os.makedirs(self.path, exist_ok=existok, mode=mode)
-            else:
-                os.makedirs(self.path, exist_ok=existok)
+    def create(self, exist_ok: bool = True, mode: Optional[int] = None):
+        p = Path(self.path)
+        target = p.parent if p.suffix else p
+        if not target.exists():
+            target.mkdir(
+                parents=True,
+                exist_ok=exist_ok,
+                mode=mode if mode is not None else 0o777,
+            )
+        return self
 
 
+@final
+class Project:
+    def __init__(
+        self,
+        file_path: Pathish,
+        root_marker: Pathish,
+        config_name: str = KEY_CONFIG_FILE_NAME,
+    ):
+        p = Path(file_path).resolve()
+        marker_parts = Path(root_marker).parts
+
+        found: Optional[Path] = None
+        for parent in [p] + list(p.parents):
+            parts = parent.parts
+            for i in range(0, len(parts) - len(marker_parts) + 1):
+                if tuple(parts[i : i + len(marker_parts)]) == marker_parts:
+                    found = Path(*parts[: i + len(marker_parts)])
+                    break
+            if found:
+                break
+
+        root_path = found or p.parent
+        if not root_path.exists():
+            raise FileNotFoundError(f"Project [{root_path}] path is not found.")
+
+        self._root: str = str(root_path)
+        self._config: str = str(root_path / config_name)
+
+    @property
+    def root(self) -> str:
+        return self._root
+
+    @property
+    def config(self) -> str:
+        return self._config
+
+
+@final
+class Proxy:
+    def __init__(self, target_method, before_call=None, after_call=None):
+        self.target_method = target_method
+        self.before_call = before_call
+        self.after_call = after_call
+        self._is_async = inspect.iscoroutinefunction(target_method)
+
+    def _call_after(self, result, *args, **kwargs):
+        if not self.after_call:
+            return
+        try:
+            params = inspect.signature(self.after_call).parameters
+            if len(params) == 1:
+                return self.after_call(result)
+            return self.after_call(result, *args, **kwargs)
+        except Exception:
+            # ne ruši cilj; po želji: re-raise
+            return
+
+    def __call__(self, *args, **kwargs):
+        if self._is_async:
+
+            async def _runner():
+                if self.before_call:
+                    self.before_call(*args, **kwargs)
+                res = await self.target_method(*args, **kwargs)
+                self._call_after(res, *args, **kwargs)
+                return res
+
+            return _runner()
+        else:
+            if self.before_call:
+                self.before_call(*args, **kwargs)
+            res = self.target_method(*args, **kwargs)
+            self._call_after(res, *args, **kwargs)
+            return res
+
+
+# @final
 class ShellExecutor:
     def __init__(self):
         self.os_name = platform.system().lower()
         self.shell = self.detect_shell()
 
-    def detect_shell(self):
+    def detect_shell(self) -> str:
         if self.os_name == "windows":
             return "powershell" if self.is_powershell_available() else "cmd"
-        return "bash"
+        return os.environ.get("SHELL", "bash").split(os.sep)[-1]
 
-    def is_powershell_available(self):
-        try:
-            subprocess.run(
-                ["powershell", "-Command", "Get-Host"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                check=True,
-            )
-            return True
-        except (subprocess.SubprocessError, FileNotFoundError):
-            return False
+    def is_powershell_available(self) -> bool:
+        return shutil.which("powershell") is not None
 
-    def execute(self, command, shell=None):
+    def execute(
+        self,
+        command: Command,
+        shell: Optional[str] = None,
+        *,
+        use_shell: bool = False,
+        timeout: Optional[int] = None,
+        cwd: Optional[Pathish] = None,
+        env: Optional[Mapping[str, str]] = None,
+    ):
+
         shell = shell or self.shell
-        if shell == "cmd":
-            cmd = ["cmd", "/c", command]
-        elif shell == "powershell":
-            cmd = ["powershell", "-Command", command]
+
+        if isinstance(command, str) and not use_shell:
+            cmd_list: Sequence[str] = shlex.split(command)
+            # run_kwargs = dict(shell=False)
+        elif isinstance(command, (list, tuple)):
+            cmd_list = list(command)
+            # run_kwargs = dict(shell=False)
         else:
-            cmd = ["bash", "-c", command]
+            # eksplicitni shell (potreban za pipe/redirect)
+            if shell == "cmd":
+                cmd_list = ["cmd", "/c", command]  # type: ignore[arg-type]
+            elif shell == "powershell":
+                cmd_list = ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", command]  # type: ignore[arg-type]
+            else:
+                cmd_list = ["bash", "-c", command]  # type: ignore[arg-type]
+            # run_kwargs = dict(shell=False)
 
         try:
-            result = subprocess.run(cmd, text=True, capture_output=True, check=True)
+            # result = subprocess.run(cmd_list, text=True, capture_output=True, check=True)
+            result = subprocess.run(
+                args=cmd_list,
+                text=True,
+                capture_output=True,
+                check=True,
+                timeout=timeout,
+                cwd=str(cwd) if cwd else None,
+                env=env,
+                shell=False,
+                # **run_kwargs,
+            )
+            to_s = lambda x: (x or "").strip()
             return {
-                "stdout": result.stdout.strip(),
-                "stderr": result.stderr.strip(),
+                "stdout": to_s(result.stdout),
+                "stderr": to_s(result.stderr),
                 "returncode": result.returncode,
             }
         except subprocess.CalledProcessError as e:
+            to_s = lambda x: (x or "").strip()
             return {
-                "stdout": e.stdout.strip(),
-                "stderr": e.stderr.strip(),
+                "stdout": to_s(e.stdout),
+                "stderr": to_s(e.stderr),
                 "returncode": e.returncode,
             }
         except FileNotFoundError:
-            return {"error": f"Shell '{shell}' not found on the os."}
+            return {
+                "stdout": "",
+                "stderr": f"Command or shell not found: {cmd_list[0]}",
+                "returncode": 127,
+            }
+        except subprocess.TimeoutExpired as e:
+            return {
+                "stdout": (e.stdout or "").strip(),
+                "stderr": f"Timeout after {timeout}s",
+                "returncode": 124,
+            }

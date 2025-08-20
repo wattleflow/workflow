@@ -1,69 +1,80 @@
 # Module Name: concrete/strategies.py
 # Description: This modul contains concrete strategy classes.
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 
 
 from abc import abstractmethod, ABC
 from logging import Handler, NOTSET
-from typing import Any, Generic, Optional
-from wattleflow.core import IStrategy, ITarget, T, C
-from wattleflow.concrete import Attribute, AuditLogger
+from typing import Optional
+from wattleflow.core import IWattleflow, IStrategy, ITarget
+from wattleflow.concrete import AuditLogger
+from wattleflow.helpers import Attribute, Preset
 
+
+PERMITED_TYPES = (
+    "_blackboard",
+    "_processor",
+    "_repository",
+    "_preset",
+    "_level",
+    "_handler"
+
+)
 
 # Generic strategy
-class Strategy(IStrategy, Attribute, ABC):
-    _expected_type = None
-
-    @abstractmethod
-    def call(self, caller: C, *args, **kwargs) -> Any:
-        pass
-
-    @abstractmethod
-    def execute(self, caller: C, *args, **kwargs) -> Any:
-        pass
-
-
-class GenericStrategy(Strategy, Generic[T], AuditLogger, ABC):
+class Strategy(IStrategy, AuditLogger, ABC):
+    __slots__ = PERMITED_TYPES
     def __init__(
         self,
         level: int = NOTSET,
         handler: Optional[Handler] = None,
     ):
-        Strategy.__init__(self)
+        self._level: int = level
+        self._handler: Optional[Handler] = handler
+    
+        IStrategy.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
 
-    def call(self, caller: C, *args, **kwargs) -> Optional[T]:
-        output = self.execute(caller, *args, **kwargs)
-        type_hint = kwargs.get("type_hint")
-        if type_hint and not isinstance(
-            output, (type_hint if isinstance(type_hint, tuple) else (type_hint,))
-        ):
-            raise TypeError(f"Expected {type_hint}, got {type(output)}")
+        # self._preset = Preset()
+    
+    def __getattr__(self, name) -> object:
+        obj = Attribute.get_attr(caller=self, name=name)
 
-        return output
+        if obj is not None:
+            return obj
+        
+        return Attribute.get_attr(caller=self._preset, name=name)
 
     @abstractmethod
-    def execute(self, caller: C, *args, **kwargs) -> Optional[T]:
+    def execute(self, caller: IWattleflow, *args, **kwargs) -> Optional[ITarget]:
         pass
 
 
-class StrategyGenerate(GenericStrategy, Generic[T], ABC):
-    def generate(self, caller: C, *args, **kwargs) -> Optional[T]:
+class StrategyGenerate(Strategy, ABC):
+    def generate(self, caller: IWattleflow, *args, **kwargs) -> Optional[ITarget]:
         return self.execute(caller, *args, **kwargs)
 
 
-class StrategyCreate(GenericStrategy, Generic[T], ABC):
-    def create(self, caller: C, *args, **kwargs) -> T:
-        return self.execute(caller, *args, **kwargs)
+class StrategyCreate(Strategy, ABC):
+    def create(self, caller: IWattleflow, *args, **kwargs) -> Optional[ITarget]:
+        return self.execute(caller=caller, *args, **kwargs)
 
 
-class StrategyRead(GenericStrategy, Generic[T], ABC):
-    def read(self, caller: C, identifier: str, *args, **kwargs) -> Optional[T]:
-        return self.call(caller=caller, identifier=identifier, *args, **kwargs)
+class StrategyRead(Strategy, ABC):
+    def read(
+        self,
+        caller: IWattleflow,
+        identifier: str,
+        *args,
+        **kwargs,
+    ) -> Optional[ITarget]:
+        return self.execute(caller=caller, identifier=identifier, *args, **kwargs)
 
 
-class StrategyWrite(GenericStrategy, Generic[T], ABC):
-    def write(self, caller: C, item: ITarget, *args, **kwargs) -> Optional[T]:
-        return self.call(caller=caller, item=item, *args, **kwargs)
+class StrategyWrite(Strategy, ABC):
+    def write(self, caller: IWattleflow, document: ITarget, *args, **kwargs) -> bool:
+        if self.execute(caller=caller, document=document, *args, **kwargs) is None:
+            return False
+        return True

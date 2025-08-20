@@ -1,27 +1,38 @@
 # Module Name: concrete/blackboard.py
 # Description: This modul contains concrete blackboard classes.
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 
 from abc import ABC
-from uuid import uuid4
 from logging import Handler, NOTSET
+from types import MappingProxyType
 from typing import (
     Dict,
-    Generic,
-    # List,
+    Mapping,
     Optional,
-    # Type,
 )
-from wattleflow.core import IBlackboard, IPipeline, IRepository, IProcessor, T, C
-from wattleflow.concrete import Attribute, AuditLogger
+from wattleflow.core import (
+    IBlackboard,
+    IRepository,
+    IProcessor,
+    ITarget,
+    IWattleflow,
+)
+from wattleflow.concrete import AuditLogger
 from wattleflow.concrete.strategy import StrategyCreate
 from wattleflow.constants import Event
+from wattleflow.helpers.attribute import Attribute
 
 
-# Generic blackboard with write support to multiple repositories
-class GenericBlackboard(IBlackboard, Attribute, AuditLogger, Generic[T], ABC):
+class GenericBlackboard(IBlackboard, AuditLogger, ABC):
+    __slots__ = (
+        "_canvas",
+        "_repositories",
+        "_strategy_create",
+        "_write_on_flush_only",
+    )
+
     def __init__(
         self,
         strategy_create: StrategyCreate,
@@ -32,96 +43,135 @@ class GenericBlackboard(IBlackboard, Attribute, AuditLogger, Generic[T], ABC):
         IBlackboard.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
 
-        self._strategy_create = strategy_create
-        if strategy_create:
-            self.evaluate(strategy_create, StrategyCreate)
-
-        self._write_on_flush_only = write_on_flush_only
-        self._storage: Dict[str, T] = {}
-        self._repositories: Dict[str, IRepository] = {}
-
         self.debug(
             msg=Event.Constructor.value,
-            expected_type=getattr(T, "__name__", "Unknown"),
             strategy_create=strategy_create,
+            write_on_flush_only=write_on_flush_only,
+            level=level,
+            handler=handler,
+            # expected_type=getattr(T, "__name__", "Unknown"),
         )
 
+        Attribute.evaluate(self, strategy_create, StrategyCreate)
+
+        self._strategy_create = strategy_create
+        self._canvas: Dict[str, ITarget] = {}
+        self._repositories: Dict[str, IRepository] = {}
+        self._write_on_flush_only = write_on_flush_only
+
     @property
-    def canvas(self) -> Dict[str, T]:
-        return self._storage
+    def canvas(self) -> Mapping[str, ITarget]:
+        return MappingProxyType(self._canvas)  # Read only
 
     @property
     def count(self) -> int:
-        return len(self._storage)
+        return len(self._canvas)
 
-    def _write_document(self, identifier: str, document: T, caller: C, *args, **kwargs) -> None:
+    @property
+    def repositories(self) -> Mapping[str, IRepository]:
+        return MappingProxyType(self._repositories)  # Read only
+
+    def _send_to_all_repositories(
+        self,
+        caller: IWattleflow,
+        document: ITarget,
+        *args,
+        **kwargs,
+    ) -> None:
+        self.debug(
+            msg=Event.Writing.name,
+            fnc="_send_to_all_repositories",
+            caller=repr(caller.name),
+            document=repr(document),
+            *args,
+            **kwargs,
+        )
+
         for repository in self._repositories.values():
-            self.debug(
-                msg=Event.Storing.value,
-                identifier=identifier,
-                to=repository.name,
-                caller=caller,
-                **kwargs,
-            )
-            repository.write(document=document, caller=caller, *args, **kwargs)
+            repository.write(caller=caller, document=document, *args, **kwargs)
 
     def clear(self):
         self.info(msg="clean")
         self._repositories.clear()
-        self._storage.clear()
+        self._canvas.clear()
 
-    def create(self, processor: IProcessor, *args, **kwargs) -> Optional[T]:
-        self.info(msg=Event.Creating.value, processor=processor, *args, **kwargs)
+    def create(self, caller: IWattleflow, *args, **kwargs) -> Optional[ITarget]:
+        self.debug(msg=Event.Creating.value, caller=caller.name, *args, **kwargs)
+
+        Attribute.evaluate(caller=self, target=caller, expected_type=IProcessor)
 
         if not self._strategy_create:
-            self.warning(msg=Event.Audit.value, error="Missing self._strategy_create")
+            self.warning(
+                msg=Event.Audit.value, error=f"{self.name}._strategy_create is missing!"
+            )
             return None
 
-        self.evaluate(processor, IProcessor)
+        return self._strategy_create.create(caller=caller, blackboard=self, *args, **kwargs)
 
-        return self._strategy_create.create(processor, *args, **kwargs)
+    def delete(self, caller: IWattleflow, identifier: str) -> None:
+        self.debug(
+            msg=Event.Deleting.value,
+            caller=caller.name,
+            identifier=identifier
+        )
 
-    def delete(self, identifier: str) -> None:
-        self.info(msg=Event.Deleting.value, identifier=identifier)
-        if identifier in self._storage:
-            del self._storage[identifier]
+        if identifier in self._canvas:
+            del self._canvas[identifier]
+            self.info(
+                msg=Event.Delete.value,
+                identifier=identifier
+            )
         else:
             self.warning(
                 msg=Event.Deleting.value,
+                caller=caller.name,
                 reason="not in blackboard",
                 identifier=identifier,
             )
 
-    def flush(self, caller: C, *args, **kwargs) -> None:
+    def flush(self, caller: IWattleflow, *args, **kwargs) -> None:
         self.debug(
-            msg="Flushing blackboard content to repositories",
+            msg="Flushing canvas to repositories",
             caller=caller,
-            count=len(self._storage),
+            count=len(self._canvas),
             *args,
             **kwargs,
         )
 
         if self._write_on_flush_only:
-            for identifier, document in self._storage.items():
-                self._write_document(identifier=identifier, document=document, caller=caller, *args, **kwargs)
+            for document in self._canvas.values():
+                self._send_to_all_repositories(
+                    document=document,
+                    caller=caller,
+                    *args,
+                    **kwargs,
+                )
 
-        self._storage.clear()
-        
-    def read(self, identifier: str) -> Optional[T]:
-        self.info(msg=Event.Reading.value, identifier=identifier)
-        return self._storage.get(identifier, None)
+        self._canvas.clear()
+
+    def read(self, identifier: str) -> ITarget:
+        self.debug(msg=Event.Reading.value, identifier=identifier)
+
+        if identifier not in self._canvas:
+            raise ValueError(f"Document {identifier} not found!")
+
+        document: ITarget = self._canvas[identifier]
+
+        return document
 
     def read_from(
         self, repository_name: str, identifier: str, *args, **kwargs
-    ) -> Optional[T]:
-        self.info(
-            msg=Event.Reading.value, source=repository_name, identifier=identifier
+    ) -> ITarget:
+        self.debug(
+            msg=Event.Reading.value,
+            source=repository_name,
+            identifier=identifier,
         )
 
         repository = self._repositories.get(repository_name)
+
         if not repository:
-            msg = "Repository {} not registered".format(repository_name)
-            self.warning(msg=msg, id=identifier)
+            msg = f"Repository {repository_name} not registered!"
             raise ValueError(msg)
 
         return repository.read(identifier=identifier, *args, **kwargs)
@@ -129,42 +179,45 @@ class GenericBlackboard(IBlackboard, Attribute, AuditLogger, Generic[T], ABC):
     def register(self, repository: IRepository) -> None:
         self.info(msg=Event.Registering.value, repository=repository.name)
 
-        self.evaluate(repository, IRepository)
+        Attribute.evaluate(self, repository, IRepository)
 
         if repository.name in self._repositories:
-            msg = "Repository already registered."
-            self.warning(msg=msg, repository=repository.name)
+            self.warning(msg="Repository already registered!", repository=repository.name)
             return
 
         self._repositories[repository.name] = repository
 
-    def write(self, document: T, pipeline: IPipeline, *args, **kwargs) -> str:
-        self.info(
-            msg=Event.Writting.value,
-            document=document,
-            pipeline=pipeline,
+    def write(self, caller: IWattleflow, document: ITarget, *args, **kwargs) -> str:
+        doc = document.request()
+        
+        self.debug(
+            msg=Event.Writing.value,
+            caller=caller.name, 
+            document=repr(document),
+            doc=repr(doc),
             *args,
-            **kwargs,
+            **kwargs
         )
 
-        self.evaluate(document, type(document))
-        self.evaluate(pipeline, IPipeline)
+        identifier:str = str(document.request())
 
-        identifier = getattr(document, "identifier", str(uuid4().hex))
-        self._storage[identifier] = document
+        self._canvas[identifier] = document
 
         self.debug(
             msg=Event.Stored.value,
-            id=identifier,
-            document=document,
-            pipeline=pipeline.name,
+            document=repr(document),
             flush=self._write_on_flush_only,
         )
 
-        if not len(self._repositories) > 0:
+        if not self._repositories:
             self.warning(msg="You have no registered repositories.")
 
         if not self._write_on_flush_only:
-            self._write_document(document=document, caller=pipeline, *args, **kwargs)
+            self._send_to_all_repositories(
+                caller=caller,
+                document=document,
+                *args,
+                **kwargs,
+            )
 
         return identifier

@@ -1,7 +1,7 @@
 # Module Name: concrete/manager.py
 # Description: This modul contains concrete manager classes.
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 
 
@@ -9,14 +9,13 @@ from logging import Handler, INFO
 from typing import Dict, Optional
 from wattleflow.core import IObserver
 from wattleflow.concrete import (
-    Attribute,
     AuditLogger,
     GenericConnection,
 )
 from wattleflow.constants import Event, Operation
 
 
-class ConnectionManager(IObserver, Attribute, AuditLogger):
+class ConnectionManager(IObserver, AuditLogger):
     def __init__(self, level: int = INFO, handler: Optional[Handler] = None):
         IObserver.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)

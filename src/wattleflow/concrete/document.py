@@ -1,96 +1,117 @@
-# Module Name: helpers/document.py
-# Description: This modul contains concrete document handling class.
-# Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
-# License: Apache 2 Licence
-
-from abc import ABC
-from datetime import datetime
+from abc import ABC, abstractmethod
+from datetime import datetime, timezone
 from logging import Handler, NOTSET
-from typing import Dict, Generic, Optional, TypeVar
+from typing import Dict, Generic, Mapping, Optional, TypeVar, Type
+from types import MappingProxyType
 from uuid import uuid4
-from wattleflow.core import IDocument, IAdaptee, IAdapter, ITarget, T
+from wattleflow.core import IAdaptee, IAdapter, ITarget, T
 from wattleflow.concrete import AuditLogger
 from wattleflow.constants import Event
+
 
 A = TypeVar("A", bound=IAdaptee)
 
 
-# GenericDocument
-class Document(IDocument[T], AuditLogger, ABC):
-    def __init__(self, level: int = NOTSET, handler: Optional[Handler] = None):
+class Document(IAdaptee, Generic[T], AuditLogger, ABC):
+    __slots__ = ("_content", "_identifier", "_metadata")
+
+    def __init__(
+        self,
+        content: T,
+        level: int = NOTSET,
+        handler: Optional[Handler] = None,
+    ):
+        IAdaptee.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
 
         self.debug(msg=Event.Constructor.value, level=level, handler=handler)
 
+        # internal only id
         self._identifier: str = str(uuid4())
-        self._children: Dict[str, IAdaptee] = {}
-        self._created: datetime = datetime.now()
-        self._lastchange: datetime = self._created
         self._content: Optional[T] = None
+        self._metadata: Dict[str, object] = {}
+
+        # lock after first assignemnt
+        self._expected_type: Optional[Type[object]] = None
+
+        self.update_content(content=content)
+        self.update_metadata(key="created", value=datetime.now(timezone.utc))
+        self.update_metadata(key="changed", value=datetime.now(timezone.utc))
 
     @property
-    def children(self) -> Dict[str, IAdaptee]:
-        return self._children
+    @abstractmethod
+    def size(self) -> int: ...  # noqa: E704
 
     @property
-    def count(self) -> int:
-        return len(self._children)
+    def content(self) -> Optional[T]:
+        return getattr(self, "_content", None)
 
     @property
     def identifier(self) -> str:
         return self._identifier
 
     @property
-    def size(self) -> int:
-        if self._content is None:
-            return 0
-        return len(self._content)
+    def metadata(self) -> Mapping[str, object]:
+        return MappingProxyType(self._metadata)
 
-    def add(self, child_id: str, child: A) -> None:
-        self.debug(msg=Event.Adding.value, child_id=child_id, child=child)
-        self._children[child_id] = child
-
-    def get(self, identifier: str) -> A:
-        self.debug(msg=Event.Retrieving.value, identifier=identifier)
-        child = self._children.get(identifier, None)
-        if child is None:
-            self.warning(
-                msg=Event.Getting.value,
-                id=identifier,
-                error="child not found",
-                child=child,
-            )
-
-    def request(self, identifier: str) -> Optional[A]:
-        self.debug(msg=Event.Retrieving.value, identifier=identifier)
-        return self.self._content
-
-    def specific_request(self) -> T:
+    def specific_request(self) -> "Document":
         return self
 
     def update_content(self, content: T) -> None:
-        self.debug(msg=Event.Updating.value, data=content)
+        self.debug(msg=Event.Updating.value, fnc="update_content", content=content)
 
-        if (
-            self._content is not None
-            and content is not None  # noqa: W503
-            and not isinstance(content, type(self._content))  # noqa: W503
-        ):
-            raise TypeError(f"Expected type {type(self._content)}, found {type(content)}")
+        if content is None:
+            self._content = None  # Can clear the content
+            self.update_metadata("lastchange", datetime.now(timezone.utc))
+            return
+
+        if self._expected_type is None:
+            self._expected_type = type(content)
+        elif not isinstance(content, self._expected_type):
+            raise TypeError(
+                f"{self.name}.update_content: expected {self._expected_type.__name__}, "
+                f"got {type(content).__name__}"
+            )
 
         self._content = content
-        self._lastchange = datetime.now()
+        self.update_metadata("lastchange", datetime.now(timezone.utc))
 
+    def update_metadata(self, key: str, value: object) -> None:
+        self.debug(
+            msg=Event.Updating.value,
+            fnc="update_metadata",
+            key=key,
+            value=value,
+        )
 
-# Child Document
-class Child(Document[A], ABC):
-    pass
+        if key is None or not str(key).strip():
+            raise ValueError(
+                f"{self.name}.update_metadata(key, value): key must be non-empty"
+            )
+
+        self._metadata[key] = value
+        self._metadata["lastchange"] = datetime.now(timezone.utc)
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, Document)
+            and self.identifier == other.identifier  # noqa: W503
+            and type(self) is type(other)  # noqa: W503
+        )
+
+    def __repr__(self) -> str:
+        return f"{self.name}:{self.identifier}"
+
+    def __str__(self) -> str:
+        return f"{self.identifier}"
+
+    def __hash__(self) -> int:
+        return hash((type(self), self.identifier))
 
 
 # Adapter with specific_request adaptee object call
-class DocumentAdapter(Generic[A], IAdapter):
-    def __init__(self, adaptee: A):
+class DocumentAdapter(Generic[T], IAdapter):
+    def __init__(self, adaptee: T):
         if not isinstance(adaptee, IAdaptee):
             raise TypeError("IAdaptee must be used.")
         super().__init__(adaptee)
@@ -100,15 +121,14 @@ class DocumentAdapter(Generic[A], IAdapter):
 
 
 # Facade implements ITarget and delegates access methods adaptee object
-class DocumentFacade(Generic[A], ITarget):
+class DocumentFacade(ITarget, Generic[A], ABC):
+    __slots__ = "_adapter"
+
     def __init__(self, adaptee: A):
+        ITarget.__init__(self)
         if not isinstance(adaptee, IAdaptee):
             raise TypeError("IAdaptee must be used.")
         self._adapter = DocumentAdapter(adaptee)
-
-    @property
-    def identifier(self) -> str:
-        return self._adapter._adaptee.identifier
 
     def request(self):
         result = self._adapter.request()
@@ -122,3 +142,6 @@ class DocumentFacade(Generic[A], ITarget):
         raise AttributeError(
             f"'{self.__class__.__name__}' object has no attribute '{attr}'"
         )
+
+    def __repr__(self) -> str:
+        return f"{self.name}:{getattr(self, "identifier")}"

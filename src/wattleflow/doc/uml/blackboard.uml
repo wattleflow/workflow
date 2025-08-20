@@ -1,0 +1,36 @@
+@startuml
+title WattleFlow Blackboard Persitance – Class Diagram
+
+package "wattleflow.data-flow" {
+
+  class IDocumentFacade extends IFacade {
+
+  } 
+ 
+  package "wattleflow.workflow.blackboard.persistance" {
+
+    class GenericBlackboard extends IBlackboard{
+      - level: int
+      - handler: Handler
+      + register_repository(repository: IRepository)
+      + read(identifier:str, **kwargs) : IDocumentFacade
+      + write(document: IDocumentFacade) : [uuid]
+    }
+
+    class GenericRepository {
+      - read_strategy: IStratgy
+      - write_strategy: IStratgy
+      + read(identifier:str) : IDocumentFacade
+      + write(identifier:str, document: IDocumentFacade) : str
+    }
+
+    class CreateStrategy {
+      + create() : IDocumentFacade
+    }
+  }
+}
+  
+  GenericBlackboard "1" o-- "many" GenericRepository
+  GenericBlackboard "1" o-- "1" CreateStrategy
+
+@enduml
