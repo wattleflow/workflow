@@ -79,16 +79,63 @@ class AuditLogger(ISingleton, ILogger):
         self.subscribe_handler(handler)
         self._initialized = True
 
-    def _log_msg(self, method, msg: str, *args, **kwargs) -> None:
+    def _log_msg2(self, method, msg: str, *args, **kwargs) -> None:
         # logging-specific keys
         LOG_KW = {"exc_info", "stack_info", "stacklevel", "extra"}
         pass_through = {k: v for k, v in kwargs.items() if k in LOG_KW}
-        data = {k: v for k, v in kwargs.items() if k not in LOG_KW}
+        data = {k: repr(v) for k, v in kwargs.items() if k not in LOG_KW}
 
         if data:
             # key=value; repr
-            suffix = ", ".join(f"{k}={repr(v)}" for k, v in data.items())
-            msg = f"{msg} | {suffix}"
+            # suffix = ", ".join(f"{k}={repr(v)}" for k, v in data.items())
+            suffix = []
+            SIMPLE_OBJECT = ["bool", "int", "str", "None"]
+            LISTED_OBJECTS = ["dict", "list", "tuple"]
+            for k, v in kwargs.items():
+                if v in SIMPLE_OBJECT:
+                    suffix.append(f"{str(k)}={v}")
+                elif v in LISTED_OBJECTS:
+                    suffix.append(f"{str(k)}={v.__name__}")
+                elif hasattr(v, "__repr__"):
+                    suffix.append(f"{str(k)}={repr(v)}")
+                else:
+                    suffix.append(f"{str(k)}={v.__name__}")
+
+            msg = f"{msg} {suffix}"
+
+        method(msg, *args, **pass_through)
+
+    def _log_msg(self, method, msg: str, *args, **kwargs) -> None:
+        def safe_repr(obj: object, maxlen: int = 100) -> str:
+            try:
+                from pandas import DataFrame
+                if isinstance(obj, (DataFrame)):
+                    s = obj.__class__.__name__
+                else:
+                    s = repr(obj)
+            except Exception:
+                s = f"<unreprable {obj.__class__.__name__}>"
+            return s if len(s) <= maxlen else s[: maxlen - 1] + "…"
+
+        LOG_KW = {"exc_info", "stack_info", "stacklevel", "extra"}
+        pass_through = {k: kwargs[k] for k in LOG_KW if k in kwargs}
+        data = {k: v for k, v in kwargs.items() if k not in LOG_KW}
+
+        if data:
+            parts = []
+            for k, v in data.items():
+                if v is None or isinstance(v, (bool, int, float, str)):
+                    parts.append(f"{k}={v}")
+                elif isinstance(v, (list, tuple, set, dict)):
+                    try:
+                        n = len(v)
+                    except Exception:
+                        n = "?"
+                    parts.append(f"{k}=<{type(v).__name__}: {n}>")
+                else:
+                    parts.append(f"{k}={safe_repr(v)}")
+
+            msg = f"{msg} {parts}"
 
         method(msg, *args, **pass_through)
 

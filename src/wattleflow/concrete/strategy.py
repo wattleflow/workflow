@@ -19,13 +19,14 @@ PERMITED_TYPES = (
     "_repository",
     "_preset",
     "_level",
-    "_handler"
-
+    "_handler",
 )
+
 
 # Generic strategy
 class Strategy(IStrategy, AuditLogger, ABC):
     __slots__ = PERMITED_TYPES
+
     def __init__(
         self,
         level: int = NOTSET,
@@ -33,23 +34,26 @@ class Strategy(IStrategy, AuditLogger, ABC):
     ):
         self._level: int = level
         self._handler: Optional[Handler] = handler
-    
+
         IStrategy.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
 
         # self._preset = Preset()
-    
+
+    @abstractmethod
+    def execute(self, caller: IWattleflow, *args, **kwargs) -> Optional[ITarget]:
+        pass
+
     def __getattr__(self, name) -> object:
         obj = Attribute.get_attr(caller=self, name=name)
 
         if obj is not None:
             return obj
-        
+
         return Attribute.get_attr(caller=self._preset, name=name)
 
-    @abstractmethod
-    def execute(self, caller: IWattleflow, *args, **kwargs) -> Optional[ITarget]:
-        pass
+    def __repr__(self) -> str:
+        return f"{self.name}"
 
 
 class StrategyGenerate(Strategy, ABC):

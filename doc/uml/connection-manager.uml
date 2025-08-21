@@ -1,0 +1,35 @@
+@startuml
+title WattleFlow Connectivity Persistance – Class Diagram
+
+package "wattleflow.connectivity" {
+
+  class Processor {
+    - blackboard: IBlackboard
+    - pipelines: List<Pipeline>
+    + start()
+  }
+  
+  class ConnectionManager {
+    + operation(name, connect|disconnect) : Connection
+    + register_connection(name, connection)
+  }
+
+  class Connection {
+    - connected: bool
+    ..
+    + create_connection()
+    ..
+    + connect() : bool
+    + disconnect(): bool
+  }
+
+  class WriteStrategy {
+    + write(processor, *args, **kwargs)
+  }
+
+  Processor "connect" o-->  ConnectionManager
+  ConnectionManager o--> "connect" Connection
+
+  WriteStrategy "connect" o--> ConnectionManager  
+}
+@enduml

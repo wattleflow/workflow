@@ -110,11 +110,11 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
 
 
 # Adapter with specific_request adaptee object call
-class DocumentAdapter(Generic[T], IAdapter):
+class DocumentAdapter(IAdapter, Generic[T]):
     def __init__(self, adaptee: T):
         if not isinstance(adaptee, IAdaptee):
             raise TypeError("IAdaptee must be used.")
-        super().__init__(adaptee)
+        IAdapter.__init__(self, adaptee=adaptee)
 
     def request(self):
         return self._adaptee.specific_request()

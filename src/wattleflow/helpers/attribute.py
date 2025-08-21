@@ -6,19 +6,20 @@
 
 import inspect
 from enum import Enum
+from pandas import DataFrame
 from typing import Any, Optional
 from wattleflow.core import IWattleflow
 
 
 class MissingAttribute(AttributeError):
-    def __init__(self, caller, error, **kwargs):
-        from wattleflow.helpers.functions import _NC  # pylint: disable=import-outside-toplevel
-
-        msg = f"{_NC(caller)}.{error}"
+    def __init__(self, caller: object, error: str, **kwargs):
+        self._msg = f"{Attribute.class_name(caller)}.{error}"
         if kwargs:
-            msg += f" {kwargs}"
-        super().__init__(f"Attribute not found: [{msg}].")
+            self._msg += f" {kwargs}"
+        super().__init__(f"Attribute not found: [{self._msg}].")
 
+    def __repr__(self) -> str:
+        return f"{self.name}: {self._msg}"
 
 class Attribute:
     @staticmethod
@@ -165,7 +166,7 @@ class Attribute:
         Attribute.evaluate(caller, kwargs, dict)  # type: ignore
 
         if name not in kwargs:
-            raise MissingAttribute(caller, f"Name not found: kwargs[{name}]")
+            raise MissingAttribute(caller, f"[{name}] not found in kwargs!")
 
         obj = kwargs.pop(name, None)
 
@@ -173,15 +174,15 @@ class Attribute:
             setattr(caller, name, obj)
             return True
 
-        if cls in [int, dict, str, tuple, list]:
-            raise TypeError(f"Incorrect type: kwargs[{name}]")
+        if cls in [int, dict, str, tuple, list] or not isinstance(cls, IWattleflow):
+            raise TypeError(f"Incorrect type for {name}: expected {cls}, found <{Attribute.class_name(obj)}>.")
 
         try:
             Attribute.load_from_class(name, obj, cls, **kwargs)
             return True
         except Exception as e:
             raise ValueError(f"Error loading class: kwargs[{name}]: {e}") from e
-
+        
     @staticmethod
     def get(
         caller: IWattleflow,
@@ -238,7 +239,6 @@ class Attribute:
 
     @staticmethod
     def get_attr(caller: object, name: str) -> Optional[object]:
-        # if exists
         d = getattr(caller, "__dict__", None)
         if d is not None and name in d:
             return d[name]
@@ -255,11 +255,12 @@ class Attribute:
                 return object.__getattribute__(caller, name)
 
         # if in neither throw AttributeError w !r - adds quote as the value is string Litteral
-        error = f"{type(caller).__name__!s} has no attribute {name!r}" 
+        # error = f"({type(caller).__name__!s}) has no attribute {name!r}"
+        error = f"{name!r} is missing attribute!"
         raise MissingAttribute(caller=caller, error=error, name=name)
 
-    def __str__(self):
-        attributes = ""
-        for k, v in self.__dict__.items():
-            attributes += f"{k}:{v}\n"
-        return attributes
+    # def __str__(self):
+    #     attributes = ""
+    #     for k, v in self.__dict__.items():
+    #         attributes += f"{k}:{v}\n"
+    #     return attributes

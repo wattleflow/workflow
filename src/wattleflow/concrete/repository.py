@@ -21,6 +21,7 @@ PERMITED_SLOTS = (
     "_strategy_read",
     "_strategy_write",
     "_preset",
+    "_initialised",
 )
 
 
@@ -93,9 +94,9 @@ class GenericRepository(IRepository, AuditLogger, ABC):
     def write(self, caller: IWattleflow, document: ITarget, *args, **kwargs) -> bool:
         self.debug(
             msg=Event.Storing.value,
-            counter=self._counter,
             caller=caller.name,
             document=document,
+            counter=self._counter,
         )
 
         try:
@@ -110,14 +111,15 @@ class GenericRepository(IRepository, AuditLogger, ABC):
             return result
 
         except Exception as e:
-            error = f"[{self.__class__.__name__}] Write strategy failed: {e}"
-            self.exception(msg=error, counter=self._counter)
+            error = f"[{self.name}] Write strategy failed: {e}"
+            self.error(msg=error, counter=self._counter)   # TODO: self.exception to self.error
             raise RuntimeError(error) from e
 
     def __getattr__(self, name: str) -> object:
-        obj: object = Attribute.get_attr(caller=self, name=name)
-
-        if obj is not None:
-            return obj
+        if name in self.__slots__:
+            return Attribute.get_attr(caller=self, name=name)
 
         return Attribute.get_attr(caller=self._preset, name=name)
+
+    def __repr__(self) -> str:
+        return f"{self.name}: {self.count}"

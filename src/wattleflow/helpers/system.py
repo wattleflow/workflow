@@ -101,7 +101,9 @@ class ClassLoader(IWattleflow, ABC):  # ttttype: ignore
             raise
 
         self.log.debug(
-            msg=Event.Constructor.value, status="Class loaded", cls=cls.__name__
+            msg=Event.Constructor.value,
+            status="Class loaded",
+            cls=cls.__name__,
         )
 
         # if not hasattr(module, class_name):

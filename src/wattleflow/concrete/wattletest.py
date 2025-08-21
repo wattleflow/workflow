@@ -26,10 +26,15 @@ TEST_NAME = "test_dir"
 
 class WattleflowTestClass(TestCase):
     _paths: dict = {}
-    cleanup: bool = True
     _config_path: str = ""
+    cleanup: bool = True
 
-    def setUp(self):       
+    @property
+    def local_temp(self) -> str:
+        return self._temp_dir.name
+        # return getattr(self, TEST_NAME, "")
+
+    def setUp(self):
         self.log = AuditLogger(
             level=getattr(self, "level", logging.INFO),
             handler=getattr(self, "handler", None),
@@ -40,6 +45,7 @@ class WattleflowTestClass(TestCase):
         self._temp_dir = tempfile.TemporaryDirectory(
             prefix="wattleflow_"
         )  # pylint: disable=consider-using-with  # noqa: E501
+
         self.set_path(TEST_NAME, self._temp_dir.name)
 
         for name, folder in self._paths.items():

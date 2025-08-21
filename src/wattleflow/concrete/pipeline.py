@@ -45,7 +45,7 @@ class GenericPipeline(IPipeline, AuditLogger, ABC):
         self.debug(
             msg=Event.Processing.value,
             processor=processor,
-            id=document.identifier if hasattr(document, "identifier") else "unknown",
+            id=getattr(document, "identifier", "unknown"),
             document=document,
             *args,
             **kwargs,
@@ -57,3 +57,6 @@ class GenericPipeline(IPipeline, AuditLogger, ABC):
             error = f"{self.name!r}.process: document parameter is not assigned!."
             self.error(msg=msg, document=document, **kwargs)
             raise MissingAttribute(caller=self, error=error)
+
+    def __repr__(self) -> str:
+        return f"{self.name}"

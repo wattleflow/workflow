@@ -221,3 +221,6 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             )
 
         return identifier
+
+    def __repr__(self) -> str:
+        return f"{self.name}: {self.count}"

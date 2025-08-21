@@ -13,17 +13,18 @@ from wattleflow.constants.enums import Event
 from wattleflow.helpers import Attribute, Preset
 
 PERMITED_VALUES = (
-    '_blackboard',
-    '_current',
-    '_cycle',
-    '_generator',
-    '_pipelines',
-    '_preset',
+    "_blackboard",
+    "_current",
+    "_cycle",
+    "_generator",
+    "_pipelines",
+    "_preset",
 )
+
 
 class GenericProcessor(IProcessor, AuditLogger, ABC):
     __slots__ = PERMITED_VALUES
-    
+
     def __init__(
         self,
         blackboard: IBlackboard,
@@ -42,7 +43,7 @@ class GenericProcessor(IProcessor, AuditLogger, ABC):
             pipelines=[p.name if isinstance(p, IPipeline) else p for p in pipelines],
             level=level,
             handler=handler,
-            **kwargs
+            **kwargs,
         )
 
         Attribute.evaluate(caller=self, target=pipelines, expected_type=list)
@@ -94,11 +95,15 @@ class GenericProcessor(IProcessor, AuditLogger, ABC):
                     self.error(
                         msg=Event.Processing.value,
                         reason="Assigned object is not a pipline.",
-                        class_name = Attribute.class_name(pipeline),
+                        class_name=Attribute.class_name(pipeline),
                         type_name=Attribute.type_name(pipeline),
                     )
-                    raise ProcessorException(caller=self, error=f"Inccorect pipeline type.")
+                    raise ProcessorException(
+                        caller=self, error=f"Inccorect pipeline type."
+                    )
 
+    def __repr__(self) -> str:
+        return f"{self.name}: {len(self._pipelines)}"
 
 class GenericAsyncProcessor(IProcessor, AuditLogger, ABC):
     __slots__ = PERMITED_VALUES
@@ -121,7 +126,7 @@ class GenericAsyncProcessor(IProcessor, AuditLogger, ABC):
             pipelines=[p.name if isinstance(p, IPipeline) else p for p in pipelines],
             level=level,
             handler=handler,
-            **kwargs
+            **kwargs,
         )
 
         Attribute.evaluate(caller=self, target=pipelines, expected_type=List[IPipeline])
