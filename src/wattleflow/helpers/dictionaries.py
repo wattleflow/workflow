@@ -1,4 +1,4 @@
-# Module Name: concrete/dictionaries.py
+# Module Name: helpers/dictionaries.py
 # Description: This modul contains dictionary helper classes.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow

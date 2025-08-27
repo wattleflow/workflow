@@ -5,20 +5,26 @@
 # Description: This modul contains text strategy write classes.
 
 import os
-from wattleflow.core import IDocument, IRepository, ITarget, IWattleflow
-from wattleflow.concrete import DocumentFacade, Document
+from wattleflow.core import IRepository, ITarget, IWattleflow
+from wattleflow.concrete import Document
 from wattleflow.concrete.strategy import StrategyWrite
 from wattleflow.constants import Event
 from wattleflow.helpers import Attribute, TextStream
 
 
 class WriteTextDocumentToFile(StrategyWrite):
-    def execute(self, caller: IWattleflow, document: IDocument, *args, **kwargs) -> bool:
-        self.debug(msg=Event.Executing.value, caller=caller.name, document=document.identifier, *args, **kwargs)
+    def execute(self, caller: IWattleflow, document: ITarget, *args, **kwargs) -> bool:
+        self.debug(
+            msg=Event.Executing.value,
+            caller=caller.name,
+            document=document.identifier,
+            *args,
+            **kwargs,
+        )
 
         Attribute.mandatory(caller=self, name="repository", cls=IRepository, **kwargs)
 
-        storage_path = Attribute.getattr(self.repository, 'storage_path')
+        storage_path = Attribute.getattr(self.repository, "storage_path")
         storage_name = "{}.txt".format(os.path.join(storage_path, document.identifier))
 
         content: Document = document.specific_request()

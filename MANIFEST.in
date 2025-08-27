@@ -33,6 +33,8 @@ exclude src/wattleflow/schedulers
 exclude tests
 exclude tests/config.yaml
 exclude tests/scheduler.yaml
+exclude tools/doc
+
 include README.md LICENSE
 include doc/wattleflow.png
 recursive-include src/wattleflow/ *.py

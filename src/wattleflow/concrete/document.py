@@ -144,4 +144,4 @@ class DocumentFacade(ITarget, Generic[A], ABC):
         )
 
     def __repr__(self) -> str:
-        return f"{self.name}:{getattr(self, "identifier")}"
+        return f"{self.name}:{getattr(self, 'identifier', '')}"

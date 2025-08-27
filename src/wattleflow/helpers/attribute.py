@@ -1,12 +1,11 @@
-# Module Name: concrete/attribute.py
-# Description: This modul contains concrete attribute handling class.
+# Module Name: helpers/attribute.py
+# Description: This modul contains helpers attribute handling class.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 
 import inspect
 from enum import Enum
-from pandas import DataFrame
 from typing import Any, Optional
 from wattleflow.core import IWattleflow
 
@@ -21,6 +20,7 @@ class MissingAttribute(AttributeError):
     def __repr__(self) -> str:
         return f"{self.name}: {self._msg}"
 
+
 class Attribute:
     @staticmethod
     def name(o: object) -> str:
@@ -28,7 +28,7 @@ class Attribute:
 
     @staticmethod
     def class_name(o: object) -> str:
-        return getattr(getattr(o, "__class__", None), "__name__", '<None>')
+        return getattr(getattr(o, "__class__", None), "__name__", "<None>")
 
     @staticmethod
     def type_name(o: object) -> str:
@@ -74,7 +74,9 @@ class Attribute:
         restricted = set(kwargs.keys()) - set(allowed)
 
         if restricted:
-            from wattleflow.helpers.functions import _NC  # pylint: disable=import-outside-toplevel
+            from wattleflow.helpers.functions import (
+                _NC,
+            )  # pylint: disable=import-outside-toplevel
 
             raise AttributeError(f"{_NC(caller)} - Restricted : [{restricted}]")
 
@@ -102,7 +104,10 @@ class Attribute:
             except Exception:  # pylint: disable=broad-except
                 expected = cls.__class__.__name__
 
-        from wattleflow.helpers.functions import _NC, _NT # pylint: disable=import-outside-toplevel
+        from wattleflow.helpers.functions import (
+            _NC,
+            _NT,
+        )  # pylint: disable=import-outside-toplevel
 
         txt = "{}: unexpected type found [{}:{}] expected [{}]"
         error = txt.format(_NC(caller), value, _NT(value), expected)
@@ -145,7 +150,9 @@ class Attribute:
                 f"Expected class path as string for {name}, got {type(obj).__name__}"
             )
 
-        from wattleflow.helpers.system import ClassLoader # pylint: disable=import-outside-toplevel
+        from wattleflow.helpers.system import (
+            ClassLoader,
+        )  # pylint: disable=import-outside-toplevel
 
         try:
             instance = ClassLoader(obj, **kwargs).instance
@@ -175,14 +182,16 @@ class Attribute:
             return True
 
         if cls in [int, dict, str, tuple, list] or not isinstance(cls, IWattleflow):
-            raise TypeError(f"Incorrect type for {name}: expected {cls}, found <{Attribute.class_name(obj)}>.")
+            raise TypeError(
+                f"Incorrect type for {name}: expected {cls}, found <{Attribute.class_name(obj)}>."
+            )
 
         try:
             Attribute.load_from_class(name, obj, cls, **kwargs)
             return True
         except Exception as e:
             raise ValueError(f"Error loading class: kwargs[{name}]: {e}") from e
-        
+
     @staticmethod
     def get(
         caller: IWattleflow,
@@ -204,7 +213,9 @@ class Attribute:
             if isinstance(item, cls):
                 return item
 
-        from wattleflow.helpers.system import ClassLoader  # pylint: disable=import-outside-toplevel
+        from wattleflow.helpers.system import (
+            ClassLoader,
+        )  # pylint: disable=import-outside-toplevel
 
         try:
             if mandatory:

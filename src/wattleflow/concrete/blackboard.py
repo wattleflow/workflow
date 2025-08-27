@@ -106,21 +106,16 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             )
             return None
 
-        return self._strategy_create.create(caller=caller, blackboard=self, *args, **kwargs)
+        return self._strategy_create.create(
+            caller=caller, blackboard=self, *args, **kwargs
+        )
 
     def delete(self, caller: IWattleflow, identifier: str) -> None:
-        self.debug(
-            msg=Event.Deleting.value,
-            caller=caller.name,
-            identifier=identifier
-        )
+        self.debug(msg=Event.Deleting.value, caller=caller.name, identifier=identifier)
 
         if identifier in self._canvas:
             del self._canvas[identifier]
-            self.info(
-                msg=Event.Delete.value,
-                identifier=identifier
-            )
+            self.info(msg=Event.Delete.value, identifier=identifier)
         else:
             self.warning(
                 msg=Event.Deleting.value,
@@ -160,7 +155,11 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         return document
 
     def read_from(
-        self, repository_name: str, identifier: str, *args, **kwargs
+        self,
+        repository_name: str,
+        identifier: str,
+        *args,
+        **kwargs,
     ) -> ITarget:
         self.debug(
             msg=Event.Reading.value,
@@ -182,24 +181,26 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         Attribute.evaluate(self, repository, IRepository)
 
         if repository.name in self._repositories:
-            self.warning(msg="Repository already registered!", repository=repository.name)
+            self.warning(
+                msg="Repository already registered!", repository=repository.name
+            )
             return
 
         self._repositories[repository.name] = repository
 
     def write(self, caller: IWattleflow, document: ITarget, *args, **kwargs) -> str:
         doc = document.request()
-        
+
         self.debug(
             msg=Event.Writing.value,
-            caller=caller.name, 
+            caller=caller.name,
             document=repr(document),
             doc=repr(doc),
             *args,
-            **kwargs
+            **kwargs,
         )
 
-        identifier:str = str(document.request())
+        identifier: str = str(document.request())
 
         self._canvas[identifier] = document
 

@@ -6,7 +6,7 @@
 
 from logging import Handler, NOTSET
 from typing import Optional
-from wattleflow.core import IWattleflow, ITarget
+from wattleflow.core import IWattleflow
 from wattleflow.concrete.strategy import StrategyGenerate
 from wattleflow.constants import Event
 from wattleflow.concrete.logger import AuditLogger
@@ -14,7 +14,8 @@ from wattleflow.helpers import TextStream
 from wattleflow.helpers.functions import _NC
 
 
-class StrategyAuditEvent(StrategyGenerate, AuditLogger):
+class StrategyAuditEvent(StrategyGenerate):
+
     def __init__(
         self,
         level: int = NOTSET,
@@ -25,7 +26,9 @@ class StrategyAuditEvent(StrategyGenerate, AuditLogger):
 
     def execute(self, caller: IWattleflow, event: Event, **kwargs) -> Optional[object]:
         def from_dict(obj) -> str:
-            return '\n'.join([f"{k}: {v}" for k, v in obj.items() if len(str(v).strip()) > 0])
+            return "\n".join(
+                [f"{k}: {v}" for k, v in obj.items() if len(str(v).strip()) > 0]
+            )
 
         try:
             info = TextStream()
@@ -45,11 +48,11 @@ class StrategyAuditEvent(StrategyGenerate, AuditLogger):
                         info << v
             else:
                 info << kwargs
-            
+
             name = getattr(caller, "name", caller.__class__.__name__)
             self.debug("% - % [%]", name, event.value, str(info))
             return info.content
         except Exception as e:
             self.warning("Error: %", str(e), error=e)
 
-        return ""
+        return "?"

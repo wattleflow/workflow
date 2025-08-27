@@ -1,5 +1,5 @@
-# Module Name: concrete/collections.py
-# Description: This modul contains concrete collection classes.
+# Module Name: helpers/collections.py
+# Description: This modul contains helpers collection classes.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence

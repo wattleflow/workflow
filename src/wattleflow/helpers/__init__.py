@@ -1,11 +1,13 @@
 from .attribute import Attribute, MissingAttribute
-from .config import Config, Preset
+from .config import Config
 from .collections import DequeList
 from .dictionaries import AttributeDict, Dictionary
-from .handlers import TraceHandler
 from .localmodels import DownloadedModels, StoredModels
+from .handlers import TraceHandler
 from .macros import TextMacros
 from .pathadder import show_paths, override_paths
+
+# from .preset import Preset
 from .streams import TextStream, TextFileStream
 from .system import (
     check_path,
@@ -31,7 +33,7 @@ __all__ = [
     "DownloadedModels",
     "Dictionary",
     "LocalPath",
-    "Preset",
+    # "Preset",
     "override_paths",
     "Project",
     "Proxy",

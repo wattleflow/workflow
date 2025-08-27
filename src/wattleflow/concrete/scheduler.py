@@ -19,7 +19,6 @@ from typing import Optional
 from wattleflow.core import IEventListener, IScheduler
 from wattleflow.concrete import AuditLogger
 from wattleflow.constants.enums import Event
-from wattleflow.helpers import Preset
 
 PERMITED_SLOTS = (
     "_lock",
@@ -68,6 +67,9 @@ class Scheduler(IScheduler, AuditLogger, ABC):
             self._listeners = []
             self._tasks = []
             self._orchestrator = None
+
+            from wattleflow.helpers.preset import Preset
+
             self._preset: Preset = Preset()
             self._preset.configure(caller=self, raise_errors=True, **kwargs)
             self.setup_orchestrator()

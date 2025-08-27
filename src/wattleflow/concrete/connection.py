@@ -6,7 +6,7 @@
 
 from abc import abstractmethod, ABC
 from contextlib import contextmanager
-from logging import Handler, NOTSET
+from logging import Handler
 from typing import Dict, Optional
 from wattleflow.core import (
     IObservable,
@@ -20,6 +20,7 @@ from wattleflow.constants import Event, Operation
 class ConnectionObserverInterface(IObservable, IFacade, ABC):
     # Reduce memory footprint and eliminate __dict__ i __weakref__
     __slots__ = (
+        "_initialised",
         "_observers",
         "_connection_name",
         "_preset",
@@ -31,10 +32,6 @@ class ConnectionObserverInterface(IObservable, IFacade, ABC):
 
     def __init__(
         self,
-        # level: int,
-        # handler: Optional[Handler] = None,
-        # *args,
-        # **kwargs,
     ):
         IObservable.__init__(self)
         IFacade.__init__(self)
@@ -68,7 +65,9 @@ class GenericConnection(
         *args,
         **kwargs,
     ):
-        from wattleflow.helpers import Preset  # pylint: disable=import-outside-toplevel
+        from wattleflow.helpers.preset import (
+            Preset,
+        )  # pylint: disable=import-outside-toplevel
 
         self._preset: Preset = Preset()
         self._connection_name: Optional[str] = self.name

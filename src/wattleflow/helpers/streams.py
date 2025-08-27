@@ -5,13 +5,13 @@
 # License: Apache 2 Licence
 
 
-from typing import Any, List
+from typing import Any, List, Optional
 from .macros import TextMacros
 
 
 class TextStream:
 
-    def __init__(self, text: str = "", list_of_macros: List = None):
+    def __init__(self, text: str = "", list_of_macros: Optional[List] = None):
         if list_of_macros is None:
             list_of_macros = []
         self._macros = TextMacros(list_of_macros)
@@ -60,18 +60,28 @@ class TextStream:
 
 
 class TextFileStream(TextStream):
-    def __init__(self, file_path: str = "", list_of_macros: List = None):
-        self.file_path = file_path
+    def __init__(
+        self,
+        file_path: str = "",
+        encoding: str = "utf-8",
+        list_of_macros: Optional[List] = None,
+    ):
 
-        from os import path
+        from pathlib import Path
 
-        if not path.exists(file_path):
-            raise FileNotFoundError("{}:{}".format(self.__class__.__name__, file_path))
+        self.filename: Path = Path(file_path)
 
-        with open(file_path, "r") as file:
-            content = file.read()
+        if not self.filename.exists():
+            raise FileNotFoundError(
+                "{}:{}".format(
+                    self.__class__.__name__,
+                    self.filename.name,
+                )
+            )
+
+        content = self.filename.read_text(encoding=encoding)
 
         return super().__init__(content, list_of_macros)
 
     def __repr__(self) -> str:
-        return f'TextFileStream(content:"{self._content}")'
+        return f'TextFileStream(content:"{self.content[:10]}", size: "{self.size}")'

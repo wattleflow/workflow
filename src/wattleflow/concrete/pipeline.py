@@ -10,7 +10,7 @@ from typing import Optional
 from wattleflow.core import IProcessor, IPipeline, ITarget
 from wattleflow.concrete import AuditLogger
 from wattleflow.constants import Event
-from wattleflow.helpers import Attribute, MissingAttribute, Preset
+from wattleflow.helpers import Attribute, MissingAttribute
 
 
 class GenericPipeline(IPipeline, AuditLogger, ABC):
@@ -31,7 +31,9 @@ class GenericPipeline(IPipeline, AuditLogger, ABC):
             *args,
             **kwargs,
         )
-        self._preset = Preset()
+        from wattleflow.helpers.preset import Preset
+
+        self._preset: Preset = Preset()
         self._preset.configure(caller=self, raise_errors=False, **kwargs)
 
     @abstractmethod
@@ -54,9 +56,9 @@ class GenericPipeline(IPipeline, AuditLogger, ABC):
         Attribute.evaluate(caller=self, target=processor, expected_type=IProcessor)
 
         if document is None:
-            error = f"{self.name!r}.process: document parameter is not assigned!."
+            msg = f"{self.name!r}.process: document parameter is not assigned!."
             self.error(msg=msg, document=document, **kwargs)
-            raise MissingAttribute(caller=self, error=error)
+            raise MissingAttribute(caller=self, error=msg)
 
     def __repr__(self) -> str:
         return f"{self.name}"

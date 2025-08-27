@@ -10,7 +10,7 @@ from typing import AsyncGenerator, Generator, List, Optional
 from wattleflow.core import IBlackboard, IPipeline, IProcessor, ITarget
 from wattleflow.concrete import AuditLogger, ProcessorException
 from wattleflow.constants.enums import Event
-from wattleflow.helpers import Attribute, Preset
+from wattleflow.helpers import Attribute
 
 PERMITED_VALUES = (
     "_blackboard",
@@ -55,7 +55,9 @@ class GenericProcessor(IProcessor, AuditLogger, ABC):
         self._generator: Optional[Generator[ITarget]] = None
         self._current: Optional[ITarget] = None
 
-        self._preset = Preset()
+        from wattleflow.helpers.preset import Preset
+
+        self._preset: Preset = Preset()
         self._preset.configure(caller=self, **kwargs)
 
         self.debug(
@@ -99,11 +101,12 @@ class GenericProcessor(IProcessor, AuditLogger, ABC):
                         type_name=Attribute.type_name(pipeline),
                     )
                     raise ProcessorException(
-                        caller=self, error=f"Inccorect pipeline type."
+                        caller=self, error="Inccorect pipeline type."
                     )
 
     def __repr__(self) -> str:
         return f"{self.name}: {len(self._pipelines)}"
+
 
 class GenericAsyncProcessor(IProcessor, AuditLogger, ABC):
     __slots__ = PERMITED_VALUES
@@ -137,6 +140,8 @@ class GenericAsyncProcessor(IProcessor, AuditLogger, ABC):
         self._pipelines: list = pipelines
         self._generator: Optional[AsyncGenerator[ITarget]] = None
         self._current: Optional[ITarget] = None
+
+        from wattleflow.helpers.preset import Preset
 
         self._preset = Preset()
         self._preset.configure(caller=self, raise_errors=True, **kwargs)

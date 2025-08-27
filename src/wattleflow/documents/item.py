@@ -18,4 +18,4 @@ class ItemDocument(Document[str]):
 
     @property
     def size(self) -> int:
-        return len(getattr(self, 'content', ''))
+        return len(getattr(self, "content", ""))

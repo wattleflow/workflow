@@ -35,7 +35,7 @@
 # ---------------------------------------------------------------------------------------
 
 from typing import Optional
-from logging import Formatter, getLogger, Handler, Logger, StreamHandler, NOTSET
+from logging import Formatter, getLogger, Handler, Logger, StreamHandler
 from wattleflow.core import ILogger, ISingleton
 
 
@@ -79,36 +79,11 @@ class AuditLogger(ISingleton, ILogger):
         self.subscribe_handler(handler)
         self._initialized = True
 
-    def _log_msg2(self, method, msg: str, *args, **kwargs) -> None:
-        # logging-specific keys
-        LOG_KW = {"exc_info", "stack_info", "stacklevel", "extra"}
-        pass_through = {k: v for k, v in kwargs.items() if k in LOG_KW}
-        data = {k: repr(v) for k, v in kwargs.items() if k not in LOG_KW}
-
-        if data:
-            # key=value; repr
-            # suffix = ", ".join(f"{k}={repr(v)}" for k, v in data.items())
-            suffix = []
-            SIMPLE_OBJECT = ["bool", "int", "str", "None"]
-            LISTED_OBJECTS = ["dict", "list", "tuple"]
-            for k, v in kwargs.items():
-                if v in SIMPLE_OBJECT:
-                    suffix.append(f"{str(k)}={v}")
-                elif v in LISTED_OBJECTS:
-                    suffix.append(f"{str(k)}={v.__name__}")
-                elif hasattr(v, "__repr__"):
-                    suffix.append(f"{str(k)}={repr(v)}")
-                else:
-                    suffix.append(f"{str(k)}={v.__name__}")
-
-            msg = f"{msg} {suffix}"
-
-        method(msg, *args, **pass_through)
-
     def _log_msg(self, method, msg: str, *args, **kwargs) -> None:
         def safe_repr(obj: object, maxlen: int = 100) -> str:
             try:
                 from pandas import DataFrame
+
                 if isinstance(obj, (DataFrame)):
                     s = obj.__class__.__name__
                 else:

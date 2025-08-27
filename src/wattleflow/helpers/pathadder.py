@@ -1,5 +1,5 @@
-# Module Name: name pathadder.py
-# Description: This modul contains pathadder methods.
+# Module Name: helpers/pathadder.py
+# Description: This modul contains pathadder helper methods.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence

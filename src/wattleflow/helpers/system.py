@@ -204,7 +204,9 @@ class Project:
         for parent in [p] + list(p.parents):
             parts = parent.parts
             for i in range(0, len(parts) - len(marker_parts) + 1):
-                if tuple(parts[i : i + len(marker_parts)]) == marker_parts:
+                if (
+                    tuple(parts[i : i + len(marker_parts)]) == marker_parts
+                ):  # noqa: E203
                     found = Path(*parts[: i + len(marker_parts)])
                     break
             if found:
@@ -303,7 +305,15 @@ class ShellExecutor:
             if shell == "cmd":
                 cmd_list = ["cmd", "/c", command]  # type: ignore[arg-type]
             elif shell == "powershell":
-                cmd_list = ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", command]  # type: ignore[arg-type]
+                cmd_list = [
+                    "powershell",
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-Command",
+                    command,  # type: ignore
+                ]  # type: ignore[arg-type]
             else:
                 cmd_list = ["bash", "-c", command]  # type: ignore[arg-type]
             # run_kwargs = dict(shell=False)

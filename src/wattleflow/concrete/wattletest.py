@@ -12,13 +12,11 @@ import tempfile
 
 from fnmatch import fnmatch
 from os import path, makedirs, walk
-from logging import getLogger
 from typing import Generator, Optional
 from shutil import copy2, copytree, rmtree
 from unittest import TestCase
 
 from wattleflow.concrete.logger import AuditLogger
-from wattleflow.helpers.system import check_path, ShellExecutor
 
 
 TEST_NAME = "test_dir"
@@ -53,6 +51,8 @@ class WattleflowTestClass(TestCase):
                 self.set_path(name=name, folder=folder)
 
     def copy_file(self, src: str, dst: str, normalise: bool = False) -> None:
+        from wattleflow.helpers.system import check_path
+
         check_path(src, True)
 
         if normalise:
@@ -73,6 +73,8 @@ class WattleflowTestClass(TestCase):
         - Py>=3.8: copytree(dirs_exist_ok=True/False)
         - Py 3.7 fallback: if dst exists i dirs_exist=True, merge copy.
         """
+        from wattleflow.helpers.system import check_path
+
         check_path(src, True)
 
         # osiguraj parent direktorij odredista
@@ -117,6 +119,8 @@ class WattleflowTestClass(TestCase):
         pattern: str,
         max_len: int = 30,
     ) -> None:
+        from wattleflow.helpers.system import check_path
+
         check_path(src, True)
         makedirs(dst, exist_ok=True)
 
@@ -125,6 +129,8 @@ class WattleflowTestClass(TestCase):
             self.copy_file(src_path, path.join(dst, normalised_name))
 
     def execute(self, cmd: str, shell: Optional[str] = None):
+        from wattleflow.helpers.system import ShellExecutor
+
         command = ShellExecutor()
         return command.execute(cmd, shell)
 

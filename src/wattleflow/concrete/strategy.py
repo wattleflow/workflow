@@ -10,7 +10,7 @@ from logging import Handler, NOTSET
 from typing import Optional
 from wattleflow.core import IWattleflow, IStrategy, ITarget
 from wattleflow.concrete import AuditLogger
-from wattleflow.helpers import Attribute, Preset
+from wattleflow.helpers import Attribute
 
 
 PERMITED_TYPES = (

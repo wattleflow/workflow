@@ -1,3 +1,10 @@
+# Module Name: helpers/yaml.py
+# Author: (wattleflow@outlook.com)
+# Copyright: (c) 2022-2025 WattleFlow
+# License: Apache 2 Licence
+# Description: This module contains yaml file handling workarround
+# to reduce dependency on YAML pip installation (still in alpha phase).
+
 import os
 import re
 from pathlib import Path

@@ -13,7 +13,7 @@ from wattleflow.concrete import (
     AuditLogger,
 )
 from wattleflow.concrete.strategy import StrategyRead, StrategyWrite
-from wattleflow.helpers import Attribute, Preset
+from wattleflow.helpers import Attribute
 
 PERMITED_SLOTS = (
     "_allowed",
@@ -56,7 +56,9 @@ class GenericRepository(IRepository, AuditLogger, ABC):
         self._strategy_write: StrategyWrite = strategy_write
         self._strategy_read: Optional[StrategyRead] = strategy_read
 
-        self._preset = Preset()
+        from wattleflow.helpers.preset import Preset
+
+        self._preset: Preset = Preset()
         self._preset.configure(self, raise_errors=True, **kwargs)
 
         self.debug(msg=Event.Constructor.value, status="created")
@@ -112,7 +114,9 @@ class GenericRepository(IRepository, AuditLogger, ABC):
 
         except Exception as e:
             error = f"[{self.name}] Write strategy failed: {e}"
-            self.error(msg=error, counter=self._counter)   # TODO: self.exception to self.error
+            self.error(
+                msg=error, counter=self._counter
+            )  # TODO: self.exception to self.error
             raise RuntimeError(error) from e
 
     def __getattr__(self, name: str) -> object:
