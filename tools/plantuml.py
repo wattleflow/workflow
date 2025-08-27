@@ -51,7 +51,7 @@ class UMLStrategy(StrategyGenerate, ABC):
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
-        prog="uml", description="Generate UML from given filename."
+        prog="plantuml", description="Generate PlantUML code, from a given filename."
     )
     parser.add_argument(
         "filename",
@@ -63,9 +63,9 @@ def main(argv=None) -> int:
         help="Logging level (eg NOTSET, INFO, DEBUG, WARNING, ERROR).",
     )
 
-    args = parser.parse_args(argv)
     import logging
 
+    args = parser.parse_args(argv)
     level = getattr(logging, str(args.log_level).upper(), NOTSET)
 
     try:
@@ -74,9 +74,6 @@ def main(argv=None) -> int:
     except FileNotFoundError as e:
         print(f"Error: File not found: {e}", file=sys.stderr)
         return 2
-    except TableNotFound as e:
-        print(f"Error while parsing sql file. [{e}]", file=sys.stderr)
-        return 3
     except Exception as e:
         print(f"Error while generating UML. {e}", file=sys.stderr)
         return 1
