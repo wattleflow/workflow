@@ -1,0 +1,61 @@
+@startuml
+
+title WattleFlow Workflow – Data Persistance Diagram
+caption \nSimplified example with "out-of-the-box" features
+scale 600 width
+
+package "wattleflow.workflow" {
+  class GenericProcessor {
+    - blackboard: IBlackboard
+    - pipelines: List<Pipeline>
+    + start():
+  }
+
+  frame "List" {
+    class Pipelines {
+      + process(caller, document, **kwargs)
+    }
+  }    
+    
+  frame "wattleflow.workflow" {
+    class GenericBlackboard {
+      + create(caller, **kwargs): ITarget
+      + read(identifier) : ITarget
+      + write(identifier, document, **kwargs) : uuid
+    }
+
+    class GenericRepository {
+      + read(identifier:str) : DocumentFacade
+      + write(identifier, document, **kwargs): uuid
+    }
+
+    class CreateStrategy {
+      - create(): DocumentFacade
+    }
+
+    class ReadStrategy {
+      - level: int
+      - handler: Handler
+      + execute(): ITarget
+      - read(): ITarget
+    }
+
+    class WriteStrategy {
+      + execute()
+      - write(): str
+    }
+  }
+
+  GenericProcessor "has" o--> "1" GenericBlackboard: create
+  GenericBlackboard "has" o--> "1" CreateStrategy: create
+  
+  GenericProcessor  "process" *-- "many" Pipelines
+  Pipelines "1" --> "1" GenericBlackboard: write
+
+  GenericBlackboard "1" --> "many" GenericRepository: writes
+
+  GenericRepository "has" o--> "1" WriteStrategy: write
+  GenericRepository "has" o--> "1" ReadStrategy : read
+}
+
+@enduml

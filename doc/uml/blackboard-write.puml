@@ -1,0 +1,35 @@
+@startuml
+
+title GenericBlackboard – Simplified Class Diagram
+caption \nWrite data persistance "out-of-the-box"
+
+frame " " {
+    class GenericBlackboard {
+      + create(*args, **kwargs): DocumentFacade
+      + write(document: DocumentFacade) : uuid
+      + repositories: List
+    }
+
+    class CreateStrategy {
+      + create: DocumentFacade
+    }
+
+    class GenericRepository {
+      + write(document: DocumentFacade) : uuid
+    }
+
+    class WriteStrategy {
+      + write() : uuid
+    }
+
+    class DocumentFacade {
+      + update_cotntent()
+    }    
+}
+
+GenericBlackboard "1" --> "1" CreateStrategy: creates
+GenericBlackboard "1" --> "many" GenericRepository: write
+GenericRepository "many" --> "many" WriteStrategy: write
+CreateStrategy "1" o--> "1" DocumentFacade: creates
+
+@enduml

@@ -70,13 +70,13 @@ class GenericConnection(
         )  # pylint: disable=import-outside-toplevel
 
         self._preset: Preset = Preset()
-        self._connection_name: Optional[str] = self.name
         self._connection: Optional[object] = None
         self._connected: bool = False
 
         ConnectionObserverInterface.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
 
+        self._connection_name: Optional[str] = self.name
         self._preset.configure(raise_errors=True, **kwargs)
         self.debug(msg=Event.Constructor.value)
 

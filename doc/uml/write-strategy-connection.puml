@@ -1,0 +1,39 @@
+@startuml
+
+title Example: Using connection with strategy
+caption \n Simplified diagram
+scale 450 width
+
+frame "processing" {
+  class GenericProcessor {
+    - blackboard: IBlackboard
+    - pipelines: List<Pipeline>
+    + start()
+  }
+}
+  
+frame "connectivity" {
+  class ConnectionManager {
+    + get_connection(name:str): Connection
+    + connect(name:str): bool
+    + disconnect(name:str): bool
+  }
+
+  class Connection {
+    + connect() : bool
+    + disconnect(): bool
+  }
+}
+
+frame "data persistance" {
+  class WriteStrategy {
+    + write(processor, *args, **kwargs): uuid
+  }
+}
+
+GenericProcessor "has" o-->  ConnectionManager: connect
+ConnectionManager "has" o--> Connection
+WriteStrategy "access" o--> GenericProcessor
+WriteStrategy "access" o--> ConnectionManager
+
+@enduml
