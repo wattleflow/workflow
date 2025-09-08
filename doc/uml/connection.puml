@@ -1,0 +1,23 @@
+@startuml
+skinparam linetype ortho
+!pragma teoz true
+class ConnectionObserverInterface {
+  + subscribe(observer): None
+  + subscribe_observer(observer): None
+  + notify(owner, **kwargs)
+  + operation(action: Operation): bool
+}
+class GenericConnection {
+  + connected(): bool
+  + connection(): object
+  + operation(action: Operation): bool
+  + context()
+  + create_connection(**configuration)
+  + connect(): bool
+  + disconnect(): bool
+}
+IObservable <|-- ConnectionObserverInterface
+IFacade <|-- ConnectionObserverInterface
+ConnectionObserverInterface <|-- GenericConnection
+AuditLogger <|-- GenericConnection
+@enduml

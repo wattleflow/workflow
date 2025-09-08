@@ -1,0 +1,22 @@
+@startuml
+
+skinparam linetype ortho
+!pragma teoz true
+
+class GenericBlackboard {
+  + canvas(): Mapping[str, ITarget]
+  + count(): int
+  + repositories(): Mapping[str, IRepository]
+  + clear()
+  + create(caller, *args, **kwargs): Optional[ITarget]
+  + delete(caller, identifier: str): None
+  + flush(caller, *args, **kwargs): None
+  + read(identifier: str): ITarget
+  + read_from(repository_name: str, identifier: str, *args, **kwargs): ITarget
+  + register(repository): None
+  + write(caller, document, *args, **kwargs): str
+}
+
+
+caption "<<IBlackboard, AuditLogger>>"
+@enduml

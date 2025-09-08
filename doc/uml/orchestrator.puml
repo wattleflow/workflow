@@ -1,0 +1,16 @@
+@startuml
+
+caption "<<IEventSource IFacade>>"
+skinparam linetype ortho
+!pragma teoz true
+
+class Orchestrator {
+  + add_processor(processor: IProcessor)
+  + emit_event(event: Event, **kwargs)
+  + register_listener(listener: IEventListener): None
+  + operation(action: Operation)
+  + start(parallel: bool)
+  + stop()
+}
+
+@enduml

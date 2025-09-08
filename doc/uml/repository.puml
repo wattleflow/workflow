@@ -1,0 +1,13 @@
+@startuml
+skinparam linetype ortho
+!pragma teoz true
+
+class GenericRepository {
+  + count(): int
+  + clear(): None
+  + read(identifier: str, *args, **kwargs): ITarget
+  + write(caller: document, *args, **kwargs): bool
+}
+
+caption "<<IRepository, AuditLogger>>"
+@enduml
