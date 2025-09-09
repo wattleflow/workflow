@@ -29,6 +29,7 @@ from wattleflow.decorators.preset import PresetDecorator
 
 class GenericBlackboard(IBlackboard, AuditLogger, ABC):
     __slots__ = (
+        "_initialized",
         "_canvas",
         "_repositories",
         "_strategy_create",
@@ -230,7 +231,8 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
 
     # Must be implemented if using PresetDecorator
     def __getattr__(self, name: str) -> Any:
-        return getattr(self._preset, name)
+        preset: PresetDecorator = object.__getattribute__(self, "_preset")
+        return preset.__getattr__(name)
 
     def __repr__(self) -> str:
         return f"{self.name}: {self.count}"
