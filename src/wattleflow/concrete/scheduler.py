@@ -9,27 +9,16 @@ The Scheduler class:
 - Manage task execution using existing strategies and pipelines.
 - Use event-driven behavior from the observer pattern.
 - Support asynchronous execution and cron-like scheduling.
-
 """
 
 import threading
 from abc import ABC
 from logging import NOTSET, Handler
-from typing import Optional
+from typing import Any, Optional
 from wattleflow.core import IEventListener, IScheduler
 from wattleflow.concrete import AuditLogger
 from wattleflow.constants.enums import Event
-
-PERMITED_SLOTS = (
-    "_lock",
-    "_initialized",
-    "_running",
-    "_counter",
-    "_listeners",
-    "_tasks",
-    "_orchestrator",
-    "_config",
-)
+from wattleflow.decorators.preset import PresetDecorator
 
 
 class Scheduler(IScheduler, AuditLogger, ABC):
@@ -38,7 +27,16 @@ class Scheduler(IScheduler, AuditLogger, ABC):
     Utilizes event-driven execution with event listeners and supports strategy-based scheduling.
     """
 
-    __slots__ = PERMITED_SLOTS
+    __slots__ = (
+        "_lock",
+        "_initialized",
+        "_running",
+        "_counter",
+        "_listeners",
+        "_tasks",
+        "_orchestrator",
+        "_config",
+    )
 
     @property
     def count(self) -> int:
@@ -59,6 +57,8 @@ class Scheduler(IScheduler, AuditLogger, ABC):
             **kwargs,
         )
 
+        self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
+
         if not hasattr(self, "_initialized"):
             self._lock = threading.Lock()
             self._initialized = True
@@ -68,10 +68,8 @@ class Scheduler(IScheduler, AuditLogger, ABC):
             self._tasks = []
             self._orchestrator = None
 
-            from wattleflow.helpers.preset import Preset
+            self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
-            self._preset: Preset = Preset()
-            self._preset.configure(caller=self, raise_errors=True, **kwargs)
             self.setup_orchestrator()
 
     def setup_orchestrator(self) -> None:
@@ -114,3 +112,7 @@ class Scheduler(IScheduler, AuditLogger, ABC):
         with self._lock:
             for listener in self._listeners:
                 listener.on_event(event, **kwargs)
+
+    # Must be implemented if using PresetDecorator
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._preset, name)

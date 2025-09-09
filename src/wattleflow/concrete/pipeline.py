@@ -6,10 +6,11 @@
 
 from abc import ABC, abstractmethod
 from logging import Handler, NOTSET
-from typing import Optional
+from typing import Any, Optional
 from wattleflow.core import IProcessor, IPipeline, ITarget
 from wattleflow.concrete import AuditLogger
 from wattleflow.constants import Event
+from wattleflow.decorators.preset import PresetDecorator
 from wattleflow.helpers import Attribute, MissingAttribute
 
 
@@ -31,10 +32,8 @@ class GenericPipeline(IPipeline, AuditLogger, ABC):
             *args,
             **kwargs,
         )
-        from wattleflow.helpers.preset import Preset
 
-        self._preset: Preset = Preset()
-        self._preset.configure(caller=self, raise_errors=False, **kwargs)
+        self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
     @abstractmethod
     def process(
@@ -59,6 +58,10 @@ class GenericPipeline(IPipeline, AuditLogger, ABC):
             msg = f"{self.name!r}.process: document parameter is not assigned!."
             self.error(msg=msg, document=document, **kwargs)
             raise MissingAttribute(caller=self, error=msg)
+
+    # Must be implemented if using PresetDecorator
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._preset, name)
 
     def __repr__(self) -> str:
         return f"{self.name}"

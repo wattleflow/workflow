@@ -7,7 +7,7 @@
 from abc import abstractmethod, ABC
 from contextlib import contextmanager
 from logging import Handler
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 from wattleflow.core import (
     IObservable,
     IObserver,
@@ -15,6 +15,7 @@ from wattleflow.core import (
 )
 from wattleflow.concrete import AuditLogger
 from wattleflow.constants import Event, Operation
+from wattleflow.decorators.preset import PresetDecorator
 
 
 class ConnectionObserverInterface(IObservable, IFacade, ABC):
@@ -58,6 +59,8 @@ class GenericConnection(
     AuditLogger,
     ABC,
 ):
+    __slots__ = ("_connection", "_connected", "_preset", "_connection_name")
+
     def __init__(
         self,
         level: int,
@@ -65,19 +68,16 @@ class GenericConnection(
         *args,
         **kwargs,
     ):
-        from wattleflow.helpers.preset import (
-            Preset,
-        )  # pylint: disable=import-outside-toplevel
 
-        self._preset: Preset = Preset()
         self._connection: Optional[object] = None
         self._connected: bool = False
 
         ConnectionObserverInterface.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
 
+        self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
         self._connection_name: Optional[str] = self.name
-        self._preset.configure(raise_errors=True, **kwargs)
+
         self.debug(msg=Event.Constructor.value)
 
     @property
@@ -106,6 +106,18 @@ class GenericConnection(
             caller=self, error=f"Urecognised operation! [{action}]"
         )
 
+    @abstractmethod
+    def create_connection(self, **configuration):
+        pass
+
+    @abstractmethod
+    def connect(self) -> bool:
+        pass
+
+    @abstractmethod
+    def disconnect(self) -> bool:
+        pass
+
     @contextmanager
     def context(self):
         self.debug(msg="context.__enter__")
@@ -122,14 +134,6 @@ class GenericConnection(
     def __exit__(self, exc_type, exc_value, traceback):
         return self.context().__exit__(exc_type, exc_value, traceback)
 
-    @abstractmethod
-    def create_connection(self, **configuration):
-        pass
-
-    @abstractmethod
-    def connect(self) -> bool:
-        pass
-
-    @abstractmethod
-    def disconnect(self) -> bool:
-        pass
+    # Must be implemented if using PresetDecorator
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._preset, name)

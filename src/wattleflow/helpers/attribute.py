@@ -15,7 +15,9 @@ class MissingAttribute(AttributeError):
         self._msg = f"{Attribute.class_name(caller)}.{error}"
         if kwargs:
             self._msg += f" {kwargs}"
-        super().__init__(f"Attribute not found: [{self._msg}].")
+        super().__init__(
+            f"Missing attribute: {Attribute.class_name(caller)}: {self._msg}."
+        )
 
     def __repr__(self) -> str:
         return f"{self.name}: {self._msg}"
@@ -226,7 +228,7 @@ class Attribute:
                 else:
                     raise MissingAttribute(caller, name)
         except Exception as e:
-            raise MissingAttribute(caller, error=e) from e
+            raise MissingAttribute(caller, error=str(e)) from e
 
     @staticmethod
     def optional(

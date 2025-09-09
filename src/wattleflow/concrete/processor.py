@@ -6,10 +6,11 @@
 
 from abc import abstractmethod, ABC
 from logging import Handler, INFO
-from typing import AsyncGenerator, Generator, List, Optional
+from typing import Any, AsyncGenerator, Generator, List, Optional
 from wattleflow.core import IBlackboard, IPipeline, IProcessor, ITarget
 from wattleflow.concrete import AuditLogger, ProcessorException
 from wattleflow.constants.enums import Event
+from wattleflow.decorators.preset import PresetDecorator
 from wattleflow.helpers import Attribute
 
 PERMITED_VALUES = (
@@ -49,16 +50,13 @@ class GenericProcessor(IProcessor, AuditLogger, ABC):
         Attribute.evaluate(caller=self, target=pipelines, expected_type=list)
         Attribute.evaluate(caller=self, target=blackboard, expected_type=IBlackboard)
 
+        self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
+
         self._cycle: int = 0
         self._blackboard: IBlackboard = blackboard
         self._pipelines: list = pipelines
         self._generator: Optional[Generator[ITarget]] = None
         self._current: Optional[ITarget] = None
-
-        from wattleflow.helpers.preset import Preset
-
-        self._preset: Preset = Preset()
-        self._preset.configure(caller=self, **kwargs)
 
         self.debug(
             msg=Event.Constructor.value,
@@ -104,6 +102,10 @@ class GenericProcessor(IProcessor, AuditLogger, ABC):
                         caller=self, error="Inccorect pipeline type."
                     )
 
+    # Must be implemented if using PresetDecorator
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._preset, name)
+
     def __repr__(self) -> str:
         return f"{self.name}: {len(self._pipelines)}"
 
@@ -135,16 +137,13 @@ class GenericAsyncProcessor(IProcessor, AuditLogger, ABC):
         Attribute.evaluate(caller=self, target=pipelines, expected_type=List[IPipeline])
         Attribute.evaluate(caller=self, target=blackboard, expected_type=IBlackboard)
 
+        self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
+
         self._cycle: int = 0
         self._blackboard: IBlackboard = blackboard
         self._pipelines: list = pipelines
         self._generator: Optional[AsyncGenerator[ITarget]] = None
         self._current: Optional[ITarget] = None
-
-        from wattleflow.helpers.preset import Preset
-
-        self._preset = Preset()
-        self._preset.configure(caller=self, raise_errors=True, **kwargs)
 
         self.debug(
             msg=Event.Constructor.value,
@@ -173,3 +172,10 @@ class GenericAsyncProcessor(IProcessor, AuditLogger, ABC):
                 except Exception as e:
                     self.error(msg="Pipeline failed", error=str(e))
                     raise
+
+    # Must be implemented if using PresetDecorator
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._preset, name)
+
+    def __repr__(self) -> str:
+        return f"{self.name}: {len(self._pipelines)}"

@@ -8,6 +8,7 @@ from abc import ABC
 from logging import Handler, NOTSET
 from types import MappingProxyType
 from typing import (
+    Any,
     Dict,
     Mapping,
     Optional,
@@ -23,6 +24,7 @@ from wattleflow.concrete import AuditLogger
 from wattleflow.concrete.strategy import StrategyCreate
 from wattleflow.constants import Event
 from wattleflow.helpers.attribute import Attribute
+from wattleflow.decorators.preset import PresetDecorator
 
 
 class GenericBlackboard(IBlackboard, AuditLogger, ABC):
@@ -31,6 +33,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         "_repositories",
         "_strategy_create",
         "_write_on_flush_only",
+        "_preset",
     )
 
     def __init__(
@@ -39,6 +42,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         write_on_flush_only: bool = False,
         level: int = NOTSET,
         handler: Optional[Handler] = None,
+        **kwargs,
     ):
         IBlackboard.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
@@ -54,6 +58,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
 
         Attribute.evaluate(self, strategy_create, StrategyCreate)
 
+        self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
         self._strategy_create = strategy_create
         self._canvas: Dict[str, ITarget] = {}
         self._repositories: Dict[str, IRepository] = {}
@@ -222,6 +227,10 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             )
 
         return identifier
+
+    # Must be implemented if using PresetDecorator
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._preset, name)
 
     def __repr__(self) -> str:
         return f"{self.name}: {self.count}"

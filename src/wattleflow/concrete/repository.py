@@ -6,27 +6,24 @@
 
 from abc import ABC
 from logging import Handler, NOTSET
-from typing import Optional
+from typing import Any, Optional
 from wattleflow.core import IRepository, IStrategy, ITarget, IWattleflow
 from wattleflow.constants.enums import Event
-from wattleflow.concrete import (
-    AuditLogger,
-)
+from wattleflow.concrete import AuditLogger
 from wattleflow.concrete.strategy import StrategyRead, StrategyWrite
+from wattleflow.decorators.preset import PresetDecorator
 from wattleflow.helpers import Attribute
-
-PERMITED_SLOTS = (
-    "_allowed",
-    "_counter",
-    "_strategy_read",
-    "_strategy_write",
-    "_preset",
-    "_initialised",
-)
 
 
 class GenericRepository(IRepository, AuditLogger, ABC):
-    __slots__ = PERMITED_SLOTS
+    __slots__ = (
+        "_allowed",
+        "_counter",
+        "_strategy_read",
+        "_strategy_write",
+        "_preset",
+        "_initialised",
+    )
 
     def __init__(
         self,
@@ -52,14 +49,11 @@ class GenericRepository(IRepository, AuditLogger, ABC):
         Attribute.evaluate(caller=self, target=strategy_read, expected_type=IStrategy)
         Attribute.evaluate(caller=self, target=strategy_write, expected_type=IStrategy)
 
+        self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
+
         self._counter: int = 0
         self._strategy_write: StrategyWrite = strategy_write
         self._strategy_read: Optional[StrategyRead] = strategy_read
-
-        from wattleflow.helpers.preset import Preset
-
-        self._preset: Preset = Preset()
-        self._preset.configure(self, raise_errors=True, **kwargs)
 
         self.debug(msg=Event.Constructor.value, status="created")
 
@@ -119,11 +113,9 @@ class GenericRepository(IRepository, AuditLogger, ABC):
             )  # TODO: self.exception to self.error
             raise RuntimeError(error) from e
 
-    def __getattr__(self, name: str) -> object:
-        if name in self.__slots__:
-            return Attribute.get_attr(caller=self, name=name)
-
-        return Attribute.get_attr(caller=self._preset, name=name)
+    # Must be implemented if using PresetDecorator
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._preset, name)
 
     def __repr__(self) -> str:
         return f"{self.name}: {self.count}"
