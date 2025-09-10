@@ -1,13 +1,27 @@
 @startuml
+
+title Repository - class diagram [@copyright Wattleflow]
+caption \n...part of a workflow persistance layer...
+
 skinparam linetype ortho
 !pragma teoz true
 
-class GenericRepository {
-  + count(): int
-  + clear(): None
-  + read(identifier: str, *args, **kwargs): ITarget
-  + write(caller: document, *args, **kwargs): bool
+frame wattleflow {
+  class IRepository
 }
 
-caption "<<IRepository, AuditLogger>>"
+frame workflow {
+  class AuditLogger
+  class GenericRepository {
+    + count(): int
+    + clear(): None
+    + read(identifier: str, *args, **kwargs): ITarget
+    + write(caller: document, *args, **kwargs): bool
+  }
+  note "@copyright Wattleflow" as N1
+}
+
+IRepository <|-- GenericRepository: inherits
+AuditLogger <|-- GenericRepository: inherits
+
 @enduml

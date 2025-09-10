@@ -1,10 +1,13 @@
 @startuml
+title Workflow - Data persistance diagram
+caption ...built once use often...
 
 skinparam linetype ortho
 !pragma teoz true
 
 package wattleflow.workflow {
   frame persistance {
+    note "@copyright Wattleflow" as N1
     class GenericBlackboard {
       + canvas(): Mapping[str, ITarget]
       + count(): int

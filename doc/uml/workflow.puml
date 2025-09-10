@@ -1,10 +1,12 @@
 @startuml
 
-title WattleFlow Workflow – Data Persistance Diagram
-caption \nSimplified example with "out-of-the-box" features
+title WattleFlow Workflow – Data persistance diagram
+caption \nSimplified "out-of-the-box" features
 scale 600 width
+top to bottom direction
 
 package "wattleflow.workflow" {
+  note "@copyright Wattleflow" as N1
   class GenericProcessor {
     - blackboard: IBlackboard
     - pipelines: List<Pipeline>

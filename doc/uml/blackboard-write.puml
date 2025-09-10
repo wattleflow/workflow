@@ -1,7 +1,8 @@
 @startuml
 
-title GenericBlackboard – Simplified Class Diagram
-caption \nWrite data persistance "out-of-the-box"
+title GenericBlackboard - persistance layer
+caption ...built once use often...
+top to bottom direction
 
 frame " " {
     class GenericBlackboard {
@@ -32,4 +33,5 @@ GenericBlackboard "1" --> "many" GenericRepository: write
 GenericRepository "many" --> "many" WriteStrategy: write
 CreateStrategy "1" o--> "1" DocumentFacade: creates
 
+note "@copyright Wattleflow" as N1 #Yellow
 @enduml
