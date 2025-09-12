@@ -2,7 +2,49 @@
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 
-import yaml, jsonschema
+
+"""
+class MapperSchemaYAML2JSON
+    def __init__(self, mapper: ColumnMapper, validator: SchemaValidator):
+
+    @classmethod
+    def from_yaml(cls, cfg_str: str):
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame
+
+Usage:
+    yaml_cfg ='''
+    mapping:
+        name: name
+        age: years
+        json_schema:
+            type: object
+    properties:
+        name:
+            type: string
+        age:
+            type: integer
+    required: [name, age]
+    '''
+
+With dataframe
+
+df = pd.DataFrame({
+    "name": ["Ann", "Brian"],
+    "age": [30, 40]
+})
+
+# Create facade from YAML
+mapper_validator = MapperSchemaYAML2JSON.from_yaml(yaml_cfg)
+
+# Transform: mapping + validation
+df_out = mapper_validator.transform(df)
+
+print(df_out)
+
+"""
+
+import yaml
+import jsonschema
 import pandas as pd
 
 

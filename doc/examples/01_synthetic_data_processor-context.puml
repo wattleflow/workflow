@@ -1,0 +1,69 @@
+@startuml
+
+title Worfklow data pipeline example - 2 processors and 5 pipelines
+caption ...build once used often [reusable processors strategies and pipelines]...
+
+!pragma teoz true
+
+node RunTestForSyntheticDataProcessor {
+
+    class RunTestForSyntheticDataProcessor {
+      + config: Config
+      + level: int
+      + ff: Faker
+      + items: List[dict]
+      + source_path: Optional[Path]
+      + temp_path: Optional[Path]
+      + level_to_int(level: str): int «static»
+      + execute(*args, **kwargs): None
+    }
+
+    class ProcessorMockSQL {
+      + blackboard: GenericBlackboard
+      + pipelines [
+            PipelineTest
+            PipelineSyntheticData
+            PipelineCleanupData
+            PipelineFilterQuery
+            PipelineFilterMask
+        ]
+      + create_generator()
+    }
+
+    RunTestForSyntheticDataProcessor --> ProcessorMockSQL: _mock_sql_pipeline_process
+    ProcessorMockSQL --> GenericBlackboard
+    ProcessorMockSQL --> GenericRepository
+    ProcessorMockSQL --> PipelineTest
+    ProcessorMockSQL --> PipelineSyntheticData
+    ProcessorMockSQL --> PipelineCleanupData
+    ProcessorMockSQL --> PipelineFilterQuery
+    ProcessorMockSQL --> PipelineFilterMask
+    GenericBlackboard --> StrategyCreateSimpleMock
+    GenericRepository --> StrategyReadSimpleMock
+    GenericRepository --> StrategyWriteSimpleMock
+
+    class SyntheticDataProcessor {
+      + blackboard: GenericBlackboard
+      + pipelines [
+            PipelineTest
+            PipelineSyntheticData
+            PipelineCleanupData
+            PipelineFilterQuery
+            PipelineFilterMask
+        ]
+      + create_generator()
+    }
+
+    RunTestForSyntheticDataProcessor --> SyntheticDataProcessor: _synthetic_processor_and_data_pipline
+
+    SyntheticDataProcessor --> GenericBlackboard
+    SyntheticDataProcessor --> GenericRepository
+
+    SyntheticDataProcessor --> PipelineTest
+    SyntheticDataProcessor --> PipelineSyntheticData
+    SyntheticDataProcessor --> PipelineCleanupData
+    SyntheticDataProcessor --> PipelineFilterQuery
+    SyntheticDataProcessor --> PipelineFilterMask
+}
+
+@enduml

@@ -1,8 +1,22 @@
-# Module Name: helpers/preset.py
+# Module Name: decorators/preset.py
 # Description: This modul contains preset helper class.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
+
+"""
+PresetDecorator
+    __slots__ = ("_allowed", "_values", "_parent")
+    __init__(parent: IWattleflow, **kwargs)
+
+When using PresetDecorator you must add following in the instantiating parent class,
+to process assigned atributes.
+
+def __getattr__(self, name: str) -> Any:
+    preset: PresetDecorator = object.__getattribute__(self, "_preset")
+    return preset.__getattr__(name)
+
+"""
 
 from typing import Any
 from wattleflow.core import IWattleflow

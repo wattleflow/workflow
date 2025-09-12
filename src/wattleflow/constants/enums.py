@@ -9,21 +9,23 @@ from enum import Enum
 
 # Classification
 class Classification(Enum):
-    UNCLASSIFIED = "UNCLASSIFIED"
+    CLASSIFIED = "Classified"
     OFFICIAL = "OFFICIAL"
     PROTECTED = "PROTECTED"
     SECRET = "SECRET"
     TOP_SECRET = "TOP SECRET"
-    UNDEFINED = ""
+    UNCLASSIFIED = "UNCLASSIFIED"
 
 
 # Classification DLM
 class ClassificationDLM(Enum):
-    CABINET = "Cabinet"
+    CABINET = "CABINET"
+
     LEGAL_PREVILEGE = "Legal Privilege"
+    PERSONAL = "Personal"
     SENSITIVE = "Sensitive"
     UNCLASSIFIED = "UNCLASSIFIED"
-    UNDEFINED = ""
+    UNDEFINED = "Undefined"
 
 
 # Events
@@ -40,6 +42,7 @@ class Event(Enum):
     Check = "Check"
     Checking = "Checking"
     Classification = "Classification"
+    Classifyied = "Classified"
     Classifying = "Classifying"
     Cleaning = "Cleaning"
     Clearing = "Clearing"

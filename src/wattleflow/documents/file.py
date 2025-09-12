@@ -5,17 +5,18 @@
 # Description: This modul contains FileDocument class.
 
 from abc import ABC
-from stat import filemode
-from os import path, stat
-from logging import NOTSET, Handler
 from datetime import datetime
+from logging import NOTSET, Handler
+from os import path, stat
+from stat import filemode
 from typing import Optional
 from wattleflow.concrete import Document
 
 
-# Document based on file, with automatic retrieval of metadata
 class FileDocument(Document[str], ABC):
-    def __init__(self, filename: str, level: int = NOTSET, handler: Optional[Handler] = None):
+    def __init__(
+        self, filename: str, level: int = NOTSET, handler: Optional[Handler] = None
+    ):
         Document.__init__(self, content="", level=level, handler=handler)
         self.update_metadata(key="filename", value=filename)
         self.update_file_metadata()
@@ -26,7 +27,7 @@ class FileDocument(Document[str], ABC):
 
     @property
     def size(self) -> int:
-        size: int = int(self.metadata.get('size', 0))
+        size: int = len(self.content)  # type: ignore
         if int(size) > 0:
             return size
         return len(str(self.content))
@@ -55,7 +56,7 @@ class FileDocument(Document[str], ABC):
 
         try:
             stats = stat(self.filename)
-            self.update_metadata('size', stats.st_size)
+            self.update_metadata("size", stats.st_size)
             self.update_metadata("mtime", datetime.fromtimestamp(stats.st_mtime))
             self.update_metadata("atime", datetime.fromtimestamp(stats.st_atime))
             self.update_metadata("ctime", datetime.fromtimestamp(stats.st_ctime))

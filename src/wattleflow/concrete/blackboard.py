@@ -4,6 +4,40 @@
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 
+"""
+GenericBlackboard
+    When using GenericBlackboard you must add CreateStrategy and Repository.
+
+    Methods:
+        def __init__(
+            self,
+            strategy_create: StrategyCreate,
+            write_on_flush_only: bool = False,
+            level: int = NOTSET,
+            handler: Optional[Handler] = None,
+            **kwargs,
+        ):
+        def clear(self)
+        def create(self, caller: IWattleflow, *args, **kwargs) -> Optional[ITarget]
+        def delete(self, caller: IWattleflow, identifier: str) -> None
+        def flush(self, caller: IWattleflow, *args, **kwargs) -> None
+        def read(self, identifier: str) -> ITarget
+        def read_from(
+            self,
+            repository_name: str,
+            identifier: str,
+            *args,
+            **kwargs,
+        ) -> ITarget
+        def register(self, repository: IRepository) -> None
+        def write(self, caller: IWattleflow, document: ITarget, *args, **kwargs) -> str
+
+    Properties:
+        @property canvas: Mapping[str, ITarget]
+        @property count: int
+        @property repositories: Mapping[str, IRepository]
+"""
+
 from abc import ABC
 from logging import Handler, NOTSET
 from types import MappingProxyType
@@ -54,7 +88,6 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             write_on_flush_only=write_on_flush_only,
             level=level,
             handler=handler,
-            # expected_type=getattr(T, "__name__", "Unknown"),
         )
 
         Attribute.evaluate(self, strategy_create, StrategyCreate)
@@ -97,7 +130,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             repository.write(caller=caller, document=document, *args, **kwargs)
 
     def clear(self):
-        self.info(msg="clean")
+        self.debug(msg="clean")
         self._repositories.clear()
         self._canvas.clear()
 
@@ -133,7 +166,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
     def flush(self, caller: IWattleflow, *args, **kwargs) -> None:
         self.debug(
             msg="Flushing canvas to repositories",
-            caller=caller,
+            caller=caller.name,
             count=len(self._canvas),
             *args,
             **kwargs,
@@ -228,6 +261,9 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             )
 
         return identifier
+
+    def __del__(self):
+        self.clear()
 
     # Must be implemented if using PresetDecorator
     def __getattr__(self, name: str) -> Any:
