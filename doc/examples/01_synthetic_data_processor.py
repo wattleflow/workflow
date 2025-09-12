@@ -850,6 +850,9 @@ class RunTestForSyntheticDataProcessor(ICommand, AuditLogger):
         self.info(msg=msg, status="Done!")
 
 
-test = RunTestForSyntheticDataProcessor()
+try:
+    test = RunTestForSyntheticDataProcessor()
+except Exception as e:
+    print(str(e))
 
 gc.collect()
