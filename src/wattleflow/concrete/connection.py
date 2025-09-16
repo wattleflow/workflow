@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from enum import Enum
 from contextlib import contextmanager
-from typing import Any, Dict, Generator, Generic, Optional, TypeVar, Union
+from typing import Any, Dict, Generator, Generic, Optional, Union
 
 from wattleflow.core import IObservable, IObserver, IFacade, T
 from wattleflow.concrete import AuditLogger

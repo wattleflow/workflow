@@ -15,16 +15,13 @@
 import logging
 
 from contextlib import contextmanager
-from typing import Generator, Optional
+from typing import Generator
 from sqlalchemy import create_engine, text
-
-# from sqlalchemy.engine.base import Engine, Connection
 from sqlalchemy.engine import Engine, Connection
 from sqlalchemy.engine.url import URL
 from wattleflow.core import T
 from wattleflow.concrete.connection import GenericConnection, State
 from wattleflow.concrete.exception import ConnectionException
-from wattleflow.helpers import sanitized_uri
 from wattleflow.constants.enums import Event
 
 

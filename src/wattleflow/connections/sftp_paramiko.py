@@ -12,150 +12,106 @@
 #   pip install paramiko
 # --------------------------------------------------------------------------- #
 
-from logging import Handler, NOTSET
-import paramiko
-from paramiko import AutoAddPolicy
 from contextlib import contextmanager
-from typing import Generator, Optional
-
-from wattleflow.concrete import GenericConnection, SFTPConnectionError
-from wattleflow.concrete.connection import Settings
-from wattleflow.constants import Event, Operation
-from wattleflow.constants.keys import (
-    KEY_NAME,
-    KEY_HOST,
-    KEY_PASSWORD,
-    KEY_PASSPHRASE,
-    KEY_PORT,
-    KEY_USER,
-    KEY_SSH_KEY_FILENAME,
-    KEY_ALLOW_AGENT,
-    KEY_LOOK_FOR_KEYS,
-    KEY_COMPRESS,
+from paramiko import (
+    AutoAddPolicy,
+    AuthenticationException,
+    BadHostKeyException,
+    SSHClient,
+    SFTPClient,
+    SSHException,
 )
-from wattleflow.helpers import TextStream
+from typing import Generator
+from wattleflow.core import T
+from wattleflow.concrete import AuditException
+from wattleflow.concrete.connection import GenericConnection, State
+from wattleflow.constants import Event
 
 
-class SFTParamiko(GenericConnection):
-    def __init__(
-        self,
-        level: int = NOTSET,
-        handler: Optional[Handler] = None,
-        **configuration,
-    ):
-        GenericConnection.__init__(self, level=level, handler=handler, **configuration)
-        self._client = paramiko.SSHClient()
-        self.debug(msg=Event.Constructor.value)
+class SFTPConnectionError(AuditException):
+    pass
 
-    def create_connection(self, **settings):
-        allowed = [
-            KEY_NAME,
-            KEY_ALLOW_AGENT,
-            KEY_LOOK_FOR_KEYS,
-            KEY_HOST,
-            KEY_PASSPHRASE,
-            KEY_PASSWORD,
-            KEY_PORT,
-            KEY_USER,
-            KEY_SSH_KEY_FILENAME,
-            KEY_COMPRESS,
-        ]
-        self._config = Settings(allowed=allowed, **settings)
-        self.debug(
-            msg=Event.Configuring.value,
-            connected=self._connected,
-        )
 
-    def clone(self) -> object:
-        self.debug(msg="clone")
-        return SFTParamiko(
-            level=self._level,
-            handler=self._handler,
-            **self._config.todict(),
-        )
-
-    def operation(self, action: Operation) -> bool:
-        self.debug(msg=action.value)
-        if action == Operation.Connect:
-            return self.connect()
-        elif action == Operation.Disconnect:
-            self.disconnect()
-        else:
-            error = "Unknown operation"
-            self.warning(msg=error)
-            raise UserWarning(error)
+class SFTPParamiko(GenericConnection[SFTPClient]):
+    def create_connection(self) -> None:
+        self._engine = None
+        self._connection = None  # type: ignore
+        self._state = State.Creating
 
     @contextmanager
-    def connect(self) -> Generator[GenericConnection, None, None]:
-        self.debug(msg=Event.Connect)
-        if self._connected:
-            return self
+    def connect(self) -> Generator[T, None, None]:
+        self.debug(
+            msg=Event.Connecting.value,
+            connection=self._connection_name,
+            status=Event.Authenticating.value,
+            state=self.state.name,
+        )
 
         try:
-            self.debug(
-                msg=Event.Authenticate.value,
-                status=Event.Authenticating.value,
+            self._engine = SSHClient()
+            self._engine.set_missing_host_key_policy(AutoAddPolicy())
+            self._engine.connect(
+                hostname=self.host,
+                port=self.port,
+                username=self.username,
+                password=self.password,
+                passphrase=self.passphrase,
+                key_filename=self.key_filename,
+                look_for_keys=self.look_for_keys,
+                allow_agent=self.allow_agent,
+                timeout=self.timeout,
+                compress=self.compress,
             )
 
-            self._client.set_missing_host_key_policy(AutoAddPolicy())
-            self._client.connect(
-                hostname=self._config.host,
-                port=int(self._config.port),
-                username=self._config.user,
-                password=self._config.password,
-                passphrase=self._config.passphrase,
-                key_filename=self._config.key_filename,
-                look_for_keys=self._config.look_for_keys,
-            )
-            self._connection = self._client.open_sftp()
+            self._connection = self._engine.open_sftp()
             self._connected = True
 
             self.info(
                 msg=Event.Connected.value,
                 connected=self._connected,
+                host=self.host,
+                port=self.port,
+                user=self.username,
+                state=self.state.name,
             )
-            yield self
-        except paramiko.AuthenticationException as e:
+
+            try:
+                yield self._connection  # type: ignore
+            finally:
+                self.disconnect()
+
+        except AuthenticationException as e:
             raise SFTPConnectionError(
-                caller=self, error=f"Authentication failed: {e}", level=1
-            )
-        except paramiko.BadHostKeyException as e:
-            raise SFTPConnectionError(
-                caller=self, error=f"Bad host exception: {e}", level=1
-            )
-        except paramiko.SSHException as e:
-            raise SFTPConnectionError(caller=self, error=f"SSH Exception: {e}", level=1)
+                caller=self, error=f"Authentication failed: {e}"
+            ) from e
+        except BadHostKeyException as e:
+            raise SFTPConnectionError(caller=self, error=f"Bad host key: {e}") from e
+        except SSHException as e:
+            raise SFTPConnectionError(caller=self, error=f"SSH error: {e}") from e
         except Exception as e:
             raise SFTPConnectionError(
-                caller=self, error=f"Connection error: {e}", level=1
-            )
+                caller=self, error=f"Connection error: {e}"
+            ) from e
+
+    def disconnect(self) -> None:
+        self.debug(msg=Event.Disconnecting.value, state=self.state.name)
+
+        try:
+            if getattr(self, "_connection", None):
+                try:
+                    self._connection.close()
+                except Exception:
+                    pass
+                finally:
+                    self._connection = None  # type: ignore
+
+            if getattr(self, "_engine", None):
+                try:
+                    self._engine.close()  # type: ignore
+                except Exception:
+                    pass
+                finally:
+                    self._engine = None
         finally:
-            self.disconnect()
-
-    def disconnect(self):
-        if not self._connected:
-            self.debug(
-                msg=Event.Disconnected.value,
-                connected=self._connected,
-            )
-            return
-
-        if self._connection:
-            self._connection.close()
-
-        self._client.close()
-        self._connected = False
-
-        self.debug(
-            msg=Event.Disconnected.value,
-            connected=self._connected,
-        )
-
-    def __str__(self) -> str:
-        conn = TextStream()
-        conn << [
-            f"{k}: {v}"
-            for k, v in self.__dict__.items()
-            if k.lower() not in ["password", "framework"]
-        ]
-        return f"{conn}"
+            self._connected = False
+            self.debug(msg=Event.Disconnected.value, state=self.state.name)
