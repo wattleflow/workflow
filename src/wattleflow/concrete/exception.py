@@ -22,10 +22,15 @@ from wattleflow.helpers.functions import _NC, _NT
 
 class AuditException(Exception, AuditLogger):
     def __init__(self, caller: IWattleflow, error: str, *args, **kwargs):
-        self.debug(
-            msg=Event.Constructor.value, caller=caller, error=error, *args, **kwargs
-        )
         AuditLogger.__init__(self, level=DEBUG)
+
+        self.debug(
+            msg=Event.Constructor.value,
+            caller=caller,
+            error=error,
+            *args,
+            **kwargs,
+        )
         self.caller: IWattleflow = caller
         self.name: str = caller.name
         self.reason: str = error

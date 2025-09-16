@@ -66,3 +66,6 @@ class PresetDecorator:
             raise AttributeError(
                 f"{self._parent.name}.{name} attribute does not exists!"
             )
+
+    def __repr__(self) -> str:
+        return f"{self._parent.name}._preset"

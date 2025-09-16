@@ -36,7 +36,7 @@
 
 from typing import Optional
 from logging import Formatter, getLogger, Handler, Logger, StreamHandler
-from wattleflow.core import ILogger, ISingleton
+from wattleflow.core import ILogger, IObserver, ISingleton
 
 
 class AsyncHandler(Handler):
@@ -144,5 +144,5 @@ class AuditLogger(ISingleton, ILogger):
         if subscriber not in self._logger.handlers:
             self._logger.addHandler(subscriber)
 
-    def subscribe(self, observer: Handler) -> None:
-        self.subscribe_handler(observer)
+    def subscribe(self, observer: IObserver) -> None:
+        raise NotImplementedError(f"{self.name}.subscribe is not implemented!")

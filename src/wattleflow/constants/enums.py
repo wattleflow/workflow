@@ -54,6 +54,7 @@ class Event(Enum):
     Connected = "Connected"
     Configuring = "Configuring"
     Configuration = "Configuration"
+    Context = "Context"
     Create = "Create"
     Creating = "Creating"
     Created = "Created"

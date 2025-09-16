@@ -12,147 +12,154 @@
 #   pip install SQLAlchemy
 # --------------------------------------------------------------------------- #
 
-from typing import Optional, Generator
-from logging import Handler, NOTSET
+import logging
+
 from contextlib import contextmanager
+from typing import Generator, Optional
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine.base import Engine
-from wattleflow.concrete.connection import (
-    GenericConnection,
-    Settings,
-)
+
+# from sqlalchemy.engine.base import Engine, Connection
+from sqlalchemy.engine import Engine, Connection
+from sqlalchemy.engine.url import URL
+from wattleflow.core import T
+from wattleflow.concrete.connection import GenericConnection, State
 from wattleflow.concrete.exception import ConnectionException
-from wattleflow.helpers.streams import TextStream
+from wattleflow.helpers import sanitized_uri
 from wattleflow.constants.enums import Event
-from wattleflow.constants.keys import (
-    KEY_NAME,
-    KEY_DATABASE,
-    KEY_HOST,
-    KEY_PASSWORD,
-    KEY_PORT,
-    KEY_USER,
-    KEY_PUBLISHER,
-    # KEY_SCHEMA,
-)
 
 
-class PostgresConnection(GenericConnection):
-    _engine: Optional[Engine] = None
-    _apilevel: str = "<apilevel>"
-    _driver: str = "<driver>"
-    _version: str = "<version>"
-    _publisher: str = "<publisher>"
-    _database: str = "<database>"
-
-    def __init__(
-        self,
-        level: int = NOTSET,
-        handler: Optional[Handler] = None,
-        **configuration,
-    ):
-        GenericConnection.__init__(self, level=level, handler=handler, **configuration)
+class PostgresConnection(GenericConnection[Connection]):
+    @property
+    def apilevel(self) -> str:
+        if not self._engine:
+            return "uninitialised"
+        return str(getattr(self._engine.dialect.dbapi, "apilevel", "unknown"))
 
     @property
-    def engine(self) -> Engine:
-        return self._engine
+    def driver(self) -> str:
+        if not self._connection:
+            return "unknown"
+        return getattr(self._engine.dialect, "driver", "unknown")
 
-    def create_connection(self, **configuration):
-        allowed = [
-            KEY_NAME,
-            KEY_DATABASE,
-            KEY_HOST,
-            KEY_PASSWORD,
-            KEY_PORT,
-            KEY_USER,
-            KEY_PUBLISHER,
-        ]
-        self.debug(msg="create_connection", allowed=allowed)
-        self._config = Settings(allowed=allowed, **configuration)
-        uri = "postgresql://{}:{}@{}:{}/{}".format(
-            self._config.user,
-            self._config.password,
-            self._config.host,
-            self._config.port,
-            self._config.database,
-        )
-        self.debug(msg=Event.Authenticating.value, allowed=allowed)
-        self._engine = create_engine(uri)
-        self._driver = self._engine.driver
-        self._apilevel = self._engine.dialect.dbapi.apilevel
-        self._publisher = self._config.publisher
-        self.debug(
-            msg=Event.Authenticated.value,
-            engine=str(self._engine),
-            apilevel=str(self._apilevel),
-            driver=self._driver,
-        )
-
-    def clone(self) -> GenericConnection:
-        return PostgresConnection(
-            level=self._level, handler=self._handler, **self._settings
-        )
-
-    @contextmanager
-    def connect(self) -> Generator[GenericConnection, None, None]:
-        if self._connected:
-            return self
+    @property
+    def version(self) -> str:
+        if not self.connected or not self._connection:
+            return "unknown"
 
         try:
+            with self.connect() as conn:
+                result = conn.execute(text("SELECT version();"))
+                return str(result.scalar())
+        except Exception:
+            return "unknown"
+
+    def create_connection(self) -> None:
+        self.debug(
+            msg=Event.Creating.value,
+            call="create_connection",
+            name=self.connection_name,
+            state=self.state.name,
+        )
+
+        self._state = State.Creating
+
+        uri = URL.create(
+            "postgresql",
+            username=self.user,
+            password=self.password,
+            host=self.host,
+            port=self.port,
+            database=self.database,
+        )
+
+        self._engine: Engine = create_engine(
+            uri,
+            pool_pre_ping=True,
+            pool_recycle=1800,
+            future=True,
+        )
+        self._state = State.Created
+        self._connection: T = None  # type: ignore
+
+        self.debug(
+            msg=Event.Authenticated.value,
+            call="create_connection",
+            engine=self._engine,
+            apilevel=self.apilevel,
+            driver=self.driver,
+            state=self.state.name,
+        )
+
+    def clone(self) -> "PostgresConnection":
+        raise NotImplementedError(f"{self.name}.clone is not implemented.")
+
+    @contextmanager
+    def connect(self) -> Generator[T, None, None]:
+        self.debug(
+            msg=Event.Connect.value,
+            connection_name=self.connection_name,
+            state=self.state.name,
+        )
+
+        if not self._engine:
+            raise ConnectionError(f"{self.name}.connect: engine is None")
+
+        try:
+            self._state = State.Connecting
+            self._connection: T = self._engine.connect()  # type: ignore
+            self._state = State.Connected
+
             self.debug(
-                msg=Event.Connecting.value,
-                status=Event.Authenticating.value,
+                msg=Event.Connect.value,
+                connection_name=self.connection_name,
+                state=self.state.name,
             )
 
-            self._connection = self._engine.connect()
-            self._connected = True
-            result = self._connection.execute(text("SELECT version();"))
-            self._version = result.scalar()
-            self._driver = self._engine.driver
-            self._apilevel = self._engine.dialect.dbapi.apilevel
-            self._database = self._config.database
-            self._privileges = self._config.user
-
-            self.info(
-                msg=Event.Connected.value,
-                db=self._database,
-                privilages=self._privileges,
-                api=self._apilevel,
-                driver=self._driver,
-                ver=self._version,
-            )
-
-            yield self
+            yield self._connection
         except Exception as e:
-            raise ConnectionException(
-                caller=self, error=f"Connection error: {e}", level=1
-            )
+            raise ConnectionException(caller=self, call="connect", error=str(e)) from e
         finally:
             self.disconnect()
 
-    def disconnect(self):
-        self.debug(msg=Event.Disconnecting.value, connected=self._connected)
-        if self._connection:
-            self._connection.close()
-            self._connection = None
-            self._connected = False
-            self.debug(msg=Event.Disconnected.value, connected=self._connected)
+    def disconnect(self) -> None:
+        self.debug(
+            msg=Event.Disconnecting.value,
+            connection_name=self._connection_name,
+            state=self.state.name,
+        )
 
-    def __del__(self):
-        self.debug(msg="__del__")
-        if self._connection:
-            self._connection.close()
-            self._connection = None
-            self._connected = False
+        try:
+            if self._connection:
+                self._connection.close()
+                self._connection = None
+            if self._engine:
+                self._engine.dispose()
+        finally:
+            self._state = State.Closed
 
-        if self._engine:
-            self._engine.dispose()
-            self._engine = None
 
-    def __str__(self) -> str:
-        conn = TextStream()
-        conn << [
-            f"{k}: {v}"
-            for k, v in self.__dict__.items()
-            if k.lower() not in ["password", "framework"]
-        ]
-        return f"{conn}"
+conn = PostgresConnection(
+    connection_name="local_pg1",
+    allowed=["user", "password", "host", "port", "database"],
+    level=logging.DEBUG,
+    user="wattleflow",  # zamijeni s korisnikom u kontejneru
+    password="wattleflow",  # zamijeni s lozinkom u kontejneru
+    host="0.0.0.0",
+    port=5432,
+    database="OFFICIAL",  # ili ime tvoje baze
+)
+
+# tt: Connection = conn.connect()
+# print("Version:", tt.execute(text("SELECT version();")).scalar())
+# print("Version:", tt.execute(text("SELECT current_database();")).scalar())
+
+with conn.connect() as db:
+    print("Version:", db.execute(text("SELECT version();")).scalar())
+    print("Version:", db.execute(text("SELECT current_database();")).scalar())
+    # print(db.connection.closed)
+
+with conn.connect() as db:
+    print("Aktivna baza:", db.execute(text("SELECT current_database();")).scalar())
+
+with conn.connect() as db:
+    print("Aktivna baza:", db.execute(text("SELECT current_database();")).scalar())

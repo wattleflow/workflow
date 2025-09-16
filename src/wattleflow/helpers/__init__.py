@@ -6,6 +6,7 @@ from .localmodels import DownloadedModels, StoredModels
 from .handlers import TraceHandler
 from .macros import TextMacros
 from .pathadder import show_paths, override_paths
+from .sanitizer import sanitized_uri
 
 # from .preset import Preset
 from .streams import TextStream, TextFileStream
@@ -22,6 +23,7 @@ from .system import (
 __all__ = [
     "decorator",
     "check_path",
+    "sanitized_uri",
     "show_paths",
     "Attribute",
     "MissingAttribute",
@@ -33,7 +35,6 @@ __all__ = [
     "DownloadedModels",
     "Dictionary",
     "LocalPath",
-    # "Preset",
     "override_paths",
     "Project",
     "Proxy",
