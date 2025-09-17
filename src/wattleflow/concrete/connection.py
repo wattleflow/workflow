@@ -102,7 +102,7 @@ class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[T], AB
 
     def operation(self, action: Operation) -> Union[Operational, None]:
         if action is Operation.Connect:
-            return self.connect()
+            return self.connect()  # type: ignore
 
         if action is Operation.Disconnect:
             return self.disconnect()

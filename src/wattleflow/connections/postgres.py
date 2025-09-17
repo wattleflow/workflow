@@ -133,30 +133,3 @@ class PostgresConnection(GenericConnection[Connection]):
                 self._engine.dispose()
         finally:
             self._state = State.Closed
-
-
-conn = PostgresConnection(
-    connection_name="local_pg1",
-    allowed=["user", "password", "host", "port", "database"],
-    level=logging.DEBUG,
-    user="wattleflow",  # zamijeni s korisnikom u kontejneru
-    password="wattleflow",  # zamijeni s lozinkom u kontejneru
-    host="0.0.0.0",
-    port=5432,
-    database="OFFICIAL",  # ili ime tvoje baze
-)
-
-# tt: Connection = conn.connect()
-# print("Version:", tt.execute(text("SELECT version();")).scalar())
-# print("Version:", tt.execute(text("SELECT current_database();")).scalar())
-
-with conn.connect() as db:
-    print("Version:", db.execute(text("SELECT version();")).scalar())
-    print("Version:", db.execute(text("SELECT current_database();")).scalar())
-    # print(db.connection.closed)
-
-with conn.connect() as db:
-    print("Aktivna baza:", db.execute(text("SELECT current_database();")).scalar())
-
-with conn.connect() as db:
-    print("Aktivna baza:", db.execute(text("SELECT current_database();")).scalar())
