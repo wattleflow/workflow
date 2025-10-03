@@ -22,6 +22,15 @@ except Exception:
 
 @final
 class Config:
+    __slots__ = (
+        "config_file",
+        "_key_filename",
+        "_data",
+        "_strategy",
+        "_level",
+        "_handler",
+    )
+
     def __init__(
         self,
         config_file: str,
@@ -86,7 +95,6 @@ class Config:
 
         root = find_root(self._data, section)
         if not root:
-            # print(f"DEBUG: missing value for [root]. [{section}, {key}, {name}]")
             raise ValueError(f"Config:[root] not found. [{section}, {key}, {name}]")
 
         branch = find_root(root, key)
@@ -96,7 +104,6 @@ class Config:
         root = find_root(branch, name)
         if not root:
             if name:
-                # print(f"DEBUG: missing value for [name]. [{section}, {key}, {name}]")
                 raise ValueError(f"Config:[name] not found. [{section}, {key}, {name}]")
             return branch
 
@@ -140,3 +147,6 @@ class Config:
             handler=self._handler,
             key_filename=self._key_filename,
         ).instance
+
+    def __repr__(self) -> str:
+        return "Config:{self.config_file}"

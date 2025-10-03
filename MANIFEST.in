@@ -1,7 +1,14 @@
+# exclude cache
 prune __pycache__
 prune .pytest_cache
+
+# exclude file types
+exclude *.config
 exclude *.pyc
 exclude *.pyo
+exclude *.yaml
+
+# exclude other files
 exclude .DS_Store
 exclude .dist
 exclude .env
@@ -13,13 +20,9 @@ exclude .idea
 exclude .pylintrc
 exclude .scraps
 exclude .vscode
-exclude .vscode
-exclude .vscode
 exclude Makefile
-exclude endpoints
-exclude helpers/audit.py
-exclude helpers/logger.py
-exclude models
+
+# source
 exclude src/wattleflow/api
 exclude src/wattleflow/audit
 exclude src/wattleflow/blackboards
@@ -30,12 +33,22 @@ exclude src/wattleflow/managers
 exclude src/wattleflow/processors
 exclude src/wattleflow/repositories
 exclude src/wattleflow/schedulers
+
+# exclude other dirs
+exclude data
+exclude endpoints
+exclude examples
+exclude helpers/audit.py
+exclude helpers/logger.py
+exclude models
 exclude tests
 exclude tests/config.yaml
 exclude tests/scheduler.yaml
 exclude tools/doc
 
+# includes
 include README.md LICENSE
 include doc/wattleflow.png
-recursive-include src/wattleflow/ *.py
 
+# recursive
+recursive-include src/wattleflow/ *.py

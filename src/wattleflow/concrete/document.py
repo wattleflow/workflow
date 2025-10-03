@@ -39,10 +39,6 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
         self.update_metadata(key="changed", value=datetime.now(timezone.utc))
 
     @property
-    @abstractmethod
-    def size(self) -> int: ...  # noqa: E704
-
-    @property
     def content(self) -> Optional[T]:
         return getattr(self, "_content", None)
 
@@ -53,6 +49,10 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
     @property
     def metadata(self) -> Mapping[str, object]:
         return MappingProxyType(self._metadata)
+
+    @property
+    @abstractmethod
+    def size(self) -> int: ...  # noqa: E704
 
     def specific_request(self) -> "Document":
         return self
