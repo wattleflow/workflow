@@ -101,7 +101,9 @@ class AuditLogger(ISingleton, ILogger):
             for k, v in data.items():
                 if v is None or isinstance(v, (bool, int, float, str)):
                     parts.append(f"{k}={v}")
-                elif isinstance(v, (list, tuple, set, dict)):
+                elif isinstance(v, (list, tuple, set, dict)) and (
+                    method == self._logger.info
+                ):
                     try:
                         n = len(v)
                     except Exception:

@@ -13,7 +13,7 @@ A = TypeVar("A", bound=IAdaptee)
 
 
 class Document(IAdaptee, Generic[T], AuditLogger, ABC):
-    __slots__ = ("_content", "_identifier", "_metadata")
+    __slots__ = ("_content", "_identifier", "_metadata", "_initialized")
 
     def __init__(
         self,

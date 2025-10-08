@@ -12,14 +12,15 @@ PresetDecorator
 When using PresetDecorator you must add following in the instantiating parent class,
 to process assigned atributes.
 
+# Must be implemented if using PresetDecorator
 def __getattr__(self, name: str) -> Any:
     preset: PresetDecorator = object.__getattribute__(self, "_preset")
     return preset.__getattr__(name)
-
 """
 
 from typing import Any
 from wattleflow.core import IWattleflow
+from wattleflow.concrete.exception import AttributeException
 
 
 class PresetDecorator:
@@ -47,9 +48,21 @@ class PresetDecorator:
         object.__setattr__(self, "_values", values)
 
     def __getattr__(self, name: str) -> Any:
+        try:
+            value = object.__getattribute__(self._parent, name)
+            if value:
+                return value
+        except Exception:
+            pass
+
         if name in self._allowed:
             return self._values.get(name, None)
-        raise AttributeError(f"{self._parent.name}.{name} is not permitted.")
+
+        raise AttributeException(
+            caller=self._parent,
+            error=f"{self._parent.name}.{name} is not permitted.",
+            name=name,
+        )
 
     def __setattr__(self, name: str, value: Any):
         if name in PresetDecorator.__slots__:

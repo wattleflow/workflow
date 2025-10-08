@@ -5,9 +5,8 @@
 # License: Apache 2 Licence
 
 import inspect
+import logging
 import traceback
-from logging import DEBUG
-from typing import final
 from wattleflow.core import IWattleflow
 from wattleflow.concrete import AuditLogger
 from wattleflow.constants import Event
@@ -21,8 +20,33 @@ from wattleflow.helpers.functions import _NC, _NT
 
 
 class AuditException(Exception, AuditLogger):
-    def __init__(self, caller: IWattleflow, error: str, *args, **kwargs):
-        AuditLogger.__init__(self, level=DEBUG)
+    """
+    AuditException is a custom exception class inheriting from both Exception and AuditLogger.
+    It reports and logs application errors, providing context about the caller and cause.
+
+    Key points:
+    - Multiple inheritance: combines Exception (base error class)
+      and AuditLogger (for event logging).
+    - __init__(caller, error, *args, level=logging.DEBUG):
+    - Initializes AuditLogger.
+    - Logs both creation and error details.
+    - Stores caller object, name, reason, and file location.
+    - Calls the base Exception with the error reason.
+    - _get_call_context():
+    - Returns filename and line number where the exception occurred.
+    - Falls back to "Unknown Location" if stack trace is unavailable.
+    """
+
+    filename: str = ""
+    lineno: str = ""
+
+    def __init__(
+        self, caller: IWattleflow, error: str, show_path=False, *args, **kwargs
+    ):
+        level = kwargs.get("level", logging.NOTSET)
+        handler = kwargs.get("hanlder", None)
+
+        AuditLogger.__init__(self, level=level, handler=handler, logger=None)
 
         self.debug(
             msg=Event.Constructor.value,
@@ -31,21 +55,44 @@ class AuditException(Exception, AuditLogger):
             *args,
             **kwargs,
         )
+
+        self._get_call_context()
+
         self.caller: IWattleflow = caller
         self.name: str = caller.name
         self.reason: str = error
-        self.error(msg=self.reason, caller=caller, **kwargs)
-        self.filename = self._get_call_context()
+
+        if show_path:
+            self.reason += f" See {self.filename}:{self.lineno}"
+
         super().__init__(self.reason)
 
     def _get_call_context(self):
-        """Retrieves calling filename and line number."""
         try:
             stack = traceback.extract_stack()
-            filename, lineno, _, _ = stack[-3]  # Caller frame (-1 is current)
-            return f"{filename}:({lineno})"
-        except Exception:
-            return "Unknown Location"
+
+            self.filename, self.lineno, _, _ = (
+                stack[-4] if len(stack) > 2 else stack[-3]
+            )  # Caller frame (-1 is current)
+        except Exception as e:
+            self.debug(msg=Event.ErrorDetails, error=str(e))
+
+    def __repr__(self) -> str:
+        return f"error={self.error} in filename={self.filename}:{self.lineno}"
+
+
+class AttributeException(AuditException, AuditLogger):
+    pass
+    # def __init__(
+    #     self, caller: IWattleflow, error: str, show_path=True, *args, **kwargs
+    # ):
+    #     # self._get_call_context()
+    #     # self._msg = f"{caller.name}.{error} in {self.filename}:{self.lineno}"
+
+    #     # if kwargs:
+    #     #     self._msg += f" {kwargs}"
+
+    #     super().__init__(caller, error=error, show_path=True, *args, **kwargs)
 
 
 class AuthenticationException(AuditException):
@@ -92,7 +139,6 @@ class ClassLoaderException(AuditException):
     pass
 
 
-@final
 class MissingException(AuditException):
     pass
 

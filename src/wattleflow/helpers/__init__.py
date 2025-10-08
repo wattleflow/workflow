@@ -1,4 +1,4 @@
-from .attribute import Attribute, MissingAttribute
+from .attribute import Attribute, AttributeException
 from .config import Config
 from .collections import DequeList
 from .dictionaries import AttributeDict, Dictionary
@@ -8,7 +8,6 @@ from .macros import TextMacros
 from .pathadder import show_paths, override_paths
 from .sanitizer import sanitized_uri
 
-# from .preset import Preset
 from .streams import TextStream, TextFileStream
 from .system import (
     check_path,
@@ -26,7 +25,7 @@ __all__ = [
     "sanitized_uri",
     "show_paths",
     "Attribute",
-    "MissingAttribute",
+    "AttributeException",
     "AttributeDict",
     "Config",
     "ClassLoader",

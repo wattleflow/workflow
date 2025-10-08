@@ -39,7 +39,7 @@ class GenericProcessor(IProcessor, AuditLogger, ABC):
 
         self.debug(
             msg=Event.Constructor.value,
-            status="initialising",
+            step=Event.Started.value,
             blackboard=blackboard,
             pipelines=[p.name if isinstance(p, IPipeline) else p for p in pipelines],
             level=level,
@@ -50,8 +50,21 @@ class GenericProcessor(IProcessor, AuditLogger, ABC):
         Attribute.evaluate(caller=self, target=pipelines, expected_type=list)
         Attribute.evaluate(caller=self, target=blackboard, expected_type=IBlackboard)
 
-        self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
+        if not len(pipelines) > 0:
+            error = "Pipelines must be assigned before proceeding!"
+            self.error(
+                msg=Event.Constructor.value,
+                pipelines=len(pipelines),
+                error=error,
+            )
+            raise ProcessorException(
+                caller=self,
+                error=error,
+                level=level,
+                handler=handler,
+            )
 
+        self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
         self._cycle: int = 0
         self._blackboard: IBlackboard = blackboard
         self._pipelines: list = pipelines
@@ -60,7 +73,7 @@ class GenericProcessor(IProcessor, AuditLogger, ABC):
 
         self.debug(
             msg=Event.Constructor.value,
-            status="completed",
+            step=Event.Finnished.value,
             generator=self._generator,
             current=self._current,
             cycle=self._cycle,
@@ -76,6 +89,10 @@ class GenericProcessor(IProcessor, AuditLogger, ABC):
         pass
 
     def start(self) -> None:
+        self.debug(
+            msg=Event.Start.value,
+            step=Event.Started.value,
+        )
         if self._generator is None:
             self._generator = self.create_generator()
 
@@ -86,7 +103,8 @@ class GenericProcessor(IProcessor, AuditLogger, ABC):
             for pipeline in self._pipelines:
                 if isinstance(pipeline, IPipeline):
                     self.debug(
-                        msg=Event.Processing.value,
+                        msg=Event.Start.value,
+                        step=Event.ProcessingTask.value,
                         document=document,
                         pipeline=pipeline.name,
                     )
@@ -101,6 +119,11 @@ class GenericProcessor(IProcessor, AuditLogger, ABC):
                     raise ProcessorException(
                         caller=self, error="Inccorect pipeline type."
                     )
+
+        self.debug(
+            msg=Event.Start.value,
+            step=Event.Completed.value,
+        )
 
     # Must be implemented if using PresetDecorator
     def __getattr__(self, name: str) -> Any:

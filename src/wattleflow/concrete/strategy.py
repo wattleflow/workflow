@@ -10,23 +10,10 @@ from logging import Handler, NOTSET
 from typing import Optional
 from wattleflow.core import IWattleflow, IStrategy, ITarget
 from wattleflow.concrete import AuditLogger
-from wattleflow.helpers import Attribute
-
-
-PERMITED_TYPES = (
-    "_blackboard",
-    "_processor",
-    "_repository",
-    "_preset",
-    "_level",
-    "_handler",
-)
 
 
 # Generic strategy
 class Strategy(IStrategy, AuditLogger, ABC):
-    __slots__ = PERMITED_TYPES
-
     def __init__(
         self,
         level: int = NOTSET,
@@ -36,21 +23,11 @@ class Strategy(IStrategy, AuditLogger, ABC):
         self._handler: Optional[Handler] = handler
 
         IStrategy.__init__(self)
-        AuditLogger.__init__(self, level=level, handler=handler)
-
-        # self._preset = Preset()
+        AuditLogger.__init__(self, level=level, handler=handler, logger=None)
 
     @abstractmethod
     def execute(self, caller: IWattleflow, *args, **kwargs) -> Optional[ITarget]:
         pass
-
-    def __getattr__(self, name) -> object:
-        obj = Attribute.get_attr(caller=self, name=name)
-
-        if obj is not None:
-            return obj
-
-        return Attribute.get_attr(caller=self._preset, name=name)
 
     def __repr__(self) -> str:
         return f"{self.name}"

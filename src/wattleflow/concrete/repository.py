@@ -22,7 +22,7 @@ class GenericRepository(IRepository, AuditLogger, ABC):
         "_strategy_read",
         "_strategy_write",
         "_preset",
-        "_initialised",
+        "_initialized",
     )
 
     def __init__(
@@ -40,22 +40,30 @@ class GenericRepository(IRepository, AuditLogger, ABC):
 
         self.debug(
             msg=Event.Constructor.value,
+            step=Event.Started.value,
             strategy_read=strategy_read,
             strategy_write=strategy_write,
             *args,
             **kwargs,
         )
 
-        Attribute.evaluate(caller=self, target=strategy_read, expected_type=IStrategy)
-        Attribute.evaluate(caller=self, target=strategy_write, expected_type=IStrategy)
+        Attribute.evaluate(
+            caller=self,
+            target=strategy_read,
+            expected_type=IStrategy,
+        )
+        Attribute.evaluate(
+            caller=self,
+            target=strategy_write,
+            expected_type=IStrategy,
+        )
 
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
-
         self._counter: int = 0
         self._strategy_write: StrategyWrite = strategy_write
         self._strategy_read: Optional[StrategyRead] = strategy_read
 
-        self.debug(msg=Event.Constructor.value, status="created")
+        self.debug(msg=Event.Constructor.value, step=Event.Finnished.value)
 
     @property
     def count(self) -> int:
@@ -108,9 +116,8 @@ class GenericRepository(IRepository, AuditLogger, ABC):
 
         except Exception as e:
             error = f"[{self.name}] Write strategy failed: {e}"
-            self.error(
-                msg=error, counter=self._counter
-            )  # TODO: self.exception to self.error
+            # TODO: self.exception to self.error
+            self.error(msg=error, counter=self._counter)
             raise RuntimeError(error) from e
 
     # Must be implemented if using PresetDecorator

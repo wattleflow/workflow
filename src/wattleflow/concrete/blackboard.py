@@ -63,12 +63,12 @@ from wattleflow.decorators.preset import PresetDecorator
 
 class GenericBlackboard(IBlackboard, AuditLogger, ABC):
     __slots__ = (
-        "_initialized",
         "_canvas",
+        "_initialized",
+        "_preset",
         "_repositories",
         "_strategy_create",
         "_write_on_flush_only",
-        "_preset",
     )
 
     def __init__(
@@ -84,19 +84,30 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
 
         self.debug(
             msg=Event.Constructor.value,
+            step=Event.Configuring.value,
             strategy_create=strategy_create,
             write_on_flush_only=write_on_flush_only,
             level=level,
             handler=handler,
         )
 
-        Attribute.evaluate(self, strategy_create, StrategyCreate)
+        Attribute.evaluate(
+            caller=self, target=strategy_create, expected_type=StrategyCreate
+        )
 
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
         self._strategy_create = strategy_create
         self._canvas: Dict[str, ITarget] = {}
         self._repositories: Dict[str, IRepository] = {}
         self._write_on_flush_only = write_on_flush_only
+
+        self.debug(
+            msg=Event.Constructor.value,
+            step=Event.Configured.value,
+            preset=self._preset,
+            canvas=self._canvas,
+            repositories=self._repositories,
+        )
 
     @property
     def canvas(self) -> Mapping[str, ITarget]:
@@ -130,18 +141,29 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             repository.write(caller=caller, document=document, *args, **kwargs)
 
     def clear(self):
-        self.debug(msg="clean")
+        self.debug(
+            msg=Event.Clearing.value,
+            fnc="clean",
+            repositories=len(self._repositories),
+            canvases=len(self._canvas),
+        )
         self._repositories.clear()
         self._canvas.clear()
 
     def create(self, caller: IWattleflow, *args, **kwargs) -> Optional[ITarget]:
-        self.debug(msg=Event.Creating.value, caller=caller.name, *args, **kwargs)
+        self.debug(
+            msg=Event.Create.value,
+            caller=caller.name,
+            *args,
+            **kwargs,
+        )
 
         Attribute.evaluate(caller=self, target=caller, expected_type=IProcessor)
 
         if not self._strategy_create:
             self.warning(
-                msg=Event.Audit.value, error=f"{self.name}._strategy_create is missing!"
+                msg=Event.Create.value,
+                error=f"{self.name}._strategy_create is missing!",
             )
             return None
 
@@ -150,22 +172,29 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         )
 
     def delete(self, caller: IWattleflow, identifier: str) -> None:
-        self.debug(msg=Event.Deleting.value, caller=caller.name, identifier=identifier)
+        self.debug(
+            msg=Event.Delete.value,
+            caller=caller.name,
+            id=identifier,
+        )
 
         if identifier in self._canvas:
             del self._canvas[identifier]
-            self.info(msg=Event.Delete.value, identifier=identifier)
+            self.info(
+                msg=Event.Deleted.value,
+                identifier=identifier,
+            )
         else:
             self.warning(
-                msg=Event.Deleting.value,
+                msg=Event.Delete.value,
                 caller=caller.name,
-                reason="not in blackboard",
+                reason="The blackboard neither confirms nor denies the existance!",
                 identifier=identifier,
             )
 
     def flush(self, caller: IWattleflow, *args, **kwargs) -> None:
         self.debug(
-            msg="Flushing canvas to repositories",
+            msg=Event.Flush.value,
             caller=caller.name,
             count=len(self._canvas),
             *args,
@@ -215,42 +244,51 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         return repository.read(identifier=identifier, *args, **kwargs)
 
     def register(self, repository: IRepository) -> None:
-        self.info(msg=Event.Registering.value, repository=repository.name)
-
         Attribute.evaluate(self, repository, IRepository)
+
+        self.debug(
+            msg=Event.Registering.value,
+            repository=repository.name,
+        )
 
         if repository.name in self._repositories:
             self.warning(
-                msg="Repository already registered!", repository=repository.name
+                msg=Event.Registering.value,
+                repository=repository.name,
+                error="Repository already registered!",
             )
             return
 
         self._repositories[repository.name] = repository
 
     def write(self, caller: IWattleflow, document: ITarget, *args, **kwargs) -> str:
-        doc = document.request()
-
         self.debug(
             msg=Event.Writing.value,
             caller=caller.name,
-            document=repr(document),
-            doc=repr(doc),
+            document=document,
             *args,
             **kwargs,
         )
 
-        identifier: str = str(document.request())
+        if not getattr(document, "identifier", None):
+            raise ValueError(f"Document:{document} is missing identifier!")
 
-        self._canvas[identifier] = document
+        doc = document.request()
+        self._canvas[doc.identifier] = document
 
         self.debug(
-            msg=Event.Stored.value,
-            document=repr(document),
+            msg=Event.Writing.value,
+            action=Event.Stored.value,
+            document=doc,
             flush=self._write_on_flush_only,
         )
 
         if not self._repositories:
-            self.warning(msg="You have no registered repositories.")
+            self.warning(
+                msg=Event.Writing.value,
+                error="No repositories have been registered.",
+            )
+            return
 
         if not self._write_on_flush_only:
             self._send_to_all_repositories(
@@ -260,15 +298,15 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
                 **kwargs,
             )
 
-        return identifier
-
-    def __del__(self):
-        self.clear()
+        return doc.identifier
 
     # Must be implemented if using PresetDecorator
     def __getattr__(self, name: str) -> Any:
         preset: PresetDecorator = object.__getattribute__(self, "_preset")
         return preset.__getattr__(name)
+
+    def __del__(self):
+        self.clear()
 
     def __repr__(self) -> str:
         return f"{self.name}: {self.count}"

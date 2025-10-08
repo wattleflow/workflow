@@ -8,19 +8,7 @@ import inspect
 from enum import Enum
 from typing import Any, Optional
 from wattleflow.core import IWattleflow
-
-
-class MissingAttribute(AttributeError):
-    def __init__(self, caller: object, error: str, **kwargs):
-        self._msg = f"{Attribute.class_name(caller)}.{error}"
-        if kwargs:
-            self._msg += f" {kwargs}"
-        super().__init__(
-            f"Missing attribute: {Attribute.class_name(caller)}: {self._msg}."
-        )
-
-    def __repr__(self) -> str:
-        return f"{self.name}: {self._msg}"
+from wattleflow.concrete.exception import AttributeException
 
 
 class Attribute:
@@ -50,7 +38,12 @@ class Attribute:
 
     @staticmethod
     def find_name_by_variable(obj):
-        return getattr(obj, "__name__", "Unknown")
+        value = object.__getattribute__(obj, "__class__")
+
+        if value:
+            return object.__getattribute__(value, "__name__")
+
+        return getattr(obj, "__name__", None)
 
     @staticmethod
     def find_object_by_name_old(name) -> Optional[object]:
@@ -76,18 +69,17 @@ class Attribute:
         restricted = set(kwargs.keys()) - set(allowed)
 
         if restricted:
-            from wattleflow.helpers.functions import (
-                _NC,
-            )  # pylint: disable=import-outside-toplevel
-
-            raise AttributeError(f"{_NC(caller)} - Restricted : [{restricted}]")
+            raise AttributeException(
+                caller=caller,
+                error=f" Restricted: {restricted!r}",
+            )
 
         return True
 
     @staticmethod
-    def convert(caller: object, name: str, cls: type, **kwargs) -> Any:
+    def convert(caller: object, name: str, cls: type, show_path=False, **kwargs) -> Any:
         if name not in kwargs:
-            raise MissingAttribute(caller, f"kwargs[{name}]")
+            raise AttributeException(caller=caller, error=f"kwargs[{name}]")
 
         value = kwargs[name]
 
@@ -113,10 +105,22 @@ class Attribute:
 
         txt = "{}: unexpected type found [{}:{}] expected [{}]"
         error = txt.format(_NC(caller), value, _NT(value), expected)
-        raise TypeError(error)
+
+        raise AttributeException(
+            caller=caller,
+            error=error,
+            show_path=show_path,
+            name=name,
+            cls=cls,
+            **kwargs,
+        )
 
     @staticmethod
-    def evaluate(caller: IWattleflow, target: object, expected_type: type):
+    def evaluate(
+        caller: IWattleflow,
+        target: object,
+        expected_type: type,
+    ):
         if not expected_type:
             return
 
@@ -129,19 +133,26 @@ class Attribute:
             if hasattr(target, "__class__")
             else type(target).__name__
         )
+        name = varname if varname else name
         expected_name = expected_type.__name__
         owner = getattr(caller, "name", caller.__class__.__name__)
 
         if not isinstance(target, expected_type):
-            error = f"{owner}.{varname}: found unexpected type [{name}], expected [{expected_name}]"  # noqa: E501
-            raise TypeError(error)
+            error = f"{owner!r}: Unexpected type {name!r} instead of {expected_name!r} (Attribute.evaluate)"  # noqa: E501
+            raise AttributeException(
+                caller=caller,
+                error=error,
+                show_path=True,
+                target=target,
+                expected_type=expected_type,
+            )
 
     @staticmethod
     def exists(caller: object, name: str, cls: type):
         attr = getattr(caller, name, None)
 
         if not attr:
-            raise MissingAttribute(caller, name)
+            raise AttributeException(caller, name)
 
         Attribute.evaluate(caller, attr, cls)  # type: ignore
 
@@ -175,7 +186,14 @@ class Attribute:
         Attribute.evaluate(caller, kwargs, dict)  # type: ignore
 
         if name not in kwargs:
-            raise MissingAttribute(caller, f"[{name}] not found in kwargs!")
+            raise AttributeException(
+                caller=caller,
+                error=f"{caller!r}: Mandatory value {name!r} not found in kwargs!",
+                show_path=show_path,
+                name=name,
+                cls=cls,
+                **kwargs,
+            )
 
         obj = kwargs.pop(name, None)
 
@@ -183,16 +201,31 @@ class Attribute:
             setattr(caller, name, obj)
             return True
 
-        if cls in [int, dict, str, tuple, list] or not isinstance(cls, IWattleflow):
-            raise TypeError(
-                f"Incorrect type for {name}: expected {cls}, found <{Attribute.class_name(obj)}>."
+        if cls in [int, dict, list, set, str, tuple] or not isinstance(
+            cls, IWattleflow
+        ):
+            raise AttributeException(
+                caller=caller,
+                error=f"Incorrect type {name!r}:"
+                f" expected {cls!r},"
+                f" found <{Attribute.class_name(obj)!r}>.",  # noqa: E501
+                show_path=True,
+                cls=cls,
+                **kwargs,
             )
 
         try:
             Attribute.load_from_class(name, obj, cls, **kwargs)
             return True
         except Exception as e:
-            raise ValueError(f"Error loading class: kwargs[{name}]: {e}") from e
+            raise AttributeException(
+                caller=caller,
+                error=f"Error loading class: kwargs[{name}!r]: {e}",
+                show_path=True,
+                name=name,
+                cls=cls,
+                **kwargs,
+            )
 
     @staticmethod
     def get(
@@ -204,10 +237,22 @@ class Attribute:
     ) -> Optional[object]:
         if mandatory:
             if not kwargs:
-                raise MissingAttribute(caller, "kwargs")
+                raise AttributeException(
+                    caller=caller,
+                    error="kwargs",
+                    kwargs=kwargs,
+                    cls=cls,
+                    mandatory=mandatory,
+                )
 
             if name not in kwargs:
-                raise MissingAttribute(caller, f"kwargs[{name}]")
+                raise AttributeException(
+                    caller=caller,
+                    error=f"kwargs[{name}]",
+                    kwargs=kwargs,
+                    cls=cls,
+                    mandatory=mandatory,
+                )
 
         item = kwargs.pop(name, None)
 
@@ -226,9 +271,15 @@ class Attribute:
                     setattr(caller, name, instance)
                     return instance
                 else:
-                    raise MissingAttribute(caller, name)
+                    raise AttributeError(f"Mandatory: {caller.name}.{name}")
         except Exception as e:
-            raise MissingAttribute(caller, error=str(e)) from e
+            raise AttributeException(
+                caller,
+                error=str(e),
+                name=name,
+                cls=cls,
+                mandatory=mandatory,
+            ) from e
 
     @staticmethod
     def optional(
@@ -262,18 +313,10 @@ class Attribute:
             if not slots:
                 continue
             if isinstance(slots, str):
-                slots = (slots,)
+                slots = slots
             if name in slots:
                 # if exists, try to get it - can still throw AttributeError if unallocated.
                 return object.__getattribute__(caller, name)
 
-        # if in neither throw AttributeError w !r - adds quote as the value is string Litteral
-        # error = f"({type(caller).__name__!s}) has no attribute {name!r}"
-        error = f"{name!r} is missing attribute!"
-        raise MissingAttribute(caller=caller, error=error, name=name)
-
-    # def __str__(self):
-    #     attributes = ""
-    #     for k, v in self.__dict__.items():
-    #         attributes += f"{k}:{v}\n"
-    #     return attributes
+        error = f"{caller!r} is missing attribute {name!r}."
+        raise AttributeException(caller=caller, error=error)

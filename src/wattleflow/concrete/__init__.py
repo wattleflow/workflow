@@ -7,6 +7,7 @@ from .connection import (
 from .document import Document, DocumentAdapter, DocumentFacade
 from .exception import (
     AuditException,
+    AttributeException,
     AuthenticationException,
     BlackboardException,
     ConstructorException,
@@ -56,6 +57,7 @@ __all__ = [
     "DocumentAdapter",
     "DocumentFacade",
     "AuditException",
+    "AttributeException",
     "AuthenticationException",
     "BlackboardException",
     "ConstructorException",
