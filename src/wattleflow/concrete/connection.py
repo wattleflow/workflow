@@ -43,13 +43,15 @@ class ConnectionObserverInterface(IObservable, IFacade, ABC):
             observer.update(owner, **kwargs)
 
     @abstractmethod
-    def operation(self, action: Any) -> Any: ...
+    def operation(self, action: Any) -> Any:
+        pass
 
 
 class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[T], ABC):
     __slots__ = (
         "_connection",
         "_connection_name",
+        "_initialized",
         "_context",
         "_engine",
         "_logger",
@@ -79,6 +81,7 @@ class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[T], AB
 
         self.debug(
             msg=Event.Constructor.value,
+            step=Event.Completed.value,
             connection_name=self._connection_name,
             state=self.state.name,
             preset=repr(self._preset),
@@ -150,13 +153,6 @@ class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[T], AB
         except Exception:
             pass
 
-    # def __enter__(self) -> "GenericConnection[T]":
-    #     self.connect()
-    #     return self
-
-    # def __exit__(self, exc_type, exc, tb):
-    #     self.disconnect()
-
     def __enter__(self):
         self.debug(msg="__enter__")
         self._context = self.connect()
@@ -169,21 +165,27 @@ class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[T], AB
         finally:
             self._context = None
 
+    # Must be implemented if using PresetDecorator
     def __getattr__(self, name: str) -> Any:
-        # if name in self.__slots__:
-        #     return object.__getattribute__(self, name)
-        try:
-            if object.__getattribute__(self, name):
-                return object.__getattribute__(self, name)
 
-            if self.__getattribute__(name):
-                return self.__getattribute__(name)
+        if name in self.__slots__:
+            return object.__getattribute__(self, name)
 
-        except:  # noqa: E722
-            if getattr(self, "_preset"):
-                return getattr(self._preset, name)
+        preset: PresetDecorator = object.__getattribute__(self, "_preset")
+        return preset.__getattr__(name)
 
-        raise AttributeError(f"{self.name}.{name} not found!")
+        # try:
+        #     if object.__getattribute__(self, name):
+        #         return object.__getattribute__(self, name)
+
+        #     if self.__getattribute__(name):
+        #         return self.__getattribute__(name)
+
+        # except:  # noqa: E722
+        #     preset: PresetDecorator = object.__getattribute__(self, "_preset")
+        #     return preset.__getattr__(name)
+
+        # raise AttributeError(f"{self.name}.{name} not found!")
 
     def __repr__(self) -> str:
         return f"{self.name}:{self.state.name}"
