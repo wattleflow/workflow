@@ -104,12 +104,28 @@ class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[T], AB
         return self._state
 
     def operation(self, action: Operation) -> Union[Operational, None]:
+        self.debug(msg=Event.Operation.value, step=Event.Started.value, action=action)
         if action is Operation.Connect:
+            self.debug(
+                msg=Event.Operation.value,
+                step=Event.Completed.value,
+                action=action,
+            )
             return self.connect()  # type: ignore
 
         if action is Operation.Disconnect:
+            self.debug(
+                msg=Event.Operation.value,
+                step=Event.Completed.value,
+                action=action,
+            )
             return self.disconnect()
 
+        self.debug(
+            msg=Event.Operation.value,
+            step=Event.Completed.value,
+            action="raise error",
+        )
         raise RuntimeError(f"Unknown operation: {action.value}")
 
     # ---------- Abstract methods ----------
@@ -144,18 +160,31 @@ class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[T], AB
     # ---------- Context handling ----------
     @contextmanager
     def context(self) -> Generator[T, None, None]:
+        self.debug(msg=Event.Context.value, step=Event.Started.value, fnc="context")
         with self.connect() as connection:
             yield connection
+        self.debug(msg=Event.Context.value, step=Event.Completed.value, fnc="context")
 
     def __del__(self):
         try:
+            self.debug(
+                msg=Event.Delete.value,
+                step=Event.Starting.value,
+                fnc="__del__",
+            )
             self.disconnect()
+            self.debug(
+                msg=Event.Delete.value,
+                step=Event.Completed.value,
+                fnc="__del__",
+            )
         except Exception:
             pass
 
     def __enter__(self):
-        self.debug(msg="__enter__")
+        self.debug(msg=Event.Enter.value, step=Event.Starting.value, fnc="__enter__")
         self._context = self.connect()
+        self.debug(msg=Event.Enter.value, step=Event.Completed.value, fnc="__enter__")
         return self._context.__enter__()
 
     def __exit__(self, exc_type, exc, tb):

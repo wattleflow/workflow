@@ -49,20 +49,20 @@ class GenericRepository(IRepository, AuditLogger, ABC):
 
         Attribute.evaluate(
             caller=self,
-            target=strategy_read,
-            expected_type=IStrategy,
-        )
-        Attribute.evaluate(
-            caller=self,
             target=strategy_write,
             expected_type=IStrategy,
         )
 
-        self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
+        # Attribute.evaluate(
+        #     caller=self,
+        #     target=strategy_read,
+        #     expected_type=IStrategy,
+        # )
+
         self._counter: int = 0
         self._strategy_write: StrategyWrite = strategy_write
-        self._strategy_read: Optional[StrategyRead] = strategy_read
-
+        self._strategy_read: Optional[StrategyRead] = strategy_read or None
+        self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
         self.debug(msg=Event.Constructor.value, step=Event.Finnished.value)
 
     @property
@@ -75,10 +75,19 @@ class GenericRepository(IRepository, AuditLogger, ABC):
 
     def read(self, identifier: str, *args, **kwargs) -> ITarget:
         self.debug(
-            Event.Reading.value,
+            msg=Event.Read.value,
+            step=Event.Reading.value,
             id=identifier,
             **kwargs,
         )
+
+        if self._strategy_read is None:
+            self.warning(
+                msg=Event.Read.value,
+                step=Event.Configuration.value,
+                error="Read strategy is not assigned!",
+            )
+            return None
 
         document: ITarget = self._strategy_read.read(  # type: ignore
             caller=self,
@@ -88,8 +97,8 @@ class GenericRepository(IRepository, AuditLogger, ABC):
         )
 
         self.info(
-            msg=Event.Retrieved.value,
-            id=Attribute.get_attr(document, "identifier"),
+            msg=Event.Read.value,
+            step=Event.Retrieved.value,
             document=document,
         )
 

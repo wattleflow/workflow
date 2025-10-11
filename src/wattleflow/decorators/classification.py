@@ -16,8 +16,8 @@ Classification
         dlm: Enum
 """
 
-import wattleflow.constants.enums as wattleconst
 from enum import Enum
+import wattleflow.constants.enums as wattleconst
 from wattleflow.core import IWattleflow
 
 

@@ -17,6 +17,7 @@ from importlib import import_module
 from logging import NOTSET, Handler, getLogger
 from os import PathLike
 from pathlib import Path
+from tempfile import gettempdir
 from typing import Sequence, Mapping, Union
 
 try:  # Python 3.8+
@@ -128,7 +129,7 @@ Pathish = Union[str, PathLike[str], Path]
 def check_path(path: Pathish, raise_error: bool = True) -> bool:
     if path is None:
         if raise_error:
-            raise FileNotFoundError("Path must be assigned! [None].")
+            raise FileNotFoundError("Path must be assigned!")
         return False
 
     p = Path(path)
@@ -267,7 +268,7 @@ class Proxy:
             return res
 
 
-# @final
+@final
 class ShellExecutor:
     def __init__(self):
         self.os_name = platform.system().lower()
@@ -356,3 +357,23 @@ class ShellExecutor:
                 "stderr": f"Timeout after {timeout}s",
                 "returncode": 124,
             }
+
+
+@final
+class TempPathHelper:
+    def __init__(self, file_path: Optional[str], create_dir=True):
+
+        if (not file_path) or (file_path.strip() == ""):
+            raise ValueError(f"{file_path} must be assigned in yaml config.")
+
+        if file_path.startswith("TEMP"):
+            file_path = file_path.replace("TEMP", gettempdir())
+
+        self.source_path: Path = Path(file_path)
+
+        if not (self.source_path.exists()) and (create_dir is True):
+            self.source_path.mkdir(parents=True)
+
+    @property
+    def full_path(self) -> Path:
+        return self.source_path.absolute()

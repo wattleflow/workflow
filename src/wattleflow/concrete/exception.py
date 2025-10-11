@@ -83,16 +83,6 @@ class AuditException(Exception, AuditLogger):
 
 class AttributeException(AuditException, AuditLogger):
     pass
-    # def __init__(
-    #     self, caller: IWattleflow, error: str, show_path=True, *args, **kwargs
-    # ):
-    #     # self._get_call_context()
-    #     # self._msg = f"{caller.name}.{error} in {self.filename}:{self.lineno}"
-
-    #     # if kwargs:
-    #     #     self._msg += f" {kwargs}"
-
-    #     super().__init__(caller, error=error, show_path=True, *args, **kwargs)
 
 
 class AuthenticationException(AuditException):

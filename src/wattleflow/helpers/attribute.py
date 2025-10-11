@@ -189,7 +189,7 @@ class Attribute:
             raise AttributeException(
                 caller=caller,
                 error=f"{caller!r}: Mandatory value {name!r} not found in kwargs!",
-                show_path=show_path,
+                show_path=True,
                 name=name,
                 cls=cls,
                 **kwargs,
