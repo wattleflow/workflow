@@ -12,8 +12,6 @@
 #   pip install SQLAlchemy
 # --------------------------------------------------------------------------- #
 
-import logging
-
 from contextlib import contextmanager
 from typing import Generator
 from sqlalchemy import create_engine, text
@@ -52,8 +50,8 @@ class PostgresConnection(GenericConnection[Connection]):
 
     def create_connection(self) -> None:
         self.debug(
-            msg=Event.Creating.value,
-            call="create_connection",
+            msg=Event.Create.value,
+            step="create_connection",
             name=self.connection_name,
             state=self.state.name,
         )
@@ -105,7 +103,6 @@ class PostgresConnection(GenericConnection[Connection]):
             self._state = State.Connecting
             self._connection: T = self._engine.connect()  # type: ignore
             self._state = State.Connected
-
             self.debug(
                 msg=Event.Connect.value,
                 connection_name=self.connection_name,
@@ -113,6 +110,12 @@ class PostgresConnection(GenericConnection[Connection]):
             )
 
             yield self._connection
+        except AttributeError as e:
+            raise ConnectionException(
+                caller=self,
+                call="AttributeError in connect()",
+                error=str(e),
+            ) from e
         except Exception as e:
             raise ConnectionException(caller=self, call="connect", error=str(e)) from e
         finally:
@@ -120,7 +123,7 @@ class PostgresConnection(GenericConnection[Connection]):
 
     def disconnect(self) -> None:
         self.debug(
-            msg=Event.Disconnecting.value,
+            msg=Event.Disconnect.value,
             connection_name=self._connection_name,
             state=self.state.name,
         )

@@ -28,9 +28,7 @@ class StoredModels:
             if self._is_valid_model_dir(match):
                 return match
 
-        raise FileNotFoundError(
-            f"Model '{self.name}' nije pronađen u '{self.base_path}'."
-        )
+        raise FileNotFoundError(f"Model '{self.name}' not found in '{self.base_path}'.")
 
     def _is_valid_model_dir(self, directory: str) -> bool:
         valid_files = ["pytorch_model.bin", "model.safetensors", "config.json"]
@@ -42,10 +40,12 @@ class DownloadedModels:
     def __init__(self, base_path: Optional[str] = None):
 
         import importlib.util
+
         transformers_spec = importlib.util.find_spec("transformers")
 
         if base_path is None and transformers_spec:
             from transformers.utils.hub import TRANSFORMERS_CACHE
+
             self.base_path = TRANSFORMERS_CACHE
             # self.base_path = transformers_spec.utils.hub.TRANSFORMERS_CACHE
         elif base_path is not None:
@@ -77,7 +77,7 @@ class DownloadedModels:
 
         print(f"INFO: {models_dir}")
 
-        # Ispravan pattern za HuggingFace modele
+        # Correct pattern za HuggingFace models
         search_pattern = os.path.join(models_dir, "models--*", "snapshots", "*")
 
         model_paths = []
@@ -110,7 +110,7 @@ class DownloadedModels:
             return False
 
     def _extract_model_name(self, path: str) -> str:
-        # Izvlači ime modela iz staze npr. .../models--facebook--bart-base/...
+        # Retrieve model from path .../models--facebook--bart-base/...
         parts = path.split(os.sep)
         for part in parts:
             if part.startswith("models--"):

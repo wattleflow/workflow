@@ -7,7 +7,7 @@
 from abc import ABC
 from logging import Handler, NOTSET
 from typing import Any, Optional
-from wattleflow.core import IRepository, IStrategy, ITarget, IWattleflow
+from wattleflow.core import IUnitOfWork, IRepository, IStrategy, ITarget, IWattleflow
 from wattleflow.constants.enums import Event
 from wattleflow.concrete import AuditLogger
 from wattleflow.concrete.strategy import StrategyRead, StrategyWrite
@@ -19,10 +19,11 @@ class GenericRepository(IRepository, AuditLogger, ABC):
     __slots__ = (
         "_allowed",
         "_counter",
+        "_initialized",
+        "_preset",
         "_strategy_read",
         "_strategy_write",
-        "_preset",
-        "_initialized",
+        "_driver",
     )
 
     def __init__(
@@ -31,6 +32,7 @@ class GenericRepository(IRepository, AuditLogger, ABC):
         strategy_read: Optional[StrategyRead] = None,
         level: int = NOTSET,
         handler: Optional[Handler] = None,
+        driver: Optional[IUnitOfWork] = None,
         *args,
         **kwargs,
     ):
@@ -53,12 +55,6 @@ class GenericRepository(IRepository, AuditLogger, ABC):
             expected_type=IStrategy,
         )
 
-        # Attribute.evaluate(
-        #     caller=self,
-        #     target=strategy_read,
-        #     expected_type=IStrategy,
-        # )
-
         self._counter: int = 0
         self._strategy_write: StrategyWrite = strategy_write
         self._strategy_read: Optional[StrategyRead] = strategy_read or None
@@ -73,7 +69,7 @@ class GenericRepository(IRepository, AuditLogger, ABC):
         self.debug(msg=Event.Cleaning.value)
         self._counter = 0
 
-    def read(self, identifier: str, *args, **kwargs) -> ITarget:
+    def read(self, identifier: str, *args, **kwargs) -> Optional[ITarget]:
         self.debug(
             msg=Event.Read.value,
             step=Event.Reading.value,

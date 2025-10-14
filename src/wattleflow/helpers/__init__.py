@@ -2,9 +2,10 @@ from .attribute import Attribute, AttributeException
 from .config import Config
 from .collections import DequeList
 from .dictionaries import AttributeDict, Dictionary
-from .localmodels import DownloadedModels, StoredModels
 from .handlers import TraceHandler
+from .localmodels import DownloadedModels, StoredModels
 from .macros import TextMacros
+from .textnorm import CaseText, TextNorm
 from .pathadder import show_paths, override_paths
 from .sanitizer import sanitized_uri
 
@@ -13,10 +14,11 @@ from .system import (
     check_path,
     decorator,
     ClassLoader,
-    Proxy,
     LocalPath,
+    Proxy,
     Project,
     ShellExecutor,
+    TempPathHelper,
 )
 
 __all__ = [
@@ -27,6 +29,7 @@ __all__ = [
     "Attribute",
     "AttributeException",
     "AttributeDict",
+    "CaseText",
     "Config",
     "ClassLoader",
     "decorator",
@@ -38,9 +41,11 @@ __all__ = [
     "Project",
     "Proxy",
     "ShellExecutor",
-    "TextMacros",
-    "TraceHandler",
     "StoredModels",
-    "TextStream",
+    "TempPathHelper",
     "TextFileStream",
+    "TextNorm",
+    "TextMacros",
+    "TextStream",
+    "TraceHandler",
 ]
