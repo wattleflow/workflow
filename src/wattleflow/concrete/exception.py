@@ -5,8 +5,11 @@
 # License: Apache 2 Licence
 
 import inspect
+import linecache
 import logging
 import traceback
+import sys
+from typing import Iterable, Optional
 from wattleflow.core import IWattleflow
 from wattleflow.concrete import AuditLogger
 from wattleflow.constants import Event
@@ -19,34 +22,17 @@ from wattleflow.helpers.functions import _NC, _NT
 # --------------------------------------------------------------------------- #
 
 
-class AuditException(Exception, AuditLogger):
-    """
-    AuditException is a custom exception class inheriting from both Exception and AuditLogger.
-    It reports and logs application errors, providing context about the caller and cause.
-
-    Key points:
-    - Multiple inheritance: combines Exception (base error class)
-      and AuditLogger (for event logging).
-    - __init__(caller, error, *args, level=logging.DEBUG):
-    - Initializes AuditLogger.
-    - Logs both creation and error details.
-    - Stores caller object, name, reason, and file location.
-    - Calls the base Exception with the error reason.
-    - _get_call_context():
-    - Returns filename and line number where the exception occurred.
-    - Falls back to "Unknown Location" if stack trace is unavailable.
-    """
-
+class AuditException(AuditLogger, Exception):
     filename: str = ""
     lineno: str = ""
 
-    def __init__(
-        self, caller: IWattleflow, error: str, show_path=False, *args, **kwargs
-    ):
-        level = kwargs.get("level", logging.NOTSET)
-        handler = kwargs.get("hanlder", None)
+    def __init__(self, caller: object, error: str, *args, **kwargs):
+        level = kwargs.pop("level", logging.NOTSET)
+        handler = kwargs.pop("hanlder", None)
 
         AuditLogger.__init__(self, level=level, handler=handler, logger=None)
+
+        self._get_call_context(**kwargs)
 
         self.debug(
             msg=Event.Constructor.value,
@@ -56,26 +42,85 @@ class AuditException(Exception, AuditLogger):
             **kwargs,
         )
 
-        self._get_call_context()
-
-        self.caller: IWattleflow = caller
-        self.name: str = caller.name
+        self.caller = caller
+        self.name = getattr(caller, "name", caller.__class__.__name__)
         self.reason: str = error
 
-        if show_path:
-            self.reason += f" See {self.filename}:{self.lineno}"
+        self.reason += f" See {self.filename}:{self.lineno}"
 
-        super().__init__(self.reason)
+        Exception.__init__(self, self.reason)
 
-    def _get_call_context(self):
+    def _get_call_context(self, **kwargs) -> None:
+        try:
+            tb = None
+            exc = kwargs.get("exc")
+            if isinstance(exc, BaseException):
+                tb = exc.__traceback__
+            else:
+                ei = kwargs.get("exc_info")
+                if ei is True:
+                    tb = sys.exc_info()[2]
+                elif isinstance(ei, tuple) and len(ei) == 3:
+                    tb = ei[2]
+
+            filename = None
+            lineno: Optional[int] = None
+
+            if tb is not None:
+                while tb.tb_next:
+                    tb = tb.tb_next
+                f = tb.tb_frame
+                filename = f.f_code.co_filename
+                lineno = tb.tb_lineno
+
+            else:
+                internal_funcs: Iterable[str] = kwargs.get(
+                    "internal_funcs",
+                    {
+                        "_get_call_context",
+                        "__init__",
+                        "__getattr__",
+                        "__getattribute__",
+                        "__repr__",
+                    },
+                )
+                extra_skip = int(kwargs.get("extra_skip", 0))
+
+                f = inspect.currentframe()
+                if f:
+                    f = f.f_back
+                if f:
+                    f = f.f_back
+
+                while f and f.f_back and f.f_code.co_name in internal_funcs:
+                    f = f.f_back
+
+                for _ in range(extra_skip):
+                    if f and f.f_back:
+                        f = f.f_back
+
+                if f:
+                    info = inspect.getframeinfo(f)
+                    filename, lineno = info.filename, info.lineno
+
+            self.filename = filename or "Unknown Location"
+            self.lineno = lineno or 0  # type: ignore
+
+            linecache.checkcache(self.filename)
+            line = linecache.getline(self.filename, self.lineno)  # type: ignore
+            self.code_line = line.strip() if line else None
+
+        except Exception as e:
+            self.debug(msg=Event.ErrorDetails.value, error=str(e))
+
+    def _get_call_context2(self):
         try:
             stack = traceback.extract_stack()
-
             self.filename, self.lineno, _, _ = (
                 stack[-4] if len(stack) > 2 else stack[-3]
-            )  # Caller frame (-1 is current)
+            )
         except Exception as e:
-            self.debug(msg=Event.ErrorDetails, error=str(e))
+            self.debug(msg=Event.ErrorDetails.value, error=str(e))
 
     def __repr__(self) -> str:
         return f"error={self.error} in filename={self.filename}:{self.lineno}"
@@ -137,14 +182,6 @@ class OrchestratorException(AuditException):
     pass
 
 
-class PathException(AuditException):
-    def __init__(self, caller, path):
-        if not path:
-            path = "Unknown Path"
-        self.path = path
-        super().__init__(caller=caller, error=ERROR_PATH_NOT_FOUND.format(path))
-
-
 class PiplineException(AuditException):
     pass
 
@@ -177,9 +214,9 @@ class SaltException(AuditException):
 class NotFoundError(AttributeError):
     def __init__(self, item, target):
         try:
-            _frame = inspect.currentframe().f_back  # Caller frame
+            _frame = inspect.currentframe().f_back  # type: ignore  <== caller frame
             var_name = next(
-                (name for name, value in _frame.f_locals.items() if value is item),
+                (name for name, value in _frame.f_locals.items() if value is item),  # type: ignore
                 "Unknown Variable",
             )
         except Exception:
@@ -192,9 +229,9 @@ class NotFoundError(AttributeError):
 class UnexpectedTypeError(TypeError):
     def __init__(self, caller, found, expected_type):
         try:
-            _frame = inspect.currentframe().f_back
+            _frame = inspect.currentframe().f_back  # type: ignore
             var_name = next(
-                (name for name, value in _frame.f_locals.items() if value is found),
+                (name for name, value in _frame.f_locals.items() if value is found),  # type: ignore
                 "Unknown Variable",
             )
         except Exception:

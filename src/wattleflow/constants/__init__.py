@@ -1,6 +1,7 @@
 from .audit import (
     ConnectionStatus,
     EventLog,
+    LogFormat,
     ProtectiveMarkings,
     WattleflowOSCAL,
 )
@@ -15,12 +16,13 @@ from .enums import (
 
 __all__ = [
     "ConnectionStatus",
+    "Event",
     "EventLog",
+    "LogFormat",
     "ProtectiveMarkings",
     "WattleflowOSCAL",
     "Classification",
     "ClassificationDLM",
-    "Event",
     "Operation",
     "PipelineAction",
     "PipelineType",

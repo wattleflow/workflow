@@ -15,15 +15,14 @@ from wattleflow.decorators.preset import PresetDecorator
 from wattleflow.helpers import Attribute
 
 
-class GenericRepository(IRepository, AuditLogger, ABC):
+class GenericRepository(IRepository, AuditLogger):
     __slots__ = (
-        "_allowed",
         "_counter",
+        "_driver",
         "_initialized",
         "_preset",
         "_strategy_read",
         "_strategy_write",
-        "_driver",
     )
 
     def __init__(
@@ -56,6 +55,7 @@ class GenericRepository(IRepository, AuditLogger, ABC):
         )
 
         self._counter: int = 0
+        self._driver = driver
         self._strategy_write: StrategyWrite = strategy_write
         self._strategy_read: Optional[StrategyRead] = strategy_read or None
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
@@ -125,10 +125,50 @@ class GenericRepository(IRepository, AuditLogger, ABC):
             self.error(msg=error, counter=self._counter)
             raise RuntimeError(error) from e
 
+    def __eq__(self, other: "GenericRepository") -> bool:
+        if not isinstance(other, GenericRepository):
+            return NotImplemented
+        self.info(msg=Event.Probing.value, eq=hash(self) == hash(other))
+        return hash(self) == hash(other)
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                id(self),
+                self.name,
+                self._counter,
+                self._driver,
+                self._preset,
+                self._strategy_write,
+                self._strategy_read,
+                self._driver,
+            )
+        )
+
     # Must be implemented if using PresetDecorator
     def __getattr__(self, name: str) -> Any:
         preset: PresetDecorator = object.__getattribute__(self, "_preset")
         return preset.__getattr__(name)
 
     def __repr__(self) -> str:
-        return f"{self.name}: {self.count}"
+        return f"{self.name}:[{id(self)})]"
+
+
+class GenericDriverRepository(GenericRepository, ABC):
+    __slots__ = ("_driver",)
+
+    def __init__(self, driver: IUnitOfWork, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._driver = driver
+        self.debug(msg=Event.Constructor.value, step=Event.Finnished.value)
+
+    @property
+    def driver(self) -> IUnitOfWork:
+        return self._driver
+
+    def __repr__(self) -> str:
+        return f"{self.name}: {self.count} (Driver: {self._driver.name})"
+
+    def __getattr__(self, name: str) -> Any:
+        preset: PresetDecorator = object.__getattribute__(self, "_preset")
+        return preset.__getattr__(name)  # type: ignore

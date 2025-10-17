@@ -29,9 +29,10 @@ from wattleflow.core import IWattleflow
 from wattleflow.concrete.logger import AuditLogger
 from wattleflow.constants import Event
 from wattleflow.constants.keys import KEY_CONFIG_FILE_NAME
+from wattleflow.helpers.textnorm import TextNorm
 
 
-class ClassLoader(IWattleflow, ABC):  # ttttype: ignore
+class ClassLoader(IWattleflow, ABC):  # type: ignore
     """
     Dynamic class loader with audit logging.
     """
@@ -166,28 +167,45 @@ def decorator(*dargs, **dkwargs):
 
 
 @final
-class LocalPath:
-    """
-    Utility for working with local filesystem paths.
-    """
+class FileStorage:
+    def __init__(
+        self, repository_path: str, filename: str, create: bool, normalised=False
+    ):
+        self.origin = Path(filename)
+        self.path = Path(repository_path)
 
-    def __init__(self, path: Pathish, owner: object = None):
-        self.owner = owner
-        self.path = str(Path(path))
-
-    def exists(self) -> bool:
-        return check_path(self.path, raise_error=False)
-
-    def create(self, exist_ok: bool = True, mode: Optional[int] = None):
-        p = Path(self.path)
-        target = p.parent if p.suffix else p
-        if not target.exists():
-            target.mkdir(
-                parents=True,
-                exist_ok=exist_ok,
-                mode=mode if mode is not None else 0o777,
+        if (
+            not os.path.isdir(self.path)
+            and not os.access(self.path, os.R_OK)
+            and not create
+        ):
+            raise FileNotFoundError(
+                f"Path doesn't exist or not accessible: {str(self.path)}"
             )
-        return self
+
+        if create and self.path.exists() is False:
+            self.path.mkdir(parents=True, exist_ok=True)
+
+        name = (
+            TextNorm.filename_from(self.origin.name) if normalised else self.origin.name
+        )
+
+        self.filename = self.path.joinpath(name).with_suffix(self.origin.suffix)
+
+    @property
+    def size(self) -> int:
+        return os.stat(self.origin.absolute()).st_size
+
+    def with_suffix(self, suffix: str) -> Path:
+        return self.filename.with_suffix(suffix)
+
+    def with_dir(self, directory=None, mkdir=True) -> Path:
+        dir = directory if directory else self.filename.stem
+        out_dir = self.path.joinpath(dir)
+        if mkdir:
+            out_dir.mkdir(parents=True, exist_ok=True)
+
+        return out_dir.joinpath(self.filename.name)
 
 
 @final

@@ -6,6 +6,7 @@
 
 from logging import NOTSET, Handler
 from typing import final, Any, Optional, Union
+from pathlib import Path
 from wattleflow.constants.keys import (
     KEY_CLASS_NAME,
     KEY_STRATEGY,
@@ -37,10 +38,10 @@ class Config:
         level: int = NOTSET,
         handler: Optional[Handler] = None,
     ):
-        from wattleflow.helpers.system import check_path
-
-        if not check_path(config_file, True):
-            print(f"Config: config_path not provided/valid! [{config_file}]")
+        if Path(config_file).exists() is False:
+            raise FileNotFoundError(
+                f"{self}: invalid or missing `config_path` {config_file}!"
+            )
 
         self.config_file: str = config_file
         self._key_filename: Optional[str] = None
@@ -133,12 +134,9 @@ class Config:
         if not self._key_filename or not class_name:
             return
 
-        # lazy loading (to avoid circular import)
-        from wattleflow.helpers import LocalPath
-
-        if not LocalPath(self._key_filename).exists():
+        if Path(self._key_filename).exists() is False:
             return FileNotFoundError(
-                f"Config._key_filename not found: {self._key_filename}"
+                f"{self}._key_filename invalid or missing: {self._key_filename}!"
             )
 
         self._strategy = ClassLoader(
@@ -149,4 +147,4 @@ class Config:
         ).instance
 
     def __repr__(self) -> str:
-        return "Config:{self.config_file}"
+        return f"{self}:{self.config_file}"

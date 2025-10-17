@@ -67,6 +67,15 @@ class EventLog(Enum):
     VERSION = "0.0.0.1"
 
 
+class LogFormat(Enum):
+    DEFAULT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    Detailed = (
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(filename)s:%(lineno)d"
+    )
+    Custom = "%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(src_filename)s:%(src_lineno)d"  # noqa: E501
+    JSON = '{"time": "%(asctime)s", "name": "%(name)s", "level": "%(levelname)s", "message": "%(message)s"}'  # noqa: E501
+
+
 class ProtectiveMarkings(Enum):
     BASELINE = "678bf03b-47ad-9601-2e4b-7cf24f90a91a"
     PROTECTED = "a2da5a89-14a4-3f9d-2ff7-883c5125f70c"
@@ -81,8 +90,6 @@ class WattleflowOSCAL(Enum):
     VERSION = "0.0.0.1"
     RELEASE_DATE = "2024/10/10"
     POLICY_VERSION = "0.0.0.1"
-
-    GUIDELINES_FOR_NETWORKING = "f145ff5b-d396-4248-8f48-621349d6f0ed"
     GUIDELINES_FOR_DATABASE_SYSTEMS = "3f349d16-11a1-459a-a299-c9446aea7597"
     GUIDELINES_FOR_SOFTWARE_DEVELOPMENT = "506198a8-7ae8-4c95-8b7b-2a4833cfab4b"
     BEST_PRACTICES_FOR_EVENT_LOGGING_AND_THREAT_DETECTION = (

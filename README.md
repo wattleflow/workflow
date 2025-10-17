@@ -12,7 +12,7 @@ built to last and grow.
 
 | Characteristic           | Value                                                                   |
 | ------------------------ | ----------------------------------------------------------------------- |
-| **Version**              | 0.0.0.49 (latest release)                                               |
+| **Version**              | 0.0.0.50 (latest release)                                               |
 | **License**              | Apache 2.0 License                                                      |
 | **Python Compatibility** | Python >=3.9                                                            |
 | **Dependencies**         | wattleflow                                                              |
@@ -45,14 +45,11 @@ pip install wattleflow-workflow
 
 
 # Documentation
-
 Comprehensive documentation will be available at the [Git Hub](https://github.com/wattleflow/docs.git).
 
 # Contributing
-
 We welcome contributions! Please check our GitHub repository for guidelines.
 
 # License
-
 WattleFlow Core is licensed under the Apache 2.0 License. 
 See the LICENSE file for more details.

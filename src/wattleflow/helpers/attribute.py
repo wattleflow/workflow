@@ -77,7 +77,7 @@ class Attribute:
         return True
 
     @staticmethod
-    def convert(caller: object, name: str, cls: type, show_path=False, **kwargs) -> Any:
+    def convert(caller: object, name: str, cls: type, **kwargs) -> Any:
         if name not in kwargs:
             raise AttributeException(caller=caller, error=f"kwargs[{name}]")
 
@@ -107,9 +107,8 @@ class Attribute:
         error = txt.format(_NC(caller), value, _NT(value), expected)
 
         raise AttributeException(
-            caller=caller,
+            caller=caller,  # type: ignore
             error=error,
-            show_path=show_path,
             name=name,
             cls=cls,
             **kwargs,
@@ -142,7 +141,6 @@ class Attribute:
             raise AttributeException(
                 caller=caller,
                 error=error,
-                show_path=True,
                 target=target,
                 expected_type=expected_type,
             )
@@ -151,8 +149,11 @@ class Attribute:
     def exists(caller: object, name: str, cls: type):
         attr = getattr(caller, name, None)
 
+        if not isinstance(caller, IWattleflow):
+            raise AttributeException(None, f"The `caller` must be from a Wattleflow family!", True)  # type: ignore
+
         if not attr:
-            raise AttributeException(caller, name)
+            raise AttributeException(caller=caller, error=name)  # type: ignore
 
         Attribute.evaluate(caller, attr, cls)  # type: ignore
 
@@ -189,7 +190,6 @@ class Attribute:
             raise AttributeException(
                 caller=caller,
                 error=f"{caller!r}: Mandatory value {name!r} not found in kwargs!",
-                show_path=True,
                 name=name,
                 cls=cls,
                 **kwargs,
@@ -209,7 +209,6 @@ class Attribute:
                 error=f"Incorrect type {name!r}:"
                 f" expected {cls!r},"
                 f" found <{Attribute.class_name(obj)!r}>.",  # noqa: E501
-                show_path=True,
                 cls=cls,
                 **kwargs,
             )
@@ -221,7 +220,6 @@ class Attribute:
             raise AttributeException(
                 caller=caller,
                 error=f"Error loading class: kwargs[{name}!r]: {e}",
-                show_path=True,
                 name=name,
                 cls=cls,
                 **kwargs,

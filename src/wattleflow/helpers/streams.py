@@ -11,10 +11,10 @@ from .macros import TextMacros
 
 class TextStream:
 
-    def __init__(self, text: str = "", list_of_macros: Optional[List] = None):
-        if list_of_macros is None:
-            list_of_macros = []
-        self._macros = TextMacros(list_of_macros)
+    def __init__(self, text: str = "", macros: Optional[List] = None):
+        if macros is None:
+            macros = []
+        self._macros = TextMacros(macros)
         self._segments: List[str] = []
         if text:
             self.__append__(text)
@@ -64,7 +64,7 @@ class TextFileStream(TextStream):
         self,
         file_path: str = "",
         encoding: str = "utf-8",
-        list_of_macros: Optional[List] = None,
+        macros: Optional[List] = None,
     ):
 
         from pathlib import Path
@@ -81,7 +81,7 @@ class TextFileStream(TextStream):
 
         content = self.filename.read_text(encoding=encoding)
 
-        return super().__init__(content, list_of_macros)
+        return super().__init__(content, macros)
 
     def __repr__(self) -> str:
         return f'TextFileStream(content:"{self.content[:10]}", size: "{self.size}")'

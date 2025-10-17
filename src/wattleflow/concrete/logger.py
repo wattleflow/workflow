@@ -4,39 +4,13 @@
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 
-# ---------------------------------------------------------------------------------------
-# Logging module in Python utilises the design patterns 'Observer' and 'Observable'
-# ---------------------------------------------------------------------------------------
-# Observable (Logger)
-#    Logger is an object that generates logging messages.
-#    It's 'Observable', as it notifies all its handlers ("listeners")
-#    with every new message created by the logger.
-# ---------------------------------------------------------------------------------------
-# Observer (Handler):
-#    Handlers, such as StreamHandler, FileHandler, and RotatingFileHandler, are
-#    objects that attach themselves to the 'Observable' object (Logger) in Python.
-#    They act as observers responding to changes made by the logger object itself.
-#    Handlers are responsible for processing and sending logs to different
-#    destinations like screens, files, or remote servers.
-# ---------------------------------------------------------------------------------------
-# Handlers are registered to the Logger and act as 'listeners'.
-# When a logger generates a log message, all associated handlers process it accordingly.
-#
-# Handlers can handle logs in various ways such as displaying on a console,
-# storing them into files or sending via network connections.
-#
-# Decentralization of logging means the Logger is solely responsible for generating and
-# distributing log messages to handlers. Handlers are then appropriate for different
-# strategies of processing logs (display on screen, storage in files, sending emails etc.).
-#
-# This approach allows each part—the logger or handler—to be optimised independently
-# according to its specific responsibilities, leading to a flexible and scalable
-# logging system that can handle diverse requirements
-# ---------------------------------------------------------------------------------------
-
+from __future__ import annotations
+from abc import ABC
 from typing import Optional
-from logging import Formatter, getLogger, Handler, Logger, StreamHandler
-from wattleflow.core import ILogger, IObserver, ISingleton
+from logging import Filter, Formatter, getLogger, Handler, Logger, StreamHandler
+from threading import RLock
+from wattleflow.core import ICommand, ILogger
+from wattleflow.constants import LogFormat
 
 
 class AsyncHandler(Handler):
@@ -51,40 +25,63 @@ class AsyncHandler(Handler):
             self.handleError(record)
 
 
-class AuditLogger(ISingleton, ILogger):
+class ContextFilter(Filter):
+    def filter(self, record):
+        record.filename = getattr(record, "src_filename", record.filename)
+        record.lineno = getattr(record, "src_lineno", record.lineno)
+        return True
+
+
+class AuditLogger(ILogger):
+    _lock = RLock()
+    _instances: set[type] = set()
+
     def __init__(
         self,
         level: int,
         logger: Optional[Logger] = None,
         handler: Optional[Handler] = None,
+        format: str = LogFormat.DEFAULT.value,
+        propagate: Optional[bool] = None,
     ):
-        ISingleton.__init__(self)
         ILogger.__init__(self)
 
-        if getattr(self, "_initialized", False):
-            return
-
+        cls = self.__class__
+        self._handler = None
         self._level: int = level
         self._logger: Logger = logger or getLogger(self.__class__.__name__)
-        self._logger.setLevel(self._level)
-        # self._logger.propagate = False
 
-        if handler is None:
-            handler = StreamHandler()
-            handler.setLevel(self._level)
-            handler.setFormatter(
-                Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-            )
+        with self._lock:
+            if cls not in self._instances:
+                self._logger.setLevel(self._level)
+                self._logger.propagate = bool(propagate)
+                handler = self._handler
 
-        self.subscribe_handler(handler)
-        self._initialized = True
+                if handler is None:
+                    handler = StreamHandler()
+                    handler.addFilter(ContextFilter())
+                    handler.setLevel(self._level)
+                    handler.setFormatter(Formatter(format))
+
+                if handler not in self._logger.handlers:
+                    self._logger.addHandler(handler)
+
+                self._handler = handler
+                self._instances.add(cls)
+                self._configure_once()
+
+        # if handler not in self._logger.handlers:
+        #     self.subscribe_handler(handler)
+
+    def _configure_once(self) -> None:
+        pass
 
     def _log_msg(self, method, msg: str, *args, **kwargs) -> None:
         def safe_repr(obj: object, maxlen: int = 100) -> str:
             try:
                 from pandas import DataFrame
 
-                if isinstance(obj, (DataFrame)):
+                if isinstance(obj, DataFrame):
                     s = obj.__class__.__name__
                 else:
                     s = repr(obj)
@@ -111,7 +108,6 @@ class AuditLogger(ISingleton, ILogger):
                     parts.append(f"{k}=<{type(v).__name__}: {n}>")
                 else:
                     parts.append(f"{k}={safe_repr(v)}")
-
             msg = f"{msg} {parts}"
 
         method(msg, *args, **pass_through)
@@ -124,27 +120,25 @@ class AuditLogger(ISingleton, ILogger):
         self._log_msg(self._logger.critical, msg, *args, **kwargs)
 
     def debug(self, msg: str, *args, **kwargs) -> None:
-        self._log_msg(self._logger.debug, msg, *args, **kwargs)  # alias
+        self._log_msg(self._logger.debug, msg, *args, **kwargs)
 
     def error(self, msg: str, *args, **kwargs) -> None:
-        self._log_msg(self._logger.error, msg, *args, **kwargs)  # alias
+        self._log_msg(self._logger.error, msg, *args, **kwargs)
 
     def fatal(self, msg: str, *args, **kwargs) -> None:
-        self._log_msg(self._logger.fatal, msg, *args, **kwargs)  # alias
+        self._log_msg(self._logger.fatal, msg, *args, **kwargs)
 
     def info(self, msg: str, *args, **kwargs) -> None:
-        self._log_msg(self._logger.info, msg, *args, **kwargs)  # alias
+        self._log_msg(self._logger.info, msg, *args, **kwargs)
 
     def warning(self, msg: str, *args, **kwargs) -> None:
-        self._log_msg(self._logger.warning, msg, *args, **kwargs)  # alias
+        self._log_msg(self._logger.warning, msg, *args, **kwargs)
 
     def subscribe_handler(self, subscriber: Handler) -> None:
         if not isinstance(subscriber, Handler):
             raise TypeError("subscribe_handler: expected logging.Handler")
-
-        # avoid duplicte from same handler
         if subscriber not in self._logger.handlers:
             self._logger.addHandler(subscriber)
 
-    def subscribe(self, observer: IObserver) -> None:
+    def subscribe(self, observer):
         raise NotImplementedError(f"{self.name}.subscribe is not implemented!")

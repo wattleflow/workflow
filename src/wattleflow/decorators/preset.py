@@ -62,6 +62,8 @@ class PresetDecorator:
             caller=self._parent,
             error=f"{self._parent.name}.{name} is not permitted.",
             name=name,
+            # show_path=True,
+            exc_info=True,
         )
 
     def __setattr__(self, name: str, value: Any):
