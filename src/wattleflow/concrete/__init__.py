@@ -34,7 +34,7 @@ from .memento import MementoClass, ObservableClass
 from .orchestrator import Orchestrator
 from .pipeline import GenericPipeline
 from .processor import GenericProcessor
-from .repository import GenericRepository, GenericDriverRepository
+from .repository import GenericRepository
 from .scheduler import Scheduler
 from .strategy import (
     Strategy,
@@ -84,7 +84,6 @@ __all__ = [
     "GenericPipeline",
     "GenericProcessor",
     "GenericRepository",
-    "GenericDriverRepository",
     "Scheduler",
     "Strategy",
     "StrategyGenerate",

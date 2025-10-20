@@ -66,13 +66,16 @@ class GenericRepository(IRepository, AuditLogger):
         return self._counter
 
     def clear(self) -> None:
-        self.debug(msg=Event.Cleaning.value)
+        self.debug(
+            msg=Event.Clear.value,
+            step=Event.Started.value,
+        )
         self._counter = 0
 
     def read(self, identifier: str, *args, **kwargs) -> Optional[ITarget]:
         self.debug(
             msg=Event.Read.value,
-            step=Event.Reading.value,
+            step=Event.Started.value,
             id=identifier,
             **kwargs,
         )
@@ -94,7 +97,7 @@ class GenericRepository(IRepository, AuditLogger):
 
         self.info(
             msg=Event.Read.value,
-            step=Event.Retrieved.value,
+            step=Event.Completed.value,
             document=document,
         )
 
@@ -102,7 +105,8 @@ class GenericRepository(IRepository, AuditLogger):
 
     def write(self, caller: IWattleflow, document: ITarget, *args, **kwargs) -> bool:
         self.debug(
-            msg=Event.Storing.value,
+            msg=Event.Write.value,
+            step=Event.Started.value,
             caller=caller.name,
             document=document,
             counter=self._counter,
@@ -117,12 +121,25 @@ class GenericRepository(IRepository, AuditLogger):
                 repository=self,
                 **kwargs,
             )
+
+            self.debug(
+                msg=Event.Write.value,
+                step=Event.Completed.value,
+                caller=caller.name,
+                document=document,
+                counter=self._counter,
+            )
+
             return result
 
         except Exception as e:
             error = f"[{self.name}] Write strategy failed: {e}"
-            # TODO: self.exception to self.error
-            self.error(msg=error, counter=self._counter)
+            self.exception(
+                msg=error,
+                caller=caller,
+                error=e,
+                counter=self._counter,
+            )
             raise RuntimeError(error) from e
 
     def __eq__(self, other: "GenericRepository") -> bool:
@@ -152,23 +169,3 @@ class GenericRepository(IRepository, AuditLogger):
 
     def __repr__(self) -> str:
         return f"{self.name}:[{id(self)})]"
-
-
-class GenericDriverRepository(GenericRepository, ABC):
-    __slots__ = ("_driver",)
-
-    def __init__(self, driver: IUnitOfWork, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._driver = driver
-        self.debug(msg=Event.Constructor.value, step=Event.Finnished.value)
-
-    @property
-    def driver(self) -> IUnitOfWork:
-        return self._driver
-
-    def __repr__(self) -> str:
-        return f"{self.name}: {self.count} (Driver: {self._driver.name})"
-
-    def __getattr__(self, name: str) -> Any:
-        preset: PresetDecorator = object.__getattribute__(self, "_preset")
-        return preset.__getattr__(name)  # type: ignore

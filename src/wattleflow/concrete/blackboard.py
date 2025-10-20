@@ -65,6 +65,7 @@ from wattleflow.decorators.preset import PresetDecorator
 class GenericBlackboard(IBlackboard, AuditLogger, ABC):
     __slots__ = (
         "_canvas",
+        "_flushed",
         "_preset",
         "_repositories",
         "_strategy_create",
@@ -74,7 +75,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
     def __init__(
         self,
         strategy_create: StrategyCreate,
-        flush_on_write: bool = False,
+        defer_flush: bool = False,
         level: int = NOTSET,
         handler: Optional[Handler] = None,
         **kwargs,
@@ -84,9 +85,9 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
 
         self.debug(
             msg=Event.Constructor.value,
-            step=Event.Configuring.value,
+            step=Event.Started.value,
             strategy_create=strategy_create,
-            flush_on_write=flush_on_write,
+            defer_flush=defer_flush,
             level=level,
             handler=handler,
         )
@@ -95,15 +96,16 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             caller=self, target=strategy_create, expected_type=StrategyCreate
         )
 
+        self._flushed = False
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
         self._strategy_create = strategy_create
         self._canvas: Dict[str, ITarget] = {}
         self._repositories: List[IRepository] = []
-        self._defer_write_until_flush = flush_on_write
+        self._defer_write_until_flush = defer_flush
 
         self.debug(
             msg=Event.Constructor.value,
-            step=Event.Configured.value,
+            step=Event.Completed.value,
             preset=self._preset,
             canvas=self._canvas,
             repositories=self._repositories,
@@ -121,7 +123,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
     def repositories(self) -> List[IRepository]:
         return self._repositories
 
-    def _broadcast(
+    def _emit(
         self,
         caller: IWattleflow,
         document: ITarget,
@@ -132,8 +134,8 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         Broadcast document to the registered repositories.
         """
         self.debug(
-            msg=Event.Writing.name,
-            fnc="_broadcast",
+            msg=Event.Emit.value,
+            step=Event.Started.value,
             caller=repr(caller.name),
             document=repr(document),
             *args,
@@ -142,18 +144,27 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
 
         for repository in self._repositories:
             repository.write(caller=caller, document=document, *args, **kwargs)
+            self._flushed = True
 
-    def clear(self):
         self.debug(
-            msg=Event.Cleaning.value,
-            step=Event.Start.value,
+            msg=Event.Emit.name,
+            step=Event.Completed.value,
+            broadcasted=True,
+            *args,
+            **kwargs,
+        )
+
+    def clean(self):
+        self.debug(
+            msg=Event.Clean.value,
+            step=Event.Started.value,
             repositories=len(self._repositories),
             canvases=len(self._canvas),
         )
         self._repositories.clear()
         self._canvas.clear()
         self.debug(
-            msg=Event.Cleaning.value,
+            msg=Event.Clean.value,
             step=Event.Completed.value,
             repositories=len(self._repositories),
             canvases=len(self._canvas),
@@ -162,6 +173,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
     def create(self, caller: IWattleflow, *args, **kwargs) -> Optional[ITarget]:
         self.debug(
             msg=Event.Create.value,
+            step=Event.Started.value,
             caller=caller.name,
             *args,
             **kwargs,
@@ -176,6 +188,11 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             )
             return None
 
+        self.debug(
+            msg=Event.Create.value,
+            step=Event.Completed.value,
+        )
+
         return self._strategy_create.create(
             caller=caller, blackboard=self, *args, **kwargs
         )
@@ -183,6 +200,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
     def delete(self, caller: IWattleflow, identifier: str) -> None:
         self.debug(
             msg=Event.Delete.value,
+            step=Event.Started.value,
             caller=caller.name,
             id=identifier,
         )
@@ -200,19 +218,26 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
                 reason="The blackboard neither confirms nor denies the existance!",
                 identifier=identifier,
             )
+        self.debug(
+            msg=Event.Delete.value,
+            step=Event.Completed.value,
+            caller=caller.name,
+            id=identifier,
+        )
 
     def flush(self, caller: IWattleflow, *args, **kwargs) -> None:
         self.debug(
             msg=Event.Flush.value,
+            step=Event.Started.value,
             caller=caller.name,
             count=len(self._canvas),
             *args,
             **kwargs,
         )
 
-        if self._defer_write_until_flush:
+        if self._defer_write_until_flush and not self._flushed:
             for document in self._canvas.values():
-                self._broadcast(
+                self._emit(
                     document=document,
                     caller=caller,
                     *args,
@@ -220,15 +245,32 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
                 )
 
         self._canvas.clear()
+        self.debug(
+            msg=Event.Flush.value,
+            step=Event.Completed.value,
+            caller=caller.name,
+            count=len(self._canvas),
+            *args,
+            **kwargs,
+        )
 
     def read(self, identifier: str) -> ITarget:
-        self.debug(msg=Event.Reading.value, identifier=identifier)
+        self.debug(
+            msg=Event.Read.value,
+            step=Event.Started.value,
+            identifier=identifier,
+        )
 
         if identifier not in self._canvas:
             raise ValueError(f"Document {identifier} not found!")
 
         document: ITarget = self._canvas[identifier]
 
+        self.debug(
+            msg=Event.Read.value,
+            step=Event.Completed.value,
+            identifier=identifier,
+        )
         return document
 
     def read_from(
@@ -239,22 +281,34 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         **kwargs,
     ) -> ITarget:
         self.debug(
-            msg=Event.Reading.value,
+            msg=Event.Read.value,
+            step=Event.Started.value,
             source=repository_name,
             identifier=identifier,
         )
 
-        repository = self._repositories.get(repository_name)
+        # repository = self._repositories.get(repository_name)
+        repository = None
+        for obj in self._repositories:
+            if hash(repository) == identifier:
+                repository = obj
 
         if not repository:
             msg = f"Repository {repository_name} not registered!"
             raise ValueError(msg)
 
+        self.debug(
+            msg=Event.Read.value,
+            step=Event.Completed.value,
+            repository=repository,
+            identifier=identifier,
+        )
+
         return repository.read(identifier=identifier, *args, **kwargs)
 
     def register(self, repository: IRepository) -> None:
         self.debug(
-            msg=Event.Registering.value,
+            msg=Event.Register.value,
             step=Event.Started.value,
             registering=repository,
         )
@@ -263,7 +317,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
 
         if repository in self._repositories:
             self.warning(
-                msg=Event.Registering.value,
+                msg=Event.Register.value,
                 repository=repository,
                 error="Repository already registered!",
             )
@@ -272,14 +326,15 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         self._repositories.append(repository)
 
         self.debug(
-            msg=Event.Registering.value,
+            msg=Event.Register.value,
             step=Event.Completed.value,
             added=repository,
         )
 
     def write(self, caller: IWattleflow, document: ITarget, *args, **kwargs) -> str:
         self.debug(
-            msg=Event.Writing.value,
+            msg=Event.Write.value,
+            step=Event.Started.value,
             caller=caller.name,
             document=document,
             *args,
@@ -293,7 +348,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         self._canvas[item.identifier] = document  # type: ignore
 
         self.debug(
-            msg=Event.Writing.value,
+            msg=Event.Write.value,
             action=Event.Stored.value,
             document=item,
             flush=self._defer_write_until_flush,
@@ -301,18 +356,24 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
 
         if not self._repositories:
             self.warning(
-                msg=Event.Writing.value,
+                msg=Event.Write.value,
                 error="No repositories have been registered.",
             )
             return ""
 
         if not self._defer_write_until_flush:
-            self._broadcast(
+            self._emit(
                 caller=caller,
                 document=document,
                 *args,
                 **kwargs,
             )
+
+        self.debug(
+            msg=Event.Write.value,
+            step=Event.Completed.value,
+            id=item.identifier,  # type: ignore
+        )
 
         return item.identifier  # type: ignore
 
@@ -322,7 +383,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         return preset.__getattr__(name)
 
     def __del__(self):
-        self.clear()
+        self.clean()
 
     def __repr__(self) -> str:
         return f"{self.name}: {self.count}"

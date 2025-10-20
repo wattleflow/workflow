@@ -58,11 +58,16 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
         return self
 
     def update_content(self, content: T) -> None:
-        self.debug(msg=Event.Updating.value, fnc="update_content", content=content)
+        self.debug(
+            msg=Event.Updating.value,
+            fnc="update_content",
+            content=type(content),
+        )
 
         if content is None:
             self._content = None  # Can clear the content
-            self.update_metadata("lastchange", datetime.now(timezone.utc))
+            self.update_metadata("last_change_key", "content")
+            self.update_metadata("last_change_time", datetime.now(timezone.utc))
             return
 
         if self._expected_type is None:
@@ -74,7 +79,8 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
             )
 
         self._content = content
-        self.update_metadata("lastchange", datetime.now(timezone.utc))
+        self.update_metadata("last_change_key", "content")
+        self.update_metadata("last_change_time", datetime.now(timezone.utc))
 
     def update_metadata(self, key: str, value: object) -> None:
         self.debug(
@@ -90,7 +96,8 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
             )
 
         self._metadata[key] = value
-        self._metadata["lastchange"] = datetime.now(timezone.utc)
+        self._metadata["last_change_key"] = key
+        self._metadata["last_change_time"] = datetime.now(timezone.utc)
 
     def __eq__(self, other: object) -> bool:
         return (
