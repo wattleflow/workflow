@@ -1,5 +1,5 @@
-# Module Name: drivers/flatfilesystem.py
-# Description: This modul contains driver classes.
+# Module Name: concrete/driver.py
+# Description: This modul contains generic driver class.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
@@ -13,26 +13,8 @@ from wattleflow.concrete import AuditLogger
 from wattleflow.decorators.preset import PresetDecorator
 from wattleflow.helpers.attribute import Attribute
 
-# def prepare(self) -> None:
-#     pass
 
-# def commit(self) -> None:
-#     pass
-
-# def rollback(self) -> None:
-#     pass
-
-# def register_new(self, entity: T, *args, **kwargs) -> None:
-#     pass
-
-# def register_dirty(self, entity: T, *args, **kwargs) -> None:
-#     pass
-
-# def register_deleted(self, entity: T, *args, **kwargs) -> None:
-#     pass
-
-
-class IDriver(IMessageQueue, AuditLogger):
+class GenericDriverClass(IMessageQueue, AuditLogger):
     __slots__ = [
         "_initialized",
         "_lazy_load",
@@ -75,14 +57,3 @@ class IDriver(IMessageQueue, AuditLogger):
 
     def recieve(self, identifer: str, **kwargs) -> Any:
         return self.read(identifer=identifer, **kwargs)
-
-
-class FlatFileSystem(IDriver):
-    def load(self) -> None:
-        pass
-
-    def read(self, identifer: str, **kwargs) -> Any:
-        pass
-
-    def write(self, document: ITarget, **kwargs) -> Any:
-        pass

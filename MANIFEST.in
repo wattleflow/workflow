@@ -7,6 +7,8 @@ exclude *.config
 exclude *.pyc
 exclude *.pyo
 exclude *.yaml
+exclude .flake8
+exclude .pylintrc
 
 # exclude other files
 exclude .DS_Store
@@ -35,12 +37,15 @@ exclude src/wattleflow/repositories
 exclude src/wattleflow/schedulers
 
 # exclude other dirs
-exclude data
+exclude da*
+exclude doc
 exclude endpoints
 exclude examples
 exclude helpers/audit.py
 exclude helpers/logger.py
 exclude models
+exclude scripts
+exclude src
 exclude tests
 exclude tests/config.yaml
 exclude tests/scheduler.yaml
