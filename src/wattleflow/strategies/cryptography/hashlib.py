@@ -2,7 +2,16 @@
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains concrete key strategies classes.
+# Description: This module provides concrete classes implementing key management
+# strategies within the Wattleflow framework. It offers tools for secure
+# generation, handling, and validation of cryptographic keys.
+
+
+"""
+Description: This module provides concrete classes implementing key management
+strategies within the Wattleflow framework. It offers tools for secure
+generation, handling, and validation of cryptographic keys.
+"""
 
 from hashlib import md5, sha224, sha256, sha384, sha512
 from wattleflow.core import IStrategy
@@ -19,15 +28,15 @@ class StrategySha224(IStrategy):
 
 
 class StrategySha256(IStrategy):
-    def execute(value: str) -> str:
+    def execute(self, value: str) -> str:
         return sha256(value.encode("utf-8")).hexdigest()
 
 
 class StrategySha384(IStrategy):
-    def execute(value: str) -> str:
+    def execute(self, value: str) -> str:
         return sha384(value.encode("utf-8")).hexdigest()
 
 
 class StrategySha512(IStrategy):
-    def execute(value: str) -> str:
+    def execute(self, value: str) -> str:
         return sha512(value.encode("utf-8")).hexdigest()

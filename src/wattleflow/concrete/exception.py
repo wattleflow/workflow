@@ -10,10 +10,9 @@ import logging
 import traceback
 import sys
 from typing import Iterable, Optional
-from wattleflow.core import IWattleflow
 from wattleflow.concrete import AuditLogger
 from wattleflow.constants import Event
-from wattleflow.constants.errors import ERROR_PATH_NOT_FOUND, ERROR_UNEXPECTED_TYPE
+from wattleflow.constants.errors import ERROR_UNEXPECTED_TYPE
 from wattleflow.helpers.functions import _NC, _NT
 
 

@@ -4,12 +4,13 @@
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 
-import os
-import glob
-import sys
-
 
 """
+Description: This module provides helper functions for managing and dynamically adjusting
+Python import paths within the Wattleflow framework. It enables locating,
+overriding, and displaying source paths to support flexible module resolution
+during runtime.
+
 import os
 
 # Set SOURCE_PATH to a specific path
@@ -20,6 +21,11 @@ override_paths()
 show_paths()
 
 """
+
+
+import os
+import glob
+import sys
 
 
 def get_source_path(path: str):

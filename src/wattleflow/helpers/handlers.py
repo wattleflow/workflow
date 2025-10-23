@@ -4,6 +4,12 @@
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 
+"""
+This module implements a trace handler for enhanced logging within the
+Wattleflow framework. It extends the standard logging handler to include
+detailed stack traces for captured exceptions, improving error visibility
+and debugging efficiency.
+"""
 
 import logging
 import traceback

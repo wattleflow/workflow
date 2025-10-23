@@ -1,10 +1,18 @@
-# Module Name: helpers/collections.py
-# Description: This modul contains helpers collection classes.
+# Module Name: collections.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
 
+
+"""
+Description: This module defines collection helper classes for use within the Wattleflow
+framework. It provides an extended deque implementation with advanced search,
+update, and removal functionality, enabling efficient management of dynamic
+collections.
+"""
+
 from collections import deque
+from typing import Any, Iterable
 from wattleflow.core import IWattleflow
 from wattleflow.constants.errors import ERROR_NOT_FOUND
 
@@ -13,43 +21,65 @@ REPLACE_ALL = "all"
 
 
 class DequeList(IWattleflow, deque):
-    def __init__(self):
-        super().__init__()
+    """
+    Extended deque s simplified search and crud over elements.
+    - find(*args, **kwargs)
+    - remove_match(...):
+    - update(new_object, ...)
+    """
 
-    def find(self, *args, **kwargs):
-        results = []
-        for item in self:
-            if isinstance(item, (int, str)):
-                if item in args:
-                    results.append(item)
-            else:
-                match = True
-                for key, value in kwargs.items():
-                    if not (hasattr(item, key) and getattr(item, key) == value):
-                        match = False
-                        break
-                if match:
-                    results.append(item)
-        return results
+    def __init__(self, iterable: Iterable[Any] | None = None):
+        super().__init__(iterable or ())
 
-    def remove(self, *args, **kwargs):
-        item = self.find(*args, **kwargs)
-        if len(item) == 0:
-            value = ", ".join(f"{key}={value}" for key, value in kwargs.items())
-            raise ValueError(ERROR_NOT_FOUND.format("Item", value))
+    @staticmethod
+    def _matches(item: Any, args: tuple, kwargs: dict) -> bool:
+        # Podudaranje po vrijednosti (int/str) ili po atributima
+        if isinstance(item, (int, str)):
+            return item in args if args else False
+        return all(
+            hasattr(item, k) and getattr(item, k) == v for k, v in kwargs.items()
+        )
 
-        super().remove(item)
+    def find(self, *args, **kwargs) -> list[Any]:
+        return [x for x in self if self._matches(x, args, kwargs)]
 
-    def update(self, new_object, *args, **kwargs):
-        replace_all = kwargs.pop(REPLACE_ALL, False)
-        results = self.find(*args, **kwargs)
-        if len(results) == 0:
+    def remove_match(self, *args, remove_all: bool = False, **kwargs) -> int:
+        """Uklanja prvi ili sve podudarne elemente. Vraća broj uklonjenih."""
+        matches = self.find(*args, **kwargs)
+        if not matches:
+            crit = (
+                ", ".join([*(map(str, args)), *[f"{k}={v}" for k, v in kwargs.items()]])
+                or "N/A"
+            )
+            raise ValueError(ERROR_NOT_FOUND.format("Item", crit))
+
+        removed = 0
+        if remove_all:
+            to_keep = [x for x in self if x not in matches]
+            removed = len(self) - len(to_keep)
+            self.clear()
+            self.extend(to_keep)
+        else:
+            super().remove(matches[0])
+            removed = 1
+        return removed
+
+    def update(self, new_object: Any, *args, **kwargs) -> int:
+        """Zamjenjuje podudarne elemente novim objektom. Ako all=True, zamjenjuje sve; inače jedan."""
+        replace_all: bool = kwargs.pop(REPLACE_ALL, False)
+        matches = self.find(*args, **kwargs)
+        if not matches:
             raise ValueError(ERROR_NOT_FOUND.format("Nothing to match."))
 
-        for item in results:
-            super().remove(item)
-            if replace_all:
-                self.append(new_object)
+        if replace_all:
+            # Zamijeni svaki podudarni element novim objektom (isti broj ponavljanja)
+            to_keep = [x for x in self if x not in matches]
+            self.clear()
+            self.extend(to_keep)
+            self.extend(new_object for _ in matches)
+            return len(matches)
 
-        if not replace_all:
-            self.append(new_object)
+        # Zamijeni samo prvi podudarni element
+        super().remove(matches[0])
+        self.append(new_object)
+        return 1

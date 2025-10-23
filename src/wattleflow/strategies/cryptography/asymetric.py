@@ -1,8 +1,17 @@
-# Module Name: strategies/asymetric.py
+# Module Name: asymetric.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains asymetric cryptographic strategies classes.
+# Description: This module defines strategies and classes for implementing asymmetric
+# cryptographic operations within the Wattleflow framework. It provides
+# tools for key generation, encryption, and decryption management.
+
+
+"""
+This module defines classes that implement asymmetric cryptographic
+strategies used within the Wattleflow framework. It provides tools for
+secure encryption, decryption, and key management.
+"""
 
 from abc import abstractmethod
 
@@ -35,7 +44,7 @@ class StrategyRSAEncrypt256(StrategyBaseRSA):
 
 
 class StrategyRSADecrypt256(StrategyBaseRSA):
-    def execute(self, value: str):
+    def execute(self, value: bytes):
         return self.private_key.decrypt(
             value,
             padding.OAEP(
@@ -50,22 +59,20 @@ class StrategyRSAEncrypt512(StrategyBaseRSA):
     def execute(self, value: str):
         public_key = self.private_key.public_key()
         return public_key.encrypt(
-            value.encode("utf-8"),
-            padding.OAEP(
-                # mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            plaintext=value.encode("utf-8"),
+            padding=padding.OAEP(
                 mgf=padding.MGF1(algorithm=hashes.SHA512()),
                 algorithm=hashes.SHA512(),
-                # algorithm=hashes.SHA256(),
                 label=None,
             ),
         )
 
 
 class StrategyRSADecrypt512(StrategyBaseRSA):
-    def execute(self, value: str):
+    def execute(self, value: bytes):
         return self.private_key.decrypt(
-            value,
-            padding.OAEP(
+            ciphertext=value,
+            padding=padding.OAEP(
                 mgf=padding.MGF1(algorithm=hashes.SHA512()),
                 algorithm=hashes.SHA512(),
                 label=None,

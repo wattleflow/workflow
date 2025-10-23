@@ -1,8 +1,37 @@
-# Module Name: name helpers/macros.py
+# Module Name: helpers/macros.py
 # Description: This modul contains concrete macro classes.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
+
+
+"""
+Description: This module defines concrete macro classes used within the Wattleflow framework.
+It provides reusable components for automating and simplifying repetitive tasks.
+
+
+Usage example:
+    import yaml
+
+    yaml_data = \"""
+    macros:
+        - pattern: '\\\\S+@\\\\S+'
+        replacement: ''
+    \"""
+
+    macros_data = yaml.safe_load(yaml_data)['macros']
+    self.text_macros = TextMacros(macros_data)
+
+    # Create instance
+    text_macros = TextMacros(macros_data)
+
+    # Apply macro to text
+    text = "My email is example@example.com"
+    modified_text = text_macros.run(text)
+
+    print(modified_text)  # Expected output: "My email is "
+"""
+
 
 import re
 
@@ -12,28 +41,7 @@ ADD_VALUE_ERROR = (
 
 
 class TextMacros:
-    """
-    Usage example:
-        import yaml
-
-        yaml_data = \"""
-        macros:
-            - pattern: '\\\\S+@\\\\S+'
-            replacement: ''
-        \"""
-
-        macros_data = yaml.safe_load(yaml_data)['macros']
-        self.text_macros = TextMacros(macros_data)
-
-        # Create instance
-        text_macros = TextMacros(macros_data)
-
-        # Apply macro to text
-        text = "My email is example@example.com"
-        modified_text = text_macros.run(text)
-
-        print(modified_text)  # Expected output: "My email is "
-    """
+    """ """
 
     def __init__(self, list_of_macros: list = []):
         self._macros = []

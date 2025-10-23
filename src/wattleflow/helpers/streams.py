@@ -1,8 +1,14 @@
-# Module Name: name helpers/streams.py
-# Description: This modul contains concrete name stream classes.
+# Module Name: streams.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
+
+
+"""
+Description: This module defines concrete classes for handling name streams within the
+Wattleflow framework. It provides structured tools for managing and
+processing stream-based naming operations.
+"""
 
 
 from typing import Any, List, Optional

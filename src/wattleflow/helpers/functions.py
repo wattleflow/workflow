@@ -1,8 +1,17 @@
-# Module Name: helpers/functions.py
+# Module Name: functions.py
 # Description: This modul contains helper methods.
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
+
+
+"""
+Description: This module provides a collection of helper functions for object inspection,
+attribute management, and SQL query name generation within the Wattleflow
+framework. It includes utilities for retrieving object metadata, listing
+attributes, and constructing concise SQL operation identifiers.
+"""
+
 
 import re
 

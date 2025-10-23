@@ -1,11 +1,18 @@
-# Module Name: name schedulers/cron_job.py
+# Module Name: schedulers/cron_job.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains concrete cron job class.
+
+
+"""
+Description: This module initialises the scheduler package by exposing the CronJobScheduler
+class, which manages and executes scheduled tasks within the Wattleflow framework.
+"""
+
 
 import time
 from concrete.scheduler import Scheduler
+from constants.enums import Event
 
 
 class CronJobScheduler(Scheduler):
@@ -21,14 +28,14 @@ class CronJobScheduler(Scheduler):
     def run(self):
         while True:
             try:
-                self.setup_orchestrator(self.config_path)
+                self.setup_orchestrator()
                 self.start_orchestration(
                     parallel=True
                 )  # Can be changed based on config
             except Exception as e:
-                self.emit_event("CronJobSchedulerError", error=str(e))
+                self.emit_event(event=Event.CronJobSchedulerError, error=str(e))
             finally:
                 self.stop_orchestration()
 
-            self.emit_event("Sleeping", duration=self.heartbeat)
+            self.emit_event(event=Event.Sleeping, duration=self.heartbeat)
             time.sleep(self.heartbeat)  # Wait until next execution

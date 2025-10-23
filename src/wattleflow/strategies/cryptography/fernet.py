@@ -1,8 +1,16 @@
-# Module Name: strategies/fernet.py
+# Module Name: fernet.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains concrete fernet strategies classes.
+# Description: This module provides concrete implementations of Fernet cryptographic
+# strategies within the Wattleflow framework, offering secure data
+# encryption and decryption capabilities.
+
+"""
+This module defines concrete classes implementing Fernet-based cryptographic
+strategies within the Wattleflow framework. It provides secure methods for
+data encryption and decryption.
+"""
 
 from cryptography.fernet import Fernet
 from wattleflow.core import IStrategy

@@ -5,11 +5,10 @@
 # License: Apache 2 Licence
 
 from __future__ import annotations
-from abc import ABC
 from typing import Optional
 from logging import Filter, Formatter, getLogger, Handler, Logger, StreamHandler
 from threading import RLock
-from wattleflow.core import ICommand, ILogger
+from wattleflow.core import ILogger
 from wattleflow.constants import LogFormat
 
 

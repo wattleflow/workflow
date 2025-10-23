@@ -4,6 +4,13 @@
 
 
 """
+Description: This module provides a lightweight utility for transforming and validating
+dataframes using YAML-defined mappings and JSON schema validation within
+the Wattleflow framework. It enables flexible conversion of YAML
+configurations into column mappings and validation schemas, streamlining
+data transformation and integrity checks.
+
+
 class MapperSchemaYAML2JSON
     def __init__(self, mapper: ColumnMapper, validator: SchemaValidator):
 
@@ -42,6 +49,7 @@ df_out = mapper_validator.transform(df)
 print(df_out)
 
 """
+
 
 import yaml
 import jsonschema

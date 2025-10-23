@@ -7,8 +7,11 @@
 
 import os
 import pandas as pd
+from enum import Enum
+from rdflib import Graph
 from pathlib import Path
 from wattleflow.core import IWattleflow
+from wattleflow.concrete import GenericDriverClass
 from wattleflow.helpers import TextNorm
 from wattleflow.constants.enums import Event
 
@@ -21,9 +24,9 @@ class FileStorage:
         self.path = Path(repository_path)
 
         if (
-            not os.path.isdir(self.path)
-            and not os.access(self.path, os.R_OK)
-            and not create
+            not os.path.isdir(self.path)  # noqa: W503
+            and not os.access(self.path, os.R_OK)  # noqa: W503
+            and not create  # noqa: W503
         ):
             raise FileNotFoundError(
                 f"Path doesn't exist or not accessible: {str(self.path)}"
@@ -54,10 +57,21 @@ class FileStorage:
         return out_dir.joinpath(self.filename.name)
 
 
-class LocalFileSystemDriver:
+class FileTypes(Enum):
+    csv = 1
+    graph = 2
+    json = 3
+    text = 4
+    dataframe = 5
+
+
+class LocalFileSystemDriver(GenericDriverClass):
     def __init__(self, caller: IWattleflow, repository_path: str):
         self.parent = caller
         self.repository_path = repository_path
+
+    def load(self) -> None:
+        pass
 
     def move_to_subdir(self, name: str, mkdir=True) -> str:
         new_repository_path = Path(self.repository_path).joinpath(name).absolute()
@@ -78,7 +92,19 @@ class LocalFileSystemDriver:
             self.repository_path, filename=identifier, create=False, normalised=False
         )
 
-    def write_csv(self, filename: str, data: pd.DataFrame, **kwargs) -> str:
+    def write(self, filename: str, ftype: FileTypes, data: object, **kwargs) -> str:
+        if ftype == FileTypes.csv:
+            return self._write_csv(filename=filename, data=data, **kwargs)  # type: ignore
+        elif ftype == FileTypes.graph:
+            return self._write_graph(filename=filename, data=data, **kwargs)  # type: ignore
+        elif ftype == FileTypes.json:
+            return self._write_json(filename=filename, data=data, **kwargs)  # type: ignore
+        elif ftype == FileTypes.text:
+            return self._write_txt(filename=filename, data=data, **kwargs)  # type: ignore
+        else:
+            raise TypeError("Unknown file type!")
+
+    def _write_csv(self, filename: str, data: pd.DataFrame, **kwargs) -> str:
         self.parent.debug(  # type: ignore
             msg=Event.Write.value,
             step=Event.Started.value,
@@ -105,7 +131,7 @@ class LocalFileSystemDriver:
 
         return str(storage.filename)
 
-    def write_graph(self, filename: str, data: str, **kwargs) -> FileStorage:
+    def _write_graph(self, filename: str, data: Graph, **kwargs) -> str:
         self.parent.debug(  # type: ignore
             msg=Event.Write.value,
             step=Event.Started.value,
@@ -121,18 +147,22 @@ class LocalFileSystemDriver:
             normalised=True,
         )
 
-        storage.filename.write_text(data)
+        data.serialize(
+            destination=str(storage.filename.absolute()),
+            format="json-ld",
+            indent=2,
+        )
 
         self.parent.info(  # type: ignore
             msg=Event.Write.value,
             step=Event.Completed.value,
             fnc="LocalFileSystemDriver:write_to_text",
-            filename=storage.filename,
+            filename=str(storage.filename.absolute()),
         )
 
-        return storage
+        return str(storage.filename.absolute())
 
-    def write_json(self, filename: str, data: pd.DataFrame, **kwargs) -> str:
+    def _write_json(self, filename: str, data: pd.DataFrame, **kwargs) -> str:
         self.parent.debug(  # type: ignore
             msg=Event.Write.value,
             step=Event.Started.value,
@@ -160,7 +190,7 @@ class LocalFileSystemDriver:
 
         return output
 
-    def write_txt(self, filename: str, data: str, **kwargs) -> str:
+    def _write_txt(self, filename: str, data: str, **kwargs) -> str:
         self.parent.debug(  # type: ignore
             msg=Event.Write.value,
             step=Event.Started.value,
@@ -187,3 +217,6 @@ class LocalFileSystemDriver:
         )
 
         return str(output.absolute())
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}:{self.repository_path}"

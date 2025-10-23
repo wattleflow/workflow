@@ -1,6 +1,4 @@
-# Module Name: helpers/localmodels.py
-# Description: This modul contains classes for retrieving and copying
-#              localy downloaded models.
+# Module Name: localmodels.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence

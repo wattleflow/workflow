@@ -1,8 +1,17 @@
-# Module Name: helpers/system.py
+# Module Name: system.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
-# Description: This module contains path handling system classes and methods.
+
+
+"""
+Description: This module defines system-level classes and utilities for managing paths,
+loading classes dynamically, executing shell commands, and handling file
+operations within the Wattleflow framework. It provides robust mechanisms
+for runtime class loading, project structure detection, temporary path
+management, and process execution with integrated audit logging.
+"""
+
 
 import os
 import platform
@@ -175,9 +184,9 @@ class FileStorage:
         self.path = Path(repository_path)
 
         if (
-            not os.path.isdir(self.path)
-            and not os.access(self.path, os.R_OK)
-            and not create
+            not os.path.isdir(self.path)  # noqa: W503
+            and not os.access(self.path, os.R_OK)  # noqa: W503
+            and not create  # noqa: W503
         ):
             raise FileNotFoundError(
                 f"Path doesn't exist or not accessible: {str(self.path)}"

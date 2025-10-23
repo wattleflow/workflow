@@ -1,8 +1,14 @@
-# Module Name: helpers/text.py
+# Module Name: textnorm.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2024 WattleFlow
 # License: Apache 2 Licence
-# Description: This modul contains text helpers document class.
+
+
+"""
+Description: This module provides helper classes for working with text documents within
+the Wattleflow framework. It includes utilities for normalising and managing text data efficiently.
+"""
+
 
 import re
 import unicodedata
@@ -53,7 +59,7 @@ class TextNorm:
         replacement: str = "-",
     ) -> str:
         """
-        Normalise 'stem' (without ekstenzije) u: ascii, [a-z0-9-], withot dobule dashes,
+        Normalise 'stem' (without ekstension) u: ascii, [a-z0-9-], withot dobule dashes,
         stem length <= max_len. Exstension remains (lowercase). If stem turns empty,
         use 'file'. Protect from reserved Windows names.
         """

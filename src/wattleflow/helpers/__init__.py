@@ -1,3 +1,17 @@
+# Module Name: helpers/__init__.py
+# Author: (wattleflow@outlook.com)
+# Copyright: (c) 2022-2024 WattleFlow
+# License: Apache 2 Licence
+
+
+"""
+Description: This module enables a “build once, use often” approach for bespoke
+implementations of concrete Helper classes used within the Wattleflow
+Workflow ETL framework. It streamlines repository creation and promotes
+reusability across workflows.
+"""
+
+
 from .attribute import Attribute, AttributeException
 from .config import Config
 from .collections import DequeList

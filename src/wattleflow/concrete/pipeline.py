@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from logging import Handler, NOTSET
 from typing import Any, Optional
 from wattleflow.core import IProcessor, IPipeline, ITarget
-from wattleflow.concrete import AuditLogger, AttributeException
+from wattleflow.concrete import AuditLogger
 from wattleflow.constants import Event
 from wattleflow.decorators.preset import PresetDecorator
 from wattleflow.helpers import Attribute

@@ -6,9 +6,10 @@
 
 """This module contains all Workflow drivers."""
 
-from .local_file_system_driver import FileStorage, LocalFileSystemDriver
+from .local_file_system_driver import FileStorage, FileTypes, LocalFileSystemDriver
 
 __all__ = [
     "FileStorage",
+    "FileTypes",
     "LocalFileSystemDriver",
 ]

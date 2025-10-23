@@ -1,8 +1,14 @@
-# Module Name: helpers/dictionaries.py
-# Description: This modul contains dictionary helper classes.
+# Module Name: dictionaries.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
+
+
+"""
+Description: This module defines helper classes for working with dictionaries within the
+Wattleflow framework. It provides structures that enable attribute-style access
+to dictionary keys and support nested dictionary handling.
+"""
 
 
 class AttributeDict:

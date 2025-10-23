@@ -1,8 +1,16 @@
-# Module Name: helpers/config.py
-# Description: This modul contains config helper classes.
+# Module Name: config.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
+
+
+"""
+Description: This module provides configuration helper classes for managing and loading
+YAML-based settings within the Wattleflow framework. It supports secure
+decryption, dynamic class loading, and structured access to configuration
+data, enabling flexible and maintainable system configuration handling.
+"""
+
 
 from logging import NOTSET, Handler
 from typing import final, Any, Optional, Union
@@ -38,6 +46,7 @@ class Config:
         level: int = NOTSET,
         handler: Optional[Handler] = None,
     ):
+        super().__init__()
         if Path(config_file).exists() is False:
             raise FileNotFoundError(
                 f"{self}: invalid or missing `config_path` {config_file}!"
@@ -147,4 +156,5 @@ class Config:
         ).instance
 
     def __repr__(self) -> str:
-        return f"{self}:{self.config_file}"
+        config_file = getattr(self, "config_file", "unknown")
+        return f"{self}:{config_file}"

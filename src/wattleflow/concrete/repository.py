@@ -4,12 +4,11 @@
 # License: Apache 2 Licence
 # Description: This modul contains repository classes.
 
-from abc import ABC
 from logging import Handler, NOTSET
 from typing import Any, Optional
 from wattleflow.core import IUnitOfWork, IRepository, IStrategy, ITarget, IWattleflow
 from wattleflow.constants.enums import Event
-from wattleflow.concrete import AuditLogger
+from wattleflow.concrete import AuditLogger, GenericDriverClass
 from wattleflow.concrete.strategy import StrategyRead, StrategyWrite
 from wattleflow.decorators.preset import PresetDecorator
 from wattleflow.helpers import Attribute
@@ -27,11 +26,11 @@ class GenericRepository(IRepository, AuditLogger):
 
     def __init__(
         self,
+        driver: GenericDriverClass,
         strategy_write: StrategyWrite,
         strategy_read: Optional[StrategyRead] = None,
         level: int = NOTSET,
         handler: Optional[Handler] = None,
-        driver: Optional[IUnitOfWork] = None,
         *args,
         **kwargs,
     ):
@@ -55,7 +54,7 @@ class GenericRepository(IRepository, AuditLogger):
         )
 
         self._counter: int = 0
-        self._driver = driver
+        self._driver: GenericDriverClass = driver
         self._strategy_write: StrategyWrite = strategy_write
         self._strategy_read: Optional[StrategyRead] = strategy_read or None
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
@@ -64,6 +63,10 @@ class GenericRepository(IRepository, AuditLogger):
     @property
     def count(self) -> int:
         return self._counter
+
+    @property
+    def driver(self) -> GenericDriverClass:
+        return self._driver
 
     def clear(self) -> None:
         self.debug(
@@ -119,6 +122,7 @@ class GenericRepository(IRepository, AuditLogger):
                 caller=caller,
                 document=document,
                 repository=self,
+                driver=self.driver,
                 **kwargs,
             )
 

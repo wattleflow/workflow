@@ -1,3 +1,18 @@
+# Module Name: strategies/cryptography/__init__.py
+# Author: (wattleflow@outlook.com)
+# Copyright: (c) 2022-2024 WattleFlow
+# License: Apache 2 Licence
+# Description: This module defines classes that implement various cryptographic
+# strategies used within the Wattleflow framework. It provides tools for secure
+# encryption, decryption, and key management within the Wattleflow Workflow framework.
+
+
+"""
+This module defines classes that implement various cryptographic
+strategies used within the Wattleflow framework. It provides tools for
+secure encryption, decryption, and key management.
+"""
+
 from .asymetric import (
     StrategyBaseRSA,
     StrategyRSAEncrypt256,

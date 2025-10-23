@@ -1,8 +1,20 @@
-# Module Name: helpers/attribute.py
-# Description: This modul contains helpers attribute handling class.
+# Module Name: attribute.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
+
+
+"""
+Desscription: This module provides utilities for attribute introspection, validation, and
+dynamic loading within the Wattleflow framework. It includes helpers to:
+- derive object/type names and locate attributes safely,
+- enforce allowed/mandatory keyword arguments,
+- convert and validate types (including Enum members),
+- load classes from dotted paths via ClassLoader,
+- retrieve attributes from __dict__ and __slots__,
+with consistent error handling through AttributeException.
+"""
+
 
 import inspect
 from enum import Enum
@@ -150,7 +162,11 @@ class Attribute:
         attr = getattr(caller, name, None)
 
         if not isinstance(caller, IWattleflow):
-            raise AttributeException(None, f"The `caller` must be from a Wattleflow family!", True)  # type: ignore
+            raise AttributeException(
+                None,
+                "The `caller` must be from a Wattleflow family!",
+                True,
+            )
 
         if not attr:
             raise AttributeException(caller=caller, error=name)  # type: ignore

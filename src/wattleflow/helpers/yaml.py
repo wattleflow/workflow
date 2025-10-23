@@ -1,9 +1,15 @@
-# Module Name: helpers/yaml.py
+# Module Name: yaml.py
 # Author: (wattleflow@outlook.com)
 # Copyright: (c) 2022-2025 WattleFlow
 # License: Apache 2 Licence
-# Description: This module contains yaml file handling workarround
-# to reduce dependency on YAML pip installation (still in alpha phase).
+
+
+"""
+Description: This module provides a workaround for handling YAML files within the
+Wattleflow framework, aiming to minimise dependency on external YAML
+packages. It serves as an interim solution currently in the alpha phase.
+"""
+
 
 import os
 import re

@@ -23,6 +23,8 @@ exclude .pylintrc
 exclude .scraps
 exclude .vscode
 exclude Makefile
+exclude examples
+exclude todo
 
 # source
 exclude src/wattleflow/api
