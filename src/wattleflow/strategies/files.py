@@ -4,6 +4,7 @@
 # License: Apache 2 Licence
 
 
+from __future__ import annotations
 import re
 from fnmatch import fnmatch
 from wattleflow.core import IStrategy

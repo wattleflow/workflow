@@ -11,7 +11,7 @@ symmetric encryption and decryption mechanisms, ensuring data confidentiality
 and integrity through key-managed operations.
 """
 
-
+from __future__ import annotations
 from cryptography.fernet import Fernet
 from wattleflow.core import IStrategy
 

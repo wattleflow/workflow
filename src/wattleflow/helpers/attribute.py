@@ -16,6 +16,7 @@ with consistent error handling through AttributeException.
 """
 
 
+from __future__ import annotations
 import inspect
 from enum import Enum
 from typing import Any, Optional

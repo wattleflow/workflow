@@ -12,6 +12,7 @@ data, enabling flexible and maintainable system configuration handling.
 """
 
 
+from __future__ import annotations
 from logging import NOTSET, Handler
 from typing import final, Any, Optional, Union
 from pathlib import Path
@@ -21,7 +22,7 @@ from wattleflow.constants.keys import (
     KEY_SECTION_PROJECT,
     KEY_SSH_KEY_FILENAME,
 )
-from wattleflow.helper.normaliser import ClassLoader
+from wattleflow.helpers.system import ClassLoader
 
 try:
     import yaml

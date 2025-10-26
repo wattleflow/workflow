@@ -11,6 +11,8 @@ update, and removal functionality, enabling efficient management of dynamic
 collections.
 """
 
+
+from __future__ import annotations
 from collections import deque
 from typing import Any, Iterable
 from wattleflow.core import IWattleflow
@@ -44,12 +46,11 @@ class DequeList(IWattleflow, deque):
         return [x for x in self if self._matches(x, args, kwargs)]
 
     def remove_match(self, *args, remove_all: bool = False, **kwargs) -> int:
-        """Uklanja prvi ili sve podudarne elemente. Vraća broj uklonjenih."""
         matches = self.find(*args, **kwargs)
         if not matches:
             crit = (
                 ", ".join([*(map(str, args)), *[f"{k}={v}" for k, v in kwargs.items()]])
-                or "N/A"
+                or "N/A"  # noqa: E501 W503
             )
             raise ValueError(ERROR_NOT_FOUND.format("Item", crit))
 
@@ -65,7 +66,6 @@ class DequeList(IWattleflow, deque):
         return removed
 
     def update(self, new_object: Any, *args, **kwargs) -> int:
-        """Zamjenjuje podudarne elemente novim objektom. Ako all=True, zamjenjuje sve; inače jedan."""
         replace_all: bool = kwargs.pop(REPLACE_ALL, False)
         matches = self.find(*args, **kwargs)
         if not matches:

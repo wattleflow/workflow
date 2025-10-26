@@ -31,7 +31,7 @@ Usage example:
     print(modified_text)  # Expected output: "My email is "
 """
 
-
+from __future__ import annotations
 import re
 
 ADD_VALUE_ERROR = (

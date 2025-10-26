@@ -4,6 +4,7 @@
 # License: Apache 2 Licence
 
 
+from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from stat import filemode

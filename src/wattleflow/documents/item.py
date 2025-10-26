@@ -4,6 +4,7 @@
 # License: Apache 2 Licence
 
 
+from __future__ import annotations
 from logging import NOTSET, Handler
 from typing import Optional
 from wattleflow.concrete import Document

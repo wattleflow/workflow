@@ -4,15 +4,8 @@
 # License: Apache 2 Licence
 
 
-"""
-This module defines utility for handling YouTubeGraph documents
-within the Wattleflow Workflow framework. It provides strategies
-to create and manage YouTube-related graph data efficiently.
-"""
-
-
+from __future__ import annotations
 import logging
-
 from abc import ABC
 from datetime import datetime
 from pathlib import Path
@@ -287,12 +280,12 @@ class CreateYoutubeDocument(StrategyCreate):
 
 
 class WriteYoutubeDocument(StrategyWrite):
-    def execute(self, caller: IWattleflow, document: ITarget, *args, **kwargs) -> bool:
+    def execute(self, caller: IWattleflow, facade: ITarget, *args, **kwargs) -> bool:
         self.debug(
             msg=Event.Execute.value,
             step=Event.Started.value,
             caller=caller,
-            document=document,
+            facade=facade,
             **kwargs,
         )
 
@@ -300,16 +293,16 @@ class WriteYoutubeDocument(StrategyWrite):
         Attribute.mandatory(caller=self, name="repository", cls=IRepository, **kwargs)
         Attribute.mandatory(caller=self, name="processor", cls=IProcessor, **kwargs)
 
-        # Utilises driver to manage data persistance.
-        graph: YoutubeGraph = document.request()  # type: ignore
-        filename: str = doc.metadata.get("id", str(doc.identifier))  # type: ignore
+        graph: YoutubeGraph = facade.request()  # type: ignore
+        filename: str = graph.get(URIRef("hasFilename"), graph.identifier)  # type: ignore
         filename = Path(filename).with_suffix(".json")  # type: ignore
 
-        if not doc.size > 0:  # type: ignore
+        if not graph.size > 0:  # type: ignore
             self.warning(
                 msg=Event.Execute.value,
                 step=Event.Check.value,
                 error="Graph’s feeling a bit empty today!",
+                graph=graph,
                 size=graph.size,
                 filename=filename,
             )
@@ -319,6 +312,7 @@ class WriteYoutubeDocument(StrategyWrite):
         graph.update_metadata("stored_by", caller.name)
         graph.update_metadata("stored_at", datetime.now())
 
+        # Utilises driver to manage data persistance.
         output = self.repository.driver.write(  # type: ignore
             filename=filename,
             ftype=FileTypes.GRAPH,
@@ -328,7 +322,7 @@ class WriteYoutubeDocument(StrategyWrite):
         self.info(
             msg=Event.Created.value,
             step=Event.Completed.value,
-            document=document,
+            document=graph,
             output=output,
             size=graph.size,
         )

@@ -11,6 +11,8 @@
 #   pip install paramiko
 # --------------------------------------------------------------------------- #
 
+
+from __future__ import annotations
 from contextlib import contextmanager
 from paramiko import (
     AutoAddPolicy,

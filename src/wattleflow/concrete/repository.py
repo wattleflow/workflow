@@ -14,9 +14,10 @@ use often” philosophy.
 """
 
 
+from __future__ import annotations
 from logging import Handler, NOTSET
 from typing import Any, Optional
-from wattleflow.core import IUnitOfWork, IRepository, IStrategy, ITarget, IWattleflow
+from wattleflow.core import IRepository, IStrategy, ITarget, IWattleflow
 from wattleflow.constants.enums import Event
 from wattleflow.concrete import AuditLogger, GenericDriverClass
 from wattleflow.concrete.strategy import StrategyRead, StrategyWrite

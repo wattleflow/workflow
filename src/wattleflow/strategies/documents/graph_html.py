@@ -1,16 +1,10 @@
-# Module Name: graph_html.py
+# Module name: graph_html.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
-"""
-Description: This module defines utility for handling HtmlGraph documents
-within the Wattleflow Workflow framework. It provides strategies
-to create and manage html-related graph data efficiently.
-"""
-
-
+from __future__ import annotations
 import logging
 from abc import ABC
 from datetime import datetime
@@ -25,21 +19,17 @@ from wattleflow.core import (
     ITarget,
     IWattleflow,
 )
+
 from wattleflow.concrete import (
+    Document,
     DocumentFacade,
     StrategyCreate,
+    StrategyRead,
     StrategyWrite,
 )
 from wattleflow.constants import Event
-from wattleflow.helpers import (
-    Attribute,
-)
-
-from wattleflow.core import IProcessor, ITarget, IWattleflow
-from wattleflow.concrete.document import Document, DocumentFacade
-from wattleflow.concrete.strategy import StrategyCreate, StrategyRead, StrategyWrite
-from wattleflow.constants import Event
 from wattleflow.drivers import FileTypes
+from wattleflow.helpers import Attribute, Normaliser
 
 
 # document: rdf ---------------------------------------------------------------
@@ -82,9 +72,8 @@ class GraphHtml(Document[Graph]):
 
     @property
     def uri(self) -> str:
-        return self.get(
-            hasUri,
-        )
+        return self.get(URIRef("hasUri"), self.identifier)  # type: ignore
+        # return self.get(URIRef(document.namespace.hasUri), "")
 
     @property
     def identifier(self) -> str:
@@ -170,20 +159,32 @@ class CreateGraphFromHtml(StrategyCreate):
             )
             return
 
-        document: HtmlGraph = Graph(source=self.uri)  # type: ignore
+        document: GraphHtml = Graph(source=self.uri)  # type: ignore
         facade: DocumentFacade = DocumentFacade(document)
 
         # graph metadata: predicate, value
         document.add_predicate(document.namespace.hasIdentifier, facade.identifier)  # type: ignore
         document.add_predicate(document.namespace.hasUri, self.uri)  # type: ignore
-        document.add_predicate(document.namespace.hasSource, self.metadata.get("source", "?"))  # type: ignore
-        document.add_predicate(document.namespace.hasTitle, self.metadata.get("title", "?"))  # type: ignore
-        document.add_predicate(document.namespace.hasDescription, self.metadata.get("description", "?"))  # type: ignore
+        document.add_predicate(
+            document.namespace.hasSource, self.metadata.get("source", "?")  # type: ignore
+        )
+        document.add_predicate(
+            document.namespace.hasTitle, self.metadata.get("title", "?")  # type: ignore
+        )
+        document.add_predicate(
+            document.namespace.hasDescription, self.metadata.get("description", "?")  # type: ignore
+        )
         document.add_predicate(document.namespace.hasDownloadedAt, downloaded_at)  # type: ignore
-        document.add_predicate(document.namespace.hasDownloadedBy, self.processor.name)  # type: ignore
+        document.add_predicate(
+            document.namespace.hasDownloadedBy, self.processor.name  # type: ignore
+        )
         document.add_predicate(document.namespace.hasFileName, self.filename)  # type: ignore
-        document.add_predicate(document.namespace.hasLinks, self.metadata.get("links", "?"))  # type: ignore
-        document.add_predicate(document.namespace.hasFileSize, self.metadata.get("filesize", ""))  # type: ignore
+        document.add_predicate(
+            document.namespace.hasLinks, self.metadata.get("links", "?")  # type: ignore
+        )
+        document.add_predicate(
+            document.namespace.hasFileSize, self.metadata.get("filesize", "")  # type: ignore
+        )
         document.add_predicate(document.namespace.hasContent, self.content)  # type: ignore
         document.add_predicate(document.namespace.hasTranscript, "")  # type: ignore
 
@@ -228,25 +229,29 @@ class WriteGraphHtmlDocument(StrategyWrite):
         Attribute.mandatory(caller=self, name="repository", cls=IRepository, **kwargs)
         Attribute.mandatory(caller=self, name="processor", cls=IProcessor, **kwargs)
 
-        document: RDFDocument = facade.request()  # type: ignore
-        Attribute.evaluate(self, document, expected_type=HtmlGraph)
-        Attribute.evaluate(self, document.content, expected_type=Graph)
+        graph: GraphHtml = facade.request()  # type: ignore
+        Attribute.evaluate(self, graph, expected_type=GraphHtml)
+        Attribute.evaluate(self, graph.content, expected_type=Graph)
 
-        if not document.size > 0:  # type: ignore
+        if not graph.size > 0:  # type: ignore
             self.warning(
                 msg=Event.Execute.value,
-                document=document,
+                graph=graph,
                 error="Is this graph half empty or half full?",
             )
             return False
 
-        filename: Path = Path(document.metadata.get("filename", document.identifier)).with_suffix(".csv")  # type: ignore
-        sheetname: str = str(document.metadata.get("sheetname", None))
-        if sheetname:
-            filename = filename.with_stem(
-                f"{filename.stem}-{TextNorm.transform(sheetname)}"
-            )
+        suffix = kwargs.get("suffix", ".json")
+        name = graph.get(URIRef("hasFilename"), graph.identifier)  # type: ignore
+        filename = Path(name).with_suffix(suffix)  # type: ignore
 
+        sheetname = graph.get(URIRef("hasSheetname"), None)  # type: ignore
+        if sheetname is None:
+            sheetname: str = graph.metadata.get("sheetname", None)
+            if sheetname:
+                filename = filename.with_stem(
+                    "%s-%s" % filename.stem % Normaliser.transform(sheetname)
+                )
         self.debug(
             msg=Event.Execute.value,
             step=Event.Completed.value,
@@ -254,38 +259,41 @@ class WriteGraphHtmlDocument(StrategyWrite):
             sheetname=sheetname,
         )
 
-        ns_map = dict(document.content.namespace_manager.namespaces())  # type: ignore
-        EX = Namespace(ns_map.get("ex", "https://sfia-online.org/"))
-        subject = URIRef(item.content.identifier)  # type: ignore
+        ns_map = dict(graph.content.namespace_manager.namespaces())  # type: ignore
+        EX = Namespace(ns_map.get("ex", "https://example.org/"))
+        subject = URIRef(graph.content.identifier)  # type: ignore
 
-        for key, value in document.metadata.items():
+        for key, value in graph.metadata.items():
             predicate = EX[key]
-            document.content.add((subject, predicate, Literal(value)))  # type: ignore
+            graph.content.add((subject, predicate, Literal(value)))  # type: ignore
 
         # update metadata
-        document.update_metadata("storage_pipeline", caller.name.lower())
-        document.update_metadata("storage_time", datetime.now())
+        graph.update_metadata("storage_pipeline", caller.name.lower())
+        graph.update_metadata("storage_time", graph.utc_)
 
         if self.repository.driver.current_path.exists() is False:  # type: ignore
-            self.repository.driver.move_to_subdir(name=caller.name.lower(), mkdir=True)  # type: ignore
+            self.repository.driver.move_to_subdir(  # type: ignore
+                name=caller.name.lower(),
+                mkdir=True,
+            )
 
         output = self.repository.driver.write(  # type: ignore
             filename=filename.name,
             ftype=FileTypes.GRAPH,
-            data=document.content,
+            data=graph.content,
             destination=filename,
             format="json-ld",
             indent=2,
         )
 
-        document.update_metadata("storage_filename", output)
+        graph.update_metadata("storage_filename", output)
 
         self.debug(
             msg=Event.Execute.value,
             step=Event.Completed.value,
-            document=document,
+            document=graph,
             output=output,  # type: ignore
-            size=document.size,
+            size=graph.size,
         )
 
         return True

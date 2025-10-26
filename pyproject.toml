@@ -9,7 +9,7 @@ write_to = "src/wattleflow/concrete/_version.py"
 
 [project]
 name = "wattleflow-workflow"
-version = "0.0.0.55"
+version = "0.0.0.56"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"

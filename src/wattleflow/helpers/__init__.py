@@ -4,14 +4,6 @@
 # License: Apache 2 Licence
 
 
-"""
-Description: This module enables a “build once, use often” approach for bespoke
-implementations of concrete Helper classes used within the Wattleflow
-Workflow ETL framework. It streamlines repository creation and promotes
-reusability across workflows.
-"""
-
-
 from .attribute import Attribute, AttributeException
 from .config import Config
 from .collections import DequeList
@@ -21,7 +13,7 @@ from .localmodels import DownloadedModels, StoredModels
 from .macros import TextMacros
 from .normaliser import CaseText, Normaliser
 from .pathadder import show_paths, override_paths
-from .sanitizer import sanitized_uri
+from .sanitiser import sanitised_url
 from .streams import TextStream, TextFileStream
 from .system import (
     check_path,
@@ -37,7 +29,7 @@ from .system import (
 __all__ = [
     "decorator",
     "check_path",
-    "sanitized_uri",
+    "sanitised_url",
     "show_paths",
     "Attribute",
     "AttributeException",

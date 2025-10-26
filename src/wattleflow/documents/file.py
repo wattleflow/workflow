@@ -4,6 +4,7 @@
 # License: Apache 2 Licence
 
 
+from __future__ import annotations
 from abc import ABC
 from datetime import datetime
 from logging import NOTSET, Handler

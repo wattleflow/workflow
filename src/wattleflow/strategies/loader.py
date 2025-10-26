@@ -4,13 +4,7 @@
 # License: Apache 2 Licence
 
 
-"""
-Description: This module defines a concrete strategy loader class within the Wattleflow
-framework. It provides functionality for dynamically loading and managing
-strategy implementations.
-"""
-
-
+from __future__ import annotations
 import os
 from importlib import import_module
 from wattleflow.core import IStrategy

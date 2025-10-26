@@ -12,6 +12,7 @@ attributes, and constructing concise SQL operation identifiers.
 """
 
 
+from __future__ import annotations
 import re
 
 SPECIAL_TYPES = [

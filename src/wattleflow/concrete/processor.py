@@ -14,6 +14,7 @@ the PresetDecorator, enabling structured and reusable ETL processing logic.
 """
 
 
+from __future__ import annotations
 from abc import abstractmethod, ABC
 from logging import Handler, INFO
 from typing import Any, AsyncGenerator, Generator, List, Optional
@@ -124,14 +125,14 @@ class GenericProcessor(IProcessor, AuditLogger, ABC):
                     )
                     pipeline.process(processor=self, facade=facade)
                 else:
-                    error = ("Invalid pipeline type: expected IPipeline instance.",)
+                    reason = "Invalid pipeline type: expected IPipeline instance."
                     self.error(
                         msg=Event.Processing.value,
-                        reson=error,
+                        reson=reason,
                         class_name=Attribute.class_name(pipeline),
                         type_name=Attribute.type_name(pipeline),
                     )
-                    raise ProcessorException(caller=self, error=error)
+                    raise ProcessorException(caller=self, error=reason)
 
         self.debug(
             msg=Event.Start.value,

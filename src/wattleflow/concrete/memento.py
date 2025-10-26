@@ -3,6 +3,8 @@
 # Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
+
+from __future__ import annotations
 import copy
 from wattleflow.core import IMemento, IObservable
 

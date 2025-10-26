@@ -19,22 +19,10 @@ See more:
 """
 
 
-"""
-USAGE:
-    Classification
-        __slots__ = ("_classification", "_dlm")
-
-        Constructor:
-            def __init__(self, parent: IWattleflow, **kwargs):
-
-        Properties:
-            classification: Enum
-            dlm: Enum
-"""
-
+from __future__ import annotations
 from enum import Enum
-import wattleflow.constants.enums as wattleconst
 from wattleflow.core import IWattleflow
+import wattleflow.constants.enums as wattleconst
 
 
 class PSPFDecorator:

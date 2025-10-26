@@ -4,14 +4,9 @@
 # License: Apache 2 Licence
 
 
-"""
-This module defines utility for handling text-based documents
-within the Wattleflow Workflow framework. It provides strategies
-to create and manage text document data efficiently.
-"""
-
-
+from __future__ import annotations
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from wattleflow.core import (
@@ -27,17 +22,9 @@ from wattleflow.concrete import (
     StrategyWrite,
 )
 from wattleflow.constants import Event
-from wattleflow.helpers import (
-    Attribute,
-)
-
-from wattleflow.core import IProcessor, ITarget, IWattleflow
-from wattleflow.concrete.document import DocumentFacade
-from wattleflow.concrete.strategy import StrategyCreate
-from wattleflow.constants import Event
-from wattleflow.documents import FileDocument
+from wattleflow.documents.file import FileDocument
 from wattleflow.drivers import FileTypes
-from wattleflow.helpers import TextStream
+from wattleflow.helpers import Attribute, TextStream
 
 
 class CreateTextDocument(StrategyCreate):
@@ -90,15 +77,17 @@ class WriteTextDocument(StrategyWrite):
         Attribute.mandatory(caller=self, name="processor", cls=IProcessor, **kwargs)
 
         # Using a driver for data persistence.
-        document: YoutubeGraph = document.request()  # type: ignore
-        filename: str = doc.metadata.get("id", str(doc.identifier))  # type: ignore
-        filename = Path(filename).with_suffix(".json")  # type: ignore
+        document: FileDocument = facade.request()  # type: ignore
+        suffix = kwargs.get("suffix", ".txt")
+        name = document.metadata.get("filename", document.identifier)
+        filename = Path(str(name)).with_suffix(suffix)
 
-        if not doc.size > 0:  # type: ignore
+        if not document.size > 0:  # type: ignore
             self.warning(
                 msg=Event.Execute.value,
                 step=Event.Check.value,
                 error="Text content is feeling a bit empty today!",
+                document=document,
                 size=document.size,
                 filename=filename,
             )
@@ -106,7 +95,7 @@ class WriteTextDocument(StrategyWrite):
 
         # Update the document metadata.
         document.update_metadata("stored_by", caller.name)
-        document.update_metadata("stored_at", datetime.now())
+        document.update_metadata("stored_at", document.utc_time_stamp())
 
         output = self.repository.driver.write(  # type: ignore
             filename=filename,

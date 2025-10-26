@@ -1,3 +1,9 @@
+# Module name: keys.py
+# Author: (wattleflow@outlook.com)
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# License: Apache 2 Licence
+
+
 # Authentication
 ERROR_AUTHENTICATION = "Authentication failed: %s"
 

@@ -5,7 +5,8 @@
 
 
 """
-Description: This module aligns with the “build once, use often” principle, supporting bespoke implementations
-of concrete Manager classes within the Wattleflow Workflow ETL framework. It simplifies the creation of manager
+Description: This module aligns with the “build once, use often” principle,
+supporting bespoke implementations of concrete Manager classes within the
+Wattleflow Workflow ETL framework. It simplifies the creation of manager
 components and enhances consistency and reusability across multiple workflows.
 """

@@ -4,6 +4,7 @@
 # License: Apache 2 Licence
 
 
+from __future__ import annotations
 import os
 import logging
 import pandas as pd
@@ -11,9 +12,13 @@ from enum import Enum
 from rdflib import Graph
 from pathlib import Path
 from typing import Generator, Optional
-from wattleflow.concrete import GenericDriverClass, GenericRepository
-from wattleflow.helpers import TextNorm
+from wattleflow.concrete import GenericDriverClass, AuditException
+from wattleflow.helpers import Normaliser
 from wattleflow.constants.enums import Event
+
+
+class DriverNotFound(AuditException):
+    pass
 
 
 class FileTypes(Enum):
@@ -43,7 +48,9 @@ class FileStorage:
         if create and self.path.exists() is False:
             self.path.mkdir(parents=True, exist_ok=True)
 
-        name = TextNorm.transform(self.origin.name) if normalised else self.origin.name
+        name = (
+            Normaliser.transform(self.origin.name) if normalised else self.origin.name
+        )
 
         self.filename = self.path.joinpath(name).with_suffix(self.origin.suffix)
 

@@ -1,4 +1,4 @@
-# Module name: sanitizer.py
+# Module name: sanitiser.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -10,11 +10,11 @@ sensitive credentials such as passwords in connection strings. It ensures
 secure handling and logging of URIs within the Wattleflow framework.
 """
 
-
+from __future__ import annotations
 from urllib.parse import urlparse, urlunparse
 
 
-def sanitized_uri(uri: str) -> str:
+def sanitised_uri(uri: str) -> str:
     parsed = urlparse(uri)
     if parsed.username and parsed.password:
         netloc = f"{parsed.username}:***@{parsed.hostname}"

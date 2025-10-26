@@ -10,6 +10,7 @@ the Wattleflow framework. It includes utilities for normalising and managing tex
 """
 
 
+from __future__ import annotations
 import re
 import unicodedata
 from pathlib import Path

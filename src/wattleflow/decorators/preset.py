@@ -18,7 +18,7 @@ def __getattr__(self, name: str) -> Any:
     return preset.__getattr__(name)
 """
 
-
+from __future__ import annotations
 from typing import Any
 from wattleflow.core import IWattleflow
 from wattleflow.concrete.exception import AttributeException

@@ -10,6 +10,7 @@ strategies within the Wattleflow framework. It offers tools for secure
 generation, handling, and validation of cryptographic keys.
 """
 
+from __future__ import annotations
 from hashlib import md5, sha224, sha256, sha384, sha512
 from wattleflow.core import IStrategy
 

@@ -10,8 +10,8 @@ strategies used within the Wattleflow framework. It provides tools for
 secure encryption, decryption, and key management.
 """
 
+from __future__ import annotations
 from abc import abstractmethod
-
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey

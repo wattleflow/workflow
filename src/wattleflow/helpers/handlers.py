@@ -11,6 +11,8 @@ detailed stack traces for captured exceptions, improving error visibility
 and debugging efficiency.
 """
 
+
+from __future__ import annotations
 import logging
 import traceback
 

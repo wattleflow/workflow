@@ -9,7 +9,7 @@ Description: This module initialises the scheduler package by exposing the CronJ
 class, which manages and executes scheduled tasks within the Wattleflow framework.
 """
 
-
+from __future__ import annotations
 import time
 from concrete.scheduler import Scheduler
 from constants.enums import Event

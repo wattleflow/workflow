@@ -4,6 +4,7 @@
 # License: Apache 2 Licence
 
 
+from __future__ import annotations
 from abc import abstractmethod, ABC
 from logging import Handler, NOTSET
 from typing import Optional

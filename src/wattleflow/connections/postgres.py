@@ -11,6 +11,8 @@
 #   pip install SQLAlchemy
 # --------------------------------------------------------------------------- #
 
+
+from __future__ import annotations
 from contextlib import contextmanager
 from typing import Generator
 from sqlalchemy import create_engine, text

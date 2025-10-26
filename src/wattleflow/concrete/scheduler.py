@@ -4,14 +4,7 @@
 # License: Apache 2 Licence
 
 
-"""
-The Scheduler class:
-- Manage task execution using existing strategies and pipelines.
-- Use event-driven behavior from the observer pattern.
-- Support asynchronous execution and cron-like scheduling.
-"""
-
-
+from __future__ import annotations
 import threading
 from abc import ABC
 from logging import NOTSET, Handler

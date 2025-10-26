@@ -96,7 +96,7 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
         if content is None:
             self._content = None  # Can clear the content
             self.update_metadata("last_change_key", "content")
-            self.update_metadata("last_change_time", self._utc_time_stamp())
+            self.update_metadata("last_change_time", self.utc_time_stamp())
             return
 
         if self._expected_type is None:
@@ -109,7 +109,7 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
 
         self._content = content
         self.update_metadata("last_change_key", "content")
-        self.update_metadata("last_change_time", self._utc_time_stamp())
+        self.update_metadata("last_change_time", self.utc_time_stamp())
 
     def update_metadata(self, key: str, value: object) -> None:
         self.debug(
@@ -126,9 +126,9 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
 
         self._metadata[key] = value
         self._metadata["last_change_key"] = key
-        self._metadata["last_change_time"] = self._utc_time_stamp()
+        self._metadata["last_change_time"] = self.utc_time_stamp()
 
-    def _utc_time_stamp(self) -> datetime:
+    def utc_time_stamp(self) -> datetime:
         return datetime.now(timezone.utc)
 
     def __eq__(self, other: object) -> bool:
