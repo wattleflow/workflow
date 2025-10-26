@@ -1,6 +1,6 @@
-# Module Name: orchestrator/__init__.py
+# Module name: __init__.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 

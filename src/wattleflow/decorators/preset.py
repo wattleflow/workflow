@@ -1,8 +1,8 @@
-# Module Name: decorators/preset.py
-# Description: This modul contains preset helper class.
+# Module name: preset.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
+
 
 """
 PresetDecorator
@@ -17,6 +17,7 @@ def __getattr__(self, name: str) -> Any:
     preset: PresetDecorator = object.__getattribute__(self, "_preset")
     return preset.__getattr__(name)
 """
+
 
 from typing import Any
 from wattleflow.core import IWattleflow
@@ -62,7 +63,6 @@ class PresetDecorator:
             caller=self._parent,
             error=f"{self._parent.name}.{name} is not permitted.",
             name=name,
-            # show_path=True,
             exc_info=True,
         )
 

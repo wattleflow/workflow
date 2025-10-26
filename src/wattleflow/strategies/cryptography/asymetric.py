@@ -1,10 +1,7 @@
-# Module Name: asymetric.py
+# Module name: asymetric.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-# Description: This module defines strategies and classes for implementing asymmetric
-# cryptographic operations within the Wattleflow framework. It provides
-# tools for key generation, encryption, and decryption management.
 
 
 """

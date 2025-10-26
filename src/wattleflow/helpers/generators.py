@@ -1,7 +1,6 @@
-# Module Name: helpers/generators.py
-# Description: This modul contains python generator methods.
+# Module name: generators.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 

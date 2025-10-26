@@ -1,8 +1,18 @@
-# Module Name: concrete/repository.py
+# Module name: repository.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-# Description: This modul contains repository classes.
+
+
+"""
+Description: This module defines concrete Repository classes within the Wattleflow
+Workflow framework. It provides structured and reusable mechanisms for managing
+data persistence, ensuring consistency between business logic, drivers, and
+read/write strategies. The repositories coordinate controlled data operations,
+supporting extensible design patterns aligned with Wattleflow’s “build once,
+use often” philosophy.
+"""
+
 
 from logging import Handler, NOTSET
 from typing import Any, Optional
@@ -18,7 +28,7 @@ class GenericRepository(IRepository, AuditLogger):
     __slots__ = (
         "_counter",
         "_driver",
-        "_initialized",
+        "_initialised",
         "_preset",
         "_strategy_read",
         "_strategy_write",
@@ -53,7 +63,7 @@ class GenericRepository(IRepository, AuditLogger):
             expected_type=IStrategy,
         )
 
-        self._counter: int = 0
+        self._write_counter: int = 0
         self._driver: GenericDriverClass = driver
         self._strategy_write: StrategyWrite = strategy_write
         self._strategy_read: Optional[StrategyRead] = strategy_read or None
@@ -62,7 +72,7 @@ class GenericRepository(IRepository, AuditLogger):
 
     @property
     def count(self) -> int:
-        return self._counter
+        return self._write_counter
 
     @property
     def driver(self) -> GenericDriverClass:
@@ -73,7 +83,7 @@ class GenericRepository(IRepository, AuditLogger):
             msg=Event.Clear.value,
             step=Event.Started.value,
         )
-        self._counter = 0
+        self._write_counter = 0
 
     def read(self, identifier: str, *args, **kwargs) -> Optional[ITarget]:
         self.debug(
@@ -91,36 +101,36 @@ class GenericRepository(IRepository, AuditLogger):
             )
             return None
 
-        document: ITarget = self._strategy_read.read(  # type: ignore
+        facade: ITarget = self._strategy_read.read(  # type: ignore
             caller=self,
             identifier=identifier,
             *args,
             **kwargs,
         )
 
-        self.info(
+        self.debug(
             msg=Event.Read.value,
             step=Event.Completed.value,
-            document=document,
+            facade=facade,
         )
 
-        return document
+        return facade
 
-    def write(self, caller: IWattleflow, document: ITarget, *args, **kwargs) -> bool:
+    def write(self, caller: IWattleflow, facade: ITarget, *args, **kwargs) -> bool:
         self.debug(
             msg=Event.Write.value,
             step=Event.Started.value,
             caller=caller.name,
-            document=document,
-            counter=self._counter,
+            counter=self._write_counter,
+            facade=facade,
         )
 
         try:
-            Attribute.evaluate(caller=self, target=document, expected_type=ITarget)
-            self._counter += 1
+            Attribute.evaluate(caller=self, target=facade, expected_type=ITarget)
+            self._write_counter += 1
             result: bool = self._strategy_write.write(
                 caller=caller,
-                document=document,
+                facade=facade,
                 repository=self,
                 driver=self.driver,
                 **kwargs,
@@ -129,9 +139,8 @@ class GenericRepository(IRepository, AuditLogger):
             self.debug(
                 msg=Event.Write.value,
                 step=Event.Completed.value,
-                caller=caller.name,
-                document=document,
-                counter=self._counter,
+                counter=self._write_counter,
+                facade=facade,
             )
 
             return result
@@ -142,7 +151,7 @@ class GenericRepository(IRepository, AuditLogger):
                 msg=error,
                 caller=caller,
                 error=e,
-                counter=self._counter,
+                counter=self._write_counter,
             )
             raise RuntimeError(error) from e
 
@@ -157,7 +166,7 @@ class GenericRepository(IRepository, AuditLogger):
             (
                 id(self),
                 self.name,
-                self._counter,
+                self._write_counter,
                 self._driver,
                 self._preset,
                 self._strategy_write,
@@ -172,4 +181,4 @@ class GenericRepository(IRepository, AuditLogger):
         return preset.__getattr__(name)
 
     def __repr__(self) -> str:
-        return f"{self.name}:[{id(self)})]"
+        return f"{self.name}:[{id(self)}):{self._write_counter}]"

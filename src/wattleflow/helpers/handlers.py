@@ -1,8 +1,8 @@
-# Module Name: helpers/handlers.py
-# Description: This modul contains trace handler class.
+# Module name: handlers.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
+
 
 """
 This module implements a trace handler for enhanced logging within the

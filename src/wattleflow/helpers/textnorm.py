@@ -1,6 +1,6 @@
-# Module Name: textnorm.py
+# Module name: textnorm.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
@@ -51,9 +51,9 @@ class CaseText(str):
         return super().__format__(spec)
 
 
-class TextNorm:
+class Normaliser:
     @staticmethod
-    def filename_from(
+    def transform(
         filename: str,
         max_len: int = 40,
         replacement: str = "-",

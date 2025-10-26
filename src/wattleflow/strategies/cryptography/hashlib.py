@@ -1,10 +1,7 @@
-# Module Name: strategies/hashlib.py
+# Module name: hashlib.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-# Description: This module provides concrete classes implementing key management
-# strategies within the Wattleflow framework. It offers tools for secure
-# generation, handling, and validation of cryptographic keys.
 
 
 """

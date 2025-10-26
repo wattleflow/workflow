@@ -1,18 +1,17 @@
-# Module Name: strategies/__init__.py
+# Module name: __init__.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-# Description: This module encompasses a set of strategies designed to ensure effective
-# data protection within the Wattleflow Workflow framework. These strategies represent
-# a key element in maintaining information security and form an essential component
-# of the Wattleflow Workflow system.
+
 
 """
-Description: This module encompasses a set of strategies designed to ensure effective
-data protection within the Wattleflow Workflow framework. These strategies represent
-a key element in maintaining information security and form an essential component
-of the Wattleflow Workflow system.
+Description: This module follows the “build once, use often” principle,
+supporting bespoke implementations of cryptographic strategy classes within
+the Wattleflow Workflow ETL framework. It provides tools for the creation and
+management of information security components, enhancing both consistency and
+reusability across workflows.
 """
+
 
 from .documents.text_document import CreateTextDocument
 from .cryptography.asymetric import (
@@ -36,7 +35,8 @@ from .cryptography.fernet import (
 )
 from .files import StrategyFilename, StrategyFilterFiles
 from .loader import StrategyClassLoader
-from .documents.youtube_graph import (
+from .documents.graph_youtube import (
+    YoutubeGraph,
     CreateYoutubeDocument,
     WriteYoutubeDocument,
 )
@@ -60,5 +60,6 @@ __all__ = [
     "StrategySha384",
     "StrategySha512",
     "StrategyClassLoader",
+    "YoutubeGraph",
     "WriteYoutubeDocument",
 ]

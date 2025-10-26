@@ -1,7 +1,7 @@
-# Module Name: repositories/__init__.py
+# Module name: __init__.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
-# License: Apache 2 Licence
+# Copyright: © 2022–2025 WattleFlow
+
 
 """
 Description: This module supports a “build once, use often” principle for bespoke

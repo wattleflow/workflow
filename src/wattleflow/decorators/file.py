@@ -1,3 +1,9 @@
+# Module name: file.py
+# Author: (wattleflow@outlook.com)
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# License: Apache 2 Licence
+
+
 from dataclasses import dataclass
 from datetime import datetime
 from stat import filemode

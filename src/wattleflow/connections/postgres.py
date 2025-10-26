@@ -1,8 +1,7 @@
-# Module Name: connection/postgress_alchemy.py
+# Module name: postgress_alchemy.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-# Description: This modul contains concrete postgres connection class.
 
 
 # --------------------------------------------------------------------------- #

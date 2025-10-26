@@ -1,8 +1,8 @@
-# Module Name: concrete/pipeline.py
-# Description: This modul contains pipeline classes.
+# Module name: pipeline.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
+
 
 from abc import ABC, abstractmethod
 from logging import Handler, NOTSET
@@ -39,7 +39,7 @@ class GenericPipeline(IPipeline, AuditLogger, ABC):
     def process(
         self,
         processor: IProcessor,
-        document: ITarget,
+        facade: ITarget,
         *args,
         **kwargs,
     ) -> None:
@@ -47,13 +47,13 @@ class GenericPipeline(IPipeline, AuditLogger, ABC):
             msg=Event.Process.value,
             step=Event.Starting.value,
             processor=processor,
-            document=document,
+            facade=facade,
             *args,
             **kwargs,
         )
 
         Attribute.evaluate(caller=self, target=processor, expected_type=IProcessor)
-        Attribute.evaluate(caller=self, target=document, expected_type=ITarget)
+        Attribute.evaluate(caller=self, target=facade, expected_type=ITarget)
 
     # Must be implemented if using PresetDecorator
     def __getattr__(self, name: str) -> Any:

@@ -1,3 +1,9 @@
+# Module name: __init__.py
+# Author: (wattleflow@outlook.com)
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# License: Apache 2 Licence
+
+
 from .logger import AuditLogger, AsyncHandler
 from .blackboard import GenericBlackboard
 from .connection import (
@@ -45,8 +51,6 @@ from .strategy import (
     StrategyWrite,
 )
 
-from .wattletest import WattleflowTestClass
-
 __all__ = [
     "AuditLogger",
     "AsyncHandler",
@@ -92,5 +96,4 @@ __all__ = [
     "StrategyRead",
     "StrategyWrite",
     "UnexpectedTypeError",
-    "WattleflowTestClass",
 ]

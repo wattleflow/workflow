@@ -1,7 +1,6 @@
-# Module Name: concrete/strategies.py
-# Description: This modul contains concrete strategy classes.
+# Module name: strategies.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
@@ -55,7 +54,7 @@ class StrategyRead(Strategy, ABC):
 
 
 class StrategyWrite(Strategy, ABC):
-    def write(self, caller: IWattleflow, document: ITarget, *args, **kwargs) -> bool:
-        if self.execute(caller=caller, document=document, *args, **kwargs) is None:
+    def write(self, caller: IWattleflow, facade: ITarget, *args, **kwargs) -> bool:
+        if self.execute(caller=caller, facade=facade, *args, **kwargs) is None:
             return False
         return True

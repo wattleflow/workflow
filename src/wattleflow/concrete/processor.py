@@ -1,8 +1,18 @@
-# Module Name: concrete/processor.py
-# Description: This modul contains concrete base processor class.
+# Module name: processor.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
+
+
+"""
+Description: This module defines abstract base classes for synchronous and
+asynchronous processors within the Wattleflow Workflow framework. It provides
+the foundation for implementing data-processing components that coordinate
+blackboards, pipelines, and workflow execution. The processors support
+generator-based iteration, audit logging, and runtime configuration through
+the PresetDecorator, enabling structured and reusable ETL processing logic.
+"""
+
 
 from abc import abstractmethod, ABC
 from logging import Handler, INFO
@@ -51,7 +61,7 @@ class GenericProcessor(IProcessor, AuditLogger, ABC):
         Attribute.evaluate(caller=self, target=blackboard, expected_type=IBlackboard)
 
         if not len(pipelines) > 0:
-            error = "Pipelines must be assigned before proceeding!"
+            error = "At least one pipeline must be defined before initialising the processor."
             self.error(
                 msg=Event.Constructor.value,
                 pipelines=len(pipelines),
@@ -84,6 +94,10 @@ class GenericProcessor(IProcessor, AuditLogger, ABC):
     def blackboard(self) -> IBlackboard:
         return self._blackboard
 
+    @property
+    def cycle(self) -> int:
+        return self._cycle
+
     @abstractmethod
     def create_generator(self) -> Generator[ITarget, None, None]:
         pass
@@ -96,8 +110,8 @@ class GenericProcessor(IProcessor, AuditLogger, ABC):
         if self._generator is None:
             self._generator = self.create_generator()
 
-        for document in self._generator:
-            self._current = document
+        for facade in self._generator:
+            self._current = facade
             self._cycle += 1
 
             for pipeline in self._pipelines:
@@ -105,20 +119,19 @@ class GenericProcessor(IProcessor, AuditLogger, ABC):
                     self.debug(
                         msg=Event.Start.value,
                         step=Event.ProcessingTask.value,
-                        document=document,
+                        facade=facade,
                         pipeline=pipeline.name,
                     )
-                    pipeline.process(processor=self, document=document)
+                    pipeline.process(processor=self, facade=facade)
                 else:
+                    error = ("Invalid pipeline type: expected IPipeline instance.",)
                     self.error(
                         msg=Event.Processing.value,
-                        reason="Assigned object is not a pipline.",
+                        reson=error,
                         class_name=Attribute.class_name(pipeline),
                         type_name=Attribute.type_name(pipeline),
                     )
-                    raise ProcessorException(
-                        caller=self, error="Inccorect pipeline type."
-                    )
+                    raise ProcessorException(caller=self, error=error)
 
         self.debug(
             msg=Event.Start.value,
@@ -171,7 +184,7 @@ class GenericAsyncProcessor(IProcessor, AuditLogger, ABC):
 
         self.debug(
             msg=Event.Constructor.value,
-            status="completed",
+            status=Event.Completed.value,
             generator=self._generator,
             current=self._current,
             cycle=self._cycle,
@@ -187,14 +200,25 @@ class GenericAsyncProcessor(IProcessor, AuditLogger, ABC):
             self._generator = await self.create_generator()
 
         async for item in await self.create_generator():
+            self.debug(
+                msg=Event.Start.value,
+                step=Event.Started.value,
+                item=item,
+                cycle=self._cycle,
+            )
             self._current = item
             self._cycle += 1
             for pipeline in self._pipelines:
                 try:
-                    self.debug(msg="Processing item", item=item, pipeline=pipeline.name)
+                    self.debug(
+                        msg=Event.Processing.value,
+                        step="Processing async item",
+                        item=item,
+                        pipeline=pipeline.name,
+                    )
                     await pipeline.process(processor=self, item=item)
                 except Exception as e:
-                    self.error(msg="Pipeline failed", error=str(e))
+                    self.error(msg="Pipeline processing failed", error=str(e))
                     raise
 
     # Must be implemented if using PresetDecorator

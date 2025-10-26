@@ -1,6 +1,6 @@
-# Module Name: config.py
+# Module name: config.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
@@ -21,7 +21,7 @@ from wattleflow.constants.keys import (
     KEY_SECTION_PROJECT,
     KEY_SSH_KEY_FILENAME,
 )
-from wattleflow.helpers.system import ClassLoader
+from wattleflow.helper.normaliser import ClassLoader
 
 try:
     import yaml

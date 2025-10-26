@@ -1,16 +1,13 @@
-# Module Name: decorators
-# Description: This modul contains decorator classes.
+# Module name: __init__.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
-"""This module contains all Workflow decorators."""
 
-
-from .classification import ClassificationDecorator
+from .pspf import PSPFDecorator
 from .preset import PresetDecorator
 
 __all__ = [
-    "ClassificationDecorator",
+    "PSPFDecorator",
     "PresetDecorator",
 ]

@@ -1,43 +1,20 @@
-# Module Name: concrete/blackboard.py
-# Description: This modul contains concrete blackboard classes.
+# Module name: blackboard.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
-"""
-GenericBlackboard
-    When using GenericBlackboard you must add CreateStrategy and Repository.
 
-    Methods:
-        def __init__(
-            self,
-            strategy_create: StrategyCreate,
-            flush_on_write: bool = False,
-            level: int = NOTSET,
-            handler: Optional[Handler] = None,
-            **kwargs,
-        ):
-        def clear(self)
-        def create(self, caller: IWattleflow, *args, **kwargs) -> Optional[ITarget]
-        def delete(self, caller: IWattleflow, identifier: str) -> None
-        def flush(self, caller: IWattleflow, *args, **kwargs) -> None
-        def read(self, identifier: str) -> ITarget
-        def read_from(
-            self,
-            repository_name: str,
-            identifier: str,
-            *args,
-            **kwargs,
-        ) -> ITarget
-        def register(self, repository: IRepository) -> None
-        def write(self, caller: IWattleflow, document: ITarget, *args, **kwargs) -> str
-
-    Properties:
-        @property canvas: Mapping[str, ITarget]
-        @property count: int
-        @property repositories: Mapping[str, IRepository]
 """
+This module defines concrete Blackboard classes within the Wattleflow Workflow framework.
+It provides mechanisms for managing in-memory document storage, synchronising data with
+repositories, and coordinating persistence operations through configurable strategies.
+The Blackboard serves as a shared workspace for workflow components, supporting controlled
+creation, reading, writing, and flushing of data objects within the repository ecosystem.
+"""
+
+
 from __future__ import annotations
+
 from abc import ABC
 from logging import Handler, NOTSET
 from types import MappingProxyType
@@ -126,32 +103,30 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
     def _emit(
         self,
         caller: IWattleflow,
-        document: ITarget,
+        facade: ITarget,
         *args,
         **kwargs,
     ) -> None:
         """
-        Broadcast document to the registered repositories.
+        Broadcast document (facade) to the registered repositories.
         """
         self.debug(
             msg=Event.Emit.value,
             step=Event.Started.value,
-            caller=repr(caller.name),
-            document=repr(document),
+            caller=caller,
+            facade=facade,
             *args,
             **kwargs,
         )
 
         for repository in self._repositories:
-            repository.write(caller=caller, document=document, *args, **kwargs)
+            repository.write(caller=caller, facade=facade, *args, **kwargs)
             self._flushed = True
 
         self.debug(
             msg=Event.Emit.name,
             step=Event.Completed.value,
             broadcasted=True,
-            *args,
-            **kwargs,
         )
 
     def clean(self):
@@ -236,9 +211,9 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         )
 
         if self._defer_write_until_flush and not self._flushed:
-            for document in self._canvas.values():
+            for facade in self._canvas.values():
                 self._emit(
-                    document=document,
+                    facade=facade,
                     caller=caller,
                     *args,
                     **kwargs,
@@ -264,14 +239,14 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         if identifier not in self._canvas:
             raise ValueError(f"Document {identifier} not found!")
 
-        document: ITarget = self._canvas[identifier]
+        facade: ITarget = self._canvas[identifier]
 
         self.debug(
             msg=Event.Read.value,
             step=Event.Completed.value,
             identifier=identifier,
         )
-        return document
+        return facade
 
     def read_from(
         self,
@@ -331,26 +306,26 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             added=repository,
         )
 
-    def write(self, caller: IWattleflow, document: ITarget, *args, **kwargs) -> str:
+    def write(self, caller: IWattleflow, facade: ITarget, *args, **kwargs) -> str:
         self.debug(
             msg=Event.Write.value,
             step=Event.Started.value,
             caller=caller.name,
-            document=document,
+            facade=facade,
             *args,
             **kwargs,
         )
 
-        if not getattr(document, "identifier", None):
-            raise ValueError(f"Document:{document} is missing identifier!")
+        if not getattr(facade, "identifier", None):
+            raise ValueError(f"Document:{facade} is missing identifier!")
 
-        item = document.request()
-        self._canvas[item.identifier] = document  # type: ignore
+        document = facade.request()
+        self._canvas[facade.identifier] = facade  # type: ignore
 
         self.debug(
             msg=Event.Write.value,
             action=Event.Stored.value,
-            document=item,
+            document=document,
             flush=self._defer_write_until_flush,
         )
 
@@ -364,7 +339,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         if not self._defer_write_until_flush:
             self._emit(
                 caller=caller,
-                document=document,
+                facade=facade,
                 *args,
                 **kwargs,
             )
@@ -372,10 +347,10 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         self.debug(
             msg=Event.Write.value,
             step=Event.Completed.value,
-            id=item.identifier,  # type: ignore
+            document=document,  # type: ignore
         )
 
-        return item.identifier  # type: ignore
+        return document.identifier  # type: ignore
 
     # Must be implemented if using PresetDecorator
     def __getattr__(self, name: str) -> Any:
@@ -386,4 +361,4 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         self.clean()
 
     def __repr__(self) -> str:
-        return f"{self.name}: {self.count}"
+        return f"{self.name}: {self.count}:{len(self._repositories)}"

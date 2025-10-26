@@ -1,47 +1,8 @@
-# Module Name: core/constants/audit.py
+# Module name: audit.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-# Description: This modul contains audit constant types.
 
-# Risk Management Framework -  A System Life Cycle Approach for Security and Privacy
-# ASD - https://www.cyber.gov.au/ism/oscal/v2024.10.4
-# By developing an event logging policy, taking into consideration any shared responsibilities
-# between service providers and their customers, an organisation can improve their chances of
-# detecting malicious behaviour on their systems.
-# In doing so, an event logging policy should cover details of events to be logged,
-# event logging facilities to be used, how event logs will be monitored and how long
-# to retain event logs."
-#
-# https://github.com/usnistgov/OSCAL
-# https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-37r2.pdf
-# https://github.com/usnistgov/oscal-content/blob/main/examples/catalog/basic-catalog.md
-# https://pages.nist.gov/OSCAL/resources/concepts/layer/control/catalog/
-
-# This publication describes the Risk Management Framework (RMF) and provides
-# guidelines for applying the RMF to information systems and organizations.
-#
-# The RMF provides a disciplined, structured, and flexible process for
-# managing security and privacy risk that includes information security categorization;
-# control selection, implementation, and assessment; system and common control authorizations;
-# and continuous monitoring.
-#
-# The RMF includes activities to prepare organizations to execute the framework at appropriate
-# risk management levels.
-#
-# The RMF also promotes near real-time risk management and ongoing information system
-# and common control authorization through the implementation of continuous monitoring processes;
-# provides senior leaders and executives with the necessary information to make efficient,
-# cost-effective, risk management decisions about the systems supporting their missions and
-# business functions; and incorporates security and privacy into the system development life cycle.
-# Executing the RMF tasks links essential risk management processes at the system
-# level to risk management processes at the organization level.
-#
-# In addition, it establishes responsibility and accountability for the controls
-# implemented within an organization’s information systems and inherited by those systems.
-#
-# Glossary
-# https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/ism/cyber-security-terminology
 
 from enum import Enum
 

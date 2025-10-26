@@ -1,8 +1,8 @@
-# Module Name: documents/dictionary.py
+# Module name: dictionary.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-# Description: This modul contains DictDocument class.
+
 
 from abc import ABC
 from logging import NOTSET, Handler

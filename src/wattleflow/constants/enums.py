@@ -1,8 +1,8 @@
-# Module Name: core/constants/enum.py
+# Module name: enum.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-# Description: This modul contains wattleflow enumerated types.
+
 
 from enum import Enum
 
@@ -129,7 +129,16 @@ class Event(Enum):
     Iterating = "Iterating"
     Iteration = "Iteration"
     Log = "Log"
+    Miss = "Miss"
+    Missed = "Missed"
     Missing = "Missing"
+    Move = "Move"
+    Moved = "Moveed"
+    Moving = "Moving"
+    Operate = "Operate"
+    Operated = "Operated"
+    Operation = "Operation"
+    Operating = "Operating"
     OrchestrationCompleted = "Orchestration completed"
     OrchestrationStarted = "Orchestration started"
     OrchestrationStopped = "Orchestration stopped"
@@ -154,6 +163,9 @@ class Event(Enum):
     Retrieve = "Retrieve"
     Retrieved = "Retrieved"
     Retrieving = "Retrieving"
+    Search = "Search"
+    Searched = "Searched"
+    Searching = "Searching"
     Sleep = "Sleep"
     Sleeping = "Sleeping"
     Start = "Start"

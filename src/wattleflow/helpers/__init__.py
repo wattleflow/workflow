@@ -1,6 +1,6 @@
-# Module Name: helpers/__init__.py
+# Module name: __init__.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
@@ -19,10 +19,9 @@ from .dictionaries import AttributeDict, Dictionary
 from .handlers import TraceHandler
 from .localmodels import DownloadedModels, StoredModels
 from .macros import TextMacros
-from .textnorm import CaseText, TextNorm
+from .normaliser import CaseText, Normaliser
 from .pathadder import show_paths, override_paths
 from .sanitizer import sanitized_uri
-
 from .streams import TextStream, TextFileStream
 from .system import (
     check_path,
@@ -57,7 +56,7 @@ __all__ = [
     "StoredModels",
     "TempPathHelper",
     "TextFileStream",
-    "TextNorm",
+    "Normaliser",
     "TextMacros",
     "TextStream",
     "TraceHandler",

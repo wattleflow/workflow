@@ -1,15 +1,14 @@
-# Module Name: core/constants/keys.py
+# Module name: keys.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-# Description: This modul contains key constants.
 
 
 # All keys, must be in a small caps.
-KEY_NAME = 'name'
-KEY_CONFIG_FILE_NAME = "config.yaml"
-
 KEY_AUDIT_MANAGER = "audit_manager"
+
+KEY_NAME = "name"
+KEY_CONFIG_FILE_NAME = "config.yaml"
 
 KEY_BLACKBOARD = "blackboard"
 KEY_CLASSIFICATION = "classification"
@@ -78,7 +77,7 @@ KEY_REMOTE_PATTERN = "pattern"
 KEY_PASSPHRASE = "passphrase"
 KEY_LOOK_FOR_KEYS = "look_for_keys"
 KEY_ALLOW_AGENT = "allow_agent"
-KEY_COMPRESS = 'compress'
+KEY_COMPRESS = "compress"
 # Database
 KEY_DATABASE = "database"
 KEY_HOST = "host"

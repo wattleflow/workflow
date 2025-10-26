@@ -1,6 +1,6 @@
-# Module Name: attribute.py
+# Module name: attribute.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
@@ -180,7 +180,7 @@ class Attribute:
                 f"Expected class path as string for {name}, got {type(obj).__name__}"
             )
 
-        from wattleflow.helpers.system import (
+        from helpers.normaliser import (
             ClassLoader,
         )  # pylint: disable=import-outside-toplevel
 
@@ -274,7 +274,7 @@ class Attribute:
             if isinstance(item, cls):
                 return item
 
-        from wattleflow.helpers.system import (
+        from helpers.normaliser import (
             ClassLoader,
         )  # pylint: disable=import-outside-toplevel
 

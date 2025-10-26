@@ -1,23 +1,19 @@
-# Module Name: fernet.py
+# Module name: fernet.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-# Description: This module provides concrete implementations of Fernet cryptographic
-# strategies within the Wattleflow framework, offering secure data
-# encryption and decryption capabilities.
+
 
 """
-This module defines concrete classes implementing Fernet-based cryptographic
-strategies within the Wattleflow framework. It provides secure methods for
-data encryption and decryption.
+Description: This module implements concrete classes for Fernet-based
+cryptographic strategies within the Wattleflow framework. It provides secure,
+symmetric encryption and decryption mechanisms, ensuring data confidentiality
+and integrity through key-managed operations.
 """
+
 
 from cryptography.fernet import Fernet
 from wattleflow.core import IStrategy
-
-# from cryptography.hazmat.primitives import hashes
-# from cryptography.hazmat.primitives.asymmetric import padding
-# from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
 
 class StrategyFernetGeneric(IStrategy):

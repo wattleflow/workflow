@@ -1,8 +1,8 @@
-# Module Name: concrete/orchestrator.py
-# Description: This modul contains concrete orchestrator classes.
+# Module name: orchestrator.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
+
 
 """
 Orchestrator Implementation for WattleFlow Workflow
@@ -132,5 +132,6 @@ class Orchestrator(IEventSource, IFacade):
 if __name__ == "__main__":
     import gc
     import unittest
+
     unittest.main()
     gc.collect()

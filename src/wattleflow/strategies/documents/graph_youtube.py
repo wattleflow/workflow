@@ -1,19 +1,22 @@
-# Module Name: youtube_graph.py
+# Module name: youtube_graph.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-# Description: This module provides strategies for generating and storing YouTubeGraph
-# documents within the Wattleflow Workflow framework. It includes utilities
-# to create, manage, and maintain structured representations of YouTube data.
+
 
 """
-This module defines utilities for generating and storing YouTubeGraph
-documents within the Wattleflow Workflow framework. It outlines strategies
-to create, manage, and maintain YouTube-related graph data efficiently.
+This module defines utility for handling YouTubeGraph documents
+within the Wattleflow Workflow framework. It provides strategies
+to create and manage YouTube-related graph data efficiently.
 """
 
+
+import logging
+
+from abc import ABC
 from datetime import datetime
 from pathlib import Path
+from rdflib import Graph, Literal, Namespace, Node, URIRef
 from typing import Dict, List, Optional
 
 from wattleflow.core import (
@@ -24,6 +27,7 @@ from wattleflow.core import (
     IWattleflow,
 )
 from wattleflow.concrete import (
+    Document,
     DocumentFacade,
     StrategyCreate,
     StrategyWrite,
@@ -33,6 +37,82 @@ from wattleflow.drivers import FileTypes
 from wattleflow.helpers import (
     Attribute,
 )
+
+
+class YoutubeGraph(Document[Graph], ABC):  # type: ignore
+    def __init__(
+        self,
+        source: str,
+        level: int = logging.NOTSET,
+        handler: Optional[logging.Handler] = None,
+    ):
+        graph = Graph()
+        namespace = Namespace("urn:wattleflow:youtubegraph#")  # EX
+        subject = URIRef(f"urn:wattleflow:youtubegraph:{source}")  # type: ignore # DOC
+        graph.bind("ex", namespace)
+        graph.bind("doc", subject)
+
+        Document.__init__(self, content=graph, level=level, handler=handler)
+        self.update_metadata("namespace", namespace)
+        self.update_metadata("subject", subject)
+
+    @property
+    def graph(self) -> Graph:
+        return self._content  # type: ignore
+
+    @property
+    def size(self) -> int:
+        content = self.metadata.get("transcript", [{}])
+        return len(content)  # type: ignore
+
+    @property
+    def uri(self) -> str:
+        return self.metadata.uri  # type: ignore
+
+    def specific_request(self) -> "YoutubeGraph":
+        return self
+
+    def add_predicate(self, predicate: URIRef, value: str):
+        self._content.add((self.subject, predicate, Literal(value)))  # type: ignore
+        self._lastchange = datetime.now()
+
+    def remove(self, predicate: URIRef, value: object):
+        self._content.remove((self._subject, predicate, Literal(value)))  # type: ignore
+        self._lastchange = datetime.now()
+
+    def clear(self):
+        self._content.remove((None, None, None))  # type: ignore
+        self._content = Graph(identifier=self.subject)  # type: ignore
+        self._lastchange = datetime.now()
+
+    def get(self, predicate: URIRef, default: Optional[Node] = None) -> Optional[Node]:
+        try:
+            result = self._content.value(  # type: ignore
+                subject=self.subject,  # type: ignore
+                predicate=predicate,
+                default=default,
+            )
+            return result
+        except Exception as e:
+            self.error(msg=Event.Getting.value, error=str(e))
+            return default
+
+    def update_graph(self, new_graph: Graph):
+        copied = Graph(identifier=new_graph.identifier)
+
+        for triple in new_graph:
+            copied.add(triple)
+
+        for prefix, ns in new_graph.namespaces():
+            copied.bind(prefix, ns, override=True)
+
+        self.update_content(copied)
+
+    def __getattr__(self, name: str) -> object:
+        obj = self.metadata.get(name, None)
+        if obj is None:
+            raise ValueError(f"Property: {name} does not exist in the document!")
+        return obj
 
 
 class CreateYoutubeDocument(StrategyCreate):
@@ -241,7 +321,7 @@ class WriteYoutubeDocument(StrategyWrite):
 
         output = self.repository.driver.write(  # type: ignore
             filename=filename,
-            ftype=FileTypes.graph,
+            ftype=FileTypes.GRAPH,
             document=graph,
         )  # type: ignore
 

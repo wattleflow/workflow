@@ -1,16 +1,15 @@
-# Module Name: loadwer.py
+# Module name: loadeer.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-# Description: This module defines a concrete strategy loader class within the Wattleflow
-# framework. It provides functionality for dynamically loading and managing
-# strategy implementations.
+
 
 """
 Description: This module defines a concrete strategy loader class within the Wattleflow
 framework. It provides functionality for dynamically loading and managing
 strategy implementations.
 """
+
 
 import os
 from importlib import import_module

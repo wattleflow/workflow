@@ -1,6 +1,6 @@
-# Module Name: system.py
+# Module name: system.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
@@ -38,7 +38,7 @@ from wattleflow.core import IWattleflow
 from wattleflow.concrete.logger import AuditLogger
 from wattleflow.constants import Event
 from wattleflow.constants.keys import KEY_CONFIG_FILE_NAME
-from wattleflow.helpers.textnorm import TextNorm
+from wattleflow.helpers.normaliser import Normaliser
 
 
 class ClassLoader(IWattleflow, ABC):  # type: ignore
@@ -196,7 +196,7 @@ class FileStorage:
             self.path.mkdir(parents=True, exist_ok=True)
 
         name = (
-            TextNorm.filename_from(self.origin.name) if normalised else self.origin.name
+            Normaliser.transform(self.origin.name) if normalised else self.origin.name
         )
 
         self.filename = self.path.joinpath(name).with_suffix(self.origin.suffix)

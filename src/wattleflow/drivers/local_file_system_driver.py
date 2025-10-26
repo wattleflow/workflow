@@ -1,19 +1,27 @@
-# Module Name: drivers/flatfilesystem.py
-# Description: This modul contains driver classes.
+# Module name: flatfilesystem.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
 import os
+import logging
 import pandas as pd
 from enum import Enum
 from rdflib import Graph
 from pathlib import Path
-from wattleflow.core import IWattleflow
-from wattleflow.concrete import GenericDriverClass
+from typing import Generator, Optional
+from wattleflow.concrete import GenericDriverClass, GenericRepository
 from wattleflow.helpers import TextNorm
 from wattleflow.constants.enums import Event
+
+
+class FileTypes(Enum):
+    TEXT = 1
+    CSV = 2
+    JSON = 3
+    DATAFRAME = 4
+    GRAPH = 5
 
 
 class FileStorage:
@@ -35,9 +43,7 @@ class FileStorage:
         if create and self.path.exists() is False:
             self.path.mkdir(parents=True, exist_ok=True)
 
-        name = (
-            TextNorm.filename_from(self.origin.name) if normalised else self.origin.name
-        )
+        name = TextNorm.transform(self.origin.name) if normalised else self.origin.name
 
         self.filename = self.path.joinpath(name).with_suffix(self.origin.suffix)
 
@@ -57,91 +63,208 @@ class FileStorage:
         return out_dir.joinpath(self.filename.name)
 
 
-class FileTypes(Enum):
-    csv = 1
-    graph = 2
-    json = 3
-    text = 4
-    dataframe = 5
-
-
 class LocalFileSystemDriver(GenericDriverClass):
-    def __init__(self, caller: IWattleflow, repository_path: str):
-        self.parent = caller
-        self.repository_path = repository_path
+    def __init__(
+        self,
+        repository_path: str,
+        level: int,
+        handler: Optional[logging.Handler] = None,
+        create: bool = False,
+        normalised: bool = True,
+    ) -> None:
+        GenericDriverClass.__init__(
+            self,
+            level=level,
+            handler=handler,
+            lazy_load=False,
+            allowed=["current_path", "create", "normalised", "repository_path"],
+            create=create,
+            normalised=normalised,
+            repository_path=repository_path,
+        )
 
     def load(self) -> None:
-        pass
+        self.current_path: Path = Path(self.repository_path)
 
     def move_to_subdir(self, name: str, mkdir=True) -> str:
-        new_repository_path = Path(self.repository_path).joinpath(name).absolute()
+        self.debug(
+            msg=Event.Move.value,
+            name=name,
+            mkdir=mkdir,
+        )
+
+        self.current_path = Path(self.current_path).joinpath(name).absolute()  # type: ignore
+
         if mkdir:
-            if new_repository_path.exists() is False:
-                new_repository_path.mkdir(parents=True)
+            if self.current_path.exists() is False:
+                self.current_path.mkdir(parents=True)
 
-        self.repository_path = str(new_repository_path)
-
-        return self.repository_path
+        self.debug(
+            msg=Event.Move.value,
+            step=Event.Completed.value,
+            current_path=str(self.current_path.resolve()),
+        )
+        return str(self.current_path.resolve())
 
     def read(self, identifier: str) -> FileStorage:
-        self.parent.debug(  # type: ignore
+        self._repository.debug(  # type: ignore
             msg=Event.Read.value,
             id=identifier,
         )
         return FileStorage(
-            self.repository_path, filename=identifier, create=False, normalised=False
+            repository_path=str(self.repository_path.resolve()),  # type: ignore
+            filename=identifier,
+            create=False,
+            normalised=False,
         )
 
     def write(self, filename: str, ftype: FileTypes, data: object, **kwargs) -> str:
-        if ftype == FileTypes.csv:
-            return self._write_csv(filename=filename, data=data, **kwargs)  # type: ignore
-        elif ftype == FileTypes.graph:
-            return self._write_graph(filename=filename, data=data, **kwargs)  # type: ignore
-        elif ftype == FileTypes.json:
-            return self._write_json(filename=filename, data=data, **kwargs)  # type: ignore
-        elif ftype == FileTypes.text:
+        self.debug(
+            msg=Event.Write.value,
+            ftype=ftype.value,
+            data=type(data.__class__.__name__),
+            **kwargs,
+        )
+        if ftype == FileTypes.TEXT:
             return self._write_txt(filename=filename, data=data, **kwargs)  # type: ignore
+        if ftype == FileTypes.CSV:
+            return self._write_csv(filename=filename, data=data, **kwargs)  # type: ignore
+        elif ftype == FileTypes.JSON:
+            return self._write_json(filename=filename, data=data, **kwargs)  # type: ignore
+        elif ftype == FileTypes.DATAFRAME:
+            return self._write_csv(filename=filename, data=data, **kwargs)  # type: ignore
+        elif ftype == FileTypes.GRAPH:
+            return self._write_graph(filename=filename, data=data, **kwargs)  # type: ignore
         else:
             raise TypeError("Unknown file type!")
 
-    def _write_csv(self, filename: str, data: pd.DataFrame, **kwargs) -> str:
-        self.parent.debug(  # type: ignore
+    def search(
+        self, pattern: str, case_sensitive: bool = False, recursive: bool = False
+    ) -> Generator[Path, None, None]:
+        search_path: Path = getattr(self, "current_path", Path(self.repository_path))
+        search_path = search_path.resolve()
+
+        self.debug(
+            msg=Event.Search.value,
+            step=Event.Started.value,
+            pattern=pattern,
+            case_sensitive=case_sensitive,
+            recursive=recursive,
+            search_path=str(search_path),
+        )
+
+        mask = "**/*"  # if recursive else "*/*"
+        iterator = (
+            search_path.rglob(mask, case_sensitive=case_sensitive)
+            if recursive
+            else search_path.glob(mask, case_sensitive=case_sensitive)
+        )
+
+        for path in iterator:
+            if not case_sensitive:
+                if pattern.lower() not in str(path.name).lower() and "*" not in pattern:
+                    continue
+            yield path
+
+        self.debug(
+            msg=Event.Search.value,
+            step=Event.Completed.value,
+        )
+
+    # def _write_bytes(self, filename: str, data: str, **kwargs) -> int:
+    #     pass
+
+    def _write_txt(self, filename: str, data: str, **kwargs) -> str:
+        self.debug(
             msg=Event.Write.value,
             step=Event.Started.value,
-            fnc="LocalFileSystemDriver:write_to_text",
             filename=filename,
             **kwargs,
         )
 
         storage = FileStorage(
-            repository_path=self.repository_path,  # type: ignore
+            repository_path=str(self.current_path.resolve()),
             filename=filename,
             create=True,
             normalised=True,
         )
-        output = str(storage.with_suffix(".csv"))
-        data.to_csv(output, **kwargs)
 
-        self.parent.info(  # type: ignore
+        suffix = kwargs.get("suffix", ".txt")
+        output = storage.with_suffix(suffix)
+        output.write_text(data)
+
+        self.debug(
             msg=Event.Write.value,
             step=Event.Completed.value,
-            fnc="LocalFileSystemDriver:write_csv",
-            filename=storage.filename,
+            output=output,
         )
 
-        return str(storage.filename)
+        return str(output.absolute())
 
-    def _write_graph(self, filename: str, data: Graph, **kwargs) -> str:
-        self.parent.debug(  # type: ignore
+    def _write_csv(self, filename: str, data: pd.DataFrame, **kwargs) -> str:
+        self.debug(
             msg=Event.Write.value,
             step=Event.Started.value,
-            fnc="LocalFileSystemDriver:write_to_text",
             filename=filename,
             **kwargs,
         )
 
         storage = FileStorage(
-            repository_path=self.repository_path,  # type: ignore
+            repository_path=str(self.current_path.resolve()),
+            filename=filename,
+            create=True,
+            normalised=True,
+        )
+
+        suffix = kwargs.get("suffix", ".csv")
+        output = str(storage.with_suffix(suffix).absolute())
+        data.to_csv(output, **kwargs)
+
+        self.debug(
+            msg=Event.Write.value,
+            step=Event.Completed.value,
+            filename=storage.filename,
+        )
+
+        return output
+
+    def _write_json(self, filename: str, data: pd.DataFrame, **kwargs) -> str:
+        self.debug(  # type: ignore
+            msg=Event.Write.value,
+            step=Event.Started.value,
+            filename=filename,
+            **kwargs,
+        )
+
+        storage = FileStorage(
+            repository_path=str(self.current_path.resolve()),
+            filename=filename,
+            create=True,
+            normalised=True,
+        )
+
+        suffix = kwargs.get("suffix", ".json")
+        output = str(storage.with_suffix(suffix))
+        data.to_json(output, **kwargs)
+
+        self.debug(  # type: ignore
+            msg=Event.Write.value,
+            step=Event.Completed.value,
+            filename=output,
+        )
+
+        return output
+
+    def _write_graph(self, filename: str, data: Graph, **kwargs) -> str:
+        self.debug(
+            msg=Event.Write.value,
+            step=Event.Started.value,
+            filename=filename,
+            **kwargs,
+        )
+
+        storage = FileStorage(
+            repository_path=str(self.current_path.resolve()),
             filename=filename,
             create=True,
             normalised=True,
@@ -153,70 +276,13 @@ class LocalFileSystemDriver(GenericDriverClass):
             indent=2,
         )
 
-        self.parent.info(  # type: ignore
+        self.debug(
             msg=Event.Write.value,
             step=Event.Completed.value,
-            fnc="LocalFileSystemDriver:write_to_text",
             filename=str(storage.filename.absolute()),
         )
 
         return str(storage.filename.absolute())
 
-    def _write_json(self, filename: str, data: pd.DataFrame, **kwargs) -> str:
-        self.parent.debug(  # type: ignore
-            msg=Event.Write.value,
-            step=Event.Started.value,
-            fnc="LocalFileSystemDriver:write_to_text",
-            filename=filename,
-            **kwargs,
-        )
-
-        storage = FileStorage(
-            repository_path=self.repository_path,  # type: ignore
-            filename=filename,
-            create=True,
-            normalised=True,
-        )
-
-        output = str(storage.with_suffix(".json"))
-        data.to_json(output, **kwargs)
-
-        self.parent.info(  # type: ignore
-            msg=Event.Write.value,
-            step=Event.Completed.value,
-            fnc="LocalFileSystemDriver:write_to_text",
-            filename=output,
-        )
-
-        return output
-
-    def _write_txt(self, filename: str, data: str, **kwargs) -> str:
-        self.parent.debug(  # type: ignore
-            msg=Event.Write.value,
-            step=Event.Started.value,
-            fnc="LocalFileSystemDriver:write_to_text",
-            filename=filename,
-            **kwargs,
-        )
-
-        storage = FileStorage(
-            repository_path=self.repository_path,  # type: ignore
-            filename=filename,
-            create=True,
-            normalised=True,
-        )
-
-        output = storage.with_suffix(".txt")
-        output.write_text(data)
-
-        self.parent.info(  # type: ignore
-            msg=Event.Write.value,
-            step=Event.Completed.value,
-            fnc="LocalFileSystemDriver:write_to_text",
-            output=output,
-        )
-
-        return str(output.absolute())
-
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}:{self.repository_path}"
+        return f"{self.__class__.__name__}:{str(self.current_path.resolve())}"  # type: ignore

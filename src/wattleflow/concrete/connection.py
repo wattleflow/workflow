@@ -1,3 +1,18 @@
+# Module name: connection.py
+# Author: (wattleflow@outlook.com)
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# License: Apache 2 Licence
+
+
+"""
+Description: Defines abstract, observable connection classes for the Wattleflow framework.
+Provides a stateful connection lifecycle (create, connect, disconnect), observer notifications,
+ ontext-manager support, and integrated audit logging. Implements a PresetDecorator hook
+for runtime configuration and exposes a generic operation interface for connect/disconnect actions.
+"""
+
+from __future__ import annotations
+
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -51,7 +66,7 @@ class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[T], AB
     __slots__ = (
         "_connection",
         "_connection_name",
-        "_initialized",
+        "_initialised",
         "_context",
         "_engine",
         "_logger",

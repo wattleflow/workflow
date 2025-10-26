@@ -1,16 +1,15 @@
-# Module Name: text_document.py
+# Module name: text_document.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2024 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-# Description: This module provides strategies for generating and storing TextDocuments
-# within the Wattleflow Workflow framework. It includes utilities to create,
-# manage, and maintain text-based document objects efficiently.
+
 
 """
-This module defines utilities for creating and writing TextDocuments
-within the Wattleflow Workflow framework. It provides strategies to
-generate and manage text-based document objects efficiently.
+This module defines utility for handling text-based documents
+within the Wattleflow Workflow framework. It provides strategies
+to create and manage text document data efficiently.
 """
+
 
 from datetime import datetime
 from typing import Optional
@@ -111,7 +110,7 @@ class WriteTextDocument(StrategyWrite):
 
         output = self.repository.driver.write(  # type: ignore
             filename=filename,
-            ftype=FileTypes.text,
+            ftype=FileTypes.TEXT,
             document=document,
         )  # type: ignore
 

@@ -1,8 +1,8 @@
-# Module Name: concrete/logger.py
-# Description: This modul contains audit logger classes.
+# Module name: logger.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
+
 
 from __future__ import annotations
 from typing import Optional

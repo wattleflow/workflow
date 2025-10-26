@@ -1,8 +1,8 @@
-# Module Name: documents/dataframe.py
+# Module name: dataframe.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-# Description: This modul contains DataFrameDocument class.
+
 
 from pandas import DataFrame
 from logging import NOTSET, Handler

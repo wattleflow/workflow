@@ -1,6 +1,6 @@
-# Module Name: schedulers/cron_job.py
+# Module name: cron_job.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
@@ -29,9 +29,7 @@ class CronJobScheduler(Scheduler):
         while True:
             try:
                 self.setup_orchestrator()
-                self.start_orchestration(
-                    parallel=True
-                )  # Can be changed based on config
+                self.start_orchestration(parallel=True)
             except Exception as e:
                 self.emit_event(event=Event.CronJobSchedulerError, error=str(e))
             finally:

@@ -1,8 +1,8 @@
-# Module Name: documents/file.py
+# Module name: file.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-# Description: This modul contains FileDocument class.
+
 
 from abc import ABC
 from datetime import datetime

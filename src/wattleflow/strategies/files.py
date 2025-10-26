@@ -1,8 +1,8 @@
-# Module Name: strategies/files.py
+# Module name: files.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-# Description: This modul contains concrete name filter classes.
+
 
 import re
 from fnmatch import fnmatch

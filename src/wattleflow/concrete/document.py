@@ -1,3 +1,18 @@
+# Module name: document.py
+# Author: (wattleflow@outlook.com)
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# License: Apache 2 Licence
+
+
+"""
+Description: Defines the core document abstraction layer within the Wattleflow framework.
+Provides generic Document, Adapter, and Facade classes implementing the
+Adapter–Facade pattern to manage content, metadata, and identity of data
+objects. Includes type-safe content updates, UTC-based metadata tracking,
+and consistent audit logging for document lifecycle operations.
+"""
+
+
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from logging import Handler, NOTSET
@@ -13,7 +28,12 @@ A = TypeVar("A", bound=IAdaptee)
 
 
 class Document(IAdaptee, Generic[T], AuditLogger, ABC):
-    __slots__ = ("_content", "_identifier", "_metadata", "_initialized")
+    __slots__ = (
+        "_content",
+        "_identifier",
+        "_metadata",
+        "_initialised",
+    )
 
     def __init__(
         self,
@@ -24,9 +44,14 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
         IAdaptee.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
 
-        self.debug(msg=Event.Constructor.value, level=level, handler=handler)
+        self.debug(
+            msg=Event.Constructor.value,
+            step=Event.Started.value,
+            level=level,
+            handler=handler,
+        )
 
-        # internal only id
+        # internal interfacwe
         self._identifier: str = str(uuid4())
         self._content: Optional[T] = None
         self._metadata: Dict[str, object] = {}
@@ -34,13 +59,17 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
         # lock after first assignemnt
         self._expected_type: Optional[Type[object]] = None
 
+        self.update_metadata(key="created_at", value=datetime.now(timezone.utc))
         self.update_content(content=content)
-        self.update_metadata(key="created", value=datetime.now(timezone.utc))
-        self.update_metadata(key="changed", value=datetime.now(timezone.utc))
+
+        self.debug(msg=Event.Constructor.value, step=Event.Completed.value)
 
     @property
-    def content(self) -> Optional[T]:
-        return getattr(self, "_content", None)
+    def content(self) -> T:
+        obj = getattr(self, "_content", None)
+        if obj is None:
+            raise ValueError("Content value is missing or uninitialised.")
+        return obj
 
     @property
     def identifier(self) -> str:
@@ -67,7 +96,7 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
         if content is None:
             self._content = None  # Can clear the content
             self.update_metadata("last_change_key", "content")
-            self.update_metadata("last_change_time", datetime.now(timezone.utc))
+            self.update_metadata("last_change_time", self._utc_time_stamp())
             return
 
         if self._expected_type is None:
@@ -80,7 +109,7 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
 
         self._content = content
         self.update_metadata("last_change_key", "content")
-        self.update_metadata("last_change_time", datetime.now(timezone.utc))
+        self.update_metadata("last_change_time", self._utc_time_stamp())
 
     def update_metadata(self, key: str, value: object) -> None:
         self.debug(
@@ -97,7 +126,10 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
 
         self._metadata[key] = value
         self._metadata["last_change_key"] = key
-        self._metadata["last_change_time"] = datetime.now(timezone.utc)
+        self._metadata["last_change_time"] = self._utc_time_stamp()
+
+    def _utc_time_stamp(self) -> datetime:
+        return datetime.now(timezone.utc)
 
     def __eq__(self, other: object) -> bool:
         return (
@@ -111,9 +143,6 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
 
     def __str__(self) -> str:
         return f"{self.identifier}"
-
-    def __hash__(self) -> int:
-        return hash((type(self), self.identifier))
 
 
 # Adapter with specific_request adaptee object call

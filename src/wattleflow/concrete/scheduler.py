@@ -1,8 +1,8 @@
-# Module Name: concrete/scheduler.py
-# Description: This modul contains scheduler classes.
+# Module name: scheduler.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
+
 
 """
 The Scheduler class:
@@ -10,6 +10,7 @@ The Scheduler class:
 - Use event-driven behavior from the observer pattern.
 - Support asynchronous execution and cron-like scheduling.
 """
+
 
 import threading
 from abc import ABC
@@ -29,7 +30,7 @@ class Scheduler(IScheduler, AuditLogger, ABC):
 
     __slots__ = (
         "_lock",
-        "_initialized",
+        "_initialised",
         "_running",
         "_counter",
         "_listeners",
@@ -59,9 +60,9 @@ class Scheduler(IScheduler, AuditLogger, ABC):
 
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
-        if not hasattr(self, "_initialized"):
+        if not hasattr(self, "_initialised"):
             self._lock = threading.Lock()
-            self._initialized = True
+            self._initialised = True
             self._running = False
             self._counter = 0
             self._listeners = []

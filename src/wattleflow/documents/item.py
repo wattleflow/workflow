@@ -1,8 +1,8 @@
-# Module Name: documents/item.py
+# Module name: item.py
 # Author: (wattleflow@outlook.com)
-# Copyright: (c) 2022-2025 WattleFlow
+# Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-# Description: This modul has string ItemDocument class.
+
 
 from logging import NOTSET, Handler
 from typing import Optional
