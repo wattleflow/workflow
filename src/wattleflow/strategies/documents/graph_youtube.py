@@ -293,38 +293,38 @@ class WriteYoutubeDocument(StrategyWrite):
         Attribute.mandatory(caller=self, name="repository", cls=IRepository, **kwargs)
         Attribute.mandatory(caller=self, name="processor", cls=IProcessor, **kwargs)
 
-        graph: YoutubeGraph = facade.request()  # type: ignore
-        filename: str = graph.get(URIRef("hasFilename"), graph.identifier)  # type: ignore
+        document: YoutubeGraph = facade.request()  # type: ignore
+        filename: str = document.get(URIRef("hasFilename"), document.identifier)  # type: ignore
         filename = Path(filename).with_suffix(".json")  # type: ignore
 
-        if not graph.size > 0:  # type: ignore
+        if not document.size > 0:  # type: ignore
             self.warning(
                 msg=Event.Execute.value,
                 step=Event.Check.value,
                 error="Graph’s feeling a bit empty today!",
-                graph=graph,
-                size=graph.size,
+                document=document,
+                size=document.size,
                 filename=filename,
             )
             return False
 
         # update the document metadata metadata ...
-        graph.update_metadata("stored_by", caller.name)
-        graph.update_metadata("stored_at", datetime.now())
+        document.update_metadata("stored_by", caller.name)
+        document.update_metadata("stored_at", datetime.now())
 
         # Utilises driver to manage data persistance.
         output = self.repository.driver.write(  # type: ignore
             filename=filename,
             ftype=FileTypes.GRAPH,
-            document=graph,
+            data=document.content,
         )  # type: ignore
 
         self.info(
             msg=Event.Created.value,
             step=Event.Completed.value,
-            document=graph,
+            document=document,
             output=output,
-            size=graph.size,
+            size=document.size,
         )
 
         return True

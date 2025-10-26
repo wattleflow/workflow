@@ -13,7 +13,7 @@ from rdflib import Graph
 from pathlib import Path
 from typing import Generator, Optional
 from wattleflow.concrete import GenericDriverClass, AuditException
-from wattleflow.helpers import Normaliser
+from wattleflow.helpers import Attribute, Normaliser
 from wattleflow.constants.enums import Event
 
 
@@ -269,6 +269,8 @@ class LocalFileSystemDriver(GenericDriverClass):
             filename=filename,
             **kwargs,
         )
+
+        Attribute.evaluate(caller=self, target=data, expected_type=Graph)
 
         storage = FileStorage(
             repository_path=str(self.current_path.resolve()),

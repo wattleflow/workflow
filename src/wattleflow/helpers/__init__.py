@@ -13,7 +13,7 @@ from .localmodels import DownloadedModels, StoredModels
 from .macros import TextMacros
 from .normaliser import CaseText, Normaliser
 from .pathadder import show_paths, override_paths
-from .sanitiser import sanitised_url
+from .sanitiser import sanitised_uri
 from .streams import TextStream, TextFileStream
 from .system import (
     check_path,
@@ -29,7 +29,7 @@ from .system import (
 __all__ = [
     "decorator",
     "check_path",
-    "sanitised_url",
+    "sanitised_uri",
     "show_paths",
     "Attribute",
     "AttributeException",

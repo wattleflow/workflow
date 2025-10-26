@@ -42,8 +42,8 @@ class GraphHtml(Document[Graph]):
         handler: Optional[logging.Handler] = None,
     ):
         graph = Graph()
-        namespace = Namespace("urn:wattleflow:HtmlGraph#")
-        subject = URIRef(f"urn:wattleflow:HtmlGraph:{uri}")
+        namespace = Namespace("urn:wattleflow:htmlgraph#")
+        subject = URIRef(f"urn:wattleflow:htmlgraph:{uri}")
         graph.bind("ex", namespace)
         graph.bind("doc", subject)
 
