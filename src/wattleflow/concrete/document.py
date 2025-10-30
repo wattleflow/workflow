@@ -55,7 +55,6 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
         self._identifier: str = str(uuid4())
         self._content: Optional[T] = None
         self._metadata: Dict[str, object] = {}
-
         # lock after first assignemnt
         self._expected_type: Optional[Type[object]] = None
 
@@ -113,20 +112,23 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
 
     def update_metadata(self, key: str, value: object) -> None:
         self.debug(
-            msg=Event.Updating.value,
-            fnc="update_metadata",
+            msg=Event.Update.value,
+            step=Event.Started.value,
             key=key,
             value=value,
         )
 
-        if key is None or not str(key).strip():
-            raise ValueError(
-                f"{self.name}.update_metadata(key, value): key must be non-empty"
-            )
+        if key is None:
+            raise ValueError(f"{self.name}.update_metadata(key must be non-empty)")
 
         self._metadata[key] = value
         self._metadata["last_change_key"] = key
         self._metadata["last_change_time"] = self.utc_time_stamp()
+
+        self.debug(
+            msg=Event.Update.value,
+            step=Event.Completed.value,
+        )
 
     def utc_time_stamp(self) -> datetime:
         return datetime.now(timezone.utc)
