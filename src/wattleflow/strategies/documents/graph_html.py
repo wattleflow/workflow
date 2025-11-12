@@ -271,16 +271,12 @@ class WriteGraphHtmlDocument(StrategyWrite):
         graph.update_metadata("storage_pipeline", caller.name.lower())
         graph.update_metadata("storage_time", graph.utc_)
 
-        if self.repository.driver.current_path.exists() is False:  # type: ignore
-            self.repository.driver.move_to_subdir(  # type: ignore
-                name=caller.name.lower(),
-                mkdir=True,
-            )
-
         output = self.repository.driver.write(  # type: ignore
             filename=filename.name,
             ftype=FileTypes.GRAPH,
             data=graph.content,
+            subdir=caller.name.lower(),
+            mkdir=True,
             destination=filename,
             format="json-ld",
             indent=2,

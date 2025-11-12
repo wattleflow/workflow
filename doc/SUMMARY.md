@@ -8,8 +8,8 @@ The Wattleflow achitecture aims at the proposed strategic approach with a strong
 - standardising data transmission and protection architecture;
 - applying modular and contextual modeling capabilities, based on risk appetite and risk analysis hardening the information security;
 - investing in the capability development for specialist workforce within APS and the realm of information security and audit management;
-- building scalable data infrastructure resilient to both regulatory and technological change.
-- building modular and extensibile connectivity to allowing integration with partner data sources and vendor products
+- building scalable data infrastructure resilient to both regulatory and technological change; and
+- building modular and extensibile connectivity to allowing integration with partner data sources and vendor products.
 
 Information systems are no longer merely technical infrastructure — they are the foundation of trust, legal accountability, and competitive advantage. This approach, grounded in principles and theories of information sciences, social sciences and cyber security studies, supports the development of systems that are compliant, resilient, and sustainable for the public service entities in an open and democratic society.
 

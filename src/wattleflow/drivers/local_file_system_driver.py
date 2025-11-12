@@ -93,26 +93,6 @@ class LocalFileSystemDriver(GenericDriverClass):
     def load(self) -> None:
         self.current_path: Path = Path(self.repository_path)
 
-    def move_to_subdir(self, name: str, mkdir=True) -> str:
-        self.debug(
-            msg=Event.Move.value,
-            name=name,
-            mkdir=mkdir,
-        )
-
-        self.current_path = Path(self.current_path).joinpath(name).absolute()  # type: ignore
-
-        if mkdir:
-            if self.current_path.exists() is False:
-                self.current_path.mkdir(parents=True)
-
-        self.debug(
-            msg=Event.Move.value,
-            step=Event.Completed.value,
-            current_path=str(self.current_path.resolve()),
-        )
-        return str(self.current_path.resolve())
-
     def read(self, identifier: str) -> FileStorage:
         self._repository.debug(  # type: ignore
             msg=Event.Read.value,
@@ -132,6 +112,15 @@ class LocalFileSystemDriver(GenericDriverClass):
             data=type(data.__class__.__name__),
             **kwargs,
         )
+
+        subdir = kwargs.pop("subdir", None)
+        mkdir = kwargs.pop("mkdir", False)
+
+        if subdir:
+            self.__change_dir(subdir, mkdir)
+        else:
+            self.load()
+
         if ftype == FileTypes.TEXT:
             return self._write_txt(filename=filename, data=data, **kwargs)  # type: ignore
         if ftype == FileTypes.CSV:
@@ -177,6 +166,26 @@ class LocalFileSystemDriver(GenericDriverClass):
             msg=Event.Search.value,
             step=Event.Completed.value,
         )
+
+    def __change_dir(self, name: str, mkdir=True) -> str:
+        self.debug(
+            msg=Event.Move.value,
+            name=name,
+            mkdir=mkdir,
+        )
+
+        self.current_path = Path(self.repository_path).joinpath(name).absolute()  # type: ignore
+
+        if mkdir:
+            if self.current_path.exists() is False:
+                self.current_path.mkdir(parents=True)
+
+        self.debug(
+            msg=Event.Move.value,
+            step=Event.Completed.value,
+            current_path=str(self.current_path.resolve()),
+        )
+        return str(self.current_path.resolve())
 
     # def _write_bytes(self, filename: str, data: str, **kwargs) -> int:
     #     pass
