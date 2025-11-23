@@ -14,14 +14,16 @@ data, enabling flexible and maintainable system configuration handling.
 
 from __future__ import annotations
 from logging import NOTSET, Handler
-from typing import final, Any, Optional, Union
 from pathlib import Path
+from typing import final, Any, Optional, Union
 from wattleflow.constants.keys import (
     KEY_CLASS_NAME,
     KEY_STRATEGY,
     KEY_SECTION_PROJECT,
     KEY_SSH_KEY_FILENAME,
 )
+from wattleflow.concrete.logger import AuditLogger
+from wattleflow.constants.enums import Event
 from wattleflow.helpers.system import ClassLoader
 
 try:
@@ -31,7 +33,7 @@ except Exception:
 
 
 @final
-class Config:
+class Config(AuditLogger):
     __slots__ = (
         "config_file",
         "_key_filename",
@@ -47,7 +49,7 @@ class Config:
         level: int = NOTSET,
         handler: Optional[Handler] = None,
     ):
-        super().__init__()
+        AuditLogger.__init__(self, level=level, handler=handler)
         if Path(config_file).exists() is False:
             raise FileNotFoundError(
                 f"{self}: invalid or missing `config_path` {config_file}!"
@@ -74,7 +76,8 @@ class Config:
             for key in keys:
                 result = result[key]  # type: ignore
             return result
-        except (KeyError, TypeError):
+        except (KeyError, TypeError) as e:
+            self.warning(Event.Find.value, missing=str(e))
             return None
 
     def get(

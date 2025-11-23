@@ -391,7 +391,7 @@ class TempPathHelper:
     def __init__(self, file_path: Optional[str], create_dir=True):
 
         if (not file_path) or (file_path.strip() == ""):
-            raise ValueError(f"{file_path} must be assigned in yaml config.")
+            raise ValueError(f"file_path: {file_path} is missing in yaml config.")
 
         if file_path.startswith("TEMP"):
             file_path = file_path.replace("TEMP", gettempdir())
