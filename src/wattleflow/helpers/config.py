@@ -160,5 +160,6 @@ class Config(AuditLogger):
         ).instance
 
     def __repr__(self) -> str:
+        name = getattr(self, "name", "Config")
         config_file = getattr(self, "config_file", "unknown")
-        return f"{self}:{config_file}"
+        return f"{name}:{config_file}"

@@ -9,7 +9,7 @@ write_to = "src/wattleflow/concrete/_version.py"
 
 [project]
 name = "wattleflow-workflow"
-version = "0.0.0.59"
+version = "0.0.0.60"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"
@@ -32,7 +32,7 @@ classifiers = [
 # "pyyaml",
 dependencies = [
     "cryptography",
-    "wattleflow>=0.0.0.25",
+    "wattleflow>=0.0.0.30",
 ]
 
 [project.urls]
