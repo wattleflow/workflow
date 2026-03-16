@@ -193,8 +193,9 @@ class Attribute:
             raise ValueError(f"Failed to instantiate {obj}: {e}") from e
 
         if not isinstance(instance, cls):
-            raise TypeError(
-                f"Loaded instance of {obj} is not a subclass of {cls.__name__}"
+            error = f"Loaded instance of {obj} is not a subclass of {cls.__name__}"
+            raise AttributeException(
+                caller=caller, error=error, name=name, obj=obj, cls=cls, **kwargs
             )
 
         return instance

@@ -6,6 +6,7 @@
 
 from .attribute import Attribute, AttributeException
 from .config import Config
+from .filetypes import FileType
 from .collections import DequeList
 from .dictionaries import AttributeDict, Dictionary
 from .handlers import TraceHandler
@@ -38,6 +39,7 @@ __all__ = [
     "Config",
     "ClassLoader",
     "DequeList",
+    "FileType",
     "FileStorage",
     "DownloadedModels",
     "Dictionary",

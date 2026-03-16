@@ -164,7 +164,7 @@ class GenericAsyncProcessor(IProcessor, AuditLogger, ABC):
 
         self.debug(
             msg=Event.Constructor.value,
-            status="initialising",
+            status=Event.Initialising.value,
             blackboard=blackboard,
             pipelines=[p.name if isinstance(p, IPipeline) else p for p in pipelines],
             level=level,

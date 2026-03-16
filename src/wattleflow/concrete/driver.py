@@ -14,14 +14,15 @@ driver implementations handling data persistence and transport.
 
 
 import logging
-from abc import abstractmethod
+from abc import abstractmethod, ABC
+from pathlib import Path
 from typing import Any, Optional
 from wattleflow.core import IDriver, ITarget
 from wattleflow.concrete import AuditLogger
 from wattleflow.decorators.preset import PresetDecorator
 
 
-class GenericDriverClass(IDriver, AuditLogger):
+class GenericDriverClass(IDriver, AuditLogger, ABC):
     __slots__ = [
         "_initialised",
         "_lazy_load",
@@ -50,7 +51,7 @@ class GenericDriverClass(IDriver, AuditLogger):
         pass
 
     @abstractmethod
-    def read(self, identifer: str, **kwargs) -> Any:
+    def read(self, uri: Path, **kwargs) -> Any:
         pass
 
     @abstractmethod

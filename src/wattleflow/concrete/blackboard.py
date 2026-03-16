@@ -255,28 +255,27 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         *args,
         **kwargs,
     ) -> ITarget:
-        self.debug(
+        self.info(
             msg=Event.Read.value,
             step=Event.Started.value,
-            source=repository_name,
+            repository_name=repository_name,
             identifier=identifier,
         )
 
         # repository = self._repositories.get(repository_name)
         repository = None
         for obj in self._repositories:
-            if hash(repository) == identifier:
+            # if hash(repository) == repository_name:
+            if obj.name == repository_name:
                 repository = obj
+                break
 
         if not repository:
             msg = f"Repository {repository_name} not registered!"
-            raise ValueError(msg)
+            raise RuntimeError(msg)
 
         self.debug(
-            msg=Event.Read.value,
-            step=Event.Completed.value,
-            repository=repository,
-            identifier=identifier,
+            msg=Event.Read.value, step=Event.Completed.value, repository=repository
         )
 
         return repository.read(identifier=identifier, *args, **kwargs)

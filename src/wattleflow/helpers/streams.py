@@ -2,6 +2,10 @@
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
+#
+# History:
+#   2024-06-01: Initial creation of the TextStream and TextFile. Stream classes for handling text-based streams with macro processing capabilities.
+#   2026-03-16: Added file size limit check to TextFileStream to prevent OOM issues with large files.
 
 
 """
@@ -10,6 +14,7 @@ Wattleflow framework. It provides structured tools for managing and
 processing stream-based naming operations.
 """
 
+__FILE_SIZE_LIMIT__ = 50 * 1024 * 1024  # 50 MB
 
 from typing import Any, List, Optional
 from .macros import TextMacros
@@ -29,7 +34,11 @@ class TextStream:
         return self.__append__(value)
 
     def __append__(self, value: Any) -> "TextStream":
-        if not value:
+        if value is None:
+            return self
+        if isinstance(value, (str, bytes)) and not value:
+            return self
+        if isinstance(value, (list, tuple, dict)) and not value:
             return self
 
         if isinstance(value, (list, tuple)):
@@ -78,16 +87,28 @@ class TextFileStream(TextStream):
         self.filename: Path = Path(file_path)
 
         if not self.filename.exists():
-            raise FileNotFoundError(
-                "{}:{}".format(
-                    self.__class__.__name__,
-                    self.filename.name,
-                )
+            from wattleflow.concrete.exception import AuditException
+
+            raise AuditException(
+                caller=self,
+                error=f"File not found {self.filename.name}",
+                file_path=file_path,
+            )
+
+        # Security check: limit file size to prevent memory issues - OOM
+        file_size = self.filename.stat().st_size
+        if file_size > __FILE_SIZE_LIMIT__:
+            from wattleflow.concrete.exception import AuditException
+
+            raise AuditException(
+                caller=self,
+                error=f"File too large: {file_size} bytes (max {__FILE_SIZE_LIMIT__})",
+                file_path=file_path,
             )
 
         content = self.filename.read_text(encoding=encoding)
 
-        return super().__init__(content, macros)
+        super().__init__(content, macros)
 
     def __repr__(self) -> str:
         return f'TextFileStream(content:"{self.content[:10]}", size: "{self.size}")'

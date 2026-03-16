@@ -131,9 +131,9 @@ class Orchestrator(IEventSource, IFacade):
         self.emit_event(Event.OrchestrationStopped)
 
 
-if __name__ == "__main__":
-    import gc
-    import unittest
+# if __name__ == "__main__":
+#     import gc
+#     import unittest
 
-    unittest.main()
-    gc.collect()
+#     unittest.main()
+#     gc.collect()

@@ -4,16 +4,12 @@
 # License: Apache 2 Licence
 
 
-from .local_file_system_driver import (
-    DriverNotFound,
-    FileStorage,
-    FileTypes,
-    LocalFileSystemDriver,
-)
+from .file_storage import FileStorage
+from .http_file_system_driver import HttpFileSystemDriver
+from .local_file_system_driver import LocalFileSystemDriver
 
 __all__ = [
-    "DriverNotFound",
     "FileStorage",
-    "FileTypes",
+    "HttpFileSystemDriver",
     "LocalFileSystemDriver",
 ]

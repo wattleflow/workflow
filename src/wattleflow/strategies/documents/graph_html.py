@@ -28,7 +28,7 @@ from wattleflow.concrete import (
     StrategyWrite,
 )
 from wattleflow.constants import Event
-from wattleflow.drivers import FileTypes
+from wattleflow.drivers.local_file_system_driver import FileTypes
 from wattleflow.helpers import Attribute, Normaliser
 
 
@@ -37,19 +37,18 @@ class GraphHtml(Document[Graph]):
     def __init__(
         self,
         uri: str,
-        html: str,
         level: int = logging.NOTSET,
         handler: Optional[logging.Handler] = None,
     ):
         graph = Graph()
+
         namespace = Namespace("urn:wattleflow:htmlgraph#")
         subject = URIRef(f"urn:wattleflow:htmlgraph:{uri}")
+
         graph.bind("ex", namespace)
         graph.bind("doc", subject)
 
         Document.__init__(self, content=graph, level=level, handler=handler)
-        self.update_metadata("namespace", namespace)
-        self.update_metadata("subject", subject)
 
         self.debug(
             msg=Event.Constructor.value,
@@ -59,11 +58,14 @@ class GraphHtml(Document[Graph]):
             uri=uri,
         )
 
+        self.update_metadata("namespace", namespace)
+        self.update_metadata("subject", subject)
+
         self.add_predicate(document.namespace.hasUri, uri)  # type: ignore
-        self.add_predicate(document.namespace.hasIdentifier, hash(self))  # type: ignore
-        self.add_predicate(document.namespace.hasNamespace, EX)  # type: ignore
-        self.add_predicate(document.namespace.hasSubject, DOC)  # type: ignore
-        self.add_predicate(document.namespace.hasCreatedAt, datetime.now())  # type: ignore
+        self.add_predicate(document.namespace.hasIdentifier, str(hash(self)))  # type: ignore
+        self.add_predicate(document.namespace.hasNamespace, str(namespace))  # type: ignore
+        self.add_predicate(document.namespace.hasSubject, str(subject))  # type: ignore
+        self.add_predicate(document.namespace.hasCreatedAt, str(datetime.now()))  # type: ignore
 
         self.debug(
             msg=Event.Constructor.value,
@@ -77,7 +79,8 @@ class GraphHtml(Document[Graph]):
 
     @property
     def identifier(self) -> str:
-        return self.identifier
+        # return self.identifier  # RecursionError!
+        return super().identifier
 
     @property
     def size(self) -> int:
@@ -159,7 +162,12 @@ class CreateGraphFromHtml(StrategyCreate):
             )
             return
 
-        document: GraphHtml = Graph(source=self.uri)  # type: ignore
+        # document: GraphHtml = Graph(source=self.uri)  # type: ignore
+        document = GraphHtml(
+            uri=self.uri,  # type: ignore
+            level=self._level,
+            handler=self._handler,
+        )
         facade: DocumentFacade = DocumentFacade(document)
 
         # graph metadata: predicate, value
@@ -269,7 +277,7 @@ class WriteGraphHtmlDocument(StrategyWrite):
 
         # update metadata
         graph.update_metadata("storage_pipeline", caller.name.lower())
-        graph.update_metadata("storage_time", graph.utc_)
+        graph.update_metadata("storage_time", graph.utc_time_stamp())
 
         output = self.repository.driver.write(  # type: ignore
             filename=filename.name,

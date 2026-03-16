@@ -112,15 +112,6 @@ class AuditException(AuditLogger, Exception):
         except Exception as e:
             self.debug(msg=Event.ErrorDetails.value, error=str(e))
 
-    def _get_call_context2(self):
-        try:
-            stack = traceback.extract_stack()
-            self.filename, self.lineno, _, _ = (
-                stack[-4] if len(stack) > 2 else stack[-3]
-            )
-        except Exception as e:
-            self.debug(msg=Event.ErrorDetails.value, error=str(e))
-
     def __repr__(self) -> str:
         return f"error={self.error} in filename={self.filename}:{self.lineno}"
 
@@ -149,7 +140,7 @@ class ConnectionException(AuditException):
     pass
 
 
-class SFTPConnectionError(ConnectionException):
+class DriverNotFound(AuditException):
     pass
 
 
@@ -202,6 +193,10 @@ class RepositoryException(AuditException):
 
 
 class SaltException(AuditException):
+    pass
+
+
+class SFTPConnectionError(ConnectionException):
     pass
 
 

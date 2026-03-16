@@ -2,6 +2,10 @@
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
+#
+# History:
+#   2024-06-01: Initial version created.
+#   2026-03-16: Updated run: error handling for invalid macro formats.
 
 
 """
@@ -42,7 +46,7 @@ ADD_VALUE_ERROR = (
 class TextMacros:
     """ """
 
-    def __init__(self, list_of_macros: list = []):
+    def __init__(self, list_of_macros: list = None):
         self._macros = []
         if list_of_macros is not None:
             if not isinstance(list_of_macros, list):
@@ -76,8 +80,5 @@ class TextMacros:
 
     def run(self, text):
         for pattern, replacement in self._macros:
-            try:
-                text = pattern.sub(replacement, text)
-            except Exception:
-                continue
+            text = pattern.sub(replacement, text)
         return text

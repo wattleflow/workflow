@@ -5,7 +5,8 @@
 
 
 from __future__ import annotations
-from enum import Enum
+from enum import auto, Enum
+from pathlib import Path
 
 
 # Classification
@@ -39,6 +40,9 @@ class Event(Enum):
     Authentication = "Authentication"
     Authenticating = "Authenticating"
     Authenticated = "Authenticated"
+    Cache = "Cache"
+    Cached = "Cached"
+    Caching = "Caching"
     Check = "Check"
     Checking = "Checking"
     Classification = "Classification"
@@ -127,11 +131,17 @@ class Event(Enum):
     Generated = "Generated"
     Get = "Get"
     Getting = "Getting"
+    Handle = "Handler"
+    Handling = "Handling"
+    Handled = "Handled"
     Initialising = "Initialising"
     Initialised = "Initialised"
     Iterate = "Iterate"
     Iterating = "Iterating"
     Iteration = "Iteration"
+    List = "List"
+    Listed = "Listed"
+    Listing = "Listing"
     Log = "Log"
     Miss = "Miss"
     Missed = "Missed"
@@ -154,6 +164,7 @@ class Event(Enum):
     Processed = "Processed"
     Processing = "Processing"
     ProcessingTask = "Processing task"
+    Property = "Property"
     Push = "Push"
     Pushed = "Pushed"
     Pushing = "Pushing"
@@ -162,6 +173,7 @@ class Event(Enum):
     Register = "Register"
     Registered = "Registered"
     Registering = "Registering"
+    Render = "Render"
     Rendered = "Rendered"
     Rendering = "Rendering"
     Retrieve = "Retrieve"
@@ -197,6 +209,9 @@ class Event(Enum):
     Upload = "Upload"
     Uploading = "Uploading"
     Uploaded = "Uploaded"
+    Validate = "Validate"
+    Validated = "Validated"
+    Validating = "Validating"
     View = "View"
     Viewed = "Viewed"
     Viewing = "Viewing"
