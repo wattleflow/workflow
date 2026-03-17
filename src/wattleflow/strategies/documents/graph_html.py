@@ -28,8 +28,7 @@ from wattleflow.concrete import (
     StrategyWrite,
 )
 from wattleflow.constants import Event
-from wattleflow.drivers.local_file_system_driver import FileTypes
-from wattleflow.helpers import Attribute, Normaliser
+from wattleflow.helpers import Attribute, FileTypes, Normaliser
 
 
 # document: rdf ---------------------------------------------------------------
@@ -174,24 +173,30 @@ class CreateGraphFromHtml(StrategyCreate):
         document.add_predicate(document.namespace.hasIdentifier, facade.identifier)  # type: ignore
         document.add_predicate(document.namespace.hasUri, self.uri)  # type: ignore
         document.add_predicate(
-            document.namespace.hasSource, self.metadata.get("source", "?")  # type: ignore
+            document.namespace.hasSource,
+            self.metadata.get("source", "?"),  # type: ignore
         )
         document.add_predicate(
-            document.namespace.hasTitle, self.metadata.get("title", "?")  # type: ignore
+            document.namespace.hasTitle,
+            self.metadata.get("title", "?"),  # type: ignore
         )
         document.add_predicate(
-            document.namespace.hasDescription, self.metadata.get("description", "?")  # type: ignore
+            document.namespace.hasDescription,
+            self.metadata.get("description", "?"),  # type: ignore
         )
         document.add_predicate(document.namespace.hasDownloadedAt, downloaded_at)  # type: ignore
         document.add_predicate(
-            document.namespace.hasDownloadedBy, self.processor.name  # type: ignore
+            document.namespace.hasDownloadedBy,
+            self.processor.name,  # type: ignore
         )
         document.add_predicate(document.namespace.hasFileName, self.filename)  # type: ignore
         document.add_predicate(
-            document.namespace.hasLinks, self.metadata.get("links", "?")  # type: ignore
+            document.namespace.hasLinks,
+            self.metadata.get("links", "?"),  # type: ignore
         )
         document.add_predicate(
-            document.namespace.hasFileSize, self.metadata.get("filesize", "")  # type: ignore
+            document.namespace.hasFileSize,
+            self.metadata.get("filesize", ""),  # type: ignore
         )
         document.add_predicate(document.namespace.hasContent, self.content)  # type: ignore
         document.add_predicate(document.namespace.hasTranscript, "")  # type: ignore
@@ -281,7 +286,7 @@ class WriteGraphHtmlDocument(StrategyWrite):
 
         output = self.repository.driver.write(  # type: ignore
             filename=filename.name,
-            ftype=FileTypes.GRAPH,
+            ftype=FileType.GRAPH,
             data=graph.content,
             subdir=caller.name.lower(),
             mkdir=True,

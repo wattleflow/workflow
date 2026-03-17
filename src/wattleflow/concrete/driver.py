@@ -12,7 +12,6 @@ configuration via the PresetDecorator. Serves as a foundation for concrete
 driver implementations handling data persistence and transport.
 """
 
-
 import logging
 from abc import abstractmethod, ABC
 from pathlib import Path
@@ -55,7 +54,7 @@ class GenericDriverClass(IDriver, AuditLogger, ABC):
         pass
 
     @abstractmethod
-    def write(self, document: ITarget, **kwargs) -> bool:
+    def write(self, uri: Path, data: object, **kwargs) -> bool:
         pass
 
     # Must be implemented if using PresetDecorator

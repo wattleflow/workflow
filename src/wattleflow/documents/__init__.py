@@ -7,10 +7,14 @@ from .dataframe import DataFrameDocument
 from .dictionary import DictDocument
 from .file import FileDocument
 from .item import ItemDocument
+from .wattle import MimeTypes, ProvenanceHandler, Wattle
 
 __all__ = [
     "DataFrameDocument",
     "DictDocument",
     "FileDocument",
     "ItemDocument",
+    "MimeTypes",
+    "ProvenanceHandler",
+    "Wattle",
 ]

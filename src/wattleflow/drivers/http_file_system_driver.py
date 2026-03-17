@@ -19,7 +19,7 @@ from urllib.parse import urlparse
 from wattleflow.concrete import AuditException, GenericDriverClass
 from wattleflow.constants.enums import Event
 from wattleflow.drivers import FileStorage
-from wattleflow.helpers import FileType
+from wattleflow.helpers.filetypes import FileType
 
 _DEFAULT_CACHE_DIR: str = os.environ.get(
     "WATTLEFLOW_CACHE",
@@ -84,7 +84,12 @@ class HttpFileSystemDriver(GenericDriverClass):
         self.current_path: Path = Path(self.local_path)
 
     def read(self, uri: str, **kwargs) -> Any:
-        self.debug(msg=Event.Read.value, step=Event.Started.value, uri=uri, **self._safe_log_kwargs(**kwargs))
+        self.debug(
+            msg=Event.Read.value,
+            step=Event.Started.value,
+            uri=uri,
+            **self._safe_log_kwargs(**kwargs),
+        )
         try:
             self._validate_uri(uri)
             storage = FileStorage(
@@ -242,9 +247,7 @@ class HttpFileSystemDriver(GenericDriverClass):
             received += len(chunk)
             if received > _MAX_DOWNLOAD_BYTES:
                 response.close()
-                reason = (
-                    f"Download exceeds limit of {_MAX_DOWNLOAD_BYTES} bytes: {_safe_uri}"
-                )
+                reason = f"Download exceeds limit of {_MAX_DOWNLOAD_BYTES} bytes: {_safe_uri}"
                 self.error(msg=Event.Read.value, uri=_safe_uri, reason=reason)
                 raise ValueError(reason)
             chunks.append(chunk)

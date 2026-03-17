@@ -13,7 +13,6 @@ supporting extensible design patterns aligned with Wattleflow’s “build once,
 use often” philosophy.
 """
 
-
 from __future__ import annotations
 from logging import Handler, NOTSET
 from typing import Any, Optional
@@ -26,8 +25,12 @@ from wattleflow.helpers import Attribute
 
 
 class GenericRepository(IRepository, AuditLogger):
+    # region FIX: v0.0.0.62 - 26/3/17 - Corrected slot name from "_counter" to "_write_counter"
+    # to match the actual instance attribute; the misnamed slot was never populated,
+    # causing _write_counter to fall through to __dict__ and defeating __slots__.
+    # endregion FIX: v0.0.0.62 - 26/3/17 - Corrected slot name from "_counter" to "_write_counter"
     __slots__ = (
-        "_counter",
+        "_write_counter",
         "_driver",
         "_initialised",
         "_preset",
@@ -117,18 +120,27 @@ class GenericRepository(IRepository, AuditLogger):
 
         return facade
 
+    # region FIX: v0.0.0.62 - 26/3/17
+    # - Added Attribute.evaluate() guard for caller before
+    # accessing caller.name; previously an invalid caller raised an unhandled AttributeError
+    # outside the try/except block, bypassing the structured error reporting path.
+    # - Moved _write_counter increment to after a successful
+    # strategy write; previously the counter was incremented before the write executed,
+    # so a failed write still increased the count, making count() unreliable.
+    # endregion FIX: v0.0.0.62 - 26/3/17
     def write(self, caller: IWattleflow, facade: ITarget, *args, **kwargs) -> bool:
-        self.debug(
-            msg=Event.Write.value,
-            step=Event.Started.value,
-            caller=caller.name,
-            counter=self._write_counter,
-            facade=facade,
-        )
-
         try:
+            self.debug(
+                msg=Event.Write.value,
+                step=Event.Started.value,
+                caller=caller.name,
+                counter=self._write_counter,
+                facade=facade,
+            )
+
+            Attribute.evaluate(caller=self, target=caller, expected_type=IWattleflow)
             Attribute.evaluate(caller=self, target=facade, expected_type=ITarget)
-            self._write_counter += 1
+
             result: bool = self._strategy_write.write(
                 caller=caller,
                 facade=facade,
@@ -136,6 +148,8 @@ class GenericRepository(IRepository, AuditLogger):
                 driver=self.driver,
                 **kwargs,
             )
+
+            self._write_counter += 1
 
             self.debug(
                 msg=Event.Write.value,
@@ -162,17 +176,20 @@ class GenericRepository(IRepository, AuditLogger):
         self.info(msg=Event.Probing.value, eq=hash(self) == hash(other))
         return hash(self) == hash(other)
 
+    # region FIX: v0.0.0.62 - 26/3/17 - Removed mutable _write_counter from hash tuple
+    # including a value that changes on every write() call caused the object's hash
+    # to change whilst it was stored in sets or dicts, producing silent look-up failures.
+    # Also removed the duplicate self._driver entry (was listed twice).
+    # endregion FIX: v0.0.0.62 - 26/3/17 - Removed mutable _write_counter from hash tuple
     def __hash__(self) -> int:
         return hash(
             (
                 id(self),
                 self.name,
-                self._write_counter,
                 self._driver,
                 self._preset,
                 self._strategy_write,
                 self._strategy_read,
-                self._driver,
             )
         )
 
@@ -181,5 +198,8 @@ class GenericRepository(IRepository, AuditLogger):
         preset: PresetDecorator = object.__getattribute__(self, "_preset")
         return preset.__getattr__(name)
 
+    # region FIX: v0.0.0.62 - 26/3/17 - Fixed mismatched bracket in f-string; the original
+    # produced "Name:[12345):0]" — a stray ")" replaced with the correct closing "]".
+    # endregion FIX: v0.0.0.62 - 26/3/17 - Fixed mismatched bracket in f-string; the original
     def __repr__(self) -> str:
-        return f"{self.name}:[{id(self)}):{self._write_counter}]"
+        return f"{self.name}:[{id(self)}:{self._write_counter}]"

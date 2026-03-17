@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import fnmatch
-import os
 import logging
 import pandas as pd
 from rdflib import Graph
@@ -16,7 +15,8 @@ from wattleflow.concrete import AuditException, GenericDriverClass
 from wattleflow.decorators.preset import PresetDecorator
 from wattleflow.constants.enums import Event
 from wattleflow.drivers import FileStorage
-from wattleflow.helpers import Attribute, FileType, Normaliser
+from wattleflow.helpers.attribute import Attribute
+from wattleflow.helpers.filetypes import FileType
 
 
 class LocalFileSystemDriver(GenericDriverClass):
@@ -94,39 +94,49 @@ class LocalFileSystemDriver(GenericDriverClass):
         uri: str,
         filename: str,
         ftype: FileType,
-        data: object,
+        content: object,
         **kwargs,
     ) -> str:
         self.debug(
             msg=Event.Write.value,
+            uri=uri,
             filename=filename,
             ftype=ftype.value,
-            data=type(data).__name__,
+            content=type(content).__name__,
             **kwargs,
         )
 
-        subdir = kwargs.pop("subdir", None)
         mkdir = kwargs.pop("mkdir", False)
+        subdir = kwargs.pop("subdir", None)
 
         if subdir:
             self.__change_dir(subdir, mkdir)
         else:
             self.load()
 
+        storage = FileStorage(
+            local_path=str(self.current_path.resolve()),
+            uri=filename,
+            create=self.create,
+            normalised=self.normalised,
+        )
+
         if ftype == FileType.TXT:
-            return self._write_txt(filename=filename, data=data, **kwargs)  # type: ignore
+            return self._write_txt(storage=storage, content=content, **kwargs)
         if ftype == FileType.CSV:
-            return self._write_csv(filename=filename, data=data, **kwargs)  # type: ignore
+            return self._write_csv(storage=storage, content=content, **kwargs)
         if ftype == FileType.JSON:
-            return self._write_json(filename=filename, data=data, **kwargs)  # type: ignore
+            return self._write_json(storage=storage, content=content, **kwargs)
         if ftype == FileType.GRAPH:
-            return self._write_graph(filename=filename, data=data, **kwargs)  # type: ignore
+            return self._write_graph(storage=storage, content=content, **kwargs)
 
         self.error(
             msg=Event.Write.value,
             error=f"unknown type: {ftype}",
-            filename=filename,
-            data=data,
+            filename=storage.filename,
+            origin=storage.origin,
+            digest=storage.digest,
+            content=content,
         )
         raise TypeError("Unknown file type!")
 
@@ -169,6 +179,7 @@ class LocalFileSystemDriver(GenericDriverClass):
             step=Event.Completed.value,
         )
 
+    # region private methods
     def __change_dir(self, name: str, mkdir=True) -> str:
         self.debug(
             msg=Event.Move.value,
@@ -196,24 +207,19 @@ class LocalFileSystemDriver(GenericDriverClass):
         )
         return str(self.current_path)
 
-    def _write_txt(self, filename: str, data: str, **kwargs) -> str:
+    def _write_txt(self, storage: FileStorage, content: str, **kwargs) -> str:
         self.debug(
             msg=Event.Write.value,
             step=Event.Started.value,
-            filename=filename,
+            filename=storage.filename,
+            uri=storage.uri,
+            digest=storage.digest,
             **kwargs,
-        )
-
-        storage = FileStorage(
-            local_path=str(self.current_path.resolve()),
-            uri=filename,
-            create=True,
-            normalised=True,
         )
 
         suffix = kwargs.pop("suffix", ".txt")
         output = storage.with_suffix(suffix)
-        output.write_text(data)
+        output.write_text(content)
 
         self.debug(
             msg=Event.Write.value,
@@ -221,82 +227,68 @@ class LocalFileSystemDriver(GenericDriverClass):
             output=output,
         )
 
-        return str(output.absolute())
+        return output
 
-    def _write_csv(self, filename: str, data: pd.DataFrame, **kwargs) -> str:
+    def _write_csv(self, storage: FileStorage, content: pd.DataFrame, **kwargs) -> str:
         self.debug(
             msg=Event.Write.value,
             step=Event.Started.value,
-            filename=filename,
+            filename=storage.filename,
             **kwargs,
-        )
-
-        storage = FileStorage(
-            local_path=str(self.current_path.resolve()),
-            uri=filename,
-            create=True,
-            normalised=True,
         )
 
         suffix = kwargs.pop("suffix", ".csv")
         output = str(storage.with_suffix(suffix).absolute())
-        data.to_csv(output, **kwargs)
+        content.to_csv(output, **kwargs)
 
         self.debug(
             msg=Event.Write.value,
             step=Event.Completed.value,
-            filename=storage.filename,
+            output=output,
         )
 
         return output
 
-    def _write_json(self, filename: str, data: pd.DataFrame, **kwargs) -> str:
+    def _write_json(self, storage: FileStorage, content: pd.DataFrame, **kwargs) -> str:
         self.debug(  # type: ignore
             msg=Event.Write.value,
             step=Event.Started.value,
-            filename=filename,
+            filename=storage.filename,
+            uri=storage.uri,
+            digest=storage.digest,
             **kwargs,
-        )
-
-        storage = FileStorage(
-            local_path=str(self.current_path.resolve()),
-            uri=filename,
-            create=True,
-            normalised=True,
         )
 
         suffix = kwargs.pop("suffix", ".json")
-        output = str(storage.with_suffix(suffix))
-        data.to_json(output, **kwargs)
+        # FIX: v0.0.0.62 - 26/3/17 - Added .absolute() to match _write_csv(); previously
+        # the path was resolved relative to the current working directory, which could
+        # silently change meaning if CWD shifted during the process lifetime.
+        output = str(storage.with_suffix(suffix).absolute())
+        content.to_json(output, **kwargs)
 
         self.debug(  # type: ignore
             msg=Event.Write.value,
             step=Event.Completed.value,
-            filename=output,
+            output=output,
         )
 
         return output
 
-    def _write_graph(self, filename: str, data: Graph, **kwargs) -> str:
+    def _write_graph(self, storage: FileStorage, content: Graph, **kwargs) -> str:
         self.debug(
             msg=Event.Write.value,
             step=Event.Started.value,
-            filename=filename,
+            filename=storage.filename,
+            uri=storage.uri,
+            digest=storage.digest,
             **kwargs,
         )
 
-        Attribute.evaluate(caller=self, target=data, expected_type=Graph)
-
-        storage = FileStorage(
-            local_path=str(self.current_path.resolve()),
-            uri=filename,
-            create=True,
-            normalised=True,
-        )
+        Attribute.evaluate(caller=self, target=content, expected_type=Graph)
 
         suffix = kwargs.pop("suffix", ".json")
         output = str(storage.with_suffix(suffix).absolute())
-        data.serialize(
+        content.serialize(
             destination=output,
             format="json-ld",
             indent=2,
@@ -305,7 +297,7 @@ class LocalFileSystemDriver(GenericDriverClass):
         self.debug(
             msg=Event.Write.value,
             step=Event.Completed.value,
-            filename=output,
+            output=output,
         )
 
         return output
@@ -318,28 +310,4 @@ class LocalFileSystemDriver(GenericDriverClass):
         preset: PresetDecorator = object.__getattribute__(self, "_preset")
         return preset.__getattr__(name)
 
-
-# if __name__ == "__main__":
-#     import gc
-
-#     try:
-#         driver = LocalFileSystemDriver(
-#             # local_path="/tmp/wattleflow_cache",
-#             local_path="/mnt/d/data/csv",
-#             level=logging.DEBUG,
-#             create=False,
-#             normalised=False,
-#         )
-
-#         # content = driver.read(uri="/mnt/d/data/csv/nsw-lga-crime-2023.csv")
-#         content = driver.read(uri="/mnt/d/data/csv/hours.csv")
-
-#         print(
-#             f"""
-#         filename: {content}
-#         """
-#         )
-#     except Exception as e:
-#         print(f"Caught error: {str(e)}")
-#     finally:
-#         gc.collect()
+    # endregion private methods

@@ -11,7 +11,6 @@ update, and removal functionality, enabling efficient management of dynamic
 collections.
 """
 
-
 from __future__ import annotations
 from collections import deque
 from typing import Any, Iterable

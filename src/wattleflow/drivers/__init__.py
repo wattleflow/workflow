@@ -4,11 +4,13 @@
 # License: Apache 2 Licence
 
 
+from .driver_factory import DriverFactory
 from .file_storage import FileStorage
 from .http_file_system_driver import HttpFileSystemDriver
 from .local_file_system_driver import LocalFileSystemDriver
 
 __all__ = [
+    "DriverFactory",
     "FileStorage",
     "HttpFileSystemDriver",
     "LocalFileSystemDriver",

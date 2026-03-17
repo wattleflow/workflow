@@ -9,7 +9,7 @@ write_to = "src/wattleflow/concrete/_version.py"
 
 [project]
 name = "wattleflow-workflow"
-version = "0.0.0.61"
+version = "0.0.0.62"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"
@@ -46,3 +46,14 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# E/W = pycodestyle, F = pyflakes (Flake8 equivalent), I = isort, B = flake8-bugbear
+select = ["E", "W", "F", "I", "B"]
+# E203 - whitespace before ':' (conflicts with Black/slice notation)
+# E731 - do not assign a lambda expression (intentionally used in this project)
+ignore = ["E203", "E731", "I001", "I003"]  # I001/I003 - isort import order (intentionally not followed in this project)

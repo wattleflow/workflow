@@ -7,14 +7,17 @@
 from __future__ import annotations
 import os
 import glob
+from pathlib import Path
 from typing import Optional
 
 
 class StoredModels:
-
     def __init__(self, name: str, path: str):
         self.name = name
-        self.base_path = os.path.abspath(path)
+        self.base_path = os.path.abspath(
+            str(path.absolute()) if isinstance(path, Path) else str(path)
+        )
+        # self.base_path = os.path.abspath(path if isinstance(path, str) else os.path.expanduser("~/.cache/huggingface"))
 
     @property
     def model_name(self) -> str:

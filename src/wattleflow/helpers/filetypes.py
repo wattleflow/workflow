@@ -13,17 +13,16 @@ Supports files downloaded from the web or read from local disk.
 from __future__ import annotations
 
 import io
+import re
 from enum import Enum, auto
 from pathlib import Path
-from typing import Optional
+
 from urllib.parse import urlparse
 
 
 # Module-level constants — defined here to avoid Enum member pollution
 # OLE2 Compound Document header shared by legacy .xls and .doc files
 _OLE2_MAGIC: bytes = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
-
-import re
 
 # Compiled pattern for log-line recognition (reused across calls)
 _LOG_RE: re.Pattern[str] = re.compile(
@@ -46,6 +45,8 @@ _EXT_MAP: dict[str, str] = {
     ".n3": "GRAPH",
     ".nt": "GRAPH",
     ".pdf": "PDF",
+    ".pkl": "PICKLE",
+    ".pickle": "PICKLE",
     ".txt": "TXT",
     ".xls": "XLS",
     ".xlsx": "XLS",
@@ -66,27 +67,32 @@ _DOC_STREAM_UTF16: bytes = (
 class FileType(Enum):
     CSV = auto()
     DOC = auto()
+    DATAFRAME = auto()  # not detectable from content — assigned externally by callers
     JSON = auto()
     LOG = auto()
     GRAPH = auto()
     PDF = auto()
+    PICKLE = auto()
     TXT = auto()
     XLS = auto()
     UNKNOWN = auto()
 
     @staticmethod
     def detect(uri: str) -> "FileType":
-        """Detect FileType from a URI or file-system path by extension.
+        """Detect FileType from a URI or file-system path.
 
-        This is the fast, zero-I/O method used when the file path or URL
-        is already known. Falls back to UNKNOWN for unrecognised extensions.
+        First attempts extension lookup (zero-I/O). If the extension is
+        unrecognised *and* the URI points to a local file, falls back to
+        content-based detection by reading the file from disk.
+        Remote URLs with unknown extensions return UNKNOWN without I/O.
         """
         suffix = Path(urlparse(uri).path).suffix.lower()
         name = _EXT_MAP.get(suffix)
         result = FileType[name] if name else FileType.UNKNOWN
         if result is FileType.UNKNOWN:
-            raw_content = Path(uri).read_bytes()
-            result = FileType.detect_content(raw_content)
+            path = Path(uri)
+            if path.is_file():
+                result = FileType.detect_content(path.read_bytes())
         return result
 
     @staticmethod
@@ -97,12 +103,13 @@ class FileType(Enum):
           1. PDF      — %PDF magic header
           2. OLE2     — legacy .xls / .doc (D0 CF 11 E0 …)
           3. OOXML    — ZIP-based .xlsx / .docx (PK\\x03\\x04)
-          4. GRAPH    — JSON-LD (@context), Turtle (@prefix/@base), N-Triples
-          5. JSON     — UTF-8 starting with { or [
-          6. LOG      — lines with timestamps / log-level keywords
-          7. CSV      — consistent comma / semicolon / tab columns
-          8. TXT      — any valid UTF-8 text
-          9. UNKNOWN  — binary or unrecognised
+          4. PICKLE   — protocol 2-5 magic (\\x80\\x02 … \\x80\\x05)
+          5. GRAPH    — JSON-LD (@context), Turtle (@prefix/@base), N-Triples
+          6. JSON     — UTF-8 starting with { or [
+          7. LOG      — lines with timestamps / log-level keywords
+          8. CSV      — consistent comma / semicolon / tab columns
+          9. TXT      — any valid UTF-8 text
+         10. UNKNOWN  — binary or unrecognised
         """
         if not data:
             return FileType.UNKNOWN
@@ -117,6 +124,10 @@ class FileType(Enum):
 
         if data[:4] == b"PK\x03\x04":
             return FileType._detect_zip(data)
+
+        # Pickle protocols 2–5: \x80 followed by protocol byte (0x02–0x05)
+        if data[0:1] == b"\x80" and data[1:2] in (b"\x02", b"\x03", b"\x04", b"\x05"):
+            return FileType.PICKLE
 
         # --- Text-based heuristics ---
         return FileType._detect_text(data)
@@ -166,7 +177,9 @@ class FileType(Enum):
         Binary data that cannot be decoded as strict UTF-8 returns UNKNOWN.
         """
         try:
-            text: str = data[:8192].decode("utf-8", errors="strict")
+            # utf-8-sig strips the UTF-8 BOM (\xef\xbb\xbf) when present,
+            # preventing it from corrupting stripped[0] checks below.
+            text: str = data[:8192].decode("utf-8-sig", errors="strict")
         except UnicodeDecodeError:
             return FileType.UNKNOWN
 
@@ -224,7 +237,7 @@ def _is_log(lines: list[str]) -> bool:
     return hits >= max(2, len(sample) // 2)
 
 
-def _detect_delimited(lines: list[str]) -> Optional[FileType]:
+def _detect_delimited(lines: list[str]) -> FileType | None:
     """Return FileType.CSV if content uses a consistent delimiter, else None.
 
     Checks comma, semicolon, and tab in that order. A format is considered
@@ -238,18 +251,21 @@ def _detect_delimited(lines: list[str]) -> Optional[FileType]:
     return None
 
 
+# region Test code (can be removed or commented out in production)
+
 if __name__ == "__main__":
     import gc
+    import traceback
 
     try:
-        import gc
-
-        dd = FileType().detect(
+        dd = FileType.detect(
             "src/wattleflow/api/controllers/dockers/flight-sim/image-conflict-sim/data/iran.json"
         )
         print(dd)
     except Exception as e:
         msg = f"Global exception:{e}"
         print(msg)
+        traceback.print_exc()
     finally:
         gc.collect()
+# endregion

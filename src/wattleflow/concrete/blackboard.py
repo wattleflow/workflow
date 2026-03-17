@@ -98,7 +98,10 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
 
     @property
     def repositories(self) -> List[IRepository]:
-        return self._repositories
+        # FIX: v0.0.0.62 - 26/3/17 - Return a shallow copy instead of the internal
+        # list; previously callers could mutate _repositories directly, bypassing
+        # the register() guard and breaking duplicate-detection logic.
+        return list(self._repositories)
 
     def _emit(
         self,
@@ -121,7 +124,12 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
 
         for repository in self._repositories:
             repository.write(caller=caller, facade=facade, *args, **kwargs)
-            self._flushed = True
+
+        # FIX: v0.0.0.62 - 26/3/17 - Moved _flushed assignment to after the loop;
+        # previously it was set True inside the loop after the first repository write,
+        # so a failure on a subsequent repository left _flushed=True whilst not all
+        # repositories had received the document.
+        self._flushed = True
 
         self.debug(
             msg=Event.Emit.name,
@@ -220,6 +228,13 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
                 )
 
         self._canvas.clear()
+
+        # FIX: v0.0.0.62 - 26/3/17 - Reset _flushed to False after clearing the canvas
+        # so that new documents added after a flush are emitted on the next flush() call;
+        # previously _flushed stayed True permanently, silently skipping all subsequent
+        # deferred writes.
+        self._flushed = False
+
         self.debug(
             msg=Event.Flush.value,
             step=Event.Completed.value,

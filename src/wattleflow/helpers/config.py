@@ -11,7 +11,6 @@ decryption, dynamic class loading, and structured access to configuration
 data, enabling flexible and maintainable system configuration handling.
 """
 
-
 from __future__ import annotations
 from logging import NOTSET, Handler
 from pathlib import Path
@@ -51,9 +50,21 @@ class Config(AuditLogger):
     ):
         AuditLogger.__init__(self, level=level, handler=handler)
         if Path(config_file).exists() is False:
-            raise FileNotFoundError(
-                f"{self}: invalid or missing `config_path` {config_file}!"
+            self.error(
+                msg=Event.Constructor.value,
+                error=f"{self}: invalid or missing `config_path` {config_file}!",
+                config_file=config_file,
             )
+            from wattleflow.concrete import AuditException
+
+            raise AuditException(
+                caller=self,
+                error=f"{self}: invalid or missing `config_path` {config_file}!",
+                config_file=config_file,
+            )
+            # raise FileNotFoundError(
+            #     f"{self}: invalid or missing `config_path` {config_file}!"
+            # )
 
         self.config_file: str = config_file
         self._key_filename: Optional[str] = None

@@ -1,32 +1,36 @@
-# exclude cache
 prune __pycache__
 prune .pytest_cache
+prune dist
+prune endpoints
+prune examples
+prune models
+prune scripts
+prune tests
+prune todo
+prune tools
+prune wattleflow_workflow*
+prune src/wattleflow/api/
+# prune src/wattleflow/api/controllers/dockers
 
-# exclude file types
 exclude *.config
 exclude *.pyc
 exclude *.pyo
 exclude *.yaml
-exclude .flake8
-exclude .pylintrc
-
-# exclude other files
 exclude .DS_Store
 exclude .dist
 exclude .env
 exclude .flake8
+exclude .github
 exclude .github/*
-exclude .gitignore
 exclude .gitignore
 exclude .idea
 exclude .pylintrc
 exclude .scraps
 exclude .vscode
 exclude Makefile
-exclude examples
-exclude todo
 
-# source
+exclude helpers/audit.py
+exclude helpers/logger.py
 exclude src/wattleflow/api
 exclude src/wattleflow/audit
 exclude src/wattleflow/blackboards
@@ -38,26 +42,10 @@ exclude src/wattleflow/managers
 exclude src/wattleflow/processors
 exclude src/wattleflow/repositories
 exclude src/wattleflow/schedulers
-
-# exclude other dirs
-exclude api
-exclude da*
-exclude doc
-exclude endpoints
-exclude examples
-exclude helpers/audit.py
-exclude helpers/logger.py
-exclude models
-exclude scripts
-exclude src
-exclude tests
 exclude tests/config.yaml
 exclude tests/scheduler.yaml
-exclude tools/doc
 
-# includes
-include README.md LICENSE
+include README.md LICENSE pyproject.toml
+include doc
 include doc/wattleflow.png
-
-# recursive
 recursive-include src/wattleflow/ *.py

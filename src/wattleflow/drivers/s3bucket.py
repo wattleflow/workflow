@@ -10,12 +10,14 @@ import re
 import shutil
 import tempfile as tmp
 from pathlib import Path
-from typing import Generator, List, Optional
+from typing import Generator, Optional
 from urllib.parse import urlparse
 
 from wattleflow.concrete import GenericDriverClass
-from wattleflow.constants.enums import Event, FileTypes
+from wattleflow.constants.enums import Event
 from wattleflow.helpers import Normaliser
+from wattleflow.helpers.filetype import FileType
+
 
 _DEFAULT_CACHE_DIR: str = os.environ.get(
     "WATTLEFLOW_CACHE",
@@ -235,7 +237,7 @@ class S3Driver(GenericDriverClass):
 
         Args:
             identifier  : destination S3 URI (s3://bucket/key)
-            ftype       : FileTypes enum — određuje format serijalizacije
+            ftype       : FileType enum — određuje format serijalizacije
             data        : sadržaj za pisanje (str, DataFrame, Graph, ...)
             **kwargs    : proslijeđuju se metodama serijalizacije
 
@@ -384,10 +386,10 @@ class S3Driver(GenericDriverClass):
 
     def _serialise(self, path: Path, ftype, data: object, **kwargs) -> None:
 
-        if ftype == FileTypes.TEXT:
+        if ftype == FileType.TXT:
             path.write_text(str(data), encoding=kwargs.get("encoding", "utf-8"))
 
-        elif ftype in (FileTypes.CSV, FileTypes.DATAFRAME):
+        elif ftype in (FileType.CSV, FileType.DATAFRAME):
             import pandas as pd
 
             if not isinstance(data, pd.DataFrame):
@@ -396,7 +398,7 @@ class S3Driver(GenericDriverClass):
                 )
             data.to_csv(str(path), **{k: v for k, v in kwargs.items() if k != "suffix"})
 
-        elif ftype == FileTypes.JSON:
+        elif ftype == FileType.JSON:
             import pandas as pd
 
             if not isinstance(data, pd.DataFrame):
@@ -407,7 +409,7 @@ class S3Driver(GenericDriverClass):
                 str(path), **{k: v for k, v in kwargs.items() if k != "suffix"}
             )
 
-        elif ftype == FileTypes.GRAPH:
+        elif ftype == FileType.GRAPH:
             from rdflib import Graph as RDFGraph
 
             if not isinstance(data, RDFGraph):

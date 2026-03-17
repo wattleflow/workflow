@@ -23,8 +23,7 @@ from wattleflow.concrete import (
 )
 from wattleflow.constants import Event
 from wattleflow.documents.file import FileDocument
-from wattleflow.drivers import FileTypes
-from wattleflow.helpers import Attribute, TextStream
+from wattleflow.helpers import Attribute, FileType, TextStream
 
 
 class CreateTextDocument(StrategyCreate):
@@ -99,7 +98,7 @@ class WriteTextDocument(StrategyWrite):
 
         output = self.repository.driver.write(  # type: ignore
             filename=filename,
-            ftype=FileTypes.TEXT,
+            ftype=FileType.TXT,
             document=document,
         )  # type: ignore
 
