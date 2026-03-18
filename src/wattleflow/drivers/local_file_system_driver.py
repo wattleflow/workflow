@@ -123,7 +123,7 @@ class LocalFileSystemDriver(GenericDriverClass):
 
         if ftype == FileType.TXT:
             return self._write_txt(storage=storage, content=content, **kwargs)
-        if ftype == FileType.CSV:
+        if ftype == FileType.CSV or ftype == FileType.DATAFRAME:
             return self._write_csv(storage=storage, content=content, **kwargs)
         if ftype == FileType.JSON:
             return self._write_json(storage=storage, content=content, **kwargs)

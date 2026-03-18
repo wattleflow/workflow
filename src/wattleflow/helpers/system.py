@@ -12,7 +12,6 @@ for runtime class loading, project structure detection, temporary path
 management, and process execution with integrated audit logging.
 """
 
-
 import os
 import platform
 import subprocess
@@ -98,6 +97,18 @@ class ClassLoader(IWattleflow, ABC):  # type: ignore
             )
             raise
 
+        # FIX: getattr raises AttributeError silently if the class is absent; check
+        # explicitly so the error message identifies both module and class name clearly.
+        if not hasattr(module, class_name):
+            error = f"Class '{class_name}' not found in module '{module_path}'"
+            self.log.error(
+                msg=Event.Constructor.value,
+                reason=error,
+                class_name=class_name,
+                module_path=module_path,
+            )
+            raise AttributeError(error)
+
         cls = getattr(module, class_name)
         self.cls = cls
         try:
@@ -116,20 +127,6 @@ class ClassLoader(IWattleflow, ABC):  # type: ignore
             status="Class loaded",
             cls=cls.__name__,
         )
-
-        # if not hasattr(module, class_name):
-        #     error = f"Class {class_name} not found in module {module_path}"
-        #     self.error(
-        #         msg=Event.Constructor.value,
-        #         reason=error,
-        #         class_name=class_name,
-        #         module=module,
-        #     )
-        #     raise AttributeError(error)
-
-        # self.cls = getattr(module, class_name)
-        # self.instance = self.cls(*args, **kwargs)
-        # self.debug(msg=Event.Constructor.value, status="Class loaded", cls=self.cls)
 
 
 Command = Union[str, Sequence[str]]
@@ -183,10 +180,14 @@ class FileStorage:
         self.origin = Path(filename)
         self.path = Path(repository_path)
 
+        # FIX: original used `and` for all three conditions, meaning the guard was only
+        # triggered when the path was simultaneously not a directory AND not readable AND
+        # create was False — a path that exists as a directory but is unreadable would
+        # silently pass.  The correct intent is: raise if create is False AND the path
+        # is either not a directory OR not readable.
         if (
-            not os.path.isdir(self.path)  # noqa: W503
-            and not os.access(self.path, os.R_OK)  # noqa: W503
-            and not create  # noqa: W503
+            not create  # noqa: W503
+            and (not os.path.isdir(self.path) or not os.access(self.path, os.R_OK))  # noqa: W503
         ):
             raise FileNotFoundError(
                 f"Path doesn't exist or not accessible: {str(self.path)}"
@@ -211,6 +212,17 @@ class FileStorage:
     def with_dir(self, directory=None, mkdir=True) -> Path:
         dir = directory if directory else self.filename.stem
         out_dir = self.path.joinpath(dir)
+
+        # FIX: resolve the candidate path and verify it remains under self.path to
+        # prevent path-traversal attacks when `directory` is caller-controlled and
+        # contains sequences such as ".." or an absolute path.
+        resolved_base = self.path.resolve()
+        resolved_out = out_dir.resolve()
+        if not str(resolved_out).startswith(str(resolved_base)):
+            raise ValueError(
+                f"Directory '{directory}' escapes the repository root: {resolved_out}"
+            )
+
         if mkdir:
             out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -232,9 +244,7 @@ class Project:
         for parent in [p] + list(p.parents):
             parts = parent.parts
             for i in range(0, len(parts) - len(marker_parts) + 1):
-                if (
-                    tuple(parts[i : i + len(marker_parts)]) == marker_parts
-                ):  # noqa: E203
+                if tuple(parts[i : i + len(marker_parts)]) == marker_parts:  # noqa: E203
                     found = Path(*parts[: i + len(marker_parts)])
                     break
             if found:
@@ -273,7 +283,7 @@ class Proxy:
                 return self.after_call(result)
             return self.after_call(result, *args, **kwargs)
         except Exception:
-            # ne ruši cilj; po želji: re-raise
+            # ne rusi cilj; po zelji: re-raise
             return
 
     def __call__(self, *args, **kwargs):
@@ -304,7 +314,12 @@ class ShellExecutor:
     def detect_shell(self) -> str:
         if self.os_name == "windows":
             return "powershell" if self.is_powershell_available() else "cmd"
-        return os.environ.get("SHELL", "bash").split(os.sep)[-1]
+        # FIX: os.sep is '\\' on Windows, but the SHELL environment variable always
+        # uses forward-slash separators (e.g. '/usr/bin/bash').  Using os.sep as the
+        # split delimiter returns the full path unchanged on Windows.  Path.name is
+        # platform-agnostic and correctly extracts just the executable name.
+        shell_path = os.environ.get("SHELL", "bash")
+        return Path(shell_path).name
 
     def is_powershell_available(self) -> bool:
         return shutil.which("powershell") is not None
@@ -346,8 +361,12 @@ class ShellExecutor:
                 cmd_list = ["bash", "-c", command]  # type: ignore[arg-type]
             # run_kwargs = dict(shell=False)
 
+        # FIX: to_s was duplicated inside both the try block and the CalledProcessError
+        # handler, creating redundancy and a risk of the two definitions diverging.
+        # Defined once here, before the try block, and shared across all branches.
+        to_s = lambda x: (x or "").strip()
+
         try:
-            # result = subprocess.run(cmd_list, text=True, capture_output=True, check=True)
             result = subprocess.run(
                 args=cmd_list,
                 text=True,
@@ -357,16 +376,13 @@ class ShellExecutor:
                 cwd=str(cwd) if cwd else None,
                 env=env,
                 shell=False,
-                # **run_kwargs,
             )
-            to_s = lambda x: (x or "").strip()
             return {
                 "stdout": to_s(result.stdout),
                 "stderr": to_s(result.stderr),
                 "returncode": result.returncode,
             }
         except subprocess.CalledProcessError as e:
-            to_s = lambda x: (x or "").strip()
             return {
                 "stdout": to_s(e.stdout),
                 "stderr": to_s(e.stderr),
@@ -394,7 +410,10 @@ class TempPathHelper:
             raise ValueError(f"file_path: {file_path} is missing in yaml config.")
 
         if file_path.startswith("TEMP"):
-            file_path = file_path.replace("TEMP", gettempdir())
+            # FIX: str.replace replaces every occurrence of "TEMP" in the string, not
+            # just the leading token.  A path such as "TEMP/TEMPLATE" would become
+            # "/tmp//tmp_LATE".  Slice off exactly the four-character prefix instead.
+            file_path = gettempdir() + file_path[len("TEMP") :]
 
         self.source_path: Path = Path(file_path)
 

@@ -12,7 +12,6 @@ The Blackboard serves as a shared workspace for workflow components, supporting 
 creation, reading, writing, and flushing of data objects within the repository ecosystem.
 """
 
-
 from __future__ import annotations
 
 from abc import ABC
@@ -69,9 +68,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             handler=handler,
         )
 
-        Attribute.evaluate(
-            caller=self, target=strategy_create, expected_type=StrategyCreate
-        )
+        Attribute.evaluate(caller=self, target=strategy_create, expected_type=StrategyCreate)
 
         self._flushed = False
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
@@ -176,9 +173,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             step=Event.Completed.value,
         )
 
-        return self._strategy_create.create(
-            caller=caller, blackboard=self, *args, **kwargs
-        )
+        return self._strategy_create.create(caller=caller, blackboard=self, *args, **kwargs)
 
     def delete(self, caller: IWattleflow, identifier: str) -> None:
         self.debug(
@@ -289,9 +284,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             msg = f"Repository {repository_name} not registered!"
             raise RuntimeError(msg)
 
-        self.debug(
-            msg=Event.Read.value, step=Event.Completed.value, repository=repository
-        )
+        self.debug(msg=Event.Read.value, step=Event.Completed.value, repository=repository)
 
         return repository.read(identifier=identifier, *args, **kwargs)
 

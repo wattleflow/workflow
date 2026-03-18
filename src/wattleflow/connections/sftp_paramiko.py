@@ -13,11 +13,12 @@
 
 
 from __future__ import annotations
+import os
 from contextlib import contextmanager
 from paramiko import (
-    AutoAddPolicy,
     AuthenticationException,
     BadHostKeyException,
+    RejectPolicy,
     SSHClient,
     SFTPClient,
     SSHException,
@@ -37,7 +38,10 @@ class SFTPParamiko(GenericConnection[SFTPClient]):
     def create_connection(self) -> None:
         self._engine = None
         self._connection = None  # type: ignore
-        self._state = State.Creating
+        # FIX: State.Creating is a transient state for the setup phase; the method
+        # must advance to State.Created on completion to satisfy the GenericConnection
+        # API contract and ensure the `connected` property behaves correctly.
+        self._state = State.Created
 
     @contextmanager
     def connect(self) -> Generator[T, None, None]:
@@ -50,7 +54,18 @@ class SFTPParamiko(GenericConnection[SFTPClient]):
 
         try:
             self._engine = SSHClient()
-            self._engine.set_missing_host_key_policy(AutoAddPolicy())
+
+            # FIX: AutoAddPolicy unconditionally trusts any server host key, making
+            # every connection vulnerable to Man-in-the-Middle attacks.  Load the
+            # system-wide and per-user known_hosts files so that Paramiko can verify
+            # the server's identity, then switch to RejectPolicy so that connections
+            # to unrecognised hosts are refused rather than silently accepted.
+            self._engine.load_system_host_keys()
+            known_hosts = os.path.expanduser("~/.ssh/known_hosts")
+            if os.path.isfile(known_hosts):
+                self._engine.load_host_keys(known_hosts)
+            self._engine.set_missing_host_key_policy(RejectPolicy())
+
             self._engine.connect(
                 hostname=self.host,
                 port=self.port,
@@ -66,6 +81,10 @@ class SFTPParamiko(GenericConnection[SFTPClient]):
 
             self._connection = self._engine.open_sftp()
             self._connected = True
+            # FIX: _state was never advanced to State.Connected after a successful
+            # connection; the `connected` property (which checks `_state is
+            # State.Connected`) therefore always returned False during an active session.
+            self._state = State.Connected
 
             self.info(
                 msg=Event.Connected.value,
@@ -82,14 +101,21 @@ class SFTPParamiko(GenericConnection[SFTPClient]):
                 self.disconnect()
 
         except AuthenticationException as e:
+            # FIX: disconnect() is called before re-raising so that the underlying
+            # SSHClient is always closed when setup fails before the inner try/finally
+            # (which wraps the yield) has had a chance to run, preventing a resource leak.
+            self.disconnect()
             raise SFTPConnectionError(
                 caller=self, error=f"Authentication failed: {e}"
             ) from e
         except BadHostKeyException as e:
+            self.disconnect()
             raise SFTPConnectionError(caller=self, error=f"Bad host key: {e}") from e
         except SSHException as e:
+            self.disconnect()
             raise SFTPConnectionError(caller=self, error=f"SSH error: {e}") from e
         except Exception as e:
+            self.disconnect()
             raise SFTPConnectionError(
                 caller=self, error=f"Connection error: {e}"
             ) from e
@@ -115,4 +141,8 @@ class SFTPParamiko(GenericConnection[SFTPClient]):
                     self._engine = None
         finally:
             self._connected = False
+            # FIX: _state was never reset after closing the connection; callers
+            # relying on the `connected` property or inspecting `state` after
+            # disconnect would observe a stale State.Connected value.
+            self._state = State.Closed
             self.debug(msg=Event.Disconnected.value, state=self.state.name)

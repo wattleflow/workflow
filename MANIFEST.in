@@ -1,17 +1,3 @@
-prune __pycache__
-prune .pytest_cache
-prune dist
-prune endpoints
-prune examples
-prune models
-prune scripts
-prune tests
-prune todo
-prune tools
-prune wattleflow_workflow*
-prune src/wattleflow/api/
-# prune src/wattleflow/api/controllers/dockers
-
 exclude *.config
 exclude *.pyc
 exclude *.pyo
@@ -29,23 +15,35 @@ exclude .scraps
 exclude .vscode
 exclude Makefile
 
+recursive-include src/wattleflow/ *.py
+prune .github
+prune .vscode
+prune __pycache__
+prune .pytest_cache
+prune doc
+prune dist
+prune endpoints
+prune examples
+prune models
+prune scripts
+prune tests
+prune todo
+prune tools
+prune wattleflow_workflow*
+prune src/wattleflow/api
+prune src/wattleflow/audit
+prune src/wattleflow/blackboards
+prune src/wattleflow/connections
+prune src/wattleflow/core
+prune src/wattleflow/managers
+prune src/wattleflow/processors
+prune src/wattleflow/repositories
+prune src/wattleflow/schedulers
+
 exclude helpers/audit.py
 exclude helpers/logger.py
-exclude src/wattleflow/api
-exclude src/wattleflow/audit
-exclude src/wattleflow/blackboards
-exclude src/wattleflow/connections
-exclude src/wattleflow/core
 exclude src/wattleflow/documents/rdf.py
-exclude src/wattleflow/documents/wattle.py
-exclude src/wattleflow/managers
-exclude src/wattleflow/processors
-exclude src/wattleflow/repositories
-exclude src/wattleflow/schedulers
-exclude tests/config.yaml
-exclude tests/scheduler.yaml
 
 include README.md LICENSE pyproject.toml
-include doc
 include doc/wattleflow.png
-recursive-include src/wattleflow/ *.py
+include doc/SUMMARY.md
