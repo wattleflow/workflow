@@ -7,7 +7,7 @@
 from __future__ import annotations
 import threading
 from abc import ABC
-from logging import NOTSET, Handler
+from logging import Handler
 from typing import Any, Optional
 from wattleflow.core import IEventListener, IScheduler
 from wattleflow.concrete import AuditLogger
@@ -36,9 +36,7 @@ class Scheduler(IScheduler, AuditLogger, ABC):
     def count(self) -> int:
         return self._counter
 
-    def __init__(
-        self, level: int = NOTSET, handler: Optional[Handler] = None, *args, **kwargs
-    ):
+    def __init__(self, level: int, handler: Optional[Handler] = None, *args, **kwargs):
         IScheduler.__init__(self, *args, **kwargs)
         AuditLogger.__init__(self, level=level, handler=handler)
 
@@ -47,7 +45,6 @@ class Scheduler(IScheduler, AuditLogger, ABC):
             name=self.name,
             level=level,
             handler=handler,
-            *args,
             **kwargs,
         )
 

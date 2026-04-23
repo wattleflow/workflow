@@ -9,7 +9,8 @@ from typing import Optional
 from urllib.parse import urlparse
 from wattleflow.core.creational import IFactory
 from wattleflow.constants import Event
-from wattleflow.concrete import AuditException, AuditLogger, GenericDriverClass
+from wattleflow.concrete import AuditLogger, GenericDriver
+from wattleflow.concrete.exception import AuditException
 
 # region URI primjeri za distribuirane sustave
 # Apache Kafka
@@ -199,8 +200,11 @@ _REMOTE_SCHEMES: frozenset = frozenset(
     }
 )
 
-
+# --------------------------------------------------------------------------- #
 # region DriverFactory
+# --------------------------------------------------------------------------- #
+
+
 class DriverFactory(IFactory, AuditLogger, ABC):
     def __init__(
         self,
@@ -210,11 +214,8 @@ class DriverFactory(IFactory, AuditLogger, ABC):
         **kwargs,
     ):
         IFactory.__init__(self)
-        AuditLogger.__init__(self, level=level, handler=handler, *args, **kwargs)
-        self.debug(
-            msg=Event.Constructor.value,
-            status=Event.Completed.value,
-        )
+        AuditLogger.__init__(self, level=level, handler=handler, **kwargs)
+        self.debug(msg=Event.Constructor.value, status=Event.Completed.value)
 
     @staticmethod
     def is_remote(uri: str) -> bool:
@@ -260,7 +261,7 @@ class DriverFactory(IFactory, AuditLogger, ABC):
         level: int,
         handler: Optional[logging.Handler] = None,
         **kwargs,
-    ) -> GenericDriverClass:
+    ) -> GenericDriver:
         try:
             if is_remote:
                 from wattleflow.drivers.http_file_system_driver import (
@@ -276,11 +277,11 @@ class DriverFactory(IFactory, AuditLogger, ABC):
                     **kwargs,
                 )
             else:
-                from wattleflow.drivers.local_file_system_driver import (
-                    LocalFileSystemDriver,
+                from wattleflow.drivers.local_storage_driver import (
+                    LocalStorageDriver,
                 )
 
-                return LocalFileSystemDriver(
+                return LocalStorageDriver(
                     local_path=local_path,
                     level=level,
                     handler=handler,
@@ -293,4 +294,6 @@ class DriverFactory(IFactory, AuditLogger, ABC):
             raise RuntimeError(f"DriverFactory.local_driver: {e}") from e
 
 
+# --------------------------------------------------------------------------- #
 # endregion DriverFactory
+# --------------------------------------------------------------------------- #

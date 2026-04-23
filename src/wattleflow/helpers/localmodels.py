@@ -72,8 +72,7 @@ class DownloadedModels:
                 print(f"ℹ Preskočeno (već postoji): {model_name}")
 
     def list_models(self) -> list:
-        # Provjera da li već sadrži 'hub'
-        if "hub" not in self.base_path:
+        if Path(self.base_path).name != "hub":
             models_dir = os.path.join(self.base_path, "hub")
         else:
             models_dir = self.base_path
@@ -81,19 +80,6 @@ class DownloadedModels:
         print(f"INFO: {models_dir}")
 
         # Correct pattern za HuggingFace models
-        search_pattern = os.path.join(models_dir, "models--*", "snapshots", "*")
-
-        model_paths = []
-        for path in glob.glob(search_pattern):
-            if self._is_valid_model_dir(path):
-                model_name = self._extract_model_name(path)
-                model_paths.append((model_name, path))
-
-        return model_paths
-
-    def list_models_old(self) -> list:
-        print(f"INFO: {self.base_path}")
-        models_dir = os.path.join(self.base_path, "hub")
         search_pattern = os.path.join(models_dir, "models--*", "snapshots", "*")
 
         model_paths = []

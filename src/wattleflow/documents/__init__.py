@@ -1,20 +1,18 @@
-# Module name: __init__.py
+# Module name: documnents/__init__.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 from .dataframe import DataFrameDocument
 from .dictionary import DictDocument
 from .file import FileDocument
 from .item import ItemDocument
-from .wattle import MimeTypes, ProvenanceHandler, Wattle
+from .wattle import Wattle
 
 __all__ = [
     "DataFrameDocument",
     "DictDocument",
     "FileDocument",
     "ItemDocument",
-    "MimeTypes",
-    "ProvenanceHandler",
     "Wattle",
 ]

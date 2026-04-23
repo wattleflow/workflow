@@ -1,29 +1,15 @@
-# Module name: config.py
+# Module name: helpers/config.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
-
-"""
-Description: This module provides configuration helper classes for managing and loading
-YAML-based settings within the Wattleflow framework. It supports secure
-decryption, dynamic class loading, and structured access to configuration
-data, enabling flexible and maintainable system configuration handling.
-"""
-
 from __future__ import annotations
-from logging import NOTSET, Handler
+import logging
 from pathlib import Path
 from typing import final, Any, Optional, Union
-from wattleflow.constants.keys import (
-    KEY_CLASS_NAME,
-    KEY_STRATEGY,
-    KEY_SECTION_PROJECT,
-    KEY_SSH_KEY_FILENAME,
-)
+from wattleflow.concrete.exception import AuditException
 from wattleflow.concrete.logger import AuditLogger
 from wattleflow.constants.enums import Event
-from wattleflow.helpers.system import ClassLoader
 
 try:
     import yaml
@@ -34,52 +20,45 @@ except Exception:
 @final
 class Config(AuditLogger):
     __slots__ = (
-        "config_file",
+        "_config_file",
         "_key_filename",
         "_data",
-        "_strategy",
-        "_level",
-        "_handler",
+        # "_strategy",
+        # "_level",
+        # "_handler",
     )
 
     def __init__(
         self,
         config_file: str,
-        level: int = NOTSET,
-        handler: Optional[Handler] = None,
+        **kwargs,
     ):
+        level: Union[str, int] = kwargs.get("level", "NOTSET")
+        handler: Optional[logging.Handler] = kwargs.get("handler", None)
+
         AuditLogger.__init__(self, level=level, handler=handler)
+
         if Path(config_file).exists() is False:
             self.error(
                 msg=Event.Constructor.value,
                 error=f"{self}: invalid or missing `config_path` {config_file}!",
                 config_file=config_file,
             )
-            from wattleflow.concrete import AuditException
 
             raise AuditException(
                 caller=self,
                 error=f"{self}: invalid or missing `config_path` {config_file}!",
                 config_file=config_file,
             )
-            # raise FileNotFoundError(
-            #     f"{self}: invalid or missing `config_path` {config_file}!"
-            # )
 
-        self.config_file: str = config_file
+        self._config_file: str = config_file
         self._key_filename: Optional[str] = None
         self._data = None
-        self._strategy: Any = None
-        self._level: int = level
-        self._handler: Optional[Handler] = handler
+        self._load_settings()
 
-        self.load_settings()
-
-    def decrypt(self, value) -> str:
-        if not self._strategy:
-            raise RuntimeError("Decryption strategy not initialized.")
-
-        return self._strategy.execute(value)
+    @property
+    def config_file(self) -> str:
+        return self._config_file
 
     def find(self, *keys) -> Any:
         result = self._data
@@ -91,9 +70,7 @@ class Config(AuditLogger):
             self.warning(Event.Find.value, missing=str(e))
             return None
 
-    def get(
-        self, section: str, key: str, name=None, default=None
-    ) -> Union[dict, str, list]:
+    def get(self, section: str, key: str, name=None, default=None) -> Union[dict, str, list]:
         def find_root(branch, name):
             if branch is None:
                 return None
@@ -134,43 +111,47 @@ class Config(AuditLogger):
 
         return root
 
-    def load_settings(self):
-        try:
-            with open(self.config_file, "r") as file:
-                self._data = yaml.safe_load(file)  # type: ignore
-        except FileNotFoundError:
-            raise FileNotFoundError(f"Configuration file not found: {self.config_file}")
-        except yaml.YAMLError as e:  # type: ignore
-            raise ValueError(f"Invalid YAML file: {self.config_file}. Error: {e}")
-
-        self._key_filename = self.find(
-            KEY_SECTION_PROJECT,
-            KEY_STRATEGY,
-            KEY_SSH_KEY_FILENAME,
-        )
-
-        class_name = self.find(
-            KEY_SECTION_PROJECT,
-            KEY_STRATEGY,
-            KEY_CLASS_NAME,
-        )
-
-        if not self._key_filename or not class_name:
-            return
-
-        if Path(self._key_filename).exists() is False:
-            return FileNotFoundError(
-                f"{self}._key_filename invalid or missing: {self._key_filename}!"
-            )
-
-        self._strategy = ClassLoader(
-            class_path=class_name,
-            level=self._level,
-            handler=self._handler,
-            key_filename=self._key_filename,
-        ).instance
-
     def __repr__(self) -> str:
         name = getattr(self, "name", "Config")
         config_file = getattr(self, "config_file", "unknown")
         return f"{name}:{config_file}"
+
+    def _load_settings(self):
+        try:
+            with open(self.config_file, "r") as file:
+                self._data = yaml.safe_load(file)  # type: ignore
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"Configuration file not found: {self.config_file}") from e
+        except yaml.YAMLError as e:  # type: ignore
+            raise ValueError(f"Invalid YAML file: {self.config_file}. Error: {e}") from e
+
+    @staticmethod
+    def flatten_config(config: dict, parent_key: str = "", sep: str = "_") -> dict:
+        items = {}
+
+        for key, value in config.items():
+            new_key = f"{parent_key}{sep}{key}" if parent_key else key
+
+            if isinstance(value, dict):
+                items.update(Config.flatten_config(value, new_key, sep=sep))
+            else:
+                items[new_key] = value
+
+        return items
+
+    @staticmethod
+    def find_name(config: list, value: str, key: str = "name") -> Any:
+        if isinstance(config, dict):
+            return config.get(value, None)
+
+        if not isinstance(config, list):
+            return {}
+
+        for item in config:
+            if not isinstance(item, dict):
+                raise ValueError("Unexpeced item type in a list!")
+            found = item.get(key, None)
+            if found and found == value:
+                return item
+
+        return {}

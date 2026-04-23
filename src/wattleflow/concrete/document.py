@@ -1,4 +1,4 @@
-# Module name: document.py
+# Module name: concrete/document.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -12,7 +12,6 @@ objects. Includes type-safe content updates, UTC-based metadata tracking,
 and consistent audit logging for document lifecycle operations.
 """
 
-
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from logging import Handler, NOTSET
@@ -24,7 +23,7 @@ from wattleflow.concrete import AuditLogger
 from wattleflow.constants import Event
 
 
-A = TypeVar("A", bound=IAdaptee)
+Adaptee = TypeVar("Adaptee", bound=IAdaptee)
 
 # Keys managed internally by update_metadata — must not be set by callers directly.
 _AUDIT_KEYS: frozenset = frozenset({"last_change_key", "last_change_time"})
@@ -93,7 +92,7 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
     def specific_request(self) -> "Document":
         return self
 
-    def update_content(self, content: T) -> None:
+    def update_content(self, content: Type) -> None:
         self.debug(
             msg=Event.Updating.value,
             fnc="update_content",
@@ -193,31 +192,21 @@ class DocumentAdapter(IAdapter, Generic[T]):
 
 
 # Facade implements ITarget and delegates access methods adaptee object
-class DocumentFacade(ITarget, Generic[A], ABC):
-    # region FIX-04: '__slots__' must be a tuple, not a bare string
-    # `__slots__ = "_adapter"` iterates over the characters of the string,
-    # creating individual slots for '_', 'a', 'd', etc. instead of one slot
-    # named "_adapter". The trailing comma makes it a single-element tuple.
+class DocumentFacade(ITarget, Generic[Adaptee], ABC):
     __slots__ = ("_adapter",)
-    # endregion FIX-04
 
-    def __init__(self, adaptee: A):
+    def __init__(self, adaptee: IAdaptee):
         ITarget.__init__(self)
         if not isinstance(adaptee, IAdaptee):
             raise TypeError("IAdaptee must be used.")
         self._adapter = DocumentAdapter(adaptee)
 
-    def request(self):
+    def request(self) -> Adaptee:
         result = self._adapter.request()
         if result is None:
             raise ValueError(f"Request returned None in {self.__class__.__name__}")
         return result
 
-    # region FIX-05: Prevent private attribute exposure through __getattr__
-    # The original implementation forwarded any attribute lookup — including
-    # names starting with '_' — directly to the internal adaptee, bypassing
-    # encapsulation and leaking private state to any caller. Private and dunder
-    # attributes are now blocked; only public attributes are proxied.
     def __getattr__(self, attr: str):
         if attr.startswith("_"):
             raise AttributeError(
@@ -229,7 +218,6 @@ class DocumentFacade(ITarget, Generic[A], ABC):
         raise AttributeError(
             f"'{self.__class__.__name__}' object has no attribute '{attr}'"
         )
-    # endregion FIX-05
 
     def __repr__(self) -> str:
         return f"{self.name}:{getattr(self, 'identifier', '')}"

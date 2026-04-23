@@ -1,4 +1,4 @@
-# Module name: enum.py
+# Module name: constants/enum.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 from enum import auto, Enum
-from pathlib import Path
 
 
 # Classification
@@ -111,7 +110,6 @@ class Event(Enum):
     Exiting = "Exiting"
     Error = "Error"
     ErrorSource = "Error source"
-    Exception = "Exception"
     Extract = "Extract"
     Extracted = "Extracted"
     Extracting = "Extracting"
@@ -142,6 +140,9 @@ class Event(Enum):
     List = "List"
     Listed = "Listed"
     Listing = "Listing"
+    Load = "Load"
+    Loaded = "Loaded"
+    Loading = "Loading"
     Log = "Log"
     Miss = "Miss"
     Missed = "Missed"
@@ -222,10 +223,10 @@ class Event(Enum):
 
 
 class Operation(Enum):
-    Start = 1
-    Stop = 0
-    Connect = 3
-    Disconnect = 4
+    Start = auto()
+    Stop = auto()
+    Connect = auto()
+    Disconnect = auto()
 
 
 # Action
@@ -245,17 +246,18 @@ class PipelineType(Enum):
     ASYNC_PIPELINE = "ASYNC_PIPELINE"  # "2a6737f3-93f5-950b-832c-cfd78829c69c"
     BASE_PIPELINE = "BASE_PIPELINE"  # "1916fa2b-7d51-c4f2-e28e-61e8fc4c386d"
     CONFIGURATION_PIPELINE = "CONFIGURATION_PIPELINE"
-    CONNECTION_PIPELINE = (
-        "CONNECTION_PIPELINE"  # "c3535bf0-a399-8fce-a609-92c0b072fe52"
-    )
-    EXTRACTION_PIPELINE = (
-        "EXTRACTION_PIPELINE"  # "df1999d3-28f7-a17d-764e-8d0eb9c01dca"
-    )
+    CONNECTION_PIPELINE = "CONNECTION_PIPELINE"  # "c3535bf0-a399-8fce-a609-92c0b072fe52"
+    EXTRACTION_PIPELINE = "EXTRACTION_PIPELINE"  # "df1999d3-28f7-a17d-764e-8d0eb9c01dca"
     LOAD_PIPELINE = "LOAD_PIPELINE"  # "85593db0-62ba-e953-b9da-aa1860025880"
     # FEATURE_PIPELINE = "966fc1db-7e8c-62f2-178c-b3c74d8ba70b"
     STRATEGY_PIPELINE = "STRATEGY_PIPELINE"
-    TRANSFORMATION_PIPELINE = (
-        "TRANSFORMATION_PIPELINE"  # "fa7a9304-7b92-bf00-2374-a899ee239dfe"
-    )
+    TRANSFORMATION_PIPELINE = "TRANSFORMATION_PIPELINE"  # "fa7a9304-7b92-bf00-2374-a899ee239dfe"
     RELEASE_DATE = "20241030"
     VERSION = "0.0.0.1"
+
+
+class ProvenanceHandler(Enum):
+    Processor = "Processor"
+    Pipeline = "Pipeline"
+    CreateStrategy = "Create Strategy"
+    WriteStrategy = "Write Strategy"

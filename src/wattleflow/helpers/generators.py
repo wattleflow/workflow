@@ -39,9 +39,11 @@ Example 3: Generate randomm values
 
 from __future__ import annotations
 import re
-import numpy as np
 
-records = lambda n: np.random.rand(n)
+
+def records(n):
+    import numpy as np
+    return np.random.rand(n)
 
 
 def inc(start: int = 0):

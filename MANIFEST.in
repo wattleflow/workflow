@@ -7,13 +7,16 @@ exclude .dist
 exclude .env
 exclude .flake8
 exclude .github
+exclude .cl*/*
 exclude .github/*
 exclude .gitignore
+exclude .ins*/*
 exclude .idea
 exclude .pylintrc
 exclude .scraps
 exclude .vscode
 exclude Makefile
+exclude .pytest_cache/*
 
 recursive-include src/wattleflow/ *.py
 prune .github
@@ -40,9 +43,15 @@ prune src/wattleflow/processors
 prune src/wattleflow/repositories
 prune src/wattleflow/schedulers
 
+prune .cl*/*
+prune .ins*/*
+prune .pytest_cache/*
+
 exclude helpers/audit.py
 exclude helpers/logger.py
 exclude src/wattleflow/documents/rdf.py
+exclude .cl*/*
+exclude .ins*/*
 
 include README.md LICENSE pyproject.toml
 include doc/wattleflow.png

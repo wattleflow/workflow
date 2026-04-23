@@ -4,10 +4,12 @@
 # License: Apache 2 Licence
 
 
+from .encrypted_preset import EncryptedPreset
 from .pspf import PSPFDecorator
 from .preset import PresetDecorator
 
 __all__ = [
+    "EncryptedPreset",
     "PSPFDecorator",
     "PresetDecorator",
 ]

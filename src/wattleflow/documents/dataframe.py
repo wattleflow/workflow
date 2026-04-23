@@ -1,20 +1,19 @@
-# Module name: dataframe.py
+# Module name: documents/dataframe.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
 from __future__ import annotations
+from abc import ABC
 from pandas import DataFrame
 from logging import NOTSET, Handler
 from typing import Optional
 from wattleflow.concrete import Document
 
 
-class DataFrameDocument(Document[DataFrame]):
-    def __init__(
-        self, content: DataFrame, level: int = NOTSET, handler: Optional[Handler] = None
-    ):
+class DataFrameDocument(Document[DataFrame], ABC):
+    def __init__(self, content: DataFrame, level: int = NOTSET, handler: Optional[Handler] = None):
         Document.__init__(self, content=content, level=level, handler=handler)
 
     @property

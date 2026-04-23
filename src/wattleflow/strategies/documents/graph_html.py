@@ -28,7 +28,8 @@ from wattleflow.concrete import (
     StrategyWrite,
 )
 from wattleflow.constants import Event
-from wattleflow.helpers import Attribute, FileTypes, Normaliser
+from wattleflow.helpers import Attribute, Normaliser
+from wattleflow.helpers.filetype import FileType
 
 
 # document: rdf ---------------------------------------------------------------
@@ -41,11 +42,11 @@ class GraphHtml(Document[Graph]):
     ):
         graph = Graph()
 
-        namespace = Namespace("urn:wattleflow:htmlgraph#")
-        subject = URIRef(f"urn:wattleflow:htmlgraph:{uri}")
+        self.namespace = Namespace("urn:wattleflow:htmlgraph#")
+        self.subject = URIRef(f"urn:wattleflow:htmlgraph:{uri}")
 
-        graph.bind("ex", namespace)
-        graph.bind("doc", subject)
+        graph.bind("ex", self.namespace)
+        graph.bind("doc", self.subject)
 
         Document.__init__(self, content=graph, level=level, handler=handler)
 
@@ -57,14 +58,14 @@ class GraphHtml(Document[Graph]):
             uri=uri,
         )
 
-        self.update_metadata("namespace", namespace)
-        self.update_metadata("subject", subject)
+        self.update_metadata("namespace", self.namespace)
+        self.update_metadata("subject", self.subject)
 
-        self.add_predicate(document.namespace.hasUri, uri)  # type: ignore
-        self.add_predicate(document.namespace.hasIdentifier, str(hash(self)))  # type: ignore
-        self.add_predicate(document.namespace.hasNamespace, str(namespace))  # type: ignore
-        self.add_predicate(document.namespace.hasSubject, str(subject))  # type: ignore
-        self.add_predicate(document.namespace.hasCreatedAt, str(datetime.now()))  # type: ignore
+        self.add_predicate(self.namespace.hasUri, uri)  # type: ignore
+        self.add_predicate(self.namespace.hasIdentifier, str(hash(self)))  # type: ignore
+        self.add_predicate(self.namespace.hasNamespace, str(self.namespace))  # type: ignore
+        self.add_predicate(self.namespace.hasSubject, str(self.subject))  # type: ignore
+        self.add_predicate(self.namespace.hasCreatedAt, str(datetime.now()))  # type: ignore
 
         self.debug(
             msg=Event.Constructor.value,
@@ -263,7 +264,7 @@ class WriteGraphHtmlDocument(StrategyWrite):
             sheetname: str = graph.metadata.get("sheetname", None)
             if sheetname:
                 filename = filename.with_stem(
-                    "%s-%s" % filename.stem % Normaliser.transform(sheetname)
+                    "%s-%s" % filename.stem % Normaliser(sheetname).name().date()
                 )
         self.debug(
             msg=Event.Execute.value,

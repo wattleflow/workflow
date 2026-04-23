@@ -1,72 +1,322 @@
-# Module name: driver.py
+# Module name: concrete/driver.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
 """
 Defines an abstract, extensible driver base class for the Wattleflow framework.
 Provides a unified interface for loading, reading, and writing data sources,
-with optional lazy initialisation, integrated audit logging, and dynamic
-configuration via the PresetDecorator. Serves as a foundation for concrete
-driver implementations handling data persistence and transport.
+with optional lazy initialisation, integrated audit logging, observer pattern
+for connection state notifications, and dynamic configuration via the
+PresetDecorator.
 """
 
 import logging
-from abc import abstractmethod, ABC
-from pathlib import Path
-from typing import Any, Optional
-from wattleflow.core import IDriver, ITarget
-from wattleflow.concrete import AuditLogger
+
+from abc import ABC
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any
+from wattleflow.core import IDriver, IObserver
+from wattleflow.concrete.exception import DriverException as DriverError
+from wattleflow.concrete.logger import AuditLogger
+from wattleflow.constants import Event
 from wattleflow.decorators.preset import PresetDecorator
 
 
-class GenericDriverClass(IDriver, AuditLogger, ABC):
-    __slots__ = [
-        "_initialised",
-        "_lazy_load",
-        "_loaded",
-        "_preset",
-    ]
+@dataclass
+class DriverMetadata:
+    name: str
+    version: str
+    protocol: str
+    capabilities: list  # ["read", "write", "stream"]
 
-    def __init__(
-        self,
-        level: int,
-        handler: Optional[logging.Handler],
-        lazy_load: bool = False,
-        **kwargs,
-    ):
+
+class DriverAction(str, Enum):
+    LOAD = "load"
+    LOAD_OK = "load_ok"
+    LOAD_FAIL = "load_fail"
+
+    UNLOAD = "unload"
+    UNLOAD_OK = "unload_ok"
+    UNLOAD_FAIL = "unload_fail"
+
+    PAUSE = "pause"
+    RESET = "reset"
+
+
+class DriverState(str, Enum):
+    PENDING = "pending"
+    LOADING = "loading"
+    LIVE = "live"
+    PAUSED = "paused"
+    DEGRADED = "degraded"
+    UNLOADING = "unloading"
+    UNLOADED = "unloaded"
+
+
+# (current_state, action) -> next_state
+TRANSITIONS = {
+    # --- load lifecycle ---
+    (DriverState.PENDING, DriverAction.LOAD): DriverState.LOADING,
+    (DriverState.UNLOADED, DriverAction.LOAD): DriverState.LOADING,
+    (DriverState.PAUSED, DriverAction.LOAD): DriverState.LOADING,
+    (DriverState.DEGRADED, DriverAction.LOAD): DriverState.LOADING,
+    (DriverState.LOADING, DriverAction.LOAD_OK): DriverState.LIVE,
+    (DriverState.LOADING, DriverAction.LOAD_FAIL): DriverState.DEGRADED,
+    # --- pause ---
+    (DriverState.LIVE, DriverAction.PAUSE): DriverState.PAUSED,
+    # --- unload lifecycle ---
+    (DriverState.LIVE, DriverAction.UNLOAD): DriverState.UNLOADING,
+    (DriverState.PAUSED, DriverAction.UNLOAD): DriverState.UNLOADING,
+    (DriverState.DEGRADED, DriverAction.UNLOAD): DriverState.UNLOADING,
+    (DriverState.UNLOADING, DriverAction.UNLOAD_OK): DriverState.UNLOADED,
+    (DriverState.UNLOADING, DriverAction.UNLOAD_FAIL): DriverState.DEGRADED,
+    # --- reset ---
+    (DriverState.UNLOADED, DriverAction.RESET): DriverState.PENDING,
+}
+
+
+class DriverFSM:
+    __slots__ = ("state",)
+
+    def __init__(self, initial: DriverState = DriverState.PENDING):
+        self.state = initial
+
+    def can(self, action: DriverAction) -> bool:
+        return (self.state, action) in TRANSITIONS
+
+    def apply(self, action: DriverAction) -> None:
+        key = (self.state, action)
+
+        if key not in TRANSITIONS:
+            raise RuntimeError(f"{action} not allowed in {self.state}")
+
+        self.state = TRANSITIONS[key]
+
+    def __repr__(self) -> str:
+        return self.state.value
+
+
+class GenericDriver(IDriver, IObserver, AuditLogger, ABC):
+    __slots__ = ("_fsm", "_preset")
+
+    def __init__(self, **kwargs):
+        level = kwargs.pop("level", logging.WARNING)
+        handler = kwargs.pop("handler", None)
+
         IDriver.__init__(self)
+        IObserver.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
 
-        self._loaded = False
+        self._fsm = DriverFSM()
         self._preset = PresetDecorator(parent=self, **kwargs)
 
-        if not lazy_load:
-            self.load()
+    def __del__(self):
+        self.debug(msg="__del__", step=Event.Started.name)
+        self.ensure_unloaded()
+        self.debug(msg="__del__", step=Event.Completed.name)
 
-    @abstractmethod
-    def load(self) -> None:
-        pass
-
-    @abstractmethod
-    def read(self, uri: Path, **kwargs) -> Any:
-        pass
-
-    @abstractmethod
-    def write(self, uri: Path, data: object, **kwargs) -> bool:
-        pass
-
-    # Must be implemented if using PresetDecorator
     def __getattr__(self, name: str) -> Any:
+        all_slots: set = set()
+        for cls in type(self).__mro__:
+            all_slots.update(getattr(cls, "__slots__", ()))
+
+        if name in all_slots:
+            return object.__getattribute__(self, name)
+
         preset: PresetDecorator = object.__getattribute__(self, "_preset")
         return preset.__getattr__(name)
 
-    def __hash__(self) -> int:
-        return hash(
-            (
-                id(self),
-                self.name,
-                self._preset,
-            )
-        )
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(state={self._fsm.state.value})"
+
+    @property
+    def state(self) -> DriverState:
+        return self._fsm.state
+
+    # region lifecycle orchestration (FSM) ---
+
+    def can(self, action: DriverAction) -> bool:
+        return self._fsm.can(action)
+
+    def ensure_live(self) -> None:
+        if self._fsm.state == DriverState.LIVE:
+            return
+
+        if self._fsm.state == DriverState.LOADING:
+            return
+
+        if not self._fsm.can(DriverAction.LOAD):
+            raise DriverError(caller=self, error=f"Cannot load from state {self._fsm.state}")
+
+        self._fsm.apply(DriverAction.LOAD)
+
+        try:
+            self.load()
+            self._fsm.apply(DriverAction.LOAD_OK)
+        except Exception:
+            self._fsm.apply(DriverAction.LOAD_FAIL)
+            raise
+
+    def ensure_unloaded(self) -> None:
+        if self._fsm.state == DriverState.UNLOADED:
+            return
+
+        if not self._fsm.can(DriverAction.UNLOAD):
+            return
+
+        self._fsm.apply(DriverAction.UNLOAD)
+
+        try:
+            self.close()
+            self._fsm.apply(DriverAction.UNLOAD_OK)
+        except Exception:
+            self._fsm.apply(DriverAction.UNLOAD_FAIL)
+            raise
+
+    def pause(self) -> None:
+        if self._fsm.can(DriverAction.PAUSE):
+            self._fsm.apply(DriverAction.PAUSE)
+
+    def reset(self) -> None:
+        if self._fsm.can(DriverAction.RESET):
+            self._fsm.apply(DriverAction.RESET)
+
+    # endregion lifecycle
+
+    # region implemention metods (override)
+    # @abstractmethod
+    # def load(self) -> None: ...
+
+    # @abstractmethod
+    # def close(self) -> None: ...
+
+    # @abstractmethod
+    # def read(self, uri: str, **kwargs) -> Any: ...
+
+    # @abstractmethod
+    # def write(self, uri: str, data, **kwargs) -> Any: ...
+
+    def update(self, event: Any, **kwargs) -> None:
+        self.debug(msg="update", step=Event.Started.name, event=event.name, **kwargs)
+
+        # error = kwargs.get("error", "")
+        # state = kwargs.get("state", "")
+        # connection_name = kwargs.get("connection_name", None)
+
+        # if connection_name is None:
+        #     raise DriverException(caller=self, error="update: missing connection_name!")
+
+        # if error:
+        #     self.error(
+        #         msg="update",
+        #         connection_name=connection_name,
+        #         error=error,
+        #         state=state,
+        #         driver=self.name,
+        #     )
+        # else:
+        #     self.debug(
+        #         msg=Event.Connection.value,
+        #         connection_name=connection_name,
+        #         state=state,
+        #         driver=self.name,
+        #     )
+
+        self.debug(msg="update", step=Event.Completed.name)
+
+    # endregion implemention
+
+
+class LazyDriverProxy(IDriver, IObserver, AuditLogger):
+    __slots__ = ("_factory", "_driver", "_conn_mgr", "_conn_name")
+
+    def __init__(self, factory, conn_mgr, conn_name: str, **kwargs):
+        level = kwargs.pop("level", logging.WARNING)
+        handler = kwargs.pop("handler", None)
+
+        IDriver.__init__(self)
+        IObserver.__init__(self)
+        AuditLogger.__init__(self, level=level, handler=handler)
+
+        self._factory = factory  # callable → GenericDriver
+        self._driver = None  # stvarni driver
+        self._conn_mgr = conn_mgr
+        self._conn_name = conn_name
+
+    # region internal
+
+    def _ensure_ready(self):
+        conn = self._conn_mgr.get(self._conn_name)
+
+        if not conn.connected:
+            conn.request("connect")
+
+        if self._driver is None:
+            self._driver = self._factory()
+
+        self._driver.ensure_live()
+
+    def __del__(self) -> None:
+        self.release()
+
+    # def __getattr__(self, name: str):
+    #     if name.startswith("_"):
+    #         return object.__getattribute__(self, name)
+
+    #     self._ensure_ready()
+    #     return getattr(self._driver, name)
+
+    def __getattr__(self, name: str) -> Any:
+        all_slots: set = set()
+        for cls in type(self).__mro__:
+            all_slots.update(getattr(cls, "__slots__", ()))
+
+        if name in all_slots:
+            return object.__getattribute__(self, name)
+
+        self._ensure_ready()
+        driver = object.__getattribute__(self, "_driver")
+        return getattr(driver, name)
+
+    def __repr__(self) -> str:
+        state = "initialized" if self._driver else "lazy"
+        return f"{self.__class__.__name__}({state}, conn='{self._conn_name}')"
+
+    # endregion internal
+
+    # region API (delegation) ---
+
+    def read(self, uri: str, **kwargs):
+        self._ensure_ready()
+        return self._driver.read(uri, **kwargs)
+
+    def write(self, uri: str, **kwargs):
+        self._ensure_ready()
+        return self._driver.write(uri, **kwargs)
+
+    def close(self) -> None:
+        if self._driver is None:
+            return
+
+        self._driver.ensure_unloaded()
+
+    def reset(self) -> None:
+        if self._driver is None:
+            return
+        self._driver.reset()
+
+    def unload(self):
+        if self._driver is None:
+            return
+
+        self._driver.ensure_unloaded()
+
+    def release(self):
+        if self._driver:
+            self._driver.ensure_unloaded()
+            self._driver = None
+
+    # endregion API

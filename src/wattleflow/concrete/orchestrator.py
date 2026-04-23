@@ -15,7 +15,6 @@ The Orchestrator class will:
 
 """
 
-
 from __future__ import annotations
 import threading
 from datetime import datetime
@@ -30,19 +29,15 @@ from wattleflow.constants.enums import (
     Event,
     Operation,
 )
-from wattleflow.concrete import (
-    OrchestratorException,
-    ConnectionManager,
-)
+from wattleflow.concrete.manager import ConnectionManager
+from wattleflow.concrete.exception import AuditException
+
+
+class OrchestratorException(AuditException):
+    pass
 
 
 class Orchestrator(IEventSource, IFacade):
-    """
-    Orchestrator for managing and coordinating processors.
-    Ensures processors share a connection manager and executes processing
-    sequentially or in parallel.
-    """
-
     def __init__(
         self, connection_manager: ConnectionManager, strategy_execute: IStrategy = None
     ):
@@ -72,7 +67,7 @@ class Orchestrator(IEventSource, IFacade):
                 "Error processing {}: {}".format(
                     getattr(processor, "name", "unknown"), e
                 ),
-            )
+            ) from e
 
     def add_processor(self, processor: IProcessor):
         """

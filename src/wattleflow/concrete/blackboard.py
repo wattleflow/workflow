@@ -1,4 +1,4 @@
-# Module name: blackboard.py
+# Module name: concrete/blackboard.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -15,7 +15,7 @@ creation, reading, writing, and flushing of data objects within the repository e
 from __future__ import annotations
 
 from abc import ABC
-from logging import Handler, NOTSET
+from logging import Handler
 from types import MappingProxyType
 from typing import (
     Any,
@@ -23,9 +23,12 @@ from typing import (
     List,
     Mapping,
     Optional,
+    Union,
 )
 from wattleflow.core import (
     IBlackboard,
+    IMemento,
+    IOriginator,
     IRepository,
     IProcessor,
     ITarget,
@@ -38,7 +41,17 @@ from wattleflow.helpers.attribute import Attribute
 from wattleflow.decorators.preset import PresetDecorator
 
 
-class GenericBlackboard(IBlackboard, AuditLogger, ABC):
+class BlackboardMemento(IMemento):
+    __slots__ = ("_canvas",)
+
+    def __init__(self, canvas: Dict[str, ITarget]) -> None:
+        self._canvas = dict(canvas)
+
+    def get_state(self) -> IMemento:
+        return self._canvas
+
+
+class GenericBlackboard(IBlackboard, IOriginator, AuditLogger, ABC):
     __slots__ = (
         "_canvas",
         "_flushed",
@@ -52,12 +65,15 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         self,
         strategy_create: StrategyCreate,
         defer_flush: bool = False,
-        level: int = NOTSET,
-        handler: Optional[Handler] = None,
         **kwargs,
     ):
+        level: Union[str, int] = kwargs.pop("level", "NOTSET")
+        handler: Optional[Handler] = kwargs.pop("handler", None)
+        fmt: dict = {"fmt": kwargs.pop("fmt", {})} if kwargs.pop("fmt", None) else {}
+        self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
+
         IBlackboard.__init__(self)
-        AuditLogger.__init__(self, level=level, handler=handler)
+        AuditLogger.__init__(self, level=level, handler=handler, **fmt)
 
         self.debug(
             msg=Event.Constructor.value,
@@ -68,10 +84,13 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             handler=handler,
         )
 
-        Attribute.evaluate(caller=self, target=strategy_create, expected_type=StrategyCreate)
+        Attribute.evaluate(
+            caller=self,
+            target=strategy_create,
+            expected_type=StrategyCreate,
+        )
 
         self._flushed = False
-        self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
         self._strategy_create = strategy_create
         self._canvas: Dict[str, ITarget] = {}
         self._repositories: List[IRepository] = []
@@ -104,7 +123,6 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         self,
         caller: IWattleflow,
         facade: ITarget,
-        *args,
         **kwargs,
     ) -> None:
         """
@@ -115,17 +133,12 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             step=Event.Started.value,
             caller=caller,
             facade=facade,
-            *args,
             **kwargs,
         )
 
         for repository in self._repositories:
-            repository.write(caller=caller, facade=facade, *args, **kwargs)
+            repository.write(caller=caller, facade=facade, **kwargs)
 
-        # FIX: v0.0.0.62 - 26/3/17 - Moved _flushed assignment to after the loop;
-        # previously it was set True inside the loop after the first repository write,
-        # so a failure on a subsequent repository left _flushed=True whilst not all
-        # repositories had received the document.
         self._flushed = True
 
         self.debug(
@@ -150,12 +163,11 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             canvases=len(self._canvas),
         )
 
-    def create(self, caller: IWattleflow, *args, **kwargs) -> Optional[ITarget]:
+    def create(self, caller: IWattleflow, **kwargs) -> Optional[ITarget]:
         self.debug(
             msg=Event.Create.value,
             step=Event.Started.value,
             caller=caller.name,
-            *args,
             **kwargs,
         )
 
@@ -173,7 +185,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             step=Event.Completed.value,
         )
 
-        return self._strategy_create.create(caller=caller, blackboard=self, *args, **kwargs)
+        return self._strategy_create.create(caller=caller, blackboard=self, **kwargs)
 
     def delete(self, caller: IWattleflow, identifier: str) -> None:
         self.debug(
@@ -203,13 +215,12 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             id=identifier,
         )
 
-    def flush(self, caller: IWattleflow, *args, **kwargs) -> None:
+    def flush(self, caller: IWattleflow, **kwargs) -> None:
         self.debug(
             msg=Event.Flush.value,
             step=Event.Started.value,
             caller=caller.name,
             count=len(self._canvas),
-            *args,
             **kwargs,
         )
 
@@ -218,16 +229,10 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
                 self._emit(
                     facade=facade,
                     caller=caller,
-                    *args,
                     **kwargs,
                 )
 
         self._canvas.clear()
-
-        # FIX: v0.0.0.62 - 26/3/17 - Reset _flushed to False after clearing the canvas
-        # so that new documents added after a flush are emitted on the next flush() call;
-        # previously _flushed stayed True permanently, silently skipping all subsequent
-        # deferred writes.
         self._flushed = False
 
         self.debug(
@@ -235,7 +240,6 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             step=Event.Completed.value,
             caller=caller.name,
             count=len(self._canvas),
-            *args,
             **kwargs,
         )
 
@@ -262,7 +266,6 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         self,
         repository_name: str,
         identifier: str,
-        *args,
         **kwargs,
     ) -> ITarget:
         self.info(
@@ -284,15 +287,15 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             msg = f"Repository {repository_name} not registered!"
             raise RuntimeError(msg)
 
-        self.debug(msg=Event.Read.value, step=Event.Completed.value, repository=repository)
+        self.debug(
+            msg=Event.Read.value, step=Event.Completed.value, repository=repository
+        )
 
-        return repository.read(identifier=identifier, *args, **kwargs)
+        return repository.read(identifier=identifier, **kwargs)
 
     def register(self, repository: IRepository) -> None:
         self.debug(
-            msg=Event.Register.value,
-            step=Event.Started.value,
-            registering=repository,
+            msg=Event.Register.value, step=Event.Started.value, repository=repository
         )
 
         Attribute.evaluate(self, repository, IRepository)
@@ -308,18 +311,15 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         self._repositories.append(repository)
 
         self.debug(
-            msg=Event.Register.value,
-            step=Event.Completed.value,
-            added=repository,
+            msg=Event.Register.value, step=Event.Completed.name, added=repository
         )
 
-    def write(self, caller: IWattleflow, facade: ITarget, *args, **kwargs) -> str:
+    def write(self, caller: IWattleflow, facade: ITarget, **kwargs) -> str:
         self.debug(
             msg=Event.Write.value,
             step=Event.Started.value,
             caller=caller.name,
             facade=facade,
-            *args,
             **kwargs,
         )
 
@@ -347,7 +347,6 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
             self._emit(
                 caller=caller,
                 facade=facade,
-                *args,
                 **kwargs,
             )
 
@@ -359,6 +358,17 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
 
         return document.identifier  # type: ignore
 
+    # region Memento
+    def save_state(self) -> BlackboardMemento:
+        self.debug(msg="save_state", count=len(self._canvas))
+        return BlackboardMemento(self._canvas)
+
+    def restore_state(self, memento: BlackboardMemento) -> None:
+        self._canvas = dict(memento.get_state())
+        self.debug(msg="restore_state", count=len(self._canvas))
+
+    # endregion Memento
+
     # Must be implemented if using PresetDecorator
     def __getattr__(self, name: str) -> Any:
         preset: PresetDecorator = object.__getattribute__(self, "_preset")
@@ -368,4 +378,4 @@ class GenericBlackboard(IBlackboard, AuditLogger, ABC):
         self.clean()
 
     def __repr__(self) -> str:
-        return f"{self.name}: {self.count}:{len(self._repositories)}"
+        return f"{self.name}:{self.count}:{len(self._repositories)}:[{self.levelname}]"

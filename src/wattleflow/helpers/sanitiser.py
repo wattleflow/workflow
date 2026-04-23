@@ -17,9 +17,10 @@ from urllib.parse import urlparse, urlunparse
 def sanitised_uri(uri: str) -> str:
     parsed = urlparse(uri)
     if parsed.username and parsed.password:
-        netloc = f"{parsed.username}:***@{parsed.hostname}"
-        if parsed.port:
-            netloc += f":{parsed.port}"
+        # Extract host[:port] from netloc directly to preserve original casing.
+        # parsed.hostname lowercases the host, which would silently alter the URI.
+        host_part = parsed.netloc.rsplit("@", 1)[-1]
+        netloc = f"{parsed.username}:***@{host_part}"
         sanitized = parsed._replace(netloc=netloc)
         return urlunparse(sanitized)
     return uri

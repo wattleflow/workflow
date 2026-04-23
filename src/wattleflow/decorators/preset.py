@@ -30,19 +30,22 @@ class PresetDecorator:
     def __init__(self, parent: IWattleflow, **kwargs):
         self._parent: IWattleflow = parent
 
-        allowed = kwargs.pop("allowed", ())
+        allowed = kwargs.pop("allowed", [])
+        assert isinstance(allowed, list), (
+            f"{parent.__class__.__name__}.allowed must be [list]!"
+        )
 
         if isinstance(allowed, dict):
             allowed_set = set(allowed)
-        elif isinstance(allowed, dict):
-            allowed_set = set(allowed.keys())
         elif allowed is None:
             allowed_set = set()
         else:
             try:
                 allowed_set = set(allowed)
-            except TypeError:
-                raise TypeError("alloweed attribute must have iterable elements/names")
+            except TypeError as e:
+                raise TypeError(
+                    "alloweed attribute must have iterable elements/names"
+                ) from e
 
         object.__setattr__(self, "_allowed", allowed_set)
         values = {k: v for k, v in kwargs.items() if k in allowed_set}
@@ -50,18 +53,21 @@ class PresetDecorator:
 
     def __getattr__(self, name: str) -> Any:
         try:
-            value = object.__getattribute__(self._parent, name)
-            if value:
-                return value
-        except Exception:
+            return object.__getattribute__(self._parent, name)
+        except AttributeError:
             pass
 
         if name in self._allowed:
             return self._values.get(name, None)
 
+        try:
+            parent_name = object.__getattribute__(self._parent, "name")
+        except AttributeError:
+            parent_name = type(self._parent).__name__
+
         raise AttributeException(
             caller=self._parent,
-            error=f"{self._parent.name}.{name} is not permitted.",
+            error=f"{parent_name}.{name} is not permitted.",
             name=name,
             exc_info=True,
         )
@@ -83,4 +89,5 @@ class PresetDecorator:
             )
 
     def __repr__(self) -> str:
-        return f"{self._parent.name}._preset"
+        size: int = len(self._values) if hasattr(self, "_values") else 0
+        return f"{self._parent.name}:elements:[{size}]"

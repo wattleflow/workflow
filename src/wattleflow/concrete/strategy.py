@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 from abc import abstractmethod, ABC
-from logging import Handler, NOTSET
+from logging import Handler
 from typing import Optional
 from wattleflow.core import IWattleflow, IStrategy, ITarget
 from wattleflow.concrete import AuditLogger
@@ -14,33 +14,30 @@ from wattleflow.concrete import AuditLogger
 
 # Generic strategy
 class Strategy(IStrategy, AuditLogger, ABC):
-    def __init__(
-        self,
-        level: int = NOTSET,
-        handler: Optional[Handler] = None,
-    ):
-        self._level: int = level
-        self._handler: Optional[Handler] = handler
+    def __init__(self, **kwargs):
+        kwargs.pop("allowed", None)
+        level = kwargs.pop("level", 0)
+        handler: Optional[Handler] = kwargs.pop("handler", None)
+
+        formating = kwargs.pop("formating", None)
+        formating = {"formating": formating} if formating else {}
 
         IStrategy.__init__(self)
-        AuditLogger.__init__(self, level=level, handler=handler, logger=None)
+        AuditLogger.__init__(self, level=level, handler=handler, **formating)
 
     @abstractmethod
-    def execute(self, caller: IWattleflow, *args, **kwargs) -> Optional[ITarget]:
+    def execute(self, caller: IWattleflow, **kwargs) -> Optional[ITarget]:
         pass
-
-    def __repr__(self) -> str:
-        return f"{self.name}"
 
 
 class StrategyGenerate(Strategy, ABC):
-    def generate(self, caller: IWattleflow, *args, **kwargs) -> Optional[ITarget]:
-        return self.execute(caller, *args, **kwargs)
+    def generate(self, caller: IWattleflow, **kwargs) -> Optional[ITarget]:
+        return self.execute(caller=caller, **kwargs)
 
 
 class StrategyCreate(Strategy, ABC):
-    def create(self, caller: IWattleflow, *args, **kwargs) -> Optional[ITarget]:
-        return self.execute(caller=caller, *args, **kwargs)
+    def create(self, caller: IWattleflow, **kwargs) -> Optional[ITarget]:
+        return self.execute(caller=caller, **kwargs)
 
 
 class StrategyRead(Strategy, ABC):
@@ -48,14 +45,11 @@ class StrategyRead(Strategy, ABC):
         self,
         caller: IWattleflow,
         identifier: str,
-        *args,
         **kwargs,
     ) -> Optional[ITarget]:
-        return self.execute(caller=caller, identifier=identifier, *args, **kwargs)
+        return self.execute(caller=caller, identifier=identifier, **kwargs)
 
 
 class StrategyWrite(Strategy, ABC):
-    def write(self, caller: IWattleflow, facade: ITarget, *args, **kwargs) -> bool:
-        if self.execute(caller=caller, facade=facade, *args, **kwargs) is None:
-            return False
-        return True
+    def write(self, caller: IWattleflow, facade: ITarget, **kwargs) -> bool:
+        return self.execute(caller=caller, facade=facade, **kwargs) is not None

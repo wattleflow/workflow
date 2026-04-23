@@ -1,4 +1,4 @@
-# Module name: macros.py
+# Module name: helpers/macros.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -38,9 +38,19 @@ Usage example:
 from __future__ import annotations
 import re
 
-ADD_VALUE_ERROR = (
-    "Tuple macro must be: (pattern, replacement) or (pattern, replacement, flags)."
-)
+ADD_VALUE_ERROR = "Tuple macro must be: (pattern, replacement) or (pattern, replacement, flags)."
+
+# Detects common catastrophic backtracking structures:
+#   (a+)+  (a*)* (a+)* (a?)+  and quantified groups followed by { repetition
+_REDOS_RE = re.compile(r"\([^()]*[+*?][^()]*\)[+*{]")
+
+
+def _check_redos(pattern: str) -> None:
+    if _REDOS_RE.search(pattern):
+        raise ValueError(
+            f"Regex pattern rejected — contains a structure prone to catastrophic "
+            f"backtracking (ReDoS): {pattern!r}"
+        )
 
 
 class TextMacros:
@@ -58,9 +68,11 @@ class TextMacros:
             if isinstance(macro, tuple):
                 if len(macro) == 2:
                     pattern, replacement = macro
+                    _check_redos(pattern)
                     pattern = re.compile(pattern)
                 elif len(macro) == 3:
                     pattern, replacement, flags = macro
+                    _check_redos(pattern)
                     pattern = re.compile(pattern, flags)
                 else:
                     raise ValueError(ADD_VALUE_ERROR)
@@ -69,11 +81,10 @@ class TextMacros:
                     pattern = macro["pattern"]
                     replacement = macro["replacement"]
                     flags = macro.get("flags", 0)
+                    _check_redos(pattern)
                     pattern = re.compile(pattern, flags)
                 else:
-                    raise ValueError(
-                        "Dict macro must contain 'pattern' and 'replacement'."
-                    )
+                    raise ValueError("Dict macro must contain 'pattern' and 'replacement'.")
             else:
                 raise ValueError("Macro must be either a tuple or a dict.")
             self._macros.append((pattern, replacement))

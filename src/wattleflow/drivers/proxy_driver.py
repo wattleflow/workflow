@@ -1,4 +1,4 @@
-# Module name: http_file_system_driver.py
+# Module name: drivers/proxy_driver.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -12,14 +12,17 @@ import pandas as pd
 import requests
 import tempfile as tmp
 
+from logging import Handler
 from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import urlparse
 
-from wattleflow.concrete import AuditException, GenericDriverClass
+from wattleflow.concrete.driver import GenericDriver, DriverMetadata
+from wattleflow.concrete.exception import AuditException, DriverException
+from wattleflow.connections.proxy import ProxyConnection
 from wattleflow.constants.enums import Event
-from wattleflow.drivers import FileStorage
-from wattleflow.helpers.filetypes import FileType
+from wattleflow.constants.filetype import FileType
+from wattleflow.drivers.file_storage import FileStorage
 
 _DEFAULT_CACHE_DIR: str = os.environ.get(
     "WATTLEFLOW_CACHE",
@@ -27,63 +30,90 @@ _DEFAULT_CACHE_DIR: str = os.environ.get(
 )
 
 _MAX_DOWNLOAD_BYTES: int = int(
-    os.environ.get("WATTLEFLOW_MAX_DOWNLOAD_BYTES", 100 * 1024 * 1024)  # 100 MB
+    os.environ.get("WATTLEFLOW_MAX_DOWNLOAD_BYTES", 100 * 1024 * 1024)
 )
 
 _SENSITIVE_KWARGS: frozenset = frozenset({"api_key", "token", "basic_auth", "password"})
 
 
-class HttpFileSystemDriver(GenericDriverClass):
+class ProxyDriverError(DriverException):
+    pass
+
+
+class ProxyDriver(GenericDriver):
+    ALLOWED_KWARGS = [
+        "local_path",
+        "create",
+        "normalised",
+        "timeout",
+        "verify_ssl",
+        "connection_name",
+    ]
+
     def __init__(
         self,
         local_path: str = _DEFAULT_CACHE_DIR,
-        create: bool = False,
+        create: bool = True,
         normalised: bool = True,
         timeout: int = 30,
         verify_ssl: bool = True,
-        level: int = logging.NOTSET,
-        handler: Optional[logging.Handler] = None,
+        connection_name: Optional[ProxyConnection] = None,
+        level: int = logging.WARNING,
+        handler: Optional[Handler] = None,
+        **kwargs,
     ) -> None:
-        __allowed__ = [
-            "local_path",
-            "current_path",
-            "create",
-            "normalised",
-            "timeout",
-            "verify_ssl",
-        ]
-
-        GenericDriverClass.__init__(
+        kwargs.pop("allowed", None)
+        GenericDriver.__init__(
             self,
             level=level,
             handler=handler,
-            lazy_load=False,
-            allowed=__allowed__,
+            allowed=self.ALLOWED_KWARGS,
             local_path=local_path,
             create=create,
             normalised=normalised,
             timeout=timeout,
             verify_ssl=verify_ssl,
+            connection_name=connection_name,
+            **kwargs,
         )
+        self._current_path: Optional[Path] = None
+
+    # region GenericDriver lifecycle
+
+    def load(self) -> None:
+        verify_ssl: bool = getattr(self, "verify_ssl", True)
         if not verify_ssl:
             self.warning(
                 msg=Event.Constructor.value,
-                reason="SSL certificate verification is disabled (verify_ssl=False). "
-                "This makes connections vulnerable to MITM attacks.",
+                reason="SSL verification disabled (verify_ssl=False) — vulnerable to MITM attacks.",
             )
-        if not Path(local_path).is_dir():
-            if not create:
-                reason = f"local_path should be a directory: {local_path!r}"
+
+        local_path = Path(getattr(self, "local_path", _DEFAULT_CACHE_DIR))
+        if not local_path.is_dir():
+            if not getattr(self, "create", True):
+                reason = f"local_path must be a directory: {local_path!r}"
                 self.error(
-                    msg=Event.Constructor.value, reason=reason, local_path=local_path
+                    msg=Event.Constructor.value,
+                    reason=reason,
+                    local_path=str(local_path),
                 )
                 raise RuntimeError(reason)
-            Path(local_path).mkdir(parents=True, exist_ok=True)
+            local_path.mkdir(parents=True, exist_ok=True)
 
-    def load(self) -> None:
-        self.current_path: Path = Path(self.local_path)
+        self._current_path = local_path
+        self.debug(msg="load", step=Event.Completed.name, path=str(self._current_path))
+
+    def close(self) -> None:
+        self.debug(msg="close", step=Event.Started.name)
+        self._current_path = None
+        self.debug(msg="close", step=Event.Completed.name)
+
+    # endregion
+
+    # region Public API
 
     def read(self, uri: str, **kwargs) -> Any:
+        self.ensure_live()
         self.debug(
             msg=Event.Read.value,
             step=Event.Started.value,
@@ -93,22 +123,20 @@ class HttpFileSystemDriver(GenericDriverClass):
         try:
             self._validate_uri(uri)
             storage = FileStorage(
-                local_path=str(self.local_path),
+                local_path=str(self._current_path),
                 uri=uri,
                 create=True,
                 normalised=True,
             )
-
             response = self._download(uri, **kwargs)
             storage.filename.write_bytes(response.content)
 
-            if storage.filename.exists() is False:
+            if not storage.filename.exists():
                 reason = f"Failed to save file to local cache: {storage.filename}"
                 self.error(msg=Event.Read.value, uri=uri, reason=reason)
                 raise IOError(reason)
 
             file_type = FileType.detect_content(response.content)
-
             self.debug(
                 msg=Event.Read.value,
                 step=Event.Completed.value,
@@ -118,42 +146,45 @@ class HttpFileSystemDriver(GenericDriverClass):
                 file_type=file_type.name,
             )
 
-            match file_type:
-                case FileType.CSV:
-                    return pd.read_csv(storage.filename)
-                case FileType.JSON:
-                    return pd.read_json(storage.filename)
-                case FileType.XLS:
-                    return pd.read_excel(storage.filename)
-                case FileType.TXT:
-                    return storage.filename.read_text()
-                case _:
-                    return storage.filename.read_bytes()
+            if file_type == FileType.CSV:
+                return pd.read_csv(storage.filename)
+            if file_type == FileType.JSON:
+                return pd.read_json(storage.filename)
+            if file_type == FileType.XLS:
+                return pd.read_excel(storage.filename)
+            if file_type == FileType.TXT:
+                return storage.filename.read_text()
+            return storage.filename.read_bytes()
 
         except AuditException as e:
             self.error(msg=Event.Read.value, uri=uri, error=e.reason)
-            raise e
+            raise
         except Exception as e:
             self.error(msg=Event.Read.value, uri=uri, error=str(e))
-            raise AuditException(
-                caller=self,
-                error=str(e),
-                uri=uri,
-            )
+            raise ProxyDriverError(caller=self, error=str(e)) from e
 
-    def write(
-        self, uri: str, filename: str, ftype: FileType, data: object, **kwargs
-    ) -> str:
+    def write(self, uri: str, **kwargs) -> str:
         raise NotImplementedError(
             f"{self.__class__.__name__}.write() is not implemented. "
-            "HTTP write operations are not supported by this driver. "
-            "Use LocalFileSystemDriver for local persistence, or implement "
-            "a dedicated upload driver for your target endpoint."
+            "HTTP write operations are not supported by this driver."
         )
+
+    def metadata(self) -> DriverMetadata:
+        return DriverMetadata(
+            name=self.__class__.__name__,
+            version="1.0",
+            protocol="https",
+            capabilities=["read"],
+        )
+
+    # endregion
+
+    # region Private helpers
 
     def _validate_uri(self, uri: str) -> None:
         self.debug(msg=Event.Validate.value, uri=uri)
         parsed = urlparse(uri)
+
         if parsed.scheme not in ("http", "https"):
             reason = (
                 f"Unsupported URI scheme '{parsed.scheme}'. "
@@ -177,28 +208,16 @@ class HttpFileSystemDriver(GenericDriverClass):
                 self.error(msg=Event.Read.value, uri=uri, reason=reason)
                 raise PermissionError(reason)
         except ValueError:
-            pass  # host is a hostname, not an IP literal — allow through
+            pass  # hostname, not an IP literal — allowed
 
     def _safe_log_kwargs(self, **kwargs) -> dict:
         return {k: ("***" if k in _SENSITIVE_KWARGS else v) for k, v in kwargs.items()}
 
     def _build_request_kwargs(self, **kwargs) -> dict:
-        """
-        Assemble ``requests``-compatible kwargs from driver config and
-        caller-supplied auth options.
-
-        Supported auth kwargs
-        ---------------------
-        api_key    : str          → X-API-Key header
-        token      : str          → Authorization: Bearer <token> header
-        basic_auth : (str, str)   → requests auth tuple
-        headers    : dict         → merged into request headers
-        """
         request_kwargs: dict = {
-            "timeout": self.timeout,
-            "verify": self.verify_ssl,
+            "timeout": getattr(self, "timeout", 30),
+            "verify": getattr(self, "verify_ssl", True),
         }
-
         merged_headers: dict = {}
 
         api_key = kwargs.get("api_key")
@@ -213,9 +232,7 @@ class HttpFileSystemDriver(GenericDriverClass):
         if basic_auth:
             request_kwargs["auth"] = tuple(basic_auth)
 
-        extra_headers = kwargs.get("headers", {})
-        merged_headers.update(extra_headers)
-
+        merged_headers.update(kwargs.get("headers") or {})
         if merged_headers:
             request_kwargs["headers"] = merged_headers
 
@@ -223,22 +240,25 @@ class HttpFileSystemDriver(GenericDriverClass):
 
     def _download(self, uri: str, **kwargs) -> requests.Response:
         self.debug(
-            msg=Event.Downloading.value,
-            uri=uri,
-            **self._safe_log_kwargs(**kwargs),
-        )
-        _uri = str(uri)
-        request_kwargs = self._build_request_kwargs(**kwargs)
-        _parsed = urlparse(_uri)
-        _safe_uri = _parsed._replace(query="", fragment="").geturl()
-        self.debug(
-            msg=Event.Read.value,
-            step=Event.Started.value,
-            uri=_safe_uri,
+            msg=Event.Downloading.value, uri=uri, **self._safe_log_kwargs(**kwargs)
         )
 
+        _uri = str(uri)
+        _parsed = urlparse(_uri)
+        _safe_uri = _parsed._replace(query="", fragment="").geturl()
+
+        request_kwargs = self._build_request_kwargs(**kwargs)
         request_kwargs["stream"] = True
-        response = requests.get(_uri, **request_kwargs)
+
+        self.debug(msg=Event.Downloading.value, step=Event.Started.value, uri=_safe_uri)
+
+        connection: Optional[ProxyConnection] = getattr(self, "connection_name", None)
+        if connection is not None:
+            with connection.connect() as session:
+                response = session.get(_uri, **request_kwargs)
+        else:
+            response = requests.get(_uri, **request_kwargs)
+
         response.raise_for_status()
 
         chunks: list[bytes] = []
@@ -247,7 +267,9 @@ class HttpFileSystemDriver(GenericDriverClass):
             received += len(chunk)
             if received > _MAX_DOWNLOAD_BYTES:
                 response.close()
-                reason = f"Download exceeds limit of {_MAX_DOWNLOAD_BYTES} bytes: {_safe_uri}"
+                reason = (
+                    f"Download exceeds {_MAX_DOWNLOAD_BYTES} bytes limit: {_safe_uri}"
+                )
                 self.error(msg=Event.Read.value, uri=_safe_uri, reason=reason)
                 raise ValueError(reason)
             chunks.append(chunk)
@@ -255,6 +277,10 @@ class HttpFileSystemDriver(GenericDriverClass):
         response._content = b"".join(chunks)
         return response
 
+    # endregion
+
     def __repr__(self) -> str:
-        path = getattr(self, "current_path", Path(self.local_path))
-        return f"{self.__class__.__name__}:{str(path.resolve())}"
+        path = self._current_path or Path(
+            getattr(self, "local_path", _DEFAULT_CACHE_DIR)
+        )
+        return f"{self.__class__.__name__}(state={self._fsm.state.value}, path={path.resolve()})"

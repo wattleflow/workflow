@@ -23,5 +23,5 @@ class Dictionary:
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
             if isinstance(value, dict):
-                value = Dictionary(kwargs=value)
+                value = Dictionary(**value)
             self.__dict__[key] = value

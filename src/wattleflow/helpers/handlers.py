@@ -19,10 +19,7 @@ import traceback
 
 class TraceHandler(logging.StreamHandler):
     def emit(self, record):
-        if isinstance(record, BaseException):
-            error = record
-        else:
-            error = getattr(record, "error", None)
+        error = getattr(record, "error", None)
 
         if error and isinstance(error, Exception):
             record.msg += "\n" + "".join(

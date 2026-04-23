@@ -1,4 +1,4 @@
-# Module name: randomiser.py
+# Module name: helpers/randomiser.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -31,7 +31,6 @@ except Exception as e:
 
 
 class Snowflake:
-
     def __init__(self, node_id: int):
         # 41 bits timestamp, 10 bits node id, 12 bits sequence = 63 bits
         self._epoch = 1609459200000  # custom epoch (ms) e.g. 2021-01-01
@@ -66,7 +65,7 @@ class Snowflake:
             else:
                 self._sequence = 0
 
-            self.last_ts = ts
+            self._last_ts = ts
             return (
                 (ts << (self._node_id_bits + self._seq_bits))
                 | (self._node_id << self._seq_bits)

@@ -1,6 +1,6 @@
-# Module name: system.py
+# Module name: helpers/system.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
@@ -15,6 +15,7 @@ management, and process execution with integrated audit logging.
 import os
 import platform
 import subprocess
+
 import functools
 import inspect
 import shutil
@@ -40,33 +41,50 @@ from wattleflow.constants.keys import KEY_CONFIG_FILE_NAME
 from wattleflow.helpers.normaliser import Normaliser
 
 
-class ClassLoader(IWattleflow, ABC):  # type: ignore
-    """
-    Dynamic class loader with audit logging.
-    """
+__author__ = "WattleFlow"
+__copyright__ = "© 2022–2026 WattleFlow. All rights reserved"
 
+
+Pathish = Union[str, PathLike[str], Path]
+Command = Union[str, Sequence[str]]
+
+# def check_path(path: Pathish, raise_error: bool = True) -> bool:
+#     if path is None:
+#         if raise_error:
+#             raise FileNotFoundError("Path must be assigned!")
+#         return False
+#     p = Path(path)
+#     if not p.exists():
+#         if raise_error:
+#             raise FileNotFoundError(f"Path not found: {p}")
+#         return False
+#     return True
+
+
+class ClassLoader(IWattleflow, ABC):
     def __init__(
         self,
         class_path: str,
-        level: int = NOTSET,
-        handler: Optional[Handler] = None,
         *args,
         **kwargs,
     ):
 
+        level: Union[int, str] = kwargs.pop("level", NOTSET)
+        handler: Optional[Handler] = kwargs.pop("handler", None)
+
         IWattleflow.__init__(self)
 
-        self._logger = getLogger(f"[{self.__class__.__name__}]")
-        self._logger.setLevel(level)
-        self.log = AuditLogger(level=level, logger=self._logger, handler=handler)
+        self.log = AuditLogger(
+            level=level,
+            logger=getLogger(f"[{self.__class__.__name__}]"),
+            handler=handler,
+        )
 
         self.log.debug(
             msg=Event.Constructor.value,
             class_path=class_path,
             level=level,
             handler=handler,
-            *args,
-            **kwargs,
         )
 
         try:
@@ -97,6 +115,12 @@ class ClassLoader(IWattleflow, ABC):  # type: ignore
             )
             raise
 
+        self.log.warning(
+            msg=Event.Constructor.value,
+            warning=f"Module '{module_path}' loaded successfully, but class '{class_name}' not registered and is not verified against the valid classes.",
+            module_path=module_path,
+            class_name=class_name,
+        )
         # FIX: getattr raises AttributeError silently if the class is absent; check
         # explicitly so the error message identifies both module and class name clearly.
         if not hasattr(module, class_name):
@@ -129,54 +153,9 @@ class ClassLoader(IWattleflow, ABC):  # type: ignore
         )
 
 
-Command = Union[str, Sequence[str]]
-Pathish = Union[str, PathLike[str], Path]
-
-
-def check_path(path: Pathish, raise_error: bool = True) -> bool:
-    if path is None:
-        if raise_error:
-            raise FileNotFoundError("Path must be assigned!")
-        return False
-
-    p = Path(path)
-    if not p.exists():
-        if raise_error:
-            raise FileNotFoundError(f"Path not found: {p}")
-        return False
-    return True
-
-
-def decorator(*dargs, **dkwargs):
-    if dargs and callable(dargs[0]) and not dkwargs:
-        fn = dargs[0]
-
-        @functools.wraps(fn)
-        def wrapper(*args, **kwargs):
-            return Proxy(fn)(*args, **kwargs)
-
-        return wrapper
-
-    before_call = dkwargs.get("before_call")
-    after_call = dkwargs.get("after_call")
-
-    def _outer(fn):
-        @functools.wraps(fn)
-        def wrapper(*args, **kwargs):
-            return Proxy(fn, before_call=before_call, after_call=after_call)(
-                *args, **kwargs
-            )
-
-        return wrapper
-
-    return _outer
-
-
 @final
 class FileStorage:
-    def __init__(
-        self, repository_path: str, filename: str, create: bool, normalised=False
-    ):
+    def __init__(self, repository_path: str, filename: str, create: bool, normalised=False):
         self.origin = Path(filename)
         self.path = Path(repository_path)
 
@@ -189,22 +168,18 @@ class FileStorage:
             not create  # noqa: W503
             and (not os.path.isdir(self.path) or not os.access(self.path, os.R_OK))  # noqa: W503
         ):
-            raise FileNotFoundError(
-                f"Path doesn't exist or not accessible: {str(self.path)}"
-            )
+            raise FileNotFoundError(f"Path doesn't exist or not accessible: {str(self.path)}")
 
         if create and self.path.exists() is False:
             self.path.mkdir(parents=True, exist_ok=True)
 
-        name = (
-            Normaliser.transform(self.origin.name) if normalised else self.origin.name
-        )
+        name = Normaliser(self.origin.name).date().name() if normalised else self.origin.name
 
         self.filename = self.path.joinpath(name).with_suffix(self.origin.suffix)
 
     @property
     def size(self) -> int:
-        return os.stat(self.origin.absolute()).st_size
+        return os.stat(self.filename).st_size
 
     def with_suffix(self, suffix: str) -> Path:
         return self.filename.with_suffix(suffix)
@@ -212,16 +187,14 @@ class FileStorage:
     def with_dir(self, directory=None, mkdir=True) -> Path:
         dir = directory if directory else self.filename.stem
         out_dir = self.path.joinpath(dir)
-
-        # FIX: resolve the candidate path and verify it remains under self.path to
-        # prevent path-traversal attacks when `directory` is caller-controlled and
-        # contains sequences such as ".." or an absolute path.
         resolved_base = self.path.resolve()
         resolved_out = out_dir.resolve()
-        if not str(resolved_out).startswith(str(resolved_base)):
+        try:
+            resolved_out.relative_to(resolved_base)
+        except ValueError as e:
             raise ValueError(
                 f"Directory '{directory}' escapes the repository root: {resolved_out}"
-            )
+            ) from e
 
         if mkdir:
             out_dir.mkdir(parents=True, exist_ok=True)
@@ -305,6 +278,29 @@ class Proxy:
             return res
 
 
+def decorator(*dargs, **dkwargs):
+    if dargs and callable(dargs[0]) and not dkwargs:
+        fn = dargs[0]
+
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            return Proxy(fn)(*args, **kwargs)
+
+        return wrapper
+
+    before_call = dkwargs.get("before_call")
+    after_call = dkwargs.get("after_call")
+
+    def _outer(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            return Proxy(fn, before_call=before_call, after_call=after_call)(*args, **kwargs)
+
+        return wrapper
+
+    return _outer
+
+
 @final
 class ShellExecutor:
     def __init__(self):
@@ -334,37 +330,30 @@ class ShellExecutor:
         cwd: Optional[Pathish] = None,
         env: Optional[Mapping[str, str]] = None,
     ):
+        def to_s(x):
+            return (x or "").strip()
 
         shell = shell or self.shell
 
         if isinstance(command, str) and not use_shell:
             cmd_list: Sequence[str] = shlex.split(command)
-            # run_kwargs = dict(shell=False)
         elif isinstance(command, (list, tuple)):
             cmd_list = list(command)
-            # run_kwargs = dict(shell=False)
+        elif isinstance(command, str) and use_shell:
+            # SECURITY: passing a raw string to a shell interpreter enables command
+            # injection. Pass the full command as a list instead, e.g.:
+            #   ["bash", "-c", "ls | grep foo"]
+            raise TypeError(
+                "use_shell=True with a string command is not permitted. "
+                "Pass command as a list to retain shell features safely, e.g. "
+                '["bash", "-c", "your | pipeline"].'
+            )
         else:
-            # eksplicitni shell (potreban za pipe/redirect)
-            if shell == "cmd":
-                cmd_list = ["cmd", "/c", command]  # type: ignore[arg-type]
-            elif shell == "powershell":
-                cmd_list = [
-                    "powershell",
-                    "-NoProfile",
-                    "-NonInteractive",
-                    "-ExecutionPolicy",
-                    "Bypass",
-                    "-Command",
-                    command,  # type: ignore
-                ]  # type: ignore[arg-type]
-            else:
-                cmd_list = ["bash", "-c", command]  # type: ignore[arg-type]
-            # run_kwargs = dict(shell=False)
+            raise TypeError(f"Unsupported command type: {type(command).__name__}")
 
         # FIX: to_s was duplicated inside both the try block and the CalledProcessError
         # handler, creating redundancy and a risk of the two definitions diverging.
         # Defined once here, before the try block, and shared across all branches.
-        to_s = lambda x: (x or "").strip()
 
         try:
             result = subprocess.run(
@@ -404,18 +393,17 @@ class ShellExecutor:
 
 @final
 class TempPathHelper:
-    def __init__(self, file_path: Optional[str], create_dir=True):
+    def __init__(self, file_path: os.PathLike, create_dir=True):
 
-        if (not file_path) or (file_path.strip() == ""):
-            raise ValueError(f"file_path: {file_path} is missing in yaml config.")
+        path_like = str(file_path).strip()
 
-        if file_path.startswith("TEMP"):
-            # FIX: str.replace replaces every occurrence of "TEMP" in the string, not
-            # just the leading token.  A path such as "TEMP/TEMPLATE" would become
-            # "/tmp//tmp_LATE".  Slice off exactly the four-character prefix instead.
-            file_path = gettempdir() + file_path[len("TEMP") :]
+        if (not file_path) or (path_like == ""):
+            raise ValueError("TempPathHelper.file_path is empty!")
 
-        self.source_path: Path = Path(file_path)
+        if path_like.startswith("TEMP"):
+            path_like = gettempdir() + path_like[len("TEMP") :]
+
+        self.source_path: Path = Path(path_like)
 
         if not (self.source_path.exists()) and (create_dir is True):
             self.source_path.mkdir(parents=True)
@@ -423,3 +411,7 @@ class TempPathHelper:
     @property
     def full_path(self) -> Path:
         return self.source_path.absolute()
+
+    @property
+    def str_path(self) -> Path:
+        return str(self.source_path.absolute())

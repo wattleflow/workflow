@@ -1,4 +1,4 @@
-# Module name: filetypes.py
+# Module name: constants/filetypes.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -16,7 +16,6 @@ import io
 import re
 from enum import Enum, auto
 from pathlib import Path
-
 from urllib.parse import urlparse
 
 
@@ -47,10 +46,17 @@ _EXT_MAP: dict[str, str] = {
     ".pdf": "PDF",
     ".pkl": "PICKLE",
     ".pickle": "PICKLE",
+    ".png": "PNG",
     ".txt": "TXT",
     ".xls": "XLS",
     ".xlsx": "XLS",
 }
+
+# PNG signature — first 8 bytes of every PNG file per RFC 2083.
+_PNG_MAGIC: bytes = b"\x89PNG\r\n\x1a\n"
+
+# Maximum bytes read from disk during content-based detection (prevents OOM)
+_DETECT_MAX_BYTES: int = 50 * 1024 * 1024  # 50 MB
 
 # XLS stream names encoded as UTF-16LE (present in OLE2 directory sectors)
 _XLS_STREAM_UTF16: tuple[bytes, ...] = (
@@ -59,9 +65,7 @@ _XLS_STREAM_UTF16: tuple[bytes, ...] = (
 )
 
 # DOC stream name encoded as UTF-16LE
-_DOC_STREAM_UTF16: bytes = (
-    b"W\x00o\x00r\x00d\x00D\x00o\x00c\x00u\x00m\x00e\x00n\x00t\x00"
-)
+_DOC_STREAM_UTF16: bytes = b"W\x00o\x00r\x00d\x00D\x00o\x00c\x00u\x00m\x00e\x00n\x00t\x00"
 
 
 class FileType(Enum):
@@ -73,6 +77,7 @@ class FileType(Enum):
     GRAPH = auto()
     PDF = auto()
     PICKLE = auto()
+    PNG = auto()
     TXT = auto()
     XLS = auto()
     UNKNOWN = auto()
@@ -92,6 +97,8 @@ class FileType(Enum):
         if result is FileType.UNKNOWN:
             path = Path(uri)
             if path.is_file():
+                if path.stat().st_size > _DETECT_MAX_BYTES:
+                    return FileType.UNKNOWN
                 result = FileType.detect_content(path.read_bytes())
         return result
 
@@ -118,6 +125,9 @@ class FileType(Enum):
 
         if data[:4] == b"%PDF":
             return FileType.PDF
+
+        if data[:8] == _PNG_MAGIC:
+            return FileType.PNG
 
         if data[:8] == _OLE2_MAGIC:
             return FileType._detect_ole2(data)
@@ -203,9 +213,7 @@ class FileType(Enum):
         if (
             stripped[0] == "<"
             and stripped.count("<") >= 2
-            and stripped[: stripped.find("\n", 0, 512) + 1 or 512]
-            .rstrip()
-            .endswith(".")
+            and stripped[: stripped.find("\n", 0, 512) + 1 or 512].rstrip().endswith(".")
         ):
             return FileType.GRAPH
 
@@ -249,23 +257,3 @@ def _detect_delimited(lines: list[str]) -> FileType | None:
         if counts[0] > 0 and len(set(counts)) <= 2:
             return FileType.CSV
     return None
-
-
-# region Test code (can be removed or commented out in production)
-
-if __name__ == "__main__":
-    import gc
-    import traceback
-
-    try:
-        dd = FileType.detect(
-            "src/wattleflow/api/controllers/dockers/flight-sim/image-conflict-sim/data/iran.json"
-        )
-        print(dd)
-    except Exception as e:
-        msg = f"Global exception:{e}"
-        print(msg)
-        traceback.print_exc()
-    finally:
-        gc.collect()
-# endregion

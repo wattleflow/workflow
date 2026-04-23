@@ -4,7 +4,6 @@
 # License: Apache 2 Licence
 
 from __future__ import annotations
-import logging
 import os
 import re
 import shutil
@@ -13,7 +12,7 @@ from pathlib import Path
 from typing import Generator, Optional
 from urllib.parse import urlparse
 
-from wattleflow.concrete import GenericDriverClass
+from wattleflow.concrete import GenericDriver
 from wattleflow.constants.enums import Event
 from wattleflow.helpers import Normaliser
 from wattleflow.helpers.filetype import FileType
@@ -29,7 +28,7 @@ class S3UriParser:
     """
     Prepoznaje i parsira sve poznate oblike Amazon S3 URI-a.
 
-    Podržani oblici:
+    Podrzani oblici:
       1. s3://bucket/key
       2. https://bucket.s3.amazonaws.com/key
       3. https://s3.amazonaws.com/bucket/key
@@ -63,7 +62,7 @@ class S3UriParser:
     @classmethod
     def parse(cls, uri: str) -> dict:
         """
-        Vrati rječnik s ključevima:
+        Vrati rjecnik s kljucevima:
           bucket, key, region (može biti None), is_file
         """
         parsed = urlparse(uri)
@@ -100,9 +99,10 @@ class S3UriParser:
         }
 
 
-class S3Driver(GenericDriverClass):
+class S3Driver(GenericDriver):
+    # region docstr
     """
-    Driver za Amazon S3 pohrane, usklađen s GenericDriverClass interfejsom.
+    Driver za Amazon S3 pohrane, usklađen s GenericDriver interfejsom.
 
     Koristi PresetDecorator za konfiguraciju:
       - cache_dir           : lokalni direktorij za cache preuzetih datoteka
@@ -112,6 +112,8 @@ class S3Driver(GenericDriverClass):
       - region_name
     """
 
+    # endregion docstr
+
     __ALLOWED__ = [
         "cache_dir",
         "aws_access_key_id",
@@ -120,49 +122,21 @@ class S3Driver(GenericDriverClass):
         "region_name",
     ]
 
-    def __init__(
-        self,
-        level: int = logging.NOTSET,
-        handler: Optional[logging.Handler] = None,
-        lazy_load: bool = False,
-        **kwargs,
-    ) -> None:
-        GenericDriverClass.__init__(
-            self,
-            level=level,
-            handler=handler,
-            lazy_load=lazy_load,
-            allowed=self.__ALLOWED__,
-            **kwargs,
-        )
-
     # ------------------------------------------------------------------
-    # GenericDriverClass — apstraktne metode
+    # GenericDriver — apstraktne metode
     # ------------------------------------------------------------------
 
     def load(self) -> None:
-        """
-        Inicijalizira boto3 S3 klijent i lokalni cache direktorij.
-        Poziva se automatski iz GenericDriverClass.__init__ ako lazy_load=False.
-        """
-        # Cache direktorij — čita iz PresetDecorator ili pada na default
+        # Cache direktorij — cita iz PresetDecorator ili pada na default
         cache_dir: str = getattr(self, "cache_dir", None) or _DEFAULT_CACHE_DIR
         self._resolved_cache_dir = Path(cache_dir)
         self._resolved_cache_dir.mkdir(parents=True, exist_ok=True)
 
-        # Boto3 kredencijali — čita iz PresetDecorator ili pada na env varijable
-        key_id = getattr(self, "aws_access_key_id", None) or os.getenv(
-            "AWS_ACCESS_KEY_ID"
-        )
-        secret = getattr(self, "aws_secret_access_key", None) or os.getenv(
-            "AWS_SECRET_ACCESS_KEY"
-        )
-        token = getattr(self, "aws_session_token", None) or os.getenv(
-            "AWS_SESSION_TOKEN"
-        )
-        region = getattr(self, "region_name", None) or os.getenv(
-            "AWS_DEFAULT_REGION", "us-east-1"
-        )
+        # Boto3 kredencijali — cčita iz PresetDecorator ili pada na env varijable
+        key_id = getattr(self, "aws_access_key_id", None) or os.getenv("AWS_ACCESS_KEY_ID")
+        secret = getattr(self, "aws_secret_access_key", None) or os.getenv("AWS_SECRET_ACCESS_KEY")
+        token = getattr(self, "aws_session_token", None) or os.getenv("AWS_SESSION_TOKEN")
+        region = getattr(self, "region_name", None) or os.getenv("AWS_DEFAULT_REGION", "us-east-1")
 
         # Spremi za _client() koji može dobiti override regije
         self._default_region: str = region
@@ -192,9 +166,7 @@ class S3Driver(GenericDriverClass):
             IsADirectoryError: ako URI upućuje na prefiks, ne datoteku
             RuntimeError: ako preuzimanje ne uspije
         """
-        self.debug(
-            msg=Event.Read.value, step=Event.Started.value, identifier=identifier
-        )
+        self.debug(msg=Event.Read.value, step=Event.Started.value, identifier=identifier)
 
         info = S3UriParser.parse(identifier)
 
@@ -219,9 +191,7 @@ class S3Driver(GenericDriverClass):
                 )
             except Exception as e:
                 local_path.unlink(missing_ok=True)
-                raise RuntimeError(
-                    f"[S3Driver] Download failed: s3://{bucket}/{key} — {e}"
-                ) from e
+                raise RuntimeError(f"[S3Driver] Download failed: s3://{bucket}/{key} — {e}") from e
         else:
             self.info(
                 msg=Event.Read.value,
@@ -233,7 +203,7 @@ class S3Driver(GenericDriverClass):
 
     def write(self, identifier: str, ftype, data: object, **kwargs) -> str:
         """
-        Piše datoteku na S3. Usklađen potpis s LocalFileSystemDriver.write().
+        Piše datoteku na S3. Usklađen potpis s LocalStorageDriver.write().
 
         Args:
             identifier  : destination S3 URI (s3://bucket/key)
@@ -256,9 +226,7 @@ class S3Driver(GenericDriverClass):
         )
 
         # Serijaliziraj u privremenu datoteku, zatim upload
-        with tmp.NamedTemporaryFile(
-            delete=False, suffix=Path(identifier).suffix or ".tmp"
-        ) as tf:
+        with tmp.NamedTemporaryFile(delete=False, suffix=Path(identifier).suffix or ".tmp") as tf:
             tmp_path = Path(tf.name)
 
         try:
@@ -284,7 +252,7 @@ class S3Driver(GenericDriverClass):
         recursive: bool = True,
     ) -> Generator[dict, None, None]:
         """
-        Analogija LocalFileSystemDriver.search() za S3.
+        Analogija LocalStorageDriver.search() za S3.
 
         Args:
             pattern       : substring ili glob za filtriranje po ključu
@@ -310,9 +278,7 @@ class S3Driver(GenericDriverClass):
         )
 
         paginator = self._client(info["region"]).get_paginator("list_objects_v2")
-        page_kwargs = dict(
-            Bucket=bucket, Prefix=prefix, PaginationConfig={"MaxItems": max_keys}
-        )
+        page_kwargs = dict(Bucket=bucket, Prefix=prefix, PaginationConfig={"MaxItems": max_keys})
 
         if not recursive:
             page_kwargs["Delimiter"] = "/"
@@ -321,11 +287,7 @@ class S3Driver(GenericDriverClass):
             for obj in page.get("Contents", []):
                 key: str = obj["Key"]
                 name = Path(key).name
-                match = (
-                    pattern.lower() in name.lower()
-                    if not case_sensitive
-                    else pattern in name
-                )
+                match = pattern.lower() in name.lower() if not case_sensitive else pattern in name
                 if pattern != "*" and not match:
                     continue
                 yield {
@@ -343,8 +305,8 @@ class S3Driver(GenericDriverClass):
         if r not in self._s3_clients:
             try:
                 import boto3
-            except ImportError:
-                raise ImportError("[S3Driver] boto3 is not installed.")
+            except ImportError as e:
+                raise ImportError("[S3Driver] boto3 is not installed.") from e
 
             self._s3_clients[r] = boto3.client(
                 "s3",
@@ -359,7 +321,7 @@ class S3Driver(GenericDriverClass):
         safe = re.sub(r"[^a-zA-Z0-9_\-.]", "_", uri)[:64]
         cache_subdir = self._resolved_cache_dir / safe
         cache_subdir.mkdir(parents=True, exist_ok=True)
-        normalised = Normaliser.transform(filename)
+        normalised = Normaliser(filename).date().name()
         return cache_subdir / normalised
 
     @staticmethod
@@ -402,20 +364,14 @@ class S3Driver(GenericDriverClass):
             import pandas as pd
 
             if not isinstance(data, pd.DataFrame):
-                raise TypeError(
-                    f"[S3Driver] JSON requires DataFrame {type(data).__name__}"
-                )
-            data.to_json(
-                str(path), **{k: v for k, v in kwargs.items() if k != "suffix"}
-            )
+                raise TypeError(f"[S3Driver] JSON requires DataFrame {type(data).__name__}")
+            data.to_json(str(path), **{k: v for k, v in kwargs.items() if k != "suffix"})
 
         elif ftype == FileType.GRAPH:
             from rdflib import Graph as RDFGraph
 
             if not isinstance(data, RDFGraph):
-                raise TypeError(
-                    f"[S3Driver] GRAPH requires rdflib.Graph, {type(data).__name__}"
-                )
+                raise TypeError(f"[S3Driver] GRAPH requires rdflib.Graph, {type(data).__name__}")
             data.serialize(
                 destination=str(path),
                 format=kwargs.get("format", "json-ld"),

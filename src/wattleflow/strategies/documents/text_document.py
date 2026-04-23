@@ -21,9 +21,9 @@ from wattleflow.concrete import (
     StrategyCreate,
     StrategyWrite,
 )
-from wattleflow.constants import Event
+from wattleflow.constants import Event, FileType
 from wattleflow.documents.file import FileDocument
-from wattleflow.helpers import Attribute, FileType, TextStream
+from wattleflow.helpers import Attribute, TextStream
 
 
 class CreateTextDocument(StrategyCreate):

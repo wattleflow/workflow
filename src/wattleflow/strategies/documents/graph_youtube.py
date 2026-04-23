@@ -26,7 +26,7 @@ from wattleflow.concrete import (
     StrategyWrite,
 )
 from wattleflow.constants import Event
-from wattleflow.drivers import FileTypes
+from wattleflow.constants.filetype import FileType
 from wattleflow.helpers import (
     Attribute,
 )
@@ -315,7 +315,7 @@ class WriteYoutubeDocument(StrategyWrite):
         # Utilises driver to manage data persistance.
         output = self.repository.driver.write(  # type: ignore
             filename=filename,
-            ftype=FileTypes.GRAPH,
+            ftype=FileType.GRAPH,
             data=document.content,
         )  # type: ignore
 

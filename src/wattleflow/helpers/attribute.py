@@ -15,9 +15,7 @@ dynamic loading within the Wattleflow framework. It includes helpers to:
 with consistent error handling through AttributeException.
 """
 
-
 from __future__ import annotations
-import inspect
 from enum import Enum
 from typing import Any, Optional
 from wattleflow.core import IWattleflow
@@ -38,18 +36,6 @@ class Attribute:
         return type(o).__name__
 
     @staticmethod
-    def find_name_by_variable_old(obj):
-        depth = 0
-        frame = inspect.currentframe()
-        while frame and depth < 5:
-            for _, value in frame.f_back.f_locals.items():  # type: ignore
-                if value is obj:
-                    return value
-            frame = frame.f_back
-            depth += 1
-        return None
-
-    @staticmethod
     def find_name_by_variable(obj):
         value = object.__getattribute__(obj, "__class__")
 
@@ -57,13 +43,6 @@ class Attribute:
             return object.__getattribute__(value, "__name__")
 
         return getattr(obj, "__name__", None)
-
-    @staticmethod
-    def find_object_by_name_old(name) -> Optional[object]:
-        _locals = inspect.currentframe().f_back.f_locals  # type: ignore
-        if name in _locals:
-            return _locals[name]
-        return None
 
     @staticmethod
     def find_object_by_name(obj):
@@ -74,7 +53,7 @@ class Attribute:
         if allowed is None:
             return False
 
-        Attribute.evaluate(caller, allowed, list)  # type: ignore
+        Attribute.evaluate(caller, allowed, list)
 
         if not len(allowed) > 0:
             return False
@@ -109,7 +88,7 @@ class Attribute:
                 kwargs[name] = cls(value)
                 return
             except Exception:  # pylint: disable=broad-except
-                expected = cls.__class__.__name__
+                expected = cls.__name__
 
         from wattleflow.helpers.functions import (
             _NC,
@@ -150,7 +129,7 @@ class Attribute:
         owner = getattr(caller, "name", caller.__class__.__name__)
 
         if not isinstance(target, expected_type):
-            error = f"{owner!r}: Unexpected type {name!r} instead of {expected_name!r} (Attribute.evaluate)"  # noqa: E501
+            error = f"{owner!r}: Unexpected type: Found {name!r} instead of {expected_name!r}."  # noqa: E501
             raise AttributeException(
                 caller=caller,
                 error=error,
@@ -175,13 +154,15 @@ class Attribute:
         Attribute.evaluate(caller, attr, cls)  # type: ignore
 
     @staticmethod
-    def load_from_class(name: str, obj: object, cls: type, **kwargs):
+    def load_from_class(
+        name: str, obj: object, cls: type, caller: object = None, **kwargs
+    ):
         if not isinstance(obj, str):
             raise TypeError(
                 f"Expected class path as string for {name}, got {type(obj).__name__}"
             )
 
-        from helpers.normaliser import (
+        from wattleflow.helpers.system import (
             ClassLoader,
         )  # pylint: disable=import-outside-toplevel
 
@@ -219,9 +200,12 @@ class Attribute:
             setattr(caller, name, obj)
             return True
 
-        if cls in [int, dict, list, set, str, tuple] or not isinstance(
-            cls, IWattleflow
-        ):
+        try:
+            is_wattleflow = issubclass(cls, IWattleflow)
+        except TypeError:
+            is_wattleflow = False
+
+        if cls in (int, dict, list, set, str, tuple) or not is_wattleflow:
             raise AttributeException(
                 caller=caller,
                 error=f"Incorrect type {name!r}:"
@@ -241,7 +225,7 @@ class Attribute:
                 name=name,
                 cls=cls,
                 **kwargs,
-            )
+            ) from e
 
     @staticmethod
     def get(
@@ -276,7 +260,7 @@ class Attribute:
             if isinstance(item, cls):
                 return item
 
-        from helpers.normaliser import (
+        from wattleflow.helpers.system import (
             ClassLoader,
         )  # pylint: disable=import-outside-toplevel
 
@@ -329,7 +313,7 @@ class Attribute:
             if not slots:
                 continue
             if isinstance(slots, str):
-                slots = slots
+                slots = (slots,)
             if name in slots:
                 # if exists, try to get it - can still throw AttributeError if unallocated.
                 return object.__getattribute__(caller, name)

@@ -1,15 +1,8 @@
-# Module name: connection.py
+# Module name: concrete/connection.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
-
-"""
-Description: Defines abstract, observable connection classes for the Wattleflow framework.
-Provides a stateful connection lifecycle (create, connect, disconnect), observer notifications,
- ontext-manager support, and integrated audit logging. Implements a PresetDecorator hook
-for runtime configuration and exposes a generic operation interface for connect/disconnect actions.
-"""
 
 from __future__ import annotations
 
@@ -17,53 +10,118 @@ import logging
 from abc import ABC, abstractmethod
 from enum import Enum
 from contextlib import contextmanager
-from typing import Any, Dict, Generator, Generic, Optional, Union
-
-from wattleflow.core import IObservable, IObserver, IFacade, T
-from wattleflow.concrete import AuditLogger
+from typing import Any, Dict, Generator, Generic, Optional, TypeVar
+from wattleflow.core import IObservable, IObserver, IStateMachine
+from wattleflow.concrete.exception import ConnectionException, ManagerException
+from wattleflow.concrete.logger import AuditLogger
 from wattleflow.constants import Event, Operation
 from wattleflow.decorators.preset import PresetDecorator
 
 
-Operational = Generator[T, None, None]
+Connection = TypeVar("Connection", bound=object)
 
 
-class State(Enum):
-    Closed = 0
-    Constructing = 1
-    Creating = 2
-    New = 3
-    Created = 4
-    Connecting = 5
-    Connected = 6
+class ConnectionManagerException(ManagerException):
+    pass
 
 
-class ConnectionObserverInterface(IObservable, IFacade, ABC):
+# region Enumeration
+class ConnectionAction(str, Enum):
+    CREATE = "create"
+    CREATE_OK = "create_ok"
+    CREATE_FAIL = "create_fail"
+    CONNECT = "connect"
+    CONNECT_OK = "connect_ok"
+    CONNECT_FAIL = "connect_fail"
+    DISCONNECT = "disconnect"
+    CLOSE = "close"
+    CLOSE_OK = "close_ok"
+    CLOSE_FAIL = "close_fail"
+    RESET = "reset"
+
+
+class ConnectionState(str, Enum):
+    NEW = "new"
+    CREATING = "creating"
+    CREATED = "created"
+    CONNECTING = "connecting"
+    CONNECTED = "connected"
+    CLOSING = "closing"
+    CLOSED = "closed"
+    FAILED = "failed"
+
+
+# endregion Enumeration
+
+# (current_state, action) -> next_state
+CONN_TRANSITIONS = {
+    # create lifecycle
+    (ConnectionState.NEW, ConnectionAction.CREATE): ConnectionState.CREATING,
+    (ConnectionState.CLOSED, ConnectionAction.CREATE): ConnectionState.CREATING,
+    (ConnectionState.CREATING, ConnectionAction.CREATE_OK): ConnectionState.CREATED,
+    (ConnectionState.CREATING, ConnectionAction.CREATE_FAIL): ConnectionState.FAILED,
+    # session lifecycle (within connect() context manager)
+    (ConnectionState.CREATED, ConnectionAction.CONNECT): ConnectionState.CONNECTING,
+    (
+        ConnectionState.CONNECTING,
+        ConnectionAction.CONNECT_OK,
+    ): ConnectionState.CONNECTED,
+    (
+        ConnectionState.CONNECTING,
+        ConnectionAction.CONNECT_FAIL,
+    ): ConnectionState.CREATED,
+    (ConnectionState.CONNECTED, ConnectionAction.DISCONNECT): ConnectionState.CREATED,
+    # close lifecycle (engine teardown)
+    (ConnectionState.CREATING, ConnectionAction.CLOSE): ConnectionState.CLOSING,
+    (ConnectionState.CREATED, ConnectionAction.CLOSE): ConnectionState.CLOSING,
+    (ConnectionState.CONNECTING, ConnectionAction.CLOSE): ConnectionState.CLOSING,
+    (ConnectionState.CONNECTED, ConnectionAction.CLOSE): ConnectionState.CLOSING,
+    (ConnectionState.FAILED, ConnectionAction.CLOSE): ConnectionState.CLOSING,
+    (ConnectionState.CLOSING, ConnectionAction.CLOSE_OK): ConnectionState.CLOSED,
+    (ConnectionState.CLOSING, ConnectionAction.CLOSE_FAIL): ConnectionState.FAILED,
+    # reset
+    (ConnectionState.CLOSED, ConnectionAction.RESET): ConnectionState.NEW,
+    (ConnectionState.FAILED, ConnectionAction.RESET): ConnectionState.NEW,
+}
+
+
+# region interfaces
+class ConnectionFSM(IStateMachine, ABC):
+    __slots__ = ("state",)
+
+    def __init__(self, initial: ConnectionState = ConnectionState.NEW) -> None:
+        IStateMachine.__init__(self)
+        self.state = initial
+
+    def can(self, action: ConnectionAction) -> bool:
+        return (self.state, action) in CONN_TRANSITIONS
+
+    def apply(self, action: ConnectionAction) -> None:
+        key = (self.state, action)
+        if key not in CONN_TRANSITIONS:
+            raise RuntimeError(f"{action} not allowed in state {self.state}")
+        self.state = CONN_TRANSITIONS[key]
+
+    def __repr__(self) -> str:
+        return self.state.value
+
+
+class ConnectionObserverInterface(IObservable, ABC):
     __slots__ = ("_observers",)
 
     def __init__(self) -> None:
         IObservable.__init__(self)
-        IFacade.__init__(self)
         self._observers: Dict[str, IObserver] = {}
 
-    # region FIX-8
-    # Provjera tipa observera prije dodavanja
-    # Bez provjere, svaki objekt s .name atributom mogao bi biti ubačen kao observer.
     def subscribe(self, observer: IObserver) -> None:
         if not isinstance(observer, IObserver):
             raise TypeError(f"Expected IObserver, got {type(observer).__name__}")
         if observer.name not in self._observers:
             self._observers[observer.name] = observer
 
-    # endregion FIX-8
-
     def subscribe_observer(self, observer: IObserver) -> None:
         self.subscribe(observer)
 
-    # region FIX-7
-    # Iznimke pojedinog observera ne smiju blokirati ostale
-    # Ako jedan observer baci iznimku, ostali bi ostali ne-pozvani, što može
-    # prekinuti lifecycle konekcije. Svaki observer se sada obrađuje izolirano.
     def notify(self, owner, **kwargs) -> None:
         for observer in self._observers.values():
             try:
@@ -75,181 +133,96 @@ class ConnectionObserverInterface(IObservable, IFacade, ABC):
                     e,
                 )
 
-    # endregion FIX-7
 
-    @abstractmethod
-    def operation(self, action: Any) -> Any:
-        pass
+# endregion interfaces
+
+# region GenericConnection
 
 
-class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[T], ABC):
-    # region FIX-1: Uklonjen duplikat '_observers' iz __slots__
-    # '_observers' je već deklariran u ConnectionObserverInterface.__slots__.
-    # Duplikat u podklasi može uzrokovati AttributeError pri višestrukom nasljeđivanju.
-    #
-    # FIX-2:
-    # Dodan '_context' koji nedostajao u __slots__
-    # '__enter__' koristi self._context, ali bez deklaracije u __slots__
-    # svaki pristup uzrokovao bi AttributeError.
+class GenericConnection(
+    ConnectionObserverInterface, AuditLogger, Generic[Connection], ABC
+):
     __slots__ = (
-        "_connection",
         "_connection_name",
+        "_connection",
         "_context",
         "_engine",
-        "_initialised",
-        "_logger",
+        "_lazy_loading",
         "_preset",
-        "_state",
+        "_fsm",
+        "_version",
     )
-    # endregion FIX-2
 
-    def __init__(
-        self,
-        level: int,
-        connection_name: str,
-        handler: Optional[logging.Handler] = None,
-        **kwargs: Any,
-    ) -> None:
+    def __init__(self, **kwargs) -> None:
+        connection_name = kwargs.pop("connection_name", None)
 
-        self._state = State.Constructing
+        level = kwargs.pop("level", "NOTSET")
+        handler = kwargs.pop("handler", None)
+        formating = kwargs.pop("formating", None) if kwargs.get("formating") else {}
+
+        self._connection_name = connection_name
+        self._lazy_loading = kwargs.pop("lazy_loading", False)
+        self._fsm: ConnectionFSM = ConnectionFSM()
         self._engine: object = None
-        self._connection: T = None  # type: ignore
+        self._connection: Connection = None
         self._context = None
-        self._connection_name: str = connection_name
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
+        self._version: str = None
 
         ConnectionObserverInterface.__init__(self)
-        AuditLogger.__init__(self, level=level, handler=handler)
+        AuditLogger.__init__(self, level=level, handler=handler, formating=formating)
 
-        self.create_connection()
+        if connection_name is None or connection_name.strip() == "":
+            error = "`connection_name` must be provided in connection kwargs!"
+            raise ConnectionException(caller=self, error=error, **kwargs)
+
+        if not self._lazy_loading:
+            self.ensure_created()
 
         self.debug(
             msg=Event.Constructor.value,
             step=Event.Completed.value,
-            connection_name=self._connection_name,
-            state=self.state.name,
+            connection_name=self.connection_name,
+            state=self.ConnectionState.value,
             preset=repr(self._preset),
+            level=self._level,
+            handler=self._handler,
         )
 
-    @property
-    def connected(self) -> bool:
-        return self._state is State.Connected
-
-    # region FIX-5
-    # Dokumentirano da property vraća None kada veza nije uspostavljena
-    # Pozivatelji koji ne provjere stanje mogu dobiti None bez jasnog razloga.
-    # Ponašanje je zadržano, ali je eksplicitno dokumentirano kako bi se spriječilo
-    # neočekivano korištenje.
-    @property
-    def connection(self) -> Optional[T]:
-        """Returns the active connection, or None if not connected.
-        Always check `self.connected` before use."""
-        return self._connection if self.connected else None
-
-    # endregion FIX-5
-
-    @property
-    def connection_name(self) -> str:
-        return self._connection_name
-
-    @property
-    def state(self) -> State:
-        return self._state
-
-    # region FIX-3
-    # Event.Completed is logged after the operaction
-    def operation(self, action: Operation) -> Union[Operational, None]:
-        self.debug(msg=Event.Operation.value, step=Event.Started.value, action=action)
-        if action is Operation.Connect:
-            result = self.connect()
-            self.debug(
-                msg=Event.Operation.value,
-                step=Event.Completed.value,
-                action=action,
-            )
-            return result
-
-        if action is Operation.Disconnect:
-            result = self.disconnect()
-            self.debug(
-                msg=Event.Operation.value,
-                step=Event.Completed.value,
-                action=action,
-            )
-            return result
-
+    def _ensure_created(self) -> None:
         self.debug(
-            msg=Event.Operation.value,
-            step=Event.Completed.value,
-            action="raise error",
+            msg=Event.Validating.value,
+            step="ensure_created",
+            state=self.ConnectionState.value,
         )
-        raise RuntimeError(f"Unknown operation: {action.value}")
-
-    # endregion FIX-3
-
-    # region Abstract methods
-    @abstractmethod
-    def create_connection(self) -> None:
-        """
-        Create connection and return new connection type.
-        NOTE: Don't forget to change state = State.Created
-        """
-        ...
-
-    @contextmanager
-    @abstractmethod
-    def connect(self) -> Generator[T, None, None]:
-        """
-        NOTE: Change state = State.Connected
-
-        Context manager returns connection:
-            with conn.connect() as connection:
-                ...
-        """
-        ...
-
-    @abstractmethod
-    def disconnect(self) -> None:
-        """
-        Close active connection and reset status.
-        NOTE: Change state = State.Closed
-        """
-        ...
-
-    # endregion Abstract methods
+        if self._fsm.state is ConnectionState.FAILED:
+            return
+        if self._fsm.state in (
+            ConnectionState.CREATED,
+            ConnectionState.CONNECTED,
+            ConnectionState.CONNECTING,
+        ):
+            return
+        self.ensure_created()
 
     # region Context handling
+
     @contextmanager
-    def context(self) -> Generator[T, None, None]:
+    def context(self) -> Generator[Connection, None, None]:
         self.debug(msg=Event.Context.value, step=Event.Started.value, fnc="context")
-        with self.connect() as connection:
-            yield connection
+        with self.connect() as conn:
+            yield conn
         self.debug(msg=Event.Context.value, step=Event.Completed.value, fnc="context")
 
     # endregion Context handling
 
-    # region FIX-4
     def __del__(self):
         try:
-            self.debug(
-                msg=Event.Delete.value,
-                step=Event.Starting.value,
-                fnc="__del__",
-            )
-            self.disconnect()
-            self.debug(
-                msg=Event.Delete.value,
-                step=Event.Completed.value,
-                fnc="__del__",
-            )
+            self.debug(msg="__del__", step=Event.Starting.value)
+            self.ensure_closed()
+            self.debug(msg="__del__", step=Event.Completed.value)
         except Exception as e:
-            self.warning(
-                msg=Event.Delete.value,
-                error=f"Caught during __del__ disconnect: {e}",
-                connection=self._connection_name,
-            )
-
-    # endregion FIX-4
+            self.warning(msg="__del__", error=f"Caught during __del__: {e}")
 
     def __enter__(self):
         self.debug(msg=Event.Enter.value, step=Event.Starting.value, fnc="__enter__")
@@ -264,11 +237,6 @@ class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[T], AB
         finally:
             self._context = None
 
-    # region FIX-6: __getattr__ provjerava __slots__ cijelog MRO-a, ne samo lokalne
-    # Originalnim kodom se provjeravao samo self.__slots__ (lokalni), što znači da
-    # atributi iz roditeljskih klasa (npr. _observers iz ConnectionObserverInterface)
-    # nisu bili zaštićeni i prosljeđivali su se na PresetDecorator — potencijalno
-    # izlažući interne atribute.
     def __getattr__(self, name: str) -> Any:
         all_slots: set = set()
         for cls in type(self).__mro__:
@@ -280,7 +248,149 @@ class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[T], AB
         preset: PresetDecorator = object.__getattribute__(self, "_preset")
         return preset.__getattr__(name)
 
-    # endregion
-
     def __repr__(self) -> str:
-        return f"{self.name}:{self.state.name}"
+        return f"{self.name}:{self._fsm.ConnectionState.value}"
+
+    @property
+    def connection_name(self) -> str:
+        return self._connection_name
+
+    @property
+    def connected(self) -> bool:
+        return self._fsm.state is ConnectionState.CONNECTED
+
+    @property
+    def connection(self) -> Optional[Connection]:
+        return self._connection if self.connected else None
+
+    @property
+    def state(self) -> ConnectionState:
+        return self._fsm.state
+
+    @property
+    def version(self) -> str:
+        return self._version
+
+    # region FSM lifecycle
+
+    def can(self, action: ConnectionAction) -> bool:
+        return self._fsm.can(action)
+
+    def ensure_created(self) -> None:
+        if self._fsm.state in (
+            ConnectionState.CREATED,
+            ConnectionState.CONNECTED,
+            ConnectionState.CREATING,
+        ):
+            return
+        if not self._fsm.can(ConnectionAction.CREATE):
+            raise ConnectionManagerException(
+                caller=self,
+                error=f"Cannot create connection from state '{self._fsm.ConnectionState.value}'",
+            )
+        self._fsm.apply(ConnectionAction.CREATE)
+        try:
+            self.create_connection()
+            self._fsm.apply(ConnectionAction.CREATE_OK)
+        except Exception:
+            self._fsm.apply(ConnectionAction.CREATE_FAIL)
+            raise
+
+    def ensure_closed(self) -> None:
+        if self._fsm.state in (ConnectionState.CLOSED, ConnectionState.NEW):
+            return
+        if not self._fsm.can(ConnectionAction.CLOSE):
+            return
+        self._fsm.apply(ConnectionAction.CLOSE)
+        try:
+            self.disconnect()
+            self._fsm.apply(ConnectionAction.CLOSE_OK)
+        except Exception:
+            self._fsm.apply(ConnectionAction.CLOSE_FAIL)
+            raise
+
+    def reset(self) -> None:
+        if self._fsm.can(ConnectionAction.RESET):
+            self._fsm.apply(ConnectionAction.RESET)
+
+    # endregion FSM lifecycle
+
+    def hot_swap(self, name: str, new_connection: "GenericConnection") -> None:
+        if name not in self._connections:
+            raise ConnectionManagerException(
+                caller=self, error=f"Connection '{name}' nije registrirana."
+            )
+
+        old_conn = self._connections[name]
+
+        try:
+            new_connection.request(action=Operation.Connect)
+        except Exception as e:
+            raise ConnectionManagerException(
+                caller=self,
+                error=f"Hot-swap failao, stara konekcija ostaje aktivna: {e}",
+            ) from e
+
+        self._connections[name] = new_connection
+        self.notify_observers(name, new_connection=new_connection)
+
+        try:
+            old_conn.request(action=Operation.Disconnect)
+        except Exception as e:
+            self.warning(
+                msg="hot_swap", error=f"Old connection was not closed properly: {e}"
+            )
+
+    def request(self, **kwargs: Any) -> Any:
+        action = kwargs.get("action")
+        self.debug(msg=Event.Operation.value, step=Event.Started.value, action=action)
+
+        if action is Operation.Connect:
+            result = self.ensure_created()
+            self.debug(
+                msg=Event.Operation.value, step=Event.Completed.value, action=action
+            )
+            return result
+
+        if action is Operation.Disconnect:
+            result = self.ensure_closed()
+            self.debug(
+                msg=Event.Operation.value, step=Event.Completed.value, action=action
+            )
+            return result
+
+        raise RuntimeError(f"Unknown action: {action}")
+
+    # region Abstract methods
+
+    @abstractmethod
+    def create_connection(self) -> None:
+        """
+        Create the connection engine or pool.
+        Called by ensure_created() — do not manage FSM state here.
+        """
+        ...
+
+    @contextmanager
+    @abstractmethod
+    def connect(self) -> Generator[Connection, None, None]:
+        """
+        Context manager that yields an active connection session.
+        Use self._fsm.apply(ConnectionAction.XXX) for state transitions:
+            CONNECT before opening, CONNECT_OK on success, CONNECT_FAIL on error,
+            DISCONNECT in finally to return to CREATED.
+        """
+        ...
+
+    @abstractmethod
+    def disconnect(self) -> None:
+        """
+        Tear down the engine or pool.
+        Called by ensure_closed() — do not manage FSM state here.
+        """
+        ...
+
+    # endregion Abstract methods
+
+
+# endregion GenericConnection

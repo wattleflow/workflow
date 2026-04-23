@@ -18,10 +18,10 @@ __FILE_SIZE_LIMIT__ = 50 * 1024 * 1024  # 50 MB
 
 from typing import Any, List, Optional
 from .macros import TextMacros
+from wattleflow.concrete.exception import AuditException
 
 
 class TextStream:
-
     def __init__(self, text: str = "", macros: Optional[List] = None):
         if macros is None:
             macros = []
@@ -87,8 +87,6 @@ class TextFileStream(TextStream):
         self.filename: Path = Path(file_path)
 
         if not self.filename.exists():
-            from wattleflow.concrete.exception import AuditException
-
             raise AuditException(
                 caller=self,
                 error=f"File not found {self.filename.name}",

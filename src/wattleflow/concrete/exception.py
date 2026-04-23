@@ -1,13 +1,12 @@
 # Module name: exceptions.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
 import inspect
 import linecache
 import logging
-import traceback
 import sys
 from typing import Iterable, Optional
 from wattleflow.concrete import AuditLogger
@@ -37,7 +36,6 @@ class AuditException(AuditLogger, Exception):
             msg=Event.Constructor.value,
             caller=caller,
             error=error,
-            *args,
             **kwargs,
         )
 
@@ -140,6 +138,14 @@ class ConnectionException(AuditException):
     pass
 
 
+class ConnectionException(ConnectionException):
+    pass
+
+
+class DriverException(AuditException):
+    pass
+
+
 class DriverNotFound(AuditException):
     pass
 
@@ -164,6 +170,10 @@ class ClassLoaderException(AuditException):
     pass
 
 
+class ManagerException(AuditException):
+    pass
+
+
 class MissingException(AuditException):
     pass
 
@@ -172,7 +182,7 @@ class OrchestratorException(AuditException):
     pass
 
 
-class PiplineException(AuditException):
+class PipelineException(AuditException):
     pass
 
 
@@ -200,12 +210,7 @@ class SFTPConnectionError(ConnectionException):
     pass
 
 
-# --------------------------------------------------------------------------- #
-# Errors
-# --------------------------------------------------------------------------- #
-
-
-class NotFoundError(AttributeError):
+class NotFoundException(AttributeError):
     def __init__(self, item, target):
         try:
             _frame = inspect.currentframe().f_back  # type: ignore  <== caller frame
@@ -220,7 +225,7 @@ class NotFoundError(AttributeError):
         super().__init__(msg)
 
 
-class UnexpectedTypeError(TypeError):
+class UnexpectedTypeException(TypeError):
     def __init__(self, caller, found, expected_type):
         try:
             _frame = inspect.currentframe().f_back  # type: ignore

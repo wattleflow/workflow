@@ -51,7 +51,7 @@ class DequeList(IWattleflow, deque):
                 ", ".join([*(map(str, args)), *[f"{k}={v}" for k, v in kwargs.items()]])
                 or "N/A"  # noqa: E501 W503
             )
-            raise ValueError(ERROR_NOT_FOUND.format("Item", crit))
+            raise ValueError(ERROR_NOT_FOUND % ("Item", crit))
 
         removed = 0
         if remove_all:
@@ -68,7 +68,11 @@ class DequeList(IWattleflow, deque):
         replace_all: bool = kwargs.pop(REPLACE_ALL, False)
         matches = self.find(*args, **kwargs)
         if not matches:
-            raise ValueError(ERROR_NOT_FOUND.format("Nothing to match."))
+            crit = (
+                ", ".join([*(map(str, args)), *[f"{k}={v}" for k, v in kwargs.items()]])
+                or "N/A"
+            )
+            raise ValueError(ERROR_NOT_FOUND % ("Item", crit))
 
         if replace_all:
             # Zamijeni svaki podudarni element novim objektom (isti broj ponavljanja)

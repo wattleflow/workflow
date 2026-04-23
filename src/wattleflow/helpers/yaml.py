@@ -59,8 +59,12 @@ class yaml:
             s.startswith("'") and s.endswith("'")
         ):
             if s[0] == '"':
-                # obradi escape sekvence
-                return bytes(s[1:-1], "utf-8").decode("unicode_escape")
+                # handle YAML escape sequences without corrupting non-ASCII content
+                _esc = {
+                    'n': '\n', 't': '\t', 'r': '\r', '\\': '\\', '"': '"',
+                    '0': '\0', 'b': '\b', 'f': '\f', 'v': '\v', '/': '/',
+                }
+                return re.sub(r'\\(.)', lambda m: _esc.get(m.group(1), m.group(1)), s[1:-1])
             else:
                 return s[1:-1]
         # null
@@ -191,9 +195,11 @@ class yaml:
         source: Union[str, Path],
     ) -> Optional[Union[list, dict, str, int, float, bool, None]]:
         instance = yaml()
-        if isinstance(source, (str, Path)) and os.path.exists(source):
-            return instance._load_yaml_file(source)
-        elif isinstance(source, (str, Path)):
-            return instance.parse_yaml(str(source))
-        else:
-            raise TypeError("safe_load accepts YAML string or path to the file.")
+        if hasattr(source, "read"):
+            return instance.parse_yaml(source.read())
+        if isinstance(source, (str, Path)):
+            try:
+                return instance._load_yaml_file(source)
+            except (FileNotFoundError, OSError):
+                return instance.parse_yaml(str(source))
+        raise TypeError("safe_load accepts a file object, YAML string, or path.")
