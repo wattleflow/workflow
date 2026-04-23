@@ -14,7 +14,7 @@ built to last and grow.
 | ------------------------ | ----------------------------------------------------------------------- |
 | **Version**              | 0.0.0.65 (latest release)                                               |
 | **License**              | Apache 2.0 License                                                      |
-| **Python Compatibility** | Python >=3.9                                                            |
+| **Python Compatibility** | Python >=3.11                                                           |
 | **Dependencies**         | wattleflow                                                              |
 | **Size**                 | nimble                                                                  |
 | **Documentation**        | [WattleFlow Core Documentation](https://github.com/wattleflow/docs.git) |
