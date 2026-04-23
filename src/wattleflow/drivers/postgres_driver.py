@@ -41,7 +41,14 @@ import fnmatch
 from typing import Generator, Optional
 
 import pandas as pd
-from sqlalchemy import text
+
+try:
+    from sqlalchemy import text
+except Exception as e:
+    raise ModuleNotFoundError(
+        f"SQLAlchemy package is required to run this code.[{str(e)}]\n"
+        "Please install it with `pip install sqlalchemy`"
+    ) from e
 
 from wattleflow.concrete import ConnectionManager, GenericDriver
 from wattleflow.concrete.exception import AuditException
@@ -91,10 +98,14 @@ class PostgresDriver(GenericDriver):
             self.warning(msg=Event.Configuring.value, error="Already loaded!")
 
         self.chunksize = self.chunksize if self.chunksize is not None else 1000
-        self.write_method = self.write_method if self.write_method is not None else "multi"
+        self.write_method = (
+            self.write_method if self.write_method is not None else "multi"
+        )
 
         self.safe_mode = self.safe_mode if self.safe_mode is not None else True
-        self.allow_raw_sql = self.allow_raw_sql if self.allow_raw_sql is not None else False
+        self.allow_raw_sql = (
+            self.allow_raw_sql if self.allow_raw_sql is not None else False
+        )
 
         self.default_transaction = (
             self.default_transaction if self.default_transaction is not None else True
@@ -114,7 +125,9 @@ class PostgresDriver(GenericDriver):
         Attribute.evaluate(caller=self, target=manager, expected_type=ConnectionManager)
 
         pg_conn: PostgresConnection = manager.get_connection(conn_name)
-        Attribute.evaluate(caller=self, target=pg_conn, expected_type=PostgresConnection)
+        Attribute.evaluate(
+            caller=self, target=pg_conn, expected_type=PostgresConnection
+        )
 
         pg_conn.subscribe(self)
         self._loaded = True
@@ -261,7 +274,9 @@ class PostgresDriver(GenericDriver):
         df = self._to_dataframe(data)
 
         if df.empty:
-            self.warning(msg=Event.Write.value, error="Empty DataFrame — nothing to write.")
+            self.warning(
+                msg=Event.Write.value, error="Empty DataFrame — nothing to write."
+            )
             return uri
 
         self.debug(
@@ -350,7 +365,9 @@ class PostgresDriver(GenericDriver):
                 result = conn.execute(stmt, params)
                 for row in result:
                     qualified = f"{row.table_schema}.{row.table_name}"
-                    if self._matches(qualified, pattern) or self._matches(row.table_name, pattern):
+                    if self._matches(qualified, pattern) or self._matches(
+                        row.table_name, pattern
+                    ):
                         yield qualified
         except Exception as e:
             raise PostgresDriverError(

@@ -1,7 +1,14 @@
 # Module name: __init__.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
+
+# --------------------------------------------------------------------------- #
+# You need FastApi to run this code:
+#
+#     pip install fastapi
+#
+# --------------------------------------------------------------------------- #
 
 """
 MVC pattern interfaces for the WattleFlow framework.
@@ -30,8 +37,15 @@ Design notes
 
 from __future__ import annotations
 from abc import abstractmethod, ABC
-from typing import Any, Generic, Optional
-from fastapi.responses import HTMLResponse
+from typing import Any
+
+try:
+    from fastapi.responses import HTMLResponse
+except Exception as e:
+    raise ModuleNotFoundError(
+        f"Error: {str(e)}\nPlease install:\n   pip install fastapi"
+    ) from e
+
 from wattleflow.core.framework import IWattleflow, T
 
 

@@ -2,24 +2,18 @@
 requires = ["setuptools", "setuptools_scm", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools_scm]
-write_to = "src/wattleflow/concrete/_version.py"
-#version_scheme = "post-release"
-#local_scheme = "node-and-date"
-
 [project]
 name = "wattleflow-workflow"
-version = "0.0.0.64"
+dynamic = ["version"]
+# version = "0.0.0.64"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"
 authors = [{ name = "wattleflow", email = "wattleflow@outlook.com" }]
 keywords = ["wattleflow", "workflow", "data", "engineering", "framework", "python", "library", "software engineering"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -29,10 +23,9 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
-# "pyyaml",
 dependencies = [
     "cryptography",
-    "wattleflow>=0.0.0.31",
+    "wattleflow>=0.0.0.34",
 ]
 
 [project.urls]
@@ -41,19 +34,36 @@ repository = "https://github.com/wattleflow/workflow.git"
 documentation = "https://github.com/wattleflow/workflow.git"
 
 [tool.setuptools]
-package-dir = {"" = "src"}  
-include-package-data = true
+package-dir = {"" = "src"}
+include-package-data = false
+
+#[tool.setuptools_scm]
+#write_to = "src/wattleflow/concrete/_version.py"
+#version_scheme = "post-release"
+#local_scheme = "node-and-date"
+
+[tool.setuptools_scm]
+version_scheme = "no-guess-dev"
+local_scheme = "no-local-version"
+fallback_version = "0.0.0"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+exclude = ["wattleflow.api*"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-# E/W = pycodestyle, F = pyflakes (Flake8 equivalent), I = isort, B = flake8-bugbear
 select = ["E", "W", "F", "I", "B"]
+ignore = ["E203", "E731", "I001"]  # I001/I003 - isort import order (intentionally not followed in this project)
+
+
+# E/W = pycodestyle, F = pyflakes (Flake8 equivalent), I = isort, B = flake8-bugbear
 # E203 - whitespace before ':' (conflicts with Black/slice notation)
 # E731 - do not assign a lambda expression (intentionally used in this project)
-ignore = ["E203", "E731", "I001"]  # I001/I003 - isort import order (intentionally not followed in this project)
+# python -m pip install --upgrade pip setuptools wheel
+# pip list --outdated
+# strace -f -e trace=file -o trace.log pip install -e .
+# strace -f -e trace=file -o trace.log pip list --outdated

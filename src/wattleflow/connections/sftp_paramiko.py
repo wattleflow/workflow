@@ -15,15 +15,23 @@
 from __future__ import annotations
 import os
 from contextlib import contextmanager
-from paramiko import (
-    AuthenticationException,
-    BadHostKeyException,
-    RejectPolicy,
-    SSHClient,
-    SFTPClient,
-    SSHException,
-    __version__,
-)
+
+try:
+    from paramiko import (
+        AuthenticationException,
+        BadHostKeyException,
+        RejectPolicy,
+        SSHClient,
+        SFTPClient,
+        SSHException,
+        __version__,
+    )
+except Exception as e:
+    raise ModuleNotFoundError(
+        f"Missing required package  to run this code.[{str(e)}]\n"
+        "Please install it with `pip install paramiko`"
+    ) from e
+
 from typing import Generator
 from wattleflow.core import T
 from wattleflow.concrete.connection import (

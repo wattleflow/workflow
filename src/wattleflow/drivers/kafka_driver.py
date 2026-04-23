@@ -25,8 +25,9 @@ try:
     from kafka import KafkaConsumer, KafkaProducer
     from kafka.errors import NoBrokersAvailable, NodeNotReadyError
 except Exception as e:
-    raise ImportError(
-        f"Kafka library is required to run this code. Please install it with 'pip install kafka-python' :{str(e)}"
+    raise ModuleNotFoundError(
+        f"Kafka library is required to run this code.[{str(e)}\n"
+        "Please install it with `pip install kafka-python`"
     ) from e
 
 from wattleflow.concrete.connection import Connection

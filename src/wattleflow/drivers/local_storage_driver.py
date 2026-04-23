@@ -17,6 +17,7 @@ from wattleflow.constants.enums import Event
 from wattleflow.constants.filetype import FileType
 from wattleflow.drivers import FileStorage
 from wattleflow.helpers.attribute import Attribute
+from wattleflow.helpers.image_guard import safe_open, safe_open_bytes
 
 
 class LocalStorageDriverException(AuditException):
@@ -155,6 +156,8 @@ class LocalStorageDriver(GenericDriver):
             return self._write_graph(storage=storage, content=content, **kwargs)
         if ftype == FileType.PNG:
             return self._write_png(storage=storage, content=content, **kwargs)
+        if ftype == FileType.PDF:
+            return self._write_pdf(storage=storage, content=content, **kwargs)
 
         self.error(
             msg=Event.Write.value,
@@ -350,7 +353,12 @@ class LocalStorageDriver(GenericDriver):
             strip_metadata: bool  - default True; removes EXIF/tEXt chunks.
             suffix        : str   - default ".png".
         """
-        from PIL import Image, ImageDraw, ImageFont
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+        except ImportError as e:
+            raise ModuleNotFoundError(
+                "PIL library is missing. Add it manually: pip install Pillow"
+            ) from e
 
         self.debug(
             msg=f"{Event.Write.name}_png",
@@ -369,11 +377,11 @@ class LocalStorageDriver(GenericDriver):
         if isinstance(content, Image.Image):
             image = content.copy()
         elif isinstance(content, (bytes, bytearray)):
-            import io as _io
-
-            image = Image.open(_io.BytesIO(content))
+            # safe_open_bytes blocks oversized payloads, format spoofing and
+            # malformed streams before Pillow decodes pixel data.
+            image = safe_open_bytes(bytes(content), expected=("PNG",))
         elif source_path:
-            image = Image.open(source_path)
+            image = safe_open(source_path, expected=("PNG",))
         else:
             reason = "PNG write requires in-memory image, bytes or source_path"
             self.error(msg=Event.Write.name, reason=reason)
@@ -382,18 +390,50 @@ class LocalStorageDriver(GenericDriver):
         image = image.convert("RGBA" if image.mode == "RGBA" else "RGB")
 
         draw = ImageDraw.Draw(image)
-        for box in redact_boxes:
-            draw.rectangle(tuple(box), fill=(0, 0, 0))
+
+        # Tesseract bbox 'top' rides cap-line, missing the actual glyph ascender
+        # (and our č/š/ž diacritics). Pad upward more than downward.
+        _PAD_TOP_RATIO = 0.18
+        _PAD_BOT_RATIO = 0.06
+
+        def _pad_box(box):
+            x0, y0, x1, y1 = box
+            h = y1 - y0
+            pad_t = max(2, int(h * _PAD_TOP_RATIO))
+            pad_b = max(1, int(h * _PAD_BOT_RATIO))
+            return (x0, max(0, y0 - pad_t), x1, y1 + pad_b)
+
+        padded = [_pad_box(b) for b in redact_boxes]
+        for pbox in padded:
+            draw.rectangle(pbox, fill=(0, 0, 0))
 
         if replacements:
-            try:
-                font = ImageFont.load_default()
-            except OSError:
-                font = None
-            for box, text in replacements:
-                x0, y0, x1, y1 = box
-                if text:
-                    draw.text((x0 + 2, y0 + 2), str(text), fill=(255, 255, 255), font=font)
+            def _pick_font(box_h: int):
+                # Roughly 55% of box height; clamped so labels stay legible
+                # without overflowing in narrow OCR cells.
+                target = max(7, min(int(box_h * 0.55), 16))
+                try:
+                    return ImageFont.truetype("DejaVuSans.ttf", size=target)
+                except (OSError, IOError):
+                    try:
+                        return ImageFont.load_default(size=target)
+                    except TypeError:
+                        return ImageFont.load_default()
+
+            pad_map = {tuple(rb): pb for rb, pb in zip(redact_boxes, padded)}
+            for raw_box, text in replacements:
+                if not text:
+                    continue
+                x0, y0, x1, y1 = pad_map.get(tuple(raw_box), _pad_box(raw_box))
+                font = _pick_font(y1 - y0)
+                try:
+                    tx0, ty0, tx1, ty1 = font.getbbox(str(text))
+                    th = ty1 - ty0
+                except AttributeError:
+                    th = y1 - y0
+                cx = x0 + 2
+                cy = y0 + max(0, ((y1 - y0) - th) // 2)
+                draw.text((cx, cy), str(text), fill=(255, 255, 255), font=font)
 
         output = str(storage.with_suffix(suffix).absolute())
 
@@ -411,6 +451,92 @@ class LocalStorageDriver(GenericDriver):
             output=output,
             boxes=len(redact_boxes),
             replacements=len(replacements),
+        )
+
+        return output
+
+    def _write_pdf(self, storage: FileStorage, content: object, **kwargs) -> str:
+        """Persist a PDF, optionally applying PII redaction spans per page.
+
+        Expected kwargs (all optional unless noted):
+            source_path      : str   - origin file; required when content is
+                                       not raw bytes.
+            pdf_redact_spans : list[dict] - each span is
+                                       {"page": int,
+                                        "bbox": (x0, y0, x1, y1),
+                                        "replacement": str}
+                                       bbox units are PDF points (PyMuPDF).
+            strip_metadata   : bool  - default True; wipes document info and
+                                       XMP metadata after redaction.
+            suffix           : str   - default ".pdf".
+        """
+        try:
+            import fitz  # PyMuPDF
+        except ImportError as e:
+            raise ModuleNotFoundError(
+                "PyMuPDF library is missing. Add it manually: pip install PyMuPDF"
+            ) from e
+
+        self.debug(
+            msg=f"{Event.Write.name}_pdf",
+            step=Event.Started.name,
+            filename=storage.filename,
+            uri=storage.uri,
+            **kwargs,
+        )
+
+        source_path = kwargs.pop("source_path", None)
+        spans = kwargs.pop("pdf_redact_spans", []) or []
+        strip_metadata = kwargs.pop("strip_metadata", True)
+        suffix = kwargs.pop("suffix", ".pdf")
+
+        if isinstance(content, (bytes, bytearray)):
+            pdf = fitz.open(stream=bytes(content), filetype="pdf")
+        elif source_path:
+            pdf = fitz.open(source_path)
+        else:
+            reason = "PDF write requires bytes content or source_path"
+            self.error(msg=Event.Write.name, reason=reason)
+            raise ValueError(reason)
+
+        try:
+            spans_by_page: dict[int, list] = {}
+            for span in spans:
+                idx = int(span.get("page", 0))
+                spans_by_page.setdefault(idx, []).append(span)
+
+            for page_idx, page_spans in spans_by_page.items():
+                if page_idx < 0 or page_idx >= pdf.page_count:
+                    continue
+                page = pdf[page_idx]
+                for span in page_spans:
+                    bbox = span.get("bbox")
+                    if not bbox or len(bbox) != 4:
+                        continue
+                    rect = fitz.Rect(*bbox)
+                    repl = span.get("replacement") or ""
+                    page.add_redact_annot(rect, text=repl, fill=(0, 0, 0))
+                page.apply_redactions()
+
+            if strip_metadata:
+                # PyMuPDF clears info-dict entries by writing None values.
+                pdf.set_metadata({k: None for k in (pdf.metadata or {})})
+                try:
+                    pdf.del_xml_metadata()
+                except Exception:
+                    # XMP stream may be absent — not an error, just nothing to strip.
+                    pass
+
+            output = str(storage.with_suffix(suffix).absolute())
+            pdf.save(output, garbage=4, deflate=True, clean=True)
+        finally:
+            pdf.close()
+
+        self.debug(
+            msg=f"{Event.Write.name}_pdf",
+            step=Event.Completed.name,
+            output=output,
+            spans=len(spans),
         )
 
         return output

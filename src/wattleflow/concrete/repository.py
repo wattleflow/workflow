@@ -358,8 +358,8 @@ class GenericRepositoryDriver(IRepository, AuditLogger, ABC):
             )
             raise RepositoryException(caller=self, error=error, facade=facade) from e
 
-    def __eq__(self, other: "GenericRepositoryDriver") -> bool:
-        if not isinstance(other, GenericRepositoryDriver):
+    def __eq__(self, other: "GenericDriver") -> bool:
+        if not isinstance(other, GenericDriver):
             return NotImplemented
         self.info(msg=Event.Probing.value, eq=hash(self) == hash(other))
         return hash(self) == hash(other)

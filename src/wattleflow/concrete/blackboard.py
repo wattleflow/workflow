@@ -1,6 +1,6 @@
 # Module name: concrete/blackboard.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
@@ -114,9 +114,6 @@ class GenericBlackboard(IBlackboard, IOriginator, AuditLogger, ABC):
 
     @property
     def repositories(self) -> List[IRepository]:
-        # FIX: v0.0.0.62 - 26/3/17 - Return a shallow copy instead of the internal
-        # list; previously callers could mutate _repositories directly, bypassing
-        # the register() guard and breaking duplicate-detection logic.
         return list(self._repositories)
 
     def _emit(
@@ -168,7 +165,6 @@ class GenericBlackboard(IBlackboard, IOriginator, AuditLogger, ABC):
             msg=Event.Create.value,
             step=Event.Started.value,
             caller=caller.name,
-            **kwargs,
         )
 
         Attribute.evaluate(caller=self, target=caller, expected_type=IProcessor)
@@ -287,16 +283,12 @@ class GenericBlackboard(IBlackboard, IOriginator, AuditLogger, ABC):
             msg = f"Repository {repository_name} not registered!"
             raise RuntimeError(msg)
 
-        self.debug(
-            msg=Event.Read.value, step=Event.Completed.value, repository=repository
-        )
+        self.debug(msg=Event.Read.value, step=Event.Completed.value, repository=repository)
 
         return repository.read(identifier=identifier, **kwargs)
 
     def register(self, repository: IRepository) -> None:
-        self.debug(
-            msg=Event.Register.value, step=Event.Started.value, repository=repository
-        )
+        self.debug(msg=Event.Register.value, step=Event.Started.value, repository=repository)
 
         Attribute.evaluate(self, repository, IRepository)
 
@@ -310,9 +302,7 @@ class GenericBlackboard(IBlackboard, IOriginator, AuditLogger, ABC):
 
         self._repositories.append(repository)
 
-        self.debug(
-            msg=Event.Register.value, step=Event.Completed.name, added=repository
-        )
+        self.debug(msg=Event.Register.value, step=Event.Completed.name, added=repository)
 
     def write(self, caller: IWattleflow, facade: ITarget, **kwargs) -> str:
         self.debug(

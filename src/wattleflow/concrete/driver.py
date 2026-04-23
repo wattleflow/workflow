@@ -3,15 +3,6 @@
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
-
-"""
-Defines an abstract, extensible driver base class for the Wattleflow framework.
-Provides a unified interface for loading, reading, and writing data sources,
-with optional lazy initialisation, integrated audit logging, observer pattern
-for connection state notifications, and dynamic configuration via the
-PresetDecorator.
-"""
-
 import logging
 
 from abc import ABC
@@ -19,9 +10,9 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 from wattleflow.core import IDriver, IObserver
-from wattleflow.concrete.exception import DriverException as DriverError
+from wattleflow.concrete.exception import DriverException
 from wattleflow.concrete.logger import AuditLogger
-from wattleflow.constants import Event
+from wattleflow.constants.enums import Event
 from wattleflow.decorators.preset import PresetDecorator
 
 
@@ -149,7 +140,7 @@ class GenericDriver(IDriver, IObserver, AuditLogger, ABC):
             return
 
         if not self._fsm.can(DriverAction.LOAD):
-            raise DriverError(caller=self, error=f"Cannot load from state {self._fsm.state}")
+            raise DriverException(caller=self, error=f"Cannot load from state {self._fsm.state}")
 
         self._fsm.apply(DriverAction.LOAD)
 
