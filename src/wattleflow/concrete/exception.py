@@ -1,6 +1,6 @@
-# Module name: exceptions.py
+# Module name: concrete/exceptions.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2026 WattleFlow. All rights reserved.
+# Copyright: 2022-2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
@@ -8,113 +8,176 @@ import inspect
 import linecache
 import logging
 import sys
-from typing import Iterable, Optional
-from wattleflow.concrete import AuditLogger
-from wattleflow.constants import Event
+import traceback
+from typing import Optional
 from wattleflow.constants.errors import ERROR_UNEXPECTED_TYPE
-from wattleflow.helpers.functions import _NC, _NT
+
+
+_logger = logging.getLogger("wattleflow.exception")
 
 
 # --------------------------------------------------------------------------- #
 # Exceptions
 # --------------------------------------------------------------------------- #
 
+# class MyError(Exception):
+#     def __init__(self, msg: str, **context):
+#         super().__init__(msg)
+#         self.context = context
 
-class AuditException(AuditLogger, Exception):
+#     def __str__(self):
+#         if self.context:
+#             ctx = ", ".join(f"{k}={v!r}" for k, v in self.context.items())
+#             return f"{self.args[0]} [{ctx}]"
+#         return self.args[0]
+
+
+# def operation():
+#     try:
+#         risky_call()
+#     except (IOError, ValueError) as e:
+#         raise MyError(
+#             "operation failed",
+#             stage="parsing",
+#             input_file=path,
+#         ) from e
+
+
+class AuditException(Exception):
+    """Base exception with rich location context.
+
+    Attributes:
+        reason:     original error message (alias: error)
+        error:      same as reason, kept for legacy callers
+        filename:   source file where the error originated
+        lineno:     source line number
+        code_line:  the source line text (stripped)
+        caller:     object that raised the exception
+        name:       caller's name attribute, falling back to class name
+
+    Backward-compat kwargs (silently consumed):
+        level, handler, exc, exc_info, internal_funcs, extra_skip
+
+    Idiomatic use - propagate the original cause via `from`:
+
+        try:
+            risky()
+        except ValueError as e:
+            raise DriverException(self, "driver failed") from e
+
+    Legacy `exc=e` kwarg also auto-chains __cause__ for backward compat.
+    """
+
     filename: str = ""
-    lineno: str = ""
+    lineno: int = 0
+    code_line: Optional[str] = None
 
     def __init__(self, caller: object, error: str, *args, **kwargs):
-        level = kwargs.pop("level", logging.NOTSET)
-        handler = kwargs.pop("hanlder", None)
+        kwargs.pop("level", None)
+        kwargs.pop("handler", None)
+        kwargs.pop("hanlder", None)
 
-        AuditLogger.__init__(self, level=level, handler=handler, logger=None)
+        exc = kwargs.pop("exc", None)
+        exc_info = kwargs.pop("exc_info", None)
+        kwargs.pop("internal_funcs", None)
+        kwargs.pop("extra_skip", None)
 
-        self._get_call_context(**kwargs)
+        self._extract_location(exc, exc_info)
 
-        self.debug(
-            msg=Event.Constructor.value,
-            caller=caller,
-            error=error,
-            **kwargs,
-        )
+        if isinstance(exc, BaseException) and self.__cause__ is None:
+            self.__cause__ = exc
 
         self.caller = caller
-        self.name = getattr(caller, "name", caller.__class__.__name__)
+        self.name = (
+            caller.__name__
+            if isinstance(caller, type)
+            else getattr(caller, "name", type(caller).__name__)
+        )
         self.reason: str = error
-
-        self.reason += f" See {self.filename}:{self.lineno}"
+        self.error: str = error
 
         Exception.__init__(self, self.reason)
 
-    def _get_call_context(self, **kwargs) -> None:
+    def _extract_location(
+        self,
+        exc: Optional[BaseException],
+        exc_info,
+    ) -> None:
         try:
             tb = None
-            exc = kwargs.get("exc")
             if isinstance(exc, BaseException):
                 tb = exc.__traceback__
+            elif exc_info is True:
+                tb = sys.exc_info()[2]
+            elif isinstance(exc_info, tuple) and len(exc_info) == 3:
+                tb = exc_info[2]
             else:
-                ei = kwargs.get("exc_info")
-                if ei is True:
-                    tb = sys.exc_info()[2]
-                elif isinstance(ei, tuple) and len(ei) == 3:
-                    tb = ei[2]
-
-            filename = None
-            lineno: Optional[int] = None
+                tb = sys.exc_info()[2]
 
             if tb is not None:
-                while tb.tb_next:
-                    tb = tb.tb_next
-                f = tb.tb_frame
-                filename = f.f_code.co_filename
-                lineno = tb.tb_lineno
+                frames = traceback.extract_tb(tb)
+                if frames:
+                    last = frames[-1]
+                    self.filename = last.filename
+                    self.lineno = last.lineno
+                    self.code_line = last.line
+                    return
 
-            else:
-                internal_funcs: Iterable[str] = kwargs.get(
-                    "internal_funcs",
-                    {
-                        "_get_call_context",
-                        "__init__",
-                        "__getattr__",
-                        "__getattribute__",
-                        "__repr__",
-                    },
-                )
-                extra_skip = int(kwargs.get("extra_skip", 0))
-
-                f = inspect.currentframe()
-                if f:
+            f = inspect.currentframe()
+            for _ in range(2):
+                if f and f.f_back:
                     f = f.f_back
-                if f:
-                    f = f.f_back
-
-                while f and f.f_back and f.f_code.co_name in internal_funcs:
-                    f = f.f_back
-
-                for _ in range(extra_skip):
-                    if f and f.f_back:
-                        f = f.f_back
-
-                if f:
-                    info = inspect.getframeinfo(f)
-                    filename, lineno = info.filename, info.lineno
-
-            self.filename = filename or "Unknown Location"
-            self.lineno = lineno or 0  # type: ignore
-
-            linecache.checkcache(self.filename)
-            line = linecache.getline(self.filename, self.lineno)  # type: ignore
-            self.code_line = line.strip() if line else None
-
+            if f:
+                self.filename = f.f_code.co_filename
+                self.lineno = f.f_lineno
+                linecache.checkcache(self.filename)
+                line = linecache.getline(self.filename, self.lineno)
+                self.code_line = line.strip() if line else None
         except Exception as e:
-            self.debug(msg=Event.ErrorDetails.value, error=str(e))
+            _logger.debug("AuditException._extract_location failed: %s", e)
+
+    def add_context(self, **ctx) -> "AuditException":
+        for k, v in ctx.items():
+            try:
+                self.add_note(f"{k}={v!r}")
+            except AttributeError:
+                pass
+        return self
 
     def __repr__(self) -> str:
-        return f"error={self.error} in filename={self.filename}:{self.lineno}"
+        return (
+            f"{type(self).__name__}(reason={self.reason!r}, "
+            f"at={self.filename}:{self.lineno})"
+        )
+
+    def __str__(self) -> str:
+        if self.filename:
+            return f"{self.reason} (at {self.filename}:{self.lineno})"
+        return self.reason
+
+    def __reduce__(self):
+        return (_rebuild_audit_exception, (type(self), self.reason))
 
 
-class AttributeException(AuditException, AuditLogger):
+def _rebuild_audit_exception(cls, reason):
+    obj = cls.__new__(cls)
+    obj.reason = reason
+    obj.error = reason
+    obj.caller = None
+    obj.name = cls.__name__
+    obj.filename = ""
+    obj.lineno = 0
+    obj.code_line = None
+    Exception.__init__(obj, reason)
+    return obj
+
+
+# --------------------------------------------------------------------------- #
+# Domain exceptions
+# --------------------------------------------------------------------------- #
+
+
+class AttributeException(AuditException):
     pass
 
 
@@ -135,10 +198,6 @@ class ConfigurationException(AuditException):
 
 
 class ConnectionException(AuditException):
-    pass
-
-
-class ConnectionException(ConnectionException):
     pass
 
 
@@ -221,12 +280,20 @@ class NotFoundException(AttributeError):
         except Exception:
             var_name = "Unknown Variable"
 
-        msg = f"No [{var_name}] found in [{target.__class__.__name__}]"
+        target_name = (
+            target.__name__ if isinstance(target, type) else type(target).__name__
+        )
+        msg = f"No [{var_name}] found in [{target_name}]"
         super().__init__(msg)
 
 
 class UnexpectedTypeException(TypeError):
     def __init__(self, caller, found, expected_type):
+        # Deferred import - wattleflow.helpers triggers helpers/__init__.py
+        # which loads helpers.attribute, which imports AttributeException from
+        # this module. Importing at module level creates a circular import.
+        from wattleflow.helpers.functions import _NC, _NT
+
         try:
             _frame = inspect.currentframe().f_back  # type: ignore
             var_name = next(
