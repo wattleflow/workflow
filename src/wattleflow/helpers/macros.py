@@ -8,36 +8,18 @@
 #   2026-03-16: Updated run: error handling for invalid macro formats.
 
 
-"""
-Description: This module defines concrete macro classes used within the Wattleflow framework.
-It provides reusable components for automating and simplifying repetitive tasks.
-
-
-Usage example:
-    import yaml
-
-    yaml_data = \"""
-    macros:
-        - pattern: '\\\\S+@\\\\S+'
-        replacement: ''
-    \"""
-
-    macros_data = yaml.safe_load(yaml_data)['macros']
-    self.text_macros = TextMacros(macros_data)
-
-    # Create instance
-    text_macros = TextMacros(macros_data)
-
-    # Apply macro to text
-    text = "My email is example@example.com"
-    modified_text = text_macros.run(text)
-
-    print(modified_text)  # Expected output: "My email is "
-"""
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+import logging
 import re
+from typing import List, Tuple
 
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
 ADD_VALUE_ERROR = "Tuple macro must be: (pattern, replacement) or (pattern, replacement, flags)."
 
 # Detects common catastrophic backtracking structures:
@@ -53,43 +35,89 @@ def _check_redos(pattern: str) -> None:
         )
 
 
-class TextMacros:
-    """ """
+CompiledMacros = List[Tuple[re.Pattern, str]]
 
-    def __init__(self, list_of_macros: list = None):
-        self._macros = []
+
+class TextMacros:
+    __slot__ = ("_compiled", "log")
+
+    def __init__(self, list_of_macros: list = None, flag=re.IGNORECASE):
+        self._compiled: CompiledMacros = []
+        self.log = logging.getLogger(__name__)
+        self.flag = flag
         if list_of_macros is not None:
             if not isinstance(list_of_macros, list):
                 raise TypeError(f"Expected list, found {type(list_of_macros).__name__}")
             self.add(list_of_macros)
 
+    def _validate_replacement(self, pattern: re.Pattern, replacement) -> None:
+        if not isinstance(pattern, re.Pattern):
+            raise TypeError(
+                f"_validate_replacement expects compiled re.Pattern, "
+                f"got {type(pattern).__name__}: {pattern!r}"
+            )
+
+        if not (isinstance(replacement, (str, bytes)) or callable(replacement)):
+            raise TypeError(
+                f"Replacement must be str/bytes/callable, "
+                f"got {type(replacement).__name__}: {replacement!r} "
+                f"for pattern {pattern.pattern!r}"
+            )
+
+        try:
+            pattern.sub(replacement, "")
+        except re.error as e:
+            raise re.error(
+                f"Invalid replacement {replacement!r} for pattern {pattern.pattern!r}: {e}"
+            ) from e
+
+    @property
+    def compiled(self) -> CompiledMacros:
+        return self._compiled
+
+    @property
+    def count(self) -> int:
+        return len(self._compiled)
+
     def add(self, list_of_macros: list):
+        self.log.debug("TextMacros.add()")
         for macro in list_of_macros:
-            if isinstance(macro, tuple):
-                if len(macro) == 2:
-                    pattern, replacement = macro
-                    _check_redos(pattern)
-                    pattern = re.compile(pattern)
-                elif len(macro) == 3:
-                    pattern, replacement, flags = macro
-                    _check_redos(pattern)
-                    pattern = re.compile(pattern, flags)
-                else:
-                    raise ValueError(ADD_VALUE_ERROR)
-            elif isinstance(macro, dict):
-                if "pattern" in macro and "replacement" in macro:
+            try:
+                if isinstance(macro, tuple):
+                    if len(macro) == 2:
+                        pattern, replacement = macro
+                        flags = self.flag
+                    elif len(macro) == 3:
+                        pattern, replacement, flags = macro
+                    else:
+                        raise ValueError(ADD_VALUE_ERROR)
+                elif isinstance(macro, dict):
+                    if "pattern" not in macro or "replacement" not in macro:
+                        raise ValueError("Dict macro must contain 'pattern' and 'replacement'.")
                     pattern = macro["pattern"]
                     replacement = macro["replacement"]
-                    flags = macro.get("flags", 0)
-                    _check_redos(pattern)
-                    pattern = re.compile(pattern, flags)
+                    flags = macro.get("flags", self.flag)
                 else:
-                    raise ValueError("Dict macro must contain 'pattern' and 'replacement'.")
-            else:
-                raise ValueError("Macro must be either a tuple or a dict.")
-            self._macros.append((pattern, replacement))
+                    raise ValueError(f"Macro must be tuple or dict, got {type(macro).__name__}")
 
-    def run(self, text):
-        for pattern, replacement in self._macros:
-            text = pattern.sub(replacement, text)
+                _check_redos(pattern)
+                try:
+                    compiled = re.compile(pattern, flags)
+                except re.error as e:
+                    raise re.error(f"Invalid pattern {pattern!r} (flags={flags}): {e}") from e
+
+                # self._validate_replacement(compiled, replacement)
+                self._compiled.append((compiled, replacement))
+            except Exception as e:
+                self.log.error(
+                    "TextMacros.add() failed for macro %r: %s: %s",
+                    macro,
+                    type(e).__name__,
+                    e,
+                )
+                continue
+
+    def run(self, text, flag=re.IGNORECASE):
+        for pattern, replacement in self._compiled:
+            text = pattern.sub(replacement, text, flag)
         return text

@@ -1,6 +1,6 @@
-# Module name: collections.py
+# Module name: helpers/collections.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
@@ -11,6 +11,11 @@ update, and removal functionality, enabling efficient management of dynamic
 collections.
 """
 
+
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
+
 from __future__ import annotations
 from collections import deque
 from typing import Any, Iterable
@@ -18,7 +23,15 @@ from wattleflow.core import IWattleflow
 from wattleflow.constants.errors import ERROR_NOT_FOUND
 
 
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
 REPLACE_ALL = "all"
+
+# --------------------------------------------------------------------------- #
+# region DequeList                                                            #
+# --------------------------------------------------------------------------- #
 
 
 class DequeList(IWattleflow, deque):
@@ -37,9 +50,7 @@ class DequeList(IWattleflow, deque):
         # Podudaranje po vrijednosti (int/str) ili po atributima
         if isinstance(item, (int, str)):
             return item in args if args else False
-        return all(
-            hasattr(item, k) and getattr(item, k) == v for k, v in kwargs.items()
-        )
+        return all(hasattr(item, k) and getattr(item, k) == v for k, v in kwargs.items())
 
     def find(self, *args, **kwargs) -> list[Any]:
         return [x for x in self if self._matches(x, args, kwargs)]
@@ -47,10 +58,7 @@ class DequeList(IWattleflow, deque):
     def remove_match(self, *args, remove_all: bool = False, **kwargs) -> int:
         matches = self.find(*args, **kwargs)
         if not matches:
-            crit = (
-                ", ".join([*(map(str, args)), *[f"{k}={v}" for k, v in kwargs.items()]])
-                or "N/A"  # noqa: E501 W503
-            )
+            crit = ", ".join([*(map(str, args)), *[f"{k}={v}" for k, v in kwargs.items()]]) or "N/A"
             raise ValueError(ERROR_NOT_FOUND % ("Item", crit))
 
         removed = 0
@@ -68,10 +76,7 @@ class DequeList(IWattleflow, deque):
         replace_all: bool = kwargs.pop(REPLACE_ALL, False)
         matches = self.find(*args, **kwargs)
         if not matches:
-            crit = (
-                ", ".join([*(map(str, args)), *[f"{k}={v}" for k, v in kwargs.items()]])
-                or "N/A"
-            )
+            crit = ", ".join([*(map(str, args)), *[f"{k}={v}" for k, v in kwargs.items()]]) or "N/A"
             raise ValueError(ERROR_NOT_FOUND % ("Item", crit))
 
         if replace_all:
@@ -86,3 +91,8 @@ class DequeList(IWattleflow, deque):
         super().remove(matches[0])
         self.append(new_object)
         return 1
+
+
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #

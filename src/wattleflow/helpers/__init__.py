@@ -1,9 +1,9 @@
 # Module name: helpers/__init__.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
-from .attribute import Attribute, AttributeException
+from .attribute import Attribute
 from .config import Config
 from .config_adapter import (
     ConfigAdapter,
@@ -17,6 +17,11 @@ from .config_adapter import (
     config_section,
 )
 from .collections import DequeList
+from .config_validator import (
+    ConfigValidator,
+    ValidationError,
+)
+from .datetime import Now
 from .dictionaries import AttributeDict, Dictionary
 from .handlers import TraceHandler
 from .localmodels import DownloadedModels, StoredModels
@@ -40,7 +45,6 @@ __all__ = [
     "sanitised_uri",
     "show_paths",
     "Attribute",
-    "AttributeException",
     "AttributeDict",
     "AwsSecretsResolver",
     "AzureKeyVaultResolver",
@@ -52,10 +56,14 @@ __all__ = [
     "EnvVarResolver",
     "GcpSecretResolver",
     "ISecretResolver",
+    "Now",
     "SecretResolverChain",
     "VaultResolver",
     "ClassLoader",
+    "ConfigValidator",
     "DequeList",
+    "ValidationError",
+    "validate_config_file",
     "FileStorage",
     "DownloadedModels",
     "Dictionary",

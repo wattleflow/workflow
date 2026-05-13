@@ -1,6 +1,6 @@
-# Module name: handlers.py
+# Module name: helpers/handlers.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
@@ -11,10 +11,22 @@ detailed stack traces for captured exceptions, improving error visibility
 and debugging efficiency.
 """
 
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
 
 from __future__ import annotations
 import logging
 import traceback
+
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------------------- #
+# region Classes                                                              #
+# --------------------------------------------------------------------------- #
 
 
 class TraceHandler(logging.StreamHandler):
@@ -27,3 +39,8 @@ class TraceHandler(logging.StreamHandler):
             )
 
         super().emit(record)
+
+
+# --------------------------------------------------------------------------- #
+# endregion Classes                                                           #
+# --------------------------------------------------------------------------- #

@@ -1,6 +1,6 @@
 # Module name: audit.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
@@ -31,10 +31,10 @@ class EventLog(Enum):
 
 class LogFormat(Enum):
     DEFAULT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    Detailed = (
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(filename)s:%(lineno)d"
+    Detailed = "%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(filename)s:%(lineno)d"
+    Custom = (
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(src_filename)s:%(src_lineno)d"  # noqa: E501
     )
-    Custom = "%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(src_filename)s:%(src_lineno)d"  # noqa: E501
     JSON = '{"time": "%(asctime)s", "name": "%(name)s", "level": "%(levelname)s", "message": "%(message)s"}'  # noqa: E501
 
 
@@ -54,7 +54,5 @@ class WattleflowOSCAL(Enum):
     POLICY_VERSION = "0.0.0.1"
     GUIDELINES_FOR_DATABASE_SYSTEMS = "3f349d16-11a1-459a-a299-c9446aea7597"
     GUIDELINES_FOR_SOFTWARE_DEVELOPMENT = "506198a8-7ae8-4c95-8b7b-2a4833cfab4b"
-    BEST_PRACTICES_FOR_EVENT_LOGGING_AND_THREAT_DETECTION = (
-        "b95c4745-572a-4121-b4e1-d0baa90a84fc"
-    )
+    BEST_PRACTICES_FOR_EVENT_LOGGING_AND_THREAT_DETECTION = "b95c4745-572a-4121-b4e1-d0baa90a84fc"
     WINDOWS_EVENT_LOGGING_AND_FORWARDING = "de239dae-d1e8-4969-9680-ef3444d32a83"

@@ -1,14 +1,21 @@
 # Module name: asymetric.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
 """
-This module defines classes that implement asymmetric cryptographic
-strategies used within the Wattleflow framework. It provides tools for
-secure encryption, decryption, and key management.
+This module follows the “build once, use often” principle, supporting bespoke
+implementations of asymmetric cryptographic strategy classes within the
+Wattleflow Workflow an ETL framework. It provides tools for the creation
+and management secure encryption, decryption, and key management enhancing
+consistency and reusability across workflows.
 """
+
+
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
 
 from __future__ import annotations
 from abc import abstractmethod
@@ -16,6 +23,15 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from wattleflow.core import IStrategy
+
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------------------- #
+# region Strategies                                                           #
+# --------------------------------------------------------------------------- #
 
 
 class StrategyBaseRSA(IStrategy):
@@ -75,3 +91,8 @@ class StrategyRSADecrypt512(StrategyBaseRSA):
                 label=None,
             ),
         ).decode("utf-8")
+
+
+# --------------------------------------------------------------------------- #
+# endregion Strategies                                                        #
+# --------------------------------------------------------------------------- #

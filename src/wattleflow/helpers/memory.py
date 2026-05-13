@@ -1,12 +1,24 @@
 # Module name: helpers/memory.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
+
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
+
+from __future__ import annotations
 import sys
 from typing import Union
 
-# from collections.abc import Mapping, Container
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Global methods                                                       #
+# --------------------------------------------------------------------------- #
 
 
 def deep_getsizeof(obj, seen=None):
@@ -36,3 +48,8 @@ def memory_usage(return_text: bool = False, **variables) -> Union[int, str]:
             return f"{name}: {size} bytes ({size / 1024:.2f} KB, {size / 1024**2:.2f} MB)"
         else:
             return size
+
+
+# --------------------------------------------------------------------------- #
+# endregion Global methods                                                    #
+# --------------------------------------------------------------------------- #

@@ -1,6 +1,6 @@
 # Module name: cron_job.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
@@ -9,10 +9,22 @@ Description: This module initialises the scheduler package by exposing the CronJ
 class, which manages and executes scheduled tasks within the Wattleflow framework.
 """
 
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
+
 from __future__ import annotations
 import time
 from concrete.scheduler import Scheduler
 from constants.enums import Event
+
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
 
 
 class CronJobScheduler(Scheduler):
@@ -37,3 +49,8 @@ class CronJobScheduler(Scheduler):
 
             self.emit_event(event=Event.Sleeping, duration=self.heartbeat)
             time.sleep(self.heartbeat)  # Wait until next execution
+
+
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #

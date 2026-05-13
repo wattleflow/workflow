@@ -5,6 +5,7 @@
 
 
 from .aisstream import AISStreamConnection
+from .elasticsearch import ElasticSearchConnection, ElasticSearchConnectionError
 from .gfw import GFWConnection
 from .proxy import ProxyConnection, ProxyConnectionError
 from .kafka import (
@@ -18,9 +19,12 @@ from .spark import SparkConnection, SparkConnectionError
 
 __all__ = [
     # aisstream
-    AISStreamConnection,
+    "AISStreamConnection",
+    # elasticsearch
+    "ElasticSearchConnection",
+    "ElasticSearchConnectionError",
     # gfw
-    GFWConnection,
+    "GFWConnection",
     # http / proxy
     "ProxyConnection",
     "ProxyConnectionError",

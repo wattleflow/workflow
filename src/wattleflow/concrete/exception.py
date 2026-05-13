@@ -1,9 +1,14 @@
 # Module name: concrete/exceptions.py
 # Author: (wattleflow@outlook.com)
-# Copyright: 2022-2026 WattleFlow. All rights reserved.
+# Copyright: @ 2022-2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
+
+from __future__ import annotations
 import inspect
 import linecache
 import logging
@@ -12,14 +17,15 @@ import traceback
 from typing import Optional
 from wattleflow.constants.errors import ERROR_UNEXPECTED_TYPE
 
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
 
 _logger = logging.getLogger("wattleflow.exception")
 
-
 # --------------------------------------------------------------------------- #
-# Exceptions
+# region hide
 # --------------------------------------------------------------------------- #
-
 # class MyError(Exception):
 #     def __init__(self, msg: str, **context):
 #         super().__init__(msg)
@@ -31,7 +37,6 @@ _logger = logging.getLogger("wattleflow.exception")
 #             return f"{self.args[0]} [{ctx}]"
 #         return self.args[0]
 
-
 # def operation():
 #     try:
 #         risky_call()
@@ -41,6 +46,13 @@ _logger = logging.getLogger("wattleflow.exception")
 #             stage="parsing",
 #             input_file=path,
 #         ) from e
+# --------------------------------------------------------------------------- #
+# endregion hide
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Audit base class                                                     #
+# --------------------------------------------------------------------------- #
 
 
 class AuditException(Exception):
@@ -145,10 +157,7 @@ class AuditException(Exception):
         return self
 
     def __repr__(self) -> str:
-        return (
-            f"{type(self).__name__}(reason={self.reason!r}, "
-            f"at={self.filename}:{self.lineno})"
-        )
+        return f"{type(self).__name__}(reason={self.reason!r}, at={self.filename}:{self.lineno})"
 
     def __str__(self) -> str:
         if self.filename:
@@ -173,7 +182,15 @@ def _rebuild_audit_exception(cls, reason):
 
 
 # --------------------------------------------------------------------------- #
-# Domain exceptions
+# endregion Audit base class                                                  #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Validation                                                           #
 # --------------------------------------------------------------------------- #
 
 
@@ -181,35 +198,11 @@ class AttributeException(AuditException):
     pass
 
 
+class MissingException(AuditException):
+    pass
+
+
 class AuthenticationException(AuditException):
-    pass
-
-
-class BlackboardException(AuditException):
-    pass
-
-
-class ConstructorException(AuditException):
-    pass
-
-
-class ConfigurationException(AuditException):
-    pass
-
-
-class ConnectionException(AuditException):
-    pass
-
-
-class DriverException(AuditException):
-    pass
-
-
-class DriverNotFound(AuditException):
-    pass
-
-
-class DocumentException(AuditException):
     pass
 
 
@@ -221,51 +214,11 @@ class ClassificationException(AuditException):
     pass
 
 
-class ClassInitialisationException(AuditException):
-    pass
-
-
-class ClassLoaderException(AuditException):
-    pass
-
-
-class ManagerException(AuditException):
-    pass
-
-
-class MissingException(AuditException):
-    pass
-
-
-class OrchestratorException(AuditException):
-    pass
-
-
-class PipelineException(AuditException):
-    pass
-
-
-class ProcessorException(AuditException):
-    pass
-
-
 class PKeyException(AuditException):
     pass
 
 
-class PrometheusException(AuditException):
-    pass
-
-
-class RepositoryException(AuditException):
-    pass
-
-
 class SaltException(AuditException):
-    pass
-
-
-class SFTPConnectionError(ConnectionException):
     pass
 
 
@@ -280,9 +233,7 @@ class NotFoundException(AttributeError):
         except Exception:
             var_name = "Unknown Variable"
 
-        target_name = (
-            target.__name__ if isinstance(target, type) else type(target).__name__
-        )
+        target_name = target.__name__ if isinstance(target, type) else type(target).__name__
         msg = f"No [{var_name}] found in [{target_name}]"
         super().__init__(msg)
 
@@ -310,3 +261,99 @@ class UnexpectedTypeException(TypeError):
             expected_type.__name__,
         )
         super().__init__(error)
+
+
+# --------------------------------------------------------------------------- #
+# endregion Validation                                                        #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Class handling exceptions                                            #
+# --------------------------------------------------------------------------- #
+
+
+class ConstructorException(AuditException):
+    pass
+
+
+class ClassInitialisationException(AuditException):
+    pass
+
+
+class ClassLoaderException(AuditException):
+    pass
+
+
+# --------------------------------------------------------------------------- #
+# endregion Class handling exceptions                                         #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Workflow classes exceptions                                          #
+# --------------------------------------------------------------------------- #
+
+
+class BlackboardException(AuditException):
+    pass
+
+
+class ConfigurationException(AuditException):
+    pass
+
+
+class DocumentException(AuditException):
+    pass
+
+
+class DriverException(AuditException):
+    pass
+
+
+class DriverNotFound(AuditException):
+    pass
+
+
+class ManagerException(AuditException):
+    pass
+
+
+class OrchestratorException(AuditException):
+    pass
+
+
+class PipelineException(AuditException):
+    pass
+
+
+class ProcessorException(AuditException):
+    pass
+
+
+class RepositoryException(AuditException):
+    pass
+
+
+# --------------------------------------------------------------------------- #
+# endregion Workflow classes exceptions                                       #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Connection exceptions                                                #
+# --------------------------------------------------------------------------- #
+
+
+class ConnectionException(AuditException):
+    pass
+
+
+class SFTPConnectionError(ConnectionException):
+    pass
+
+
+class PrometheusException(AuditException):
+    pass
+
+
+# --------------------------------------------------------------------------- #
+# endregion Connection exceptions                                             #
+# --------------------------------------------------------------------------- #

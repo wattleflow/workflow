@@ -1,7 +1,12 @@
 # Module name: loadeer.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
+
+
+# --------------------------------------------------------------------------- #
+# region imports                                                              #
+# --------------------------------------------------------------------------- #
 
 
 from __future__ import annotations
@@ -10,8 +15,17 @@ from importlib import import_module
 from wattleflow.core import IStrategy
 
 
-class StrategyClassLoader(IStrategy):
+# --------------------------------------------------------------------------- #
+# endregion imports                                                           #
+# --------------------------------------------------------------------------- #
 
+
+# --------------------------------------------------------------------------- #
+# region Strategies                                                           #
+# --------------------------------------------------------------------------- #
+
+
+class StrategyClassLoader(IStrategy):
     def execute(self, class_path, root_path):
         class_path, class_name = class_path.rsplit(".", 1)
         module_path = class_path.replace(".", os.path.sep)
@@ -26,3 +40,8 @@ class StrategyClassLoader(IStrategy):
             return getattr(module, class_name)
 
         raise ModuleNotFoundError(class_path)
+
+
+# --------------------------------------------------------------------------- #
+# endregion Strategies                                                        #
+# --------------------------------------------------------------------------- #

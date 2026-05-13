@@ -1,11 +1,9 @@
-[build-system]
-requires = ["setuptools", "setuptools_scm", "wheel"]
-build-backend = "setuptools.build_meta"
+
 
 [project]
 name = "wattleflow-workflow"
-dynamic = ["version"]
-# version = "0.0.0.65"
+# dynamic = ["version"]
+version = "0.0.0.65"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"
@@ -27,6 +25,10 @@ dependencies = [
     "cryptography",
     "wattleflow>=0.0.0.34",
 ]
+
+[build-system]
+requires = ["setuptools", "setuptools_scm", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project.urls]
 homepage = "https://github.com/wattleflow/workflow.git"

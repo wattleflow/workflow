@@ -1,18 +1,31 @@
-# Module name: hashlib.py
+# Module name: strategies/cryptography/hashlib.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
 """
-Description: This module provides concrete classes implementing key management
-strategies within the Wattleflow framework. It offers tools for secure
-generation, handling, and validation of cryptographic keys.
+Description: This module provides concrete classes implementing key
+management strategies within the Wattleflow framework. It offers tools
+for secure generation, handling, and validation of cryptographic keys.
 """
+
+# --------------------------------------------------------------------------- #
+# region imports                                                              #
+# --------------------------------------------------------------------------- #
 
 from __future__ import annotations
 from hashlib import md5, sha224, sha256, sha384, sha512
 from wattleflow.core import IStrategy
+
+# --------------------------------------------------------------------------- #
+# endregion imports                                                           #
+# --------------------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------------------- #
+# region Strategies                                                           #
+# --------------------------------------------------------------------------- #
 
 
 class StrategyMD5(IStrategy):
@@ -38,3 +51,8 @@ class StrategySha384(IStrategy):
 class StrategySha512(IStrategy):
     def execute(self, value: str) -> str:
         return sha512(value.encode("utf-8")).hexdigest()
+
+
+# --------------------------------------------------------------------------- #
+# endregion Strategies                                                        #
+# --------------------------------------------------------------------------- #

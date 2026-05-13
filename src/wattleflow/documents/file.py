@@ -1,8 +1,12 @@
 # Module name: documents/file.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
+
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
 
 from __future__ import annotations
 from abc import ABC
@@ -12,6 +16,15 @@ from os import path, stat
 from stat import filemode
 from typing import Optional
 from wattleflow.concrete import Document
+from wattleflow.constants import Event
+
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Documents                                                            #
+# --------------------------------------------------------------------------- #
 
 
 class FileDocument(Document[str], ABC):
@@ -80,3 +93,24 @@ class FileDocument(Document[str], ABC):
                 file=self.filename,
                 error=str(e),
             )
+
+    def clean(self) -> None:
+        self.debug(
+            msg=Event.Clean.value,
+            step=Event.Started.value,
+            filename=self.filename,
+        )
+        self._metadata.clear()
+        self._content = None
+        self.debug(msg=Event.Clean.value, step=Event.Completed.value)
+
+    def __del__(self) -> None:
+        try:
+            self.clean()
+        except Exception:
+            pass
+
+
+# --------------------------------------------------------------------------- #
+# endregion Documents                                                         #
+# --------------------------------------------------------------------------- #

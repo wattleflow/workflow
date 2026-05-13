@@ -4,28 +4,56 @@
 # License: Apache 2 Licence
 
 
-from __future__ import annotations
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
 
+from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
 from contextlib import contextmanager
 from typing import Any, Dict, Generator, Generic, Optional, TypeVar
-from wattleflow.core import IObservable, IObserver, IStateMachine
+from wattleflow.core import IObservable, IObserver
 from wattleflow.concrete.exception import ConnectionException, ManagerException
 from wattleflow.concrete.logger import AuditLogger
+from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.constants import Event, Operation
 from wattleflow.decorators.preset import PresetDecorator
 
+# --------------------------------------------------------------------------- #
+# endregion imports                                                           #
+# --------------------------------------------------------------------------- #
 
-Connection = TypeVar("Connection", bound=object)
+# --------------------------------------------------------------------------- #
+# region Exceptions                                                           #
+# --------------------------------------------------------------------------- #
 
 
 class ConnectionManagerException(ManagerException):
     pass
 
 
-# region Enumeration
+# --------------------------------------------------------------------------- #
+# endregion Exceptions                                                        #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Types                                                                #
+# --------------------------------------------------------------------------- #
+
+Connection = TypeVar("Connection", bound=object)
+
+
+# --------------------------------------------------------------------------- #
+# endregion Types                                                             #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region State Machine                                                        #
+# --------------------------------------------------------------------------- #
+
+
 class ConnectionAction(str, Enum):
     CREATE = "create"
     CREATE_OK = "create_ok"
@@ -51,10 +79,8 @@ class ConnectionState(str, Enum):
     FAILED = "failed"
 
 
-# endregion Enumeration
-
 # (current_state, action) -> next_state
-CONN_TRANSITIONS = {
+TRANSITIONS = {
     # create lifecycle
     (ConnectionState.NEW, ConnectionAction.CREATE): ConnectionState.CREATING,
     (ConnectionState.CLOSED, ConnectionAction.CREATE): ConnectionState.CREATING,
@@ -84,26 +110,13 @@ CONN_TRANSITIONS = {
     (ConnectionState.FAILED, ConnectionAction.RESET): ConnectionState.NEW,
 }
 
+# --------------------------------------------------------------------------- #
+# endregion State Machine                                                     #
+# --------------------------------------------------------------------------- #
 
-# region interfaces
-class ConnectionFSM(IStateMachine, ABC):
-    __slots__ = ("state",)
-
-    def __init__(self, initial: ConnectionState = ConnectionState.NEW) -> None:
-        IStateMachine.__init__(self)
-        self.state = initial
-
-    def can(self, action: ConnectionAction) -> bool:
-        return (self.state, action) in CONN_TRANSITIONS
-
-    def apply(self, action: ConnectionAction) -> None:
-        key = (self.state, action)
-        if key not in CONN_TRANSITIONS:
-            raise RuntimeError(f"{action} not allowed in state {self.state}")
-        self.state = CONN_TRANSITIONS[key]
-
-    def __repr__(self) -> str:
-        return self.state.value
+# --------------------------------------------------------------------------- #
+# region Interfaces                                                           #
+# --------------------------------------------------------------------------- #
 
 
 class ConnectionObserverInterface(IObservable, ABC):
@@ -134,14 +147,16 @@ class ConnectionObserverInterface(IObservable, ABC):
                 )
 
 
-# endregion interfaces
+# --------------------------------------------------------------------------- #
+# endregion Interfaces                                                        #
+# --------------------------------------------------------------------------- #
 
-# region GenericConnection
+# --------------------------------------------------------------------------- #
+# region Classes                                                              #
+# --------------------------------------------------------------------------- #
 
 
-class GenericConnection(
-    ConnectionObserverInterface, AuditLogger, Generic[Connection], ABC
-):
+class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[Connection], ABC):
     __slots__ = (
         "_connection_name",
         "_connection",
@@ -155,26 +170,29 @@ class GenericConnection(
 
     def __init__(self, **kwargs) -> None:
         connection_name = kwargs.pop("connection_name", None)
+        ConnectionObserverInterface.__init__(self)
 
         level = kwargs.pop("level", "NOTSET")
         handler = kwargs.pop("handler", None)
         formating = kwargs.pop("formating", None) if kwargs.get("formating") else {}
-
-        self._connection_name = connection_name
-        self._lazy_loading = kwargs.pop("lazy_loading", False)
-        self._fsm: ConnectionFSM = ConnectionFSM()
-        self._engine: object = None
-        self._connection: Connection = None
-        self._context = None
-        self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
-        self._version: str = None
-
-        ConnectionObserverInterface.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler, formating=formating)
 
         if connection_name is None or connection_name.strip() == "":
             error = "`connection_name` must be provided in connection kwargs!"
             raise ConnectionException(caller=self, error=error, **kwargs)
+
+        self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
+        self._connection_name = connection_name
+        self._lazy_loading = kwargs.pop("lazy_loading", False)
+        self._fsm: StateMachine = StateMachine(
+            TRANSITIONS,
+            ConnectionState.NEW,
+            name="ConnectionFSM",
+        )
+        self._engine: object = None
+        self._connection: Connection = None
+        self._context = None
+        self._version: str = None
 
         if not self._lazy_loading:
             self.ensure_created()
@@ -183,7 +201,7 @@ class GenericConnection(
             msg=Event.Constructor.value,
             step=Event.Completed.value,
             connection_name=self.connection_name,
-            state=self.ConnectionState.value,
+            state=self._fsm.state.value,
             preset=repr(self._preset),
             level=self._level,
             handler=self._handler,
@@ -193,7 +211,7 @@ class GenericConnection(
         self.debug(
             msg=Event.Validating.value,
             step="ensure_created",
-            state=self.ConnectionState.value,
+            state=self._fsm.state.value,
         )
         if self._fsm.state is ConnectionState.FAILED:
             return
@@ -249,7 +267,7 @@ class GenericConnection(
         return preset.__getattr__(name)
 
     def __repr__(self) -> str:
-        return f"{self.name}:{self._fsm.ConnectionState.value}"
+        return f"{self.name}:{self._fsm.state.value}"
 
     @property
     def connection_name(self) -> str:
@@ -286,7 +304,7 @@ class GenericConnection(
         if not self._fsm.can(ConnectionAction.CREATE):
             raise ConnectionManagerException(
                 caller=self,
-                error=f"Cannot create connection from state '{self._fsm.ConnectionState.value}'",
+                error=f"Cannot create connection from state '{self._fsm.state.value}'",
             )
         self._fsm.apply(ConnectionAction.CREATE)
         try:
@@ -337,9 +355,7 @@ class GenericConnection(
         try:
             old_conn.request(action=Operation.Disconnect)
         except Exception as e:
-            self.warning(
-                msg="hot_swap", error=f"Old connection was not closed properly: {e}"
-            )
+            self.warning(msg="hot_swap", error=f"Old connection was not closed properly: {e}")
 
     def request(self, **kwargs: Any) -> Any:
         action = kwargs.get("action")
@@ -347,16 +363,12 @@ class GenericConnection(
 
         if action is Operation.Connect:
             result = self.ensure_created()
-            self.debug(
-                msg=Event.Operation.value, step=Event.Completed.value, action=action
-            )
+            self.debug(msg=Event.Operation.value, step=Event.Completed.value, action=action)
             return result
 
         if action is Operation.Disconnect:
             result = self.ensure_closed()
-            self.debug(
-                msg=Event.Operation.value, step=Event.Completed.value, action=action
-            )
+            self.debug(msg=Event.Operation.value, step=Event.Completed.value, action=action)
             return result
 
         raise RuntimeError(f"Unknown action: {action}")
@@ -393,4 +405,6 @@ class GenericConnection(
     # endregion Abstract methods
 
 
-# endregion GenericConnection
+# --------------------------------------------------------------------------- #
+# endregion Classes                                                           #
+# --------------------------------------------------------------------------- #

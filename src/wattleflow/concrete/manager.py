@@ -3,6 +3,11 @@
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
+
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
+
 from __future__ import annotations
 from typing import Dict, Union
 from wattleflow.core import (
@@ -12,12 +17,18 @@ from wattleflow.core import (
 )
 from wattleflow.concrete.logger import AuditLogger
 from wattleflow.concrete.exception import AuditException
-from wattleflow.concrete.connection import Connection, ConnectionAction, ConnectionState
-from wattleflow.concrete.processor import ProcessorState, ProcessorAction
-from wattleflow.concrete.driver import DriverState, DriverAction
+from wattleflow.concrete.connection import Connection
+from wattleflow.concrete.driver import DriverState
 from wattleflow.constants import Event, Operation
 
-# region Exceptions
+
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Exceptions                                                           #
+# --------------------------------------------------------------------------- #
 
 
 class ConnectionManagerException(AuditException):
@@ -32,10 +43,13 @@ class ProcessorManagerException(AuditException):
     pass
 
 
-# endregion Exceptions
+# --------------------------------------------------------------------------- #
+# endregion Exceptions                                                        #
+# --------------------------------------------------------------------------- #
 
-
-# region ConnectionManager
+# --------------------------------------------------------------------------- #
+# region Managers                                                             #
+# --------------------------------------------------------------------------- #
 
 
 class ConnectionManager(IObserver, AuditLogger):
@@ -117,6 +131,7 @@ class ConnectionManager(IObserver, AuditLogger):
             return
 
         self._connections[connection_name] = connection
+        # self._connections[connection_name].update(event=ConnectionState.CREATING)
 
     def unregister_connection(self, name: str) -> None:
         if name in self._connections:
@@ -143,12 +158,6 @@ class ConnectionManager(IObserver, AuditLogger):
 
     def update(self, *args, **kwargs):
         self.debug(msg="update", step=Event.Started.name, **kwargs, note="Not implemented yet.")
-
-
-# endregion ConnectionManager
-
-
-# region DriverManager
 
 
 class DriverManager(IObserver, AuditLogger):
@@ -241,7 +250,12 @@ class DriverManager(IObserver, AuditLogger):
                 action=action.name,
             )
         result = self._drivers[name].operation(action, **kwargs)
-        self.debug(msg="operation", step=Event.Completed.name, action=action.name, result=result)
+        self.debug(
+            msg="operation",
+            step=Event.Completed.name,
+            action=action.name,
+            result=result,
+        )
         return result
 
     def update(self, *args, **kwargs):
@@ -250,10 +264,13 @@ class DriverManager(IObserver, AuditLogger):
         self.debug(msg="update", step=Event.Completed.name)
 
 
-# endregion DriverManager
+# --------------------------------------------------------------------------- #
+# endregion Managers                                                          #
+# --------------------------------------------------------------------------- #
 
-
-# region ProcessorManager
+# --------------------------------------------------------------------------- #
+# region Processors                                                           #
+# --------------------------------------------------------------------------- #
 
 
 class ProcessorManager(IObserver, AuditLogger):
@@ -262,89 +279,78 @@ class ProcessorManager(IObserver, AuditLogger):
     def __init__(self, **kwargs):
         level = kwargs.get("level", 0)
         handler = kwargs.get("handler", None)
-
         IObserver.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
-
-        self._processorss: Dict[str, IProcessor] = {}
-
-        self.debug(
-            msg=Event.Constructor.value,
-            step=Event.Completed.name,
-            name=self,
-        )
+        self._processors: Dict[str, IProcessor] = {}
 
     def __del__(self):
+        self.debug(msg=Event.Delete.name, step=Event.Starting.name)
         errors = []
-        for processor in self._processorss:
+        while self._processors:
+            name = next(iter(self._processors))
             try:
-                self.unregister_processor(processor)
+                self.unregister_processor(name)
             except Exception as e:
-                errors.append(f"{processor}: {e}")
+                errors.append(f"{name}: {e}")
+                continue
 
         if errors:
             self.error(msg="__del__", error=f"Errors during cleanup: {errors}")
         else:
             self.debug(msg="__del__", step=Event.Completed.value)
 
-        self._processorss.clear()
+        self._processors.clear()
+        self.debug(msg=Event.Delete.name, step=Event.Completed.name)
 
     def __hash__(self) -> str:
         return abs(hash(id(self)))
 
     def __repr__(self) -> str:
-        return f"{self.name}-{hash(id(self))}:[{len(self._processorss)}]"
+        return f"{self.name}-{hash(id(self))}:[{len(self._processors)}]"
 
     @property
     def all(self) -> Dict[str, IProcessor]:
-        return self._processorss
+        return self._processors
 
     def load(self, name: str, **kwargs) -> IProcessor:
-        self.debug(msg=Event.Connect.value, name=name, **kwargs)
-        status = self.operation(name, Operation.Connect, **kwargs)
-        self.info(msg=Event.Connect.value, status=status)
-        return self._processorss[name]
+        self.debug(msg=Event.Start.value, name=name, **kwargs)
+        status = self.operation(name, Operation.Start, **kwargs)
+        self.info(msg=Event.Start.value, status=status)
+        return self._processors[name]
 
     def get_processor(self, name: str) -> IProcessor:
         self.debug(msg="get_processor", step=Event.Starting.name)
-        if name not in self._processorss:
+        if name not in self._processors:
             raise ProcessorManagerException(caller=self, error=f"Processor {name!r} is not found!")
         self.debug(msg="get_processor", step=Event.Completed.name)
-        return self._processorss.get(name)
+        return self._processors.get(name)
 
     def register_processor(self, processor: IProcessor, **kwargs) -> None:
-        self.debug(msg="register_processor", processor=processor, **kwargs)
+        self.debug(
+            msg=Event.Register.name,
+            step=Event.Starting.name,
+            processor=processor,
+            **kwargs,
+        )
         processor_name = kwargs.get("name", processor.name)
-        if processor_name in self._processorss:
+        if processor_name in self._processors:
             self.warning(
                 msg=Event.Register.value,
                 name=processor_name,
-                class_name=processor.class_name(),
+                class_name=processor.__class__.__name__,
                 error="Processor is already registered!",
             )
             return
-        self._processorss[processor_name] = processor
-        self.debug(msg="register_processor", added=processor)
+        self._processors[processor_name] = processor
+        self.debug(msg=Event.Register.name, step=Event.Completed.name)
 
     def unregister_processor(self, processor: Union[str, IProcessor]) -> None:
-        if isinstance(processor, IProcessor):
-            name = processor.name
-        else:
-            name = processor
-
-        # if name in self._processors:
-        #     self._processors[name].update(
-        #         event=ProcessorState.UNLOADING,
-        #         caller=self,
-        #         msg="unregister_processor",
-        #     )
-        #     self._processorss[name].update(event=ProcessorState.UNLOADING)
-        # else:
-        #     self.warning(
-        #         msg=Event.Update.value,
-        #         name=name,
-        #         error="Trying to unregister a non-existent processor",
-        #     )
+        self.debug(msg=Event.Unregister.name, step=Event.Starting.name, proc=processor)
+        name = processor.name if isinstance(processor, IProcessor) else processor
+        if name in self._processors:
+            p = self._processors.pop(name)
+            del p
+        self.debug(msg=Event.Unregister.name, step=Event.Completed.name)
 
     def operation(self, name: str, action: Operation, **kwargs) -> bool:
         self.debug(msg="operation", step=Event.Started.name, **kwargs)
@@ -368,7 +374,11 @@ class ProcessorManager(IObserver, AuditLogger):
         return self._processors[name].operation(action, **kwargs)
 
     def update(self, **kwargs):
-        self.debug(msg="update", **kwargs)
+        self.debug(msg=Event.Update.name, step=Event.Starting.name)
+        self.warning(msg=Event.Update.name, error="NOT IMPLEMENTED")
+        self.debug(msg=Event.Update.name, step=Event.Completed.name)
 
 
-# endregion ProcessorManager
+# --------------------------------------------------------------------------- #
+# endregion Processors                                                        #
+# --------------------------------------------------------------------------- #

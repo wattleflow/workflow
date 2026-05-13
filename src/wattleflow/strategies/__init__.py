@@ -1,18 +1,21 @@
-# Module name: __init__.py
+# Module name: strategies/documents/__init__.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
 """
-Description: This module follows the “build once, use often” principle,
-supporting bespoke implementations of cryptographic strategy classes within
-the Wattleflow Workflow ETL framework. It provides tools for the creation and
-management of information security components, enhancing both consistency and
-reusability across workflows.
+This module provides strategies for generating and storing
+documents within the Wattleflow Workflow framework. It initialises
+the document strategy package and exposes key classes for handling
+documents.
 """
 
-from .documents.text_document import CreateTextDocument
+
+# --------------------------------------------------------------------------- #
+# region imports                                                              #
+# --------------------------------------------------------------------------- #
+
 from .cryptography.asymetric import (
     StrategyBaseRSA,
     StrategyRSAEncrypt256,
@@ -32,18 +35,25 @@ from .cryptography.fernet import (
     StrategyFernetEncrypt,
     StrategyFernetDecrypt,
 )
-from .files import StrategyFilename, StrategyFilterFiles
-from .loader import StrategyClassLoader
-from .documents.graph_youtube import (
+from .documents.graph import (
     YoutubeGraph,
     CreateYoutubeDocument,
     WriteYoutubeDocument,
 )
+from .documents.text import CreateTextDocument, WriteTextDocument
+from .files import StrategyFilename, StrategyFilterFiles
+from .loader import StrategyClassLoader
+
+# --------------------------------------------------------------------------- #
+# endregion imports                                                           #
+# --------------------------------------------------------------------------- #
 
 __all__ = [
+    # text
     "CreateTextDocument",
-    "CreateYoutubeDocument",
+    "WriteTextDocument",
     "StrategyBaseRSA",
+    "StrategyClassLoader",
     "StrategyRSAEncrypt256",
     "StrategyRSADecrypt256",
     "StrategyRSAEncrypt512",
@@ -58,7 +68,8 @@ __all__ = [
     "StrategySha256",
     "StrategySha384",
     "StrategySha512",
-    "StrategyClassLoader",
+    # yuotube
     "YoutubeGraph",
+    "CreateYoutubeDocument",
     "WriteYoutubeDocument",
 ]

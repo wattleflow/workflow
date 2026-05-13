@@ -1,21 +1,30 @@
-# Module name: documents/__init__.py
+# Module name: strategies/documents/__init__.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
 """
-Description: This module provides strategies for generating and storing TextDocuments
-within the Wattleflow Workflow framework. It initialises the document
-strategy package and exposes key classes for text document handling.
+This module provides strategies for generating and storing
+documents within the Wattleflow Workflow framework. It initialises
+the document strategy package and exposes key classes for handling
+documents.
 """
 
-from .text_document import CreateTextDocument, WriteTextDocument
-from .graph_youtube import CreateYoutubeDocument, WriteYoutubeDocument
+from .dataframe import CreateDataframeDocument, WriteDataframeDocument
+from .graph import CreateGraphFromHtml, WriteGraphHtmlDocument
+from .text import CreateTextDocument, WriteTextDocument
+from .youtube import CreateYoutubeDocument, WriteYoutubeDocument
 
 __all__ = [
+    # Create
+    "CreateDataframeDocument",
+    "CreateGraphFromHtml",
     "CreateTextDocument",
     "CreateYoutubeDocument",
+    # Write
+    "WriteDataframeDocument",
     "WriteTextDocument",
+    "WriteGraphHtmlDocument",
     "WriteYoutubeDocument",
 ]

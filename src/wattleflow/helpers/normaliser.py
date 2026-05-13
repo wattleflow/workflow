@@ -4,12 +4,26 @@
 # License: Apache 2 Licence
 
 
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
+
 from __future__ import annotations
 import re
 import unicodedata
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------------------- #
+# region Constants                                                            #
+# --------------------------------------------------------------------------- #
+
 
 WINDOWS_RESERVED = {
     "con",
@@ -95,6 +109,15 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"(?<!\w)(?P<d>\d{1,2})(?P<mon>[A-Za-z]{3})(?P<y>\d{2,4})(?!\w)"), "textual"),
 ]
 
+# --------------------------------------------------------------------------- #
+# endregion Constants                                                         #
+# --------------------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------------------- #
+# region Global methods                                                       #
+# --------------------------------------------------------------------------- #
+
 
 def _format_match(match: re.Match[str], kind: str, pivot: int) -> str | None:
     """Iz regex pogodka gradi 'YYYY-MM-DD' ili 'YYYY-MM-DD-HHMM'.
@@ -122,6 +145,16 @@ def _format_match(match: re.Match[str], kind: str, pivot: int) -> str | None:
         return f"{dt:%Y-%m-%d-%H%M}" if has_time else f"{dt:%Y-%m-%d}"
     except (ValueError, KeyError):
         return None
+
+
+# --------------------------------------------------------------------------- #
+# endregion Global methods                                                    #
+# --------------------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------------------- #
+# region Normaliser classes                                                   #
+# --------------------------------------------------------------------------- #
 
 
 class Normaliser(str):
@@ -408,6 +441,11 @@ class Normalise1r(str):
         return f"{norm}{ext}"
 
 
+# --------------------------------------------------------------------------- #
+# endregion Normaliser classes                                                #
+# --------------------------------------------------------------------------- #
+
+# region hide
 # class NormaliserDate:
 #     """Detect a date (and optional time) in a string and render as YYYY-MM-DD-HHMM.
 #     Missing time defaults to 0000. Returns None when no valid date is found."""
@@ -520,3 +558,4 @@ class Normalise1r(str):
 
 #         dt = datetime(y, mo, d, h, mi)  # raises ValueError on invalid combos
 #         return f"{dt:%Y-%m-%d-%H%M}"
+# endregion hide

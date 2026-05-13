@@ -25,10 +25,10 @@ Example 2: Generator split text into sentences
         print(part)
     Result:
     This is the first sentence
-    This is the second sentence! And finally third sentence
-    This is the second sentence! And finally third sentence
+    This is the second sentence
+    And finally third sentence
 
-Example 3: Generate randomm values
+Example 3: Generate random values
     data = records(5)
     print(data)
 
@@ -37,12 +37,28 @@ Example 3: Generate randomm values
 """
 
 
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
+
 from __future__ import annotations
 import re
 
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------------------- #
+# region Global methods                                                       #
+# --------------------------------------------------------------------------- #
+
 
 def records(n):
+    # numpy is a heavy optional dependency — import lazily so importing
+    # this module never pays the cost unless `records` is actually called.
     import numpy as np
+
     return np.random.rand(n)
 
 
@@ -59,3 +75,8 @@ def text_generator(text, pattern=r"(?<=[.!?])\s+", stopper=None):
         if stopper and stopper == i:
             break
         yield part.strip()
+
+
+# --------------------------------------------------------------------------- #
+# endregion Global methods                                                   #
+# --------------------------------------------------------------------------- #

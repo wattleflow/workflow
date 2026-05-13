@@ -1,12 +1,31 @@
-# Module name: __init__.py
+# Module name: pipelines/__init__.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
-"""
-Description: This module supports a “build once, use often” principle for bespoke
-implementations of concrete Pipelines classes used within the Wattleflow
-Workflow ETL framework. It streamlines repository creation and promotes
-reusability across workflows.
-"""
+from .dataframe import PipelineDataframeCleanup
+from .emails import PipelienEmailExtract, PipelineMessageExtract
+from .entities import PipelineProcessorDefinedEntities, PipelineProcessorDriverEntities
+from .entities_spacy import PipelineSpacyEntityRecognition, PipelineSpacyEntities
+from .pdf import PipelineExtractTextFromPDF
+from .reductions import PipelineMacroRedaction, PipelinePDFRedaction, PipelinePNGRedaction
+from .text import PipelineFixCorruptedText, PipelineTextCorrection, PipelineFixStickyWords
+
+
+__all__ = [
+    "PipelineDataframeCleanup",
+    "PipelienEmailExtract",
+    "PipelineMessageExtract",
+    "PipelineProcessorDefinedEntities",
+    "PipelineProcessorDriverEntities",
+    "PipelineSpacyEntityRecognition",
+    "PipelineSpacyEntities",
+    "PipelineExtractTextFromPDF",
+    "PipelineFixCorruptedText",
+    "PipelineTextCorrection",
+    "PipelineFixStickyWords",
+    "PipelineMacroRedaction",
+    "PipelinePDFRedaction",
+    "PipelinePNGRedaction",
+]

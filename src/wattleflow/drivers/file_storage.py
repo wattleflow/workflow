@@ -1,8 +1,13 @@
-# Module name: file_storage.py
+# Module name: drivers/file_storage.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
+
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
+from __future__ import annotations
 import hashlib
 import logging
 import os
@@ -13,6 +18,14 @@ from typing import Optional
 from urllib.parse import urlparse
 from wattleflow.concrete import AuditLogger
 from wattleflow.constants.enums import Event
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------------------- #
+# region Clasess                                                              #
+# --------------------------------------------------------------------------- #
 
 
 class FileStorage(AuditLogger, ABC):
@@ -96,3 +109,8 @@ class FileStorage(AuditLogger, ABC):
             out_dir.mkdir(parents=True, exist_ok=True)
 
         return out_dir.joinpath(self._filename.name)
+
+
+# --------------------------------------------------------------------------- #
+# endregion Clasess                                                           #
+# --------------------------------------------------------------------------- #

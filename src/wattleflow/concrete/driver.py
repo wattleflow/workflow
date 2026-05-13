@@ -3,8 +3,12 @@
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
-import logging
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
 
+from __future__ import annotations
+import logging
 from abc import ABC
 from dataclasses import dataclass
 from enum import Enum
@@ -12,8 +16,18 @@ from typing import Any
 from wattleflow.core import IDriver, IObserver
 from wattleflow.concrete.exception import DriverException
 from wattleflow.concrete.logger import AuditLogger
+from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.constants.enums import Event
 from wattleflow.decorators.preset import PresetDecorator
+
+
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Metadata                                                             #
+# --------------------------------------------------------------------------- #
 
 
 @dataclass
@@ -22,6 +36,15 @@ class DriverMetadata:
     version: str
     protocol: str
     capabilities: list  # ["read", "write", "stream"]
+
+
+# --------------------------------------------------------------------------- #
+# endregion Metadata                                                          #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region State machine                                                        #
+# --------------------------------------------------------------------------- #
 
 
 class DriverAction(str, Enum):
@@ -69,25 +92,13 @@ TRANSITIONS = {
 }
 
 
-class DriverFSM:
-    __slots__ = ("state",)
+# --------------------------------------------------------------------------- #
+# endregion State machine                                                     #
+# --------------------------------------------------------------------------- #
 
-    def __init__(self, initial: DriverState = DriverState.PENDING):
-        self.state = initial
-
-    def can(self, action: DriverAction) -> bool:
-        return (self.state, action) in TRANSITIONS
-
-    def apply(self, action: DriverAction) -> None:
-        key = (self.state, action)
-
-        if key not in TRANSITIONS:
-            raise RuntimeError(f"{action} not allowed in {self.state}")
-
-        self.state = TRANSITIONS[key]
-
-    def __repr__(self) -> str:
-        return self.state.value
+# --------------------------------------------------------------------------- #
+# region Drivers                                                              #
+# --------------------------------------------------------------------------- #
 
 
 class GenericDriver(IDriver, IObserver, AuditLogger, ABC):
@@ -96,12 +107,11 @@ class GenericDriver(IDriver, IObserver, AuditLogger, ABC):
     def __init__(self, **kwargs):
         level = kwargs.pop("level", logging.WARNING)
         handler = kwargs.pop("handler", None)
-
         IDriver.__init__(self)
         IObserver.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
 
-        self._fsm = DriverFSM()
+        self._fsm: StateMachine = StateMachine(TRANSITIONS, DriverState.PENDING, name="DriverFSM")
         self._preset = PresetDecorator(parent=self, **kwargs)
 
     def __del__(self):
@@ -121,7 +131,9 @@ class GenericDriver(IDriver, IObserver, AuditLogger, ABC):
         return preset.__getattr__(name)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(state={self._fsm.state.value})"
+        name = self.name or self.__class__.__name__
+        state = self._fsm.state.name
+        return f"{name}(state={state})"
 
     @property
     def state(self) -> DriverState:
@@ -192,7 +204,6 @@ class GenericDriver(IDriver, IObserver, AuditLogger, ABC):
 
     def update(self, event: Any, **kwargs) -> None:
         self.debug(msg="update", step=Event.Started.name, event=event.name, **kwargs)
-
         # error = kwargs.get("error", "")
         # state = kwargs.get("state", "")
         # connection_name = kwargs.get("connection_name", None)
@@ -253,13 +264,6 @@ class LazyDriverProxy(IDriver, IObserver, AuditLogger):
     def __del__(self) -> None:
         self.release()
 
-    # def __getattr__(self, name: str):
-    #     if name.startswith("_"):
-    #         return object.__getattribute__(self, name)
-
-    #     self._ensure_ready()
-    #     return getattr(self._driver, name)
-
     def __getattr__(self, name: str) -> Any:
         all_slots: set = set()
         for cls in type(self).__mro__:
@@ -275,6 +279,13 @@ class LazyDriverProxy(IDriver, IObserver, AuditLogger):
     def __repr__(self) -> str:
         state = "initialized" if self._driver else "lazy"
         return f"{self.__class__.__name__}({state}, conn='{self._conn_name}')"
+
+    # def __getattr__(self, name: str):
+    #     if name.startswith("_"):
+    #         return object.__getattribute__(self, name)
+
+    #     self._ensure_ready()
+    #     return getattr(self._driver, name)
 
     # endregion internal
 
@@ -311,3 +322,8 @@ class LazyDriverProxy(IDriver, IObserver, AuditLogger):
             self._driver = None
 
     # endregion API
+
+
+# --------------------------------------------------------------------------- #
+# endregion Drivers                                                           #
+# --------------------------------------------------------------------------- #

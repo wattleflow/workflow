@@ -4,17 +4,27 @@
 # License: Apache 2 Licence
 
 
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
+
 from __future__ import annotations
 from abc import ABC
 from pandas import DataFrame
-from logging import NOTSET, Handler
-from typing import Optional
 from wattleflow.concrete import Document
+
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Documents                                                            #
+# --------------------------------------------------------------------------- #
 
 
 class DataFrameDocument(Document[DataFrame], ABC):
-    def __init__(self, content: DataFrame, level: int = NOTSET, handler: Optional[Handler] = None):
-        Document.__init__(self, content=content, level=level, handler=handler)
+    def __init__(self, content: DataFrame, **kwargs):
+        Document.__init__(self, content=content, **kwargs)
 
     @property
     def filename(self) -> str:
@@ -32,3 +42,8 @@ class DataFrameDocument(Document[DataFrame], ABC):
         if isinstance(self.content, DataFrame):
             return len(self.content)
         return 0
+
+
+# --------------------------------------------------------------------------- #
+# endregion Documents                                                         #
+# --------------------------------------------------------------------------- #

@@ -1,19 +1,40 @@
-# Module name: fernet.py
+# Module name: strategies/cryptography/fernet.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
 """
-Description: This module implements concrete classes for Fernet-based
-cryptographic strategies within the Wattleflow framework. It provides secure,
-symmetric encryption and decryption mechanisms, ensuring data confidentiality
-and integrity through key-managed operations.
+This module follows the “build once, use often” principle, supporting bespoke
+implementations of Fernet-based cryptographic strategy classes within the
+Wattleflow Workflow an ETL framework. It provides secure, symmetric encryption
+and decryption mechanisms, ensuring data confidentiality and integrity through
+key-managed operations, maintaining consistency and reusability across the framework.
 """
 
+# --------------------------------------------------------------------------- #
+# region imports                                                              #
+# --------------------------------------------------------------------------- #
+
 from __future__ import annotations
-from cryptography.fernet import Fernet
+
+try:
+    from cryptography.fernet import Fernet
+except ImportError as e:
+    raise ModuleNotFoundError(
+        "Cryptography `fernet` library is missing.\n\tInstall: pip install cryptography"
+    ) from e
+
 from wattleflow.core import IStrategy
+
+# --------------------------------------------------------------------------- #
+# endregion imports                                                           #
+# --------------------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------------------- #
+# region Strategies                                                           #
+# --------------------------------------------------------------------------- #
 
 
 class StrategyFernetGeneric(IStrategy):
@@ -45,3 +66,8 @@ class StrategyFernetDecrypt(IStrategy):
     def execute(self, value: str):
         fernet = Fernet(self.key)
         return fernet.decrypt(value).decode()
+
+
+# --------------------------------------------------------------------------- #
+# endregion Strategies                                                        #
+# --------------------------------------------------------------------------- #

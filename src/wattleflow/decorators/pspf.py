@@ -1,6 +1,6 @@
 # Module name: pspf.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
@@ -17,7 +17,6 @@ See more:
 - https://www.protectivesecurity.gov.au/
 - https://www.protectivesecurity.gov.au/system/files/2025-07/pspf-release-2025-summary-changes.pdf
 """
-
 
 from __future__ import annotations
 from enum import Enum

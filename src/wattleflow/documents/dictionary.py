@@ -1,14 +1,27 @@
 # Module name: documents/dictionary.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
+
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
 
 from __future__ import annotations
 from abc import ABC
 from logging import NOTSET, Handler
 from typing import Optional
 from wattleflow.concrete.document import Document
+
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------------------- #
+# region Documents                                                            #
+# --------------------------------------------------------------------------- #
 
 
 class DictDocument(Document[dict], ABC):
@@ -25,3 +38,8 @@ class DictDocument(Document[dict], ABC):
         if not self.content:
             return 0
         return len(self.content)
+
+
+# --------------------------------------------------------------------------- #
+# endregion Documents                                                         #
+# --------------------------------------------------------------------------- #

@@ -4,7 +4,12 @@
 # License: Apache 2 Licence
 
 
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
+
 from __future__ import annotations
+import difflib
 from abc import abstractmethod, ABC
 from typing import Dict, List, Type
 from logging import getLogger
@@ -21,8 +26,26 @@ from wattleflow.helpers.attribute import Attribute
 from wattleflow.helpers.config_adapter import ConfigAdapter
 
 
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Exceptions                                                           #
+# --------------------------------------------------------------------------- #
+
+
 class WorkflowFactoryException(AuditException):
     pass
+
+
+# --------------------------------------------------------------------------- #
+# endregion Exceptions                                                        #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Workflows                                                            #
+# --------------------------------------------------------------------------- #
 
 
 class GenericWorkflow(IOriginator, AuditLogger, ABC):
@@ -96,6 +119,14 @@ class GenericWorkflow(IOriginator, AuditLogger, ABC):
     def execute(self) -> None: ...
 
 
+# --------------------------------------------------------------------------- #
+# endregion Workflows                                                         #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region WorkflowFactory                                                      #
+# --------------------------------------------------------------------------- #
+
 logger = AuditLogger(level="ERROR", logger=getLogger("WorflowFactory"))
 
 
@@ -113,9 +144,31 @@ class WorkflowFactory:
 
     @classmethod
     def resolve(cls, type_name: str) -> Type:
-        if type_name not in cls._registry:
+        if type_name is None or not isinstance(type_name, str) or not type_name.strip():
             error = (
-                f"Unknown or unregistered `type name` in config file: [{type_name!r}]"
+                f"Missing `type` in config file (got {type_name!r}). "
+                "Each connection/driver/processor/pipeline/blackboard/repository "
+                "entry must declare a `type:` matching a registered class."
+            )
+            logger.exception(msg="WorkflowFactory.resolve", name=type_name, error=error)
+            raise WorkflowFactoryException(cls, error)
+
+        if type_name not in cls._registry:
+            registered = sorted(cls._registry.keys())
+            suggestions = difflib.get_close_matches(type_name, registered, n=3, cutoff=0.6)
+            hint = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
+            preview = ", ".join(registered[:20]) + (" ..." if len(registered) > 20 else "")
+            error = (
+                f"Unknown or unregistered type {type_name!r} in config file!"
+                f"{hint} Register it via WorkflowFactory.register({type_name!r}, <class>)."
+                f" Currently registered ({len(registered)}): [{preview}]"
+            )
+            logger.exception(
+                msg="WorkflowFactory.resolve",
+                name=type_name,
+                error=error,
+                suggestions=suggestions,
+                registered_count=len(registered),
             )
             raise WorkflowFactoryException(cls, error)
         return cls._registry[type_name]
@@ -135,7 +188,6 @@ class WorkflowFactory:
         config_path = kwargs.pop("config_path")
         workflow_name = kwargs.pop("workflow_name")
         sections = kwargs.pop("sections")
-
         adapter: ConfigAdapter = ConfigAdapter(config_path, *sections)
 
         # Workflow class ----------------------------------------------- #
@@ -148,7 +200,7 @@ class WorkflowFactory:
         if workflow is None:
             raise ValueError(f"{workflow_name!r} not found in config.workflows.")
 
-        workflow_class = cls.resolve(workflow.get("type", None))
+        workflow_class = cls._resolve_section("workflows", workflow)
 
         # Global audit logger settings --------------------------------- #
         global_audit = {
@@ -159,7 +211,7 @@ class WorkflowFactory:
 
         # Worflow Class ------------------------------------------------ #
         connections = cls._build_connections(adapter, **global_audit)
-        drivers = cls._build_drivers(adapter, **global_audit)
+        drivers = cls._build_drivers(adapter, connections, **global_audit)
         processors = cls._build_processors(workflow, drivers, **global_audit)
         return workflow_class(
             adapter=adapter,
@@ -185,13 +237,28 @@ class WorkflowFactory:
         }
 
     @classmethod
-    def _build_connections(
-        cls, adapter: ConfigAdapter, **global_audit
-    ) -> DriverManager:
+    def _resolve_section(cls, section: str, item: dict, key: str = "type") -> Type:
+        """Resolve `item[key]` into a registered class, enriching errors with the
+        offending section, item name, and config snippet."""
+        try:
+            return cls.resolve(item.get(key, None) if isinstance(item, dict) else None)
+        except WorkflowFactoryException as e:
+            item_name = item.get("name", "<no-name>") if isinstance(item, dict) else "<not-a-dict>"
+            error = f"{section}[name={item_name!r}]: {e}"
+            logger.exception(
+                msg="WorkflowFactory.resolve",
+                section=section,
+                item_name=item_name,
+                error=error,
+            )
+            raise WorkflowFactoryException(cls, error) from e
+
+    @classmethod
+    def _build_connections(cls, adapter: ConfigAdapter, **global_audit) -> DriverManager:
         manager = ConnectionManager(**global_audit)
-        connections = adapter.find("managers", "connections", default=[])
+        connections = adapter.find("managers", "connections", default=[]) or []
         for connection in connections:
-            connection_class = cls.resolve(connection.get("type", None))
+            connection_class = cls._resolve_section("managers.connections", connection)
             configuration = connection.get("configuration", {})
             manager.register_connection(
                 connection=connection_class(
@@ -203,16 +270,29 @@ class WorkflowFactory:
         return manager
 
     @classmethod
-    def _build_drivers(cls, adapter: ConfigAdapter, **global_audit) -> DriverManager:
+    def _build_drivers(
+        cls,
+        adapter: ConfigAdapter,
+        connections: ConnectionManager,
+        **global_audit,
+    ) -> DriverManager:
         manager = DriverManager(**global_audit)
-        drivers = adapter.find("managers", "drivers", default=[])
+        drivers = adapter.find("managers", "drivers", default=[]) or []
         for driver in drivers:
+            driver_class = cls._resolve_section("managers.drivers", driver)
             driver_type = driver.get("type", None)
-            driver_class = cls.resolve(driver_type)
             driver_name = driver.get("name", driver_type)
             driver_audit = cls._audit(driver, global_audit)
+            configuration = dict(driver.get("configuration", {}) or {})
+
+            # Inject ConnectionManager when driver declares a connection_name
+            # so connection-backed drivers (Elasticsearch, Postgres, Kafka, ...)
+            # can resolve their connection at load time.
+            if "connection_name" in configuration:
+                configuration.setdefault("connection_manager", connections)
+
             manager.register_driver(
-                driver=driver_class(**driver.get("configuration", {}), **driver_audit),
+                driver=driver_class(**configuration, **driver_audit),
                 name=driver_name,
                 **driver_audit,
             )
@@ -227,29 +307,43 @@ class WorkflowFactory:
 
         # Processors config ------------------------------------------------- #
         processors = workflow.get("processors", [])
+        if not processors or not isinstance(processors, list):
+            raise WorkflowFactoryException(cls, "No processors found in the workflow!")
 
         for config in processors:
+            if not config or isinstance(config, dict) is False:
+                raise WorkflowFactoryException(cls, "Configuration is missing for processors")
             # processor class ----------------------------------------------- #
-            processor_class = cls.resolve(config.get("type"))
+            processor_class = cls._resolve_section("workflows.processors", config)
             proc_audit = cls._audit(config, global_audit)
-            processor = processor_class(**proc_audit, **config.get("configuration", {}))
+            configuration = dict(config.get("configuration", {}) or {})
+
+            # Driver may be declared either at processor top-level or inside
+            # configuration. Resolve to a registered instance before passing on.
+            driver_name = configuration.pop("driver", None) or config.get("driver", None)
+            if driver_name:
+                configuration["driver"] = drivers.get_driver(driver_name)
+
+            processor = processor_class(**proc_audit, **configuration)
 
             # pipeline classes ---------------------------------------------- #
             pipelines_config = config.get("pipelines", [])
             for pipeline in pipelines_config:
-                pipeline_class = cls.resolve(pipeline.get("type", None))
+                pipeline_class = cls._resolve_section("processors.pipelines", pipeline)
                 pipeline_audit = cls._audit(pipeline, global_audit)
                 processor.register_pipeline(pipeline=pipeline_class(**pipeline_audit))
 
             # Blackboard & strategy_create class ---------------------------- #
-            strategy_class = cls.resolve(
-                config.get("blackboard", {}).get("strategy_create", None)
+            blackboard_config = config.get("blackboard", {}) or {}
+            strategy_class = cls._resolve_section(
+                "blackboard.strategy_create",
+                blackboard_config,
+                key="strategy_create",
             )
             logger.debug(msg="_build_processors", strategy=strategy_class)
 
             # blackboard ------------------------------------------------------
-            blackboard_config = config.get("blackboard", {})
-            blackboard_class = cls.resolve(blackboard_config.get("type", None))
+            blackboard_class = cls._resolve_section("processors.blackboard", blackboard_config)
             logger.debug(msg="_build_processors", blackboard=blackboard_class)
             configuration = blackboard_config.get("configuration", {})
             processor.register_blackboard(
@@ -264,11 +358,15 @@ class WorkflowFactory:
             repositories = blackboard_config.get("repositories", {})
             for repository in repositories:
                 audit = cls._audit(repository, global_audit)
-                repository_class = cls.resolve(repository.get("type", None))
-                configuration = repository.get("configuration", None)
-                # strategy_read = cls.resolve(configuration.get("strategy_read", None))
-                strategy_write = cls.resolve(configuration.get("strategy_write", None))
-                driver = drivers.get_driver(name=configuration.get("driver", None))
+                repository_class = cls._resolve_section("blackboard.repositories", repository)
+                configuration = repository.get("configuration", {}) or {}
+                strategy_write = cls._resolve_section(
+                    "blackboard.repositories.strategy_write",
+                    configuration,
+                    key="strategy_write",
+                )
+                driver_name = configuration.get("driver", None)
+                driver = drivers.get_driver(driver_name) if driver_name else None
 
                 processor.blackboard.register(
                     repository=repository_class(
@@ -282,17 +380,12 @@ class WorkflowFactory:
             configuration = config.get("configuration", {})
             manager.register_processor(
                 processor=processor,
-                name=config.get("type", processor.name),
+                name=config.get("name", processor.name),
                 **proc_audit,
                 **configuration,
             )
 
         return manager
-
-    # ------------------------------------------------------------------ #
-    # endregion Component builders
-    # ------------------------------------------------------------------ #
-    # Helpers
 
     # @classmethod
     # def _load_strategy(cls, path: Optional[str], role: str) -> Optional[Any]:
@@ -300,3 +393,12 @@ class WorkflowFactory:
     #     if target:
     #         return ClassLoader(class_path=target).instance
     #     return None
+
+    # ------------------------------------------------------------------ #
+    # endregion Component builders
+    # ------------------------------------------------------------------ #
+
+
+# --------------------------------------------------------------------------- #
+# endregion WorkflowFactory                                                   #
+# --------------------------------------------------------------------------- #

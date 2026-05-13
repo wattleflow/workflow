@@ -15,20 +15,23 @@ Description: This module defines the Wattle RDF document and WattleGraphBuilder
 for constructing provenance-aware RDF graphs within the WattleFlow framework.
 """
 
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
+
 from __future__ import annotations
+from abc import ABC
+from typing import Iterable, Optional
+from wattleflow.helpers.datetime import Now
 import logging
 import re
-from abc import ABC
-from datetime import datetime, timezone
-from typing import Iterable, Optional
 
 try:
     from rdflib import Graph, Namespace, URIRef, Node, Literal
     from rdflib.namespace import DCAT, DCTERMS, PROV, RDF
 except Exception as e:
     raise ModuleNotFoundError(
-        f"You need rdflib for documents/wattle.py.\n"
-        "Please run: pip install rdflib! {str(e)}"
+        f"You need rdflib for documents/wattle.py.\nPlease run: pip install rdflib! {{str(e)}}"
     ) from e
 
 from uuid import uuid4
@@ -38,10 +41,17 @@ from wattleflow.concrete import AuditLogger, Document
 from wattleflow.constants import Event, MimeTypes
 
 
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
 _URI_SAFE: re.Pattern = re.compile(r"[^A-Za-z0-9_\-.]")
 
+# --------------------------------------------------------------------------- #
+# region Global methods                                                       #
+# --------------------------------------------------------------------------- #
 
-# region global methods
+
 def _safe_uri_segment(value: str) -> str:
     """Return *value* with any character unsafe in a URI path segment replaced by ``_``."""
     return _URI_SAFE.sub("_", value)
@@ -54,7 +64,13 @@ def _require_non_empty_str(value: object, name: str) -> str:
     return value
 
 
-# endregion global methods
+# --------------------------------------------------------------------------- #
+# endregion Global methods                                                    #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Builders                                                             #
+# --------------------------------------------------------------------------- #
 
 
 class WattleGraphBuilder(IBuilder, AuditLogger, ABC):
@@ -154,10 +170,7 @@ class WattleGraphBuilder(IBuilder, AuditLogger, ABC):
         # Old: graph.add((subject, DCAT.record, Literal(self._mime.name)))
         graph.add((subject, DCAT.mediaType, Literal(self._mime.name)))
         graph.add((subject, RDF.type, self.WG.Created))
-        # FIX: v0.0.0.62 - 26/3/17 - Replaced datetime.now() with timezone-aware
-        # datetime.now(timezone.utc) to avoid naive timestamps.
-        # Old: graph.add((subject, self.WG.runId, Literal(str(self.utc_time_stamp()))))
-        graph.add((subject, self.WG.runId, Literal(str(datetime.now(timezone.utc)))))
+        graph.add((subject, self.WG.runId, Literal(str(Now.utc()))))
 
     def _add_format(self, graph: Graph, mime_name_seg: str) -> None:
         """Add DCTERMS format triple to *graph*."""
@@ -182,17 +195,15 @@ class WattleGraphBuilder(IBuilder, AuditLogger, ABC):
     # endregion IBuilder contract
 
 
-# region FIX: v0.0.0.62 - 26/3/17 - Refactored Wattle.__init__: all graph-construction
-# logic delegated to WattleGraphBuilder.build(). Added explicit @property accessors
-# for uri, subject, WG, RES, and NFO (previously relied on __getattr__ forwarding
-# to the metadata dict, which raised ValueError instead of AttributeError and
-# silently broke hasattr() checks). Removed __getattr__ as PresetDecorator is not
-# used here. Fixed remove(): self._subject (undefined) → self.subject (property).
-# Fixed add(): subject type hint Namespace → URIRef (Namespace is not a valid RDF
-# subject). Replaced all datetime.now() calls with self.utc_time_stamp().
-# Added uri to metadata so the uri property can retrieve it — previously uri was
-# logged but never stored.
-# endregion FIX: v0.0.0.62 - 26/3/17 - Refactored Wattle.__init__: all graph-construction
+# --------------------------------------------------------------------------- #
+# endregion Builders                                                          #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Document                                                             #
+# --------------------------------------------------------------------------- #
+
+
 class Wattle(Document[Graph], ABC):
     """An RDF-backed WattleFlow document representing a single provenance artefact."""
 
@@ -344,16 +355,7 @@ class Wattle(Document[Graph], ABC):
 
         self.update_content(copied)
 
-    # region FIX: v0.0.0.62 - 26/3/17 - Removed __getattr__: it raised ValueError instead
-    # of AttributeError, silently breaking hasattr() and any code that relies on
-    # the standard attribute-lookup protocol. All previously accessed metadata keys
-    # (subject, WG, RES, NFO, uri) are now exposed as explicit @property accessors.
-    # PresetDecorator is not used in this class, so __getattr__ forwarding is
-    # unnecessary.
-    # Old:
-    # def __getattr__(self, name: str) -> object:
-    #     obj = self.metadata.get(name, None)
-    #     if obj is None:
-    #         raise ValueError(f"Property: {name} does not exist in the document!")
-    #     return obj
-    # endregion FIX: v0.0.0.62 - 26/3/17 - Removed __getattr__: it raised ValueError instead
+
+# --------------------------------------------------------------------------- #
+# endregion Document                                                             #
+# --------------------------------------------------------------------------- #

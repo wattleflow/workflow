@@ -1,24 +1,40 @@
 # Module name: logger.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
-
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
 from __future__ import annotations
+import logging
 from typing import Optional, Union
-from logging import (
-    Filter,
-    Formatter,
-    getLogger,
-    Handler,
-    Logger,
-    StreamHandler,
-    _nameToLevel,
-    _levelToName,
-)
+
+try:
+    from logging import (
+        Filter,
+        Formatter,
+        getLogger,
+        Handler,
+        Logger,
+        StreamHandler,
+    )
+except Exception as e:
+    raise ModuleNotFoundError(
+        f"logging library is required to run this code.[{str(e)}\n"
+        "Please install it with:\n\t`pip install logging`"
+    ) from e
+
 from threading import RLock
 from wattleflow.core import ILogger
 from wattleflow.constants import LogFormat
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Handlers                                                             #
+# --------------------------------------------------------------------------- #
 
 
 class AsyncHandler(Handler):
@@ -33,20 +49,35 @@ class AsyncHandler(Handler):
             self.handleError(record)
 
 
+# --------------------------------------------------------------------------- #
+# endregion Handlers                                                          #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Filters                                                              #
+# --------------------------------------------------------------------------- #
+
+
 class ContextFilter(Filter):
+    # Kept for backward compatibility with callers that pass
+    # extra={"src_filename": ..., "src_lineno": ...}.
+    # New code should rely on `stacklevel` in log methods instead.
     def filter(self, record):
         record.filename = getattr(record, "src_filename", record.filename)
         record.lineno = getattr(record, "src_lineno", record.lineno)
         return True
 
 
+# --------------------------------------------------------------------------- #
+# endregion Filters                                                           #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Classes                                                              #
+# --------------------------------------------------------------------------- #
+
+
 class AuditLogger(ILogger):
-    #  __slots__ = (
-    #     "_lock",
-    #     "_instances",
-    #     "_handler",
-    #     "_logger",
-    # )
     _lock = RLock()
     _instances: set[type] = set()
 
@@ -61,14 +92,28 @@ class AuditLogger(ILogger):
         ILogger.__init__(self)
 
         cls = self.__class__
-        self._handler = None
-        self._level: int = level if isinstance(level, int) else _nameToLevel.get(level)
+
+        # Resolve level: accept int directly, or convert string via public API.
+        if isinstance(level, int):
+            self._level: int = level
+        elif isinstance(level, str):
+            resolved = logging.getLevelName(level.upper())
+            if not isinstance(resolved, int):
+                raise ValueError(f"Unknown log level: {level!r}")
+            self._level = resolved
+        else:
+            raise TypeError(f"level must be int or str, got {type(level).__name__}")
+
+        self._handler: Optional[Handler] = None
         self._logger: Logger = logger or getLogger(self.__class__.__name__)
 
         with self._lock:
             if cls not in self._instances:
                 self._logger.setLevel(self._level)
-                self._logger.propagate = bool(propagate)
+
+                # Only override propagate when caller explicitly provides it.
+                if propagate is not None:
+                    self._logger.propagate = propagate
 
                 if handler is None:
                     handler = StreamHandler()
@@ -83,40 +128,46 @@ class AuditLogger(ILogger):
                 self._instances.add(cls)
                 self._configure_once()
 
-        # if handler not in self._logger.handlers:
-        #     self.subscribe_handler(handler)
-
     @property
     def levelname(self) -> str:
-        return _levelToName.get(self._level, "NOTSET")
+        name = logging.getLevelName(self._level)
+        return name if isinstance(name, str) else "NOTSET"
 
     def exception(self, msg: str, *args, **kwargs) -> None:
         kwargs.setdefault("exc_info", True)
+        kwargs.setdefault("stacklevel", 3)
         self._log_msg(self._logger.error, msg, *args, **kwargs)
 
     def critical(self, msg: str, *args, **kwargs) -> None:
+        kwargs.setdefault("stacklevel", 3)
         self._log_msg(self._logger.critical, msg, *args, **kwargs)
 
     def debug(self, msg: str, *args, **kwargs) -> None:
+        kwargs.setdefault("stacklevel", 3)
         self._log_msg(self._logger.debug, msg, *args, **kwargs)
 
     def error(self, msg: str, *args, **kwargs) -> None:
+        kwargs.setdefault("stacklevel", 3)
         self._log_msg(self._logger.error, msg, *args, **kwargs)
 
     def fatal(self, msg: str, *args, **kwargs) -> None:
+        kwargs.setdefault("stacklevel", 3)
         self._log_msg(self._logger.fatal, msg, *args, **kwargs)
 
     def info(self, msg: str, *args, **kwargs) -> None:
+        kwargs.setdefault("stacklevel", 3)
         self._log_msg(self._logger.info, msg, *args, **kwargs)
 
     def warning(self, msg: str, *args, **kwargs) -> None:
+        kwargs.setdefault("stacklevel", 3)
         self._log_msg(self._logger.warning, msg, *args, **kwargs)
 
     def subscribe_handler(self, subscriber: Handler) -> None:
         if not isinstance(subscriber, Handler):
             raise TypeError("subscribe_handler: expected logging.Handler")
-        if subscriber not in self._logger.handlers:
-            self._logger.addHandler(subscriber)
+        with self._lock:
+            if subscriber not in self._logger.handlers:
+                self._logger.addHandler(subscriber)
 
     def subscribe(self, observer):
         raise NotImplementedError(f"{self.name}.subscribe is not implemented!")
@@ -157,3 +208,8 @@ class AuditLogger(ILogger):
             msg = f"{msg} {parts}"
 
         method(msg, *args, **pass_through)
+
+
+# --------------------------------------------------------------------------- #
+# endregion Classes                                                           #
+# --------------------------------------------------------------------------- #

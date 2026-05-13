@@ -1,6 +1,6 @@
 # Module name: constants/enum.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
@@ -204,6 +204,9 @@ class Event(Enum):
     Transformed = "Transformed"
     Transforming = "Transforming"
     TaskCompleted = "Task completed"
+    Unregister = "Unregister"
+    Unregistering = "Unregistering"
+    Unregistered = "Unregistered"
     Update = "Update"
     Updated = "Updated"
     Updating = "Updating"

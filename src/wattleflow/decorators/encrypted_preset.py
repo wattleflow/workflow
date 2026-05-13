@@ -1,6 +1,6 @@
 # Module name: encrypted_preset.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
@@ -41,11 +41,9 @@ from __future__ import annotations
 
 import pickle
 from typing import Any, Optional
-
 from cryptography.fernet import Fernet
-
-from wattleflow.concrete.exception import AttributeException
 from wattleflow.core import IWattleflow
+from wattleflow.concrete.exception import AttributeException
 from wattleflow.decorators.preset import PresetDecorator
 
 

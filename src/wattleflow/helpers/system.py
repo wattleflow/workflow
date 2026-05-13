@@ -12,14 +12,18 @@ for runtime class loading, project structure detection, temporary path
 management, and process execution with integrated audit logging.
 """
 
-import os
-import platform
-import subprocess
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
 
+from __future__ import annotations
 import functools
 import inspect
-import shutil
+import os
+import platform
 import shlex
+import shutil
+import subprocess
 
 from abc import ABC
 from importlib import import_module
@@ -40,28 +44,33 @@ from wattleflow.constants import Event
 from wattleflow.constants.keys import KEY_CONFIG_FILE_NAME
 from wattleflow.helpers.normaliser import Normaliser
 
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
 
 __author__ = "WattleFlow"
 __copyright__ = "© 2022–2026 WattleFlow. All rights reserved"
 
 
+# --------------------------------------------------------------------------- #
+# region Types                                                                #
+# --------------------------------------------------------------------------- #
+
 Pathish = Union[str, PathLike[str], Path]
 Command = Union[str, Sequence[str]]
 
-# def check_path(path: Pathish, raise_error: bool = True) -> bool:
-#     if path is None:
-#         if raise_error:
-#             raise FileNotFoundError("Path must be assigned!")
-#         return False
-#     p = Path(path)
-#     if not p.exists():
-#         if raise_error:
-#             raise FileNotFoundError(f"Path not found: {p}")
-#         return False
-#     return True
+# --------------------------------------------------------------------------- #
+# endregion Types                                                             #
+# --------------------------------------------------------------------------- #
 
 
-class ClassLoader(IWattleflow, ABC):
+# --------------------------------------------------------------------------- #
+# region Classes                                                              #
+# --------------------------------------------------------------------------- #
+
+
+class ClassLoader(IWattleflow):
     def __init__(
         self,
         class_path: str,
@@ -115,14 +124,9 @@ class ClassLoader(IWattleflow, ABC):
             )
             raise
 
-        self.log.warning(
-            msg=Event.Constructor.value,
-            warning=f"Module '{module_path}' loaded successfully, but class '{class_name}' not registered and is not verified against the valid classes.",
-            module_path=module_path,
-            class_name=class_name,
-        )
-        # FIX: getattr raises AttributeError silently if the class is absent; check
-        # explicitly so the error message identifies both module and class name clearly.
+        # FIX: previously warning fired unconditionally *before* the hasattr
+        # check, so every successful load wrongly reported the class as
+        # unverified. Validate first, then debug-log the resolution.
         if not hasattr(module, class_name):
             error = f"Class '{class_name}' not found in module '{module_path}'"
             self.log.error(
@@ -135,6 +139,14 @@ class ClassLoader(IWattleflow, ABC):
 
         cls = getattr(module, class_name)
         self.cls = cls
+
+        self.log.debug(
+            msg=Event.Constructor.value,
+            status="class resolved",
+            module_path=module_path,
+            class_name=class_name,
+        )
+
         try:
             self.instance = cls(*args, **kwargs)
         except Exception as e:
@@ -185,8 +197,8 @@ class FileStorage:
         return self.filename.with_suffix(suffix)
 
     def with_dir(self, directory=None, mkdir=True) -> Path:
-        dir = directory if directory else self.filename.stem
-        out_dir = self.path.joinpath(dir)
+        target = directory if directory else self.filename.stem
+        out_dir = self.path.joinpath(target)
         resolved_base = self.path.resolve()
         resolved_out = out_dir.resolve()
         try:
@@ -256,7 +268,7 @@ class Proxy:
                 return self.after_call(result)
             return self.after_call(result, *args, **kwargs)
         except Exception:
-            # ne rusi cilj; po zelji: re-raise
+            # Swallow after-call failures so the target's result is preserved.
             return
 
     def __call__(self, *args, **kwargs):
@@ -276,29 +288,6 @@ class Proxy:
             res = self.target_method(*args, **kwargs)
             self._call_after(res, *args, **kwargs)
             return res
-
-
-def decorator(*dargs, **dkwargs):
-    if dargs and callable(dargs[0]) and not dkwargs:
-        fn = dargs[0]
-
-        @functools.wraps(fn)
-        def wrapper(*args, **kwargs):
-            return Proxy(fn)(*args, **kwargs)
-
-        return wrapper
-
-    before_call = dkwargs.get("before_call")
-    after_call = dkwargs.get("after_call")
-
-    def _outer(fn):
-        @functools.wraps(fn)
-        def wrapper(*args, **kwargs):
-            return Proxy(fn, before_call=before_call, after_call=after_call)(*args, **kwargs)
-
-        return wrapper
-
-    return _outer
 
 
 @final
@@ -350,10 +339,6 @@ class ShellExecutor:
             )
         else:
             raise TypeError(f"Unsupported command type: {type(command).__name__}")
-
-        # FIX: to_s was duplicated inside both the try block and the CalledProcessError
-        # handler, creating redundancy and a risk of the two definitions diverging.
-        # Defined once here, before the try block, and shared across all branches.
 
         try:
             result = subprocess.run(
@@ -412,6 +397,46 @@ class TempPathHelper:
     def full_path(self) -> Path:
         return self.source_path.absolute()
 
+    # FIX: previously annotated as `-> Path` but returns a str — annotation
+    # corrected to match the actual return type.
     @property
-    def str_path(self) -> Path:
+    def str_path(self) -> str:
         return str(self.source_path.absolute())
+
+
+# --------------------------------------------------------------------------- #
+# endregion Classes                                                           #
+# --------------------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------------------- #
+# region Global methods                                                       #
+# --------------------------------------------------------------------------- #
+
+
+def decorator(*dargs, **dkwargs):
+    if dargs and callable(dargs[0]) and not dkwargs:
+        fn = dargs[0]
+
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            return Proxy(fn)(*args, **kwargs)
+
+        return wrapper
+
+    before_call = dkwargs.get("before_call")
+    after_call = dkwargs.get("after_call")
+
+    def _outer(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            return Proxy(fn, before_call=before_call, after_call=after_call)(*args, **kwargs)
+
+        return wrapper
+
+    return _outer
+
+
+# --------------------------------------------------------------------------- #
+# endregion Global methods                                                    #
+# --------------------------------------------------------------------------- #

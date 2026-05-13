@@ -4,6 +4,8 @@
 # License: Apache 2 Licence
 
 
+from .filecontent import FileContentProcessor
+from .filename import FilenameProcessor
 from .kafka import KafkaReadProcessor, KafkaWriteProcessor
 from .postgres import PostgresReadProcessor
 from .spark import SparkReadProcessor, SparkWriteProcessor
@@ -11,6 +13,8 @@ from .tesseract import TeseractProcessor
 from .youtube import YoutubeProcessor
 
 __all__ = [
+    "FileContentProcessor",
+    "FilenameProcessor",
     "KafkaReadProcessor",
     "KafkaWriteProcessor",
     "PostgresReadProcessor",

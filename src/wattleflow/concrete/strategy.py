@@ -1,18 +1,29 @@
 # Module name: strategies.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
+
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
 
 from __future__ import annotations
 from abc import abstractmethod, ABC
 from logging import Handler
 from typing import Optional
 from wattleflow.core import IWattleflow, IStrategy, ITarget
-from wattleflow.concrete import AuditLogger
+from wattleflow.concrete.logger import AuditLogger
+
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Strategies                                                           #
+# --------------------------------------------------------------------------- #
 
 
-# Generic strategy
 class Strategy(IStrategy, AuditLogger, ABC):
     def __init__(self, **kwargs):
         kwargs.pop("allowed", None)
@@ -53,3 +64,8 @@ class StrategyRead(Strategy, ABC):
 class StrategyWrite(Strategy, ABC):
     def write(self, caller: IWattleflow, facade: ITarget, **kwargs) -> bool:
         return self.execute(caller=caller, facade=facade, **kwargs) is not None
+
+
+# --------------------------------------------------------------------------- #
+# endregion Strategies                                                        #
+# --------------------------------------------------------------------------- #

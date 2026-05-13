@@ -4,11 +4,13 @@
 # License: Apache 2 Licence
 
 
-from __future__ import annotations
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
 
+from __future__ import annotations
 import os
 import re
-
 from abc import ABC, abstractmethod
 from logging import Handler
 from pathlib import Path
@@ -23,7 +25,50 @@ try:
 except Exception:
     from wattleflow.helpers.yaml import yaml  # noqa: E401
 
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+
 _REF_PATTERN = re.compile(r"^\$\{\s*(\w+)\s*:\s*([^}]+)\s*\}$")
+
+
+# --------------------------------------------------------------------------- #
+# region Global methods                                                       #
+# --------------------------------------------------------------------------- #
+def config_section(*path: str):
+
+    def decorator(cls):
+        cls._CONFIG_SECTION_PATH = path
+        original_init = cls.__init__
+
+        def patched_init(self, *args, **kwargs):
+            config: Optional[Config] = kwargs.pop("config", None)
+            chain: Optional[SecretResolverChain] = kwargs.pop("resolver_chain", None)
+
+            name = kwargs.get("name")
+
+            if config is not None:
+                adapter = ConfigAdapter(config, *path, resolver_chain=chain)
+
+                if name:
+                    for section in adapter.as_dict().values():
+                        if isinstance(section, list):
+                            for item in section:
+                                if item.get("name") == name:
+                                    for k, v in item.items():
+                                        kwargs.setdefault(k, v)
+                                    break
+                else:
+                    for k, v in adapter.as_dict().items():
+                        kwargs.setdefault(k, v)
+
+            original_init(self, *args, **kwargs)
+
+        cls.__init__ = patched_init
+        return cls
+
+    return decorator
 
 
 def deep_resolve(value: Any, chain: SecretResolverChain) -> Any:
@@ -40,7 +85,13 @@ def deep_resolve(value: Any, chain: SecretResolverChain) -> Any:
     return value
 
 
-# region Secret Resolvers
+# --------------------------------------------------------------------------- #
+# endregion Global methods                                                    #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Interfaces                                                           #
+# --------------------------------------------------------------------------- #
 
 
 class ISecretResolver(ABC):
@@ -66,6 +117,37 @@ class ISecretResolver(ABC):
 
     @abstractmethod
     def _fetch(self, ref: str) -> Optional[str]: ...
+
+
+class IConfigValidator(IHandler, ABC):
+    """
+    Chain of Responsibility za validaciju razrijesene konfiguracije.
+    Nasljedivanje: implementiraj validate() u konkretnoj klasi.
+    Ulancavanje:   validator_a.set_next(validator_b).set_next(validator_c)
+    """
+
+    def __init__(self) -> None:
+        self._next: Optional["IConfigValidator"] = None
+
+    def set_next(self, handler: "IConfigValidator") -> "IConfigValidator":
+        self._next = handler
+        return handler
+
+    def handle(self, data: Any) -> Any:
+        self.validate(data)
+        return self._next.handle(data) if self._next else data
+
+    @abstractmethod
+    def validate(self, data: Any) -> None: ...
+
+
+# --------------------------------------------------------------------------- #
+# endregion Interfaces                                                        #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Resolvers                                                            #
+# --------------------------------------------------------------------------- #
 
 
 class EnvVarResolver(ISecretResolver):
@@ -189,32 +271,13 @@ class SecretResolverChain:
         return None
 
 
-# endregion
+# --------------------------------------------------------------------------- #
+# endregion Resolvers                                                         #
+# --------------------------------------------------------------------------- #
 
-
-# region Validators
-
-
-class IConfigValidator(IHandler, ABC):
-    """
-    Chain of Responsibility za validaciju razrijesene konfiguracije.
-    Nasljedivanje: implementiraj validate() u konkretnoj klasi.
-    Ulancavanje:   validator_a.set_next(validator_b).set_next(validator_c)
-    """
-
-    def __init__(self) -> None:
-        self._next: Optional["IConfigValidator"] = None
-
-    def set_next(self, handler: "IConfigValidator") -> "IConfigValidator":
-        self._next = handler
-        return handler
-
-    def handle(self, data: Any) -> Any:
-        self.validate(data)
-        return self._next.handle(data) if self._next else data
-
-    @abstractmethod
-    def validate(self, data: Any) -> None: ...
+# --------------------------------------------------------------------------- #
+# region Validators                                                           #
+# --------------------------------------------------------------------------- #
 
 
 class TypeValidator(IConfigValidator):
@@ -222,9 +285,7 @@ class TypeValidator(IConfigValidator):
 
     def validate(self, data: Any) -> None:
         if not isinstance(data, dict):
-            raise TypeError(
-                f"Config: expected mapping at root, got {type(data).__name__}"
-            )
+            raise TypeError(f"Config: expected mapping at root, got {type(data).__name__}")
 
 
 class RequiredKeysValidator(IConfigValidator):
@@ -270,9 +331,7 @@ class AllowedValuesValidator(IConfigValidator):
             return
         value = data.get(self._key)
         if value is not None and value not in self._allowed:
-            raise ValueError(
-                f"Config: {self._key!r} must be one of {self._allowed}, got {value!r}"
-            )
+            raise ValueError(f"Config: {self._key!r} must be one of {self._allowed}, got {value!r}")
 
 
 class NonEmptyValidator(IConfigValidator):
@@ -291,10 +350,13 @@ class NonEmptyValidator(IConfigValidator):
                 raise ValueError(f"Config: {key!r} must be non-empty")
 
 
-# endregion
+# --------------------------------------------------------------------------- #
+# endregion Validators                                                        #
+# --------------------------------------------------------------------------- #
 
-
-# region ConfigAdapter
+# --------------------------------------------------------------------------- #
+# region ConfigAdapter                                                        #
+# --------------------------------------------------------------------------- #
 
 
 class ConfigAdapter(AuditLogger):
@@ -307,13 +369,9 @@ class ConfigAdapter(AuditLogger):
 
         level = kwargs.get("level", 0)
         handler: Optional[Handler] = kwargs.get("handler", None)
-        formater = (
-            {"formating": kwargs.get("formatter")} if kwargs.get("formating") else {}
-        )
+        formater = {"formating": kwargs.get("formatter")} if kwargs.get("formating") else {}
         validator: Optional[IConfigValidator] = kwargs.get("validator", None)
-        resolver_chain: Optional[SecretResolverChain] = kwargs.get(
-            "resolver_chain", None
-        )
+        resolver_chain: Optional[SecretResolverChain] = kwargs.get("resolver_chain", None)
 
         AuditLogger.__init__(self, level=level, handler=handler, **formater)
 
@@ -422,45 +480,6 @@ class ConfigAdapter(AuditLogger):
         return self._config_file
 
 
-# endregion
-
-
-# region config_section decorator
-
-
-def config_section(*path: str):
-
-    def decorator(cls):
-        cls._CONFIG_SECTION_PATH = path
-        original_init = cls.__init__
-
-        def patched_init(self, *args, **kwargs):
-            config: Optional[Config] = kwargs.pop("config", None)
-            chain: Optional[SecretResolverChain] = kwargs.pop("resolver_chain", None)
-
-            name = kwargs.get("name")
-
-            if config is not None:
-                adapter = ConfigAdapter(config, *path, resolver_chain=chain)
-
-                if name:
-                    for section in adapter.as_dict().values():
-                        if isinstance(section, list):
-                            for item in section:
-                                if item.get("name") == name:
-                                    for k, v in item.items():
-                                        kwargs.setdefault(k, v)
-                                    break
-                else:
-                    for k, v in adapter.as_dict().items():
-                        kwargs.setdefault(k, v)
-
-            original_init(self, *args, **kwargs)
-
-        cls.__init__ = patched_init
-        return cls
-
-    return decorator
-
-
-# endregion
+# --------------------------------------------------------------------------- #
+# endregion ConfigAdapter                                                     #
+# --------------------------------------------------------------------------- #

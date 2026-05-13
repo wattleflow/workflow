@@ -1,11 +1,7 @@
 # Module name: helpers/randomiser.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-
-
-import time
-import threading
 
 
 """
@@ -28,6 +24,23 @@ except Exception as e:
     print(str(e))
 
 """
+
+
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
+
+from __future__ import annotations
+import time
+import threading
+
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Randomisers                                                              #
+# --------------------------------------------------------------------------- #
 
 
 class Snowflake:
@@ -88,3 +101,8 @@ class Timestamp:
             else:
                 self.counter += 1
             return ts * 1000 + self.counter
+
+
+# --------------------------------------------------------------------------- #
+# endregion Randomisers                                                       #
+# --------------------------------------------------------------------------- #

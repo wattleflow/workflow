@@ -1,13 +1,26 @@
-# Module name: files.py
+# Module name: strategies/files.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
+
+# --------------------------------------------------------------------------- #
+# region imports                                                              #
+# --------------------------------------------------------------------------- #
 
 from __future__ import annotations
 import re
 from fnmatch import fnmatch
 from wattleflow.core import IStrategy
+
+# --------------------------------------------------------------------------- #
+# endregion imports                                                           #
+# --------------------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------------------- #
+# region Strategies                                                           #
+# --------------------------------------------------------------------------- #
 
 
 class StrategyFilename(IStrategy):
@@ -23,3 +36,8 @@ class StrategyFilterFiles(IStrategy):
 
     def execute(self, filename):
         return fnmatch(filename, self.pattern)
+
+
+# --------------------------------------------------------------------------- #
+# endregion Strategies                                                        #
+# --------------------------------------------------------------------------- #

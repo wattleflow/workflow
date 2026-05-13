@@ -1,14 +1,23 @@
-# Module name: localmodels.py
+# Module name: helpers/localmodels.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
+
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
 
 from __future__ import annotations
 import os
 import glob
 from pathlib import Path
 from typing import Optional
+
+
+# --------------------------------------------------------------------------- #
+# endegion Imports                                                            #
+# --------------------------------------------------------------------------- #
 
 
 class StoredModels:
@@ -22,9 +31,7 @@ class StoredModels:
     @property
     def model_name(self) -> str:
         safe_name = self.name.replace("/", "--")
-        search_pattern = os.path.join(
-            self.base_path, f"models--{safe_name}", "snapshots", "*"
-        )
+        search_pattern = os.path.join(self.base_path, f"models--{safe_name}", "snapshots", "*")
         matches = glob.glob(search_pattern)
 
         for match in matches:

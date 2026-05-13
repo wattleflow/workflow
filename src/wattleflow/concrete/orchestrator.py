@@ -1,6 +1,6 @@
-# Module name: orchestrator.py
+# Module name: concrete/orchestrator.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
@@ -12,12 +12,16 @@ The Orchestrator class will:
     - Execute processors sequentially or in parallel.
     - Monitor and log execution using event-driven behavior.
     - Utilize pipelines for structured data flow.
-
 """
+
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
 
 from __future__ import annotations
 import threading
-from datetime import datetime
+from typing import List, Optional
+from wattleflow.helpers.datetime import Now
 from wattleflow.core import (
     IFacade,
     IEventSource,
@@ -32,103 +36,157 @@ from wattleflow.constants.enums import (
 from wattleflow.concrete.manager import ConnectionManager
 from wattleflow.concrete.exception import AuditException
 
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Exceptions                                                           #
+# --------------------------------------------------------------------------- #
+
 
 class OrchestratorException(AuditException):
     pass
 
 
+# --------------------------------------------------------------------------- #
+# endregion Exceptions                                                        #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Orchestrators                                                        #
+# --------------------------------------------------------------------------- #
+
+
 class Orchestrator(IEventSource, IFacade):
     def __init__(
-        self, connection_manager: ConnectionManager, strategy_execute: IStrategy = None
+        self,
+        connection_manager: ConnectionManager,
+        strategy_execute: Optional[IStrategy] = None,
     ):
         super().__init__()
-        self._listeners = []
-        self._processors = []
-        self._running = False
+        self._listeners: List[IEventListener] = []
+        self._processors: List[IProcessor] = []
+        self._running: bool = False
         self._connection_manager = connection_manager
         self._strategy_execute = strategy_execute
+        self._emit_lock = threading.Lock()
 
-    def _start_processor(self, processor: IProcessor):
+    # region Internal
+
+    def _start_processor(self, processor: IProcessor) -> None:
+        proc_name = getattr(processor, "name", "unknown")
         try:
-            start_time = datetime.now()
-            processor.process_tasks()
-            end_time = datetime.now()
+            start_time = Now.utc()
+            # IProcessor contract uses start(); fall back to operation(Start)
+            # if a custom processor only exposes the facade signature.
+            if callable(getattr(processor, "start", None)):
+                processor.start()
+            elif callable(getattr(processor, "operation", None)):
+                processor.operation(Operation.Start)
+            else:
+                raise TypeError(f"Processor {proc_name!r} exposes neither start() nor operation()")
+            duration = (Now.utc() - start_time).total_seconds()
 
-            execution_time = (end_time - start_time).total_seconds()
             self.emit_event(
                 Event.Processed,
-                processor=processor.name,
-                duration=execution_time,
+                processor=proc_name,
+                duration=duration,
             )
-
         except Exception as e:
+            self.emit_event(Event.Failed, processor=proc_name, error=str(e))
             raise OrchestratorException(
                 self,
-                "Error processing {}: {}".format(
-                    getattr(processor, "name", "unknown"), e
-                ),
+                f"Error processing {proc_name}: {e}",
             ) from e
 
-    def add_processor(self, processor: IProcessor):
+    # endregion Internal
+
+    # region Public
+
+    def add_processor(self, processor: IProcessor) -> None:
+        """Register a processor with the orchestrator.
+
+        Requires a callable `start()` per IProcessor contract.
         """
-        Ensures the processor has the `process_tasks()` method.
-        """
-        if not hasattr(processor, "process_tasks"):
+        if not callable(getattr(processor, "start", None)):
             raise TypeError(
-                "Processor {} is missing `process_tasks()` method.".format(
+                "Processor {} is missing callable `start()`.".format(
                     getattr(processor, "name", "unknown"),
                 )
             )
-
         self._processors.append(processor)
-
-    def emit_event(self, event: Event, **kwargs):
-        for listener in self._listeners:
-            listener.on_event(event, **kwargs)
 
     def register_listener(self, listener: IEventListener) -> None:
         if listener not in self._listeners:
             self._listeners.append(listener)
 
+    def emit_event(self, event: Event, **kwargs) -> None:
+        with self._emit_lock:
+            listeners = list(self._listeners)
+        for listener in listeners:
+            try:
+                listener.on_event(event, **kwargs)
+            except TypeError:
+                # Interface contract is on_event(event); allow strict listeners.
+                listener.on_event(event)
+
     def operation(self, action: Operation):
         if action == Operation.Start:
-            self.start()
-        elif action == Operation.Stop:
-            self.stop()
-        else:
-            msg = f"{type(self).__name__}: Unrecognised operation! [{action}]"
-            raise ChildProcessError(msg)
+            return self.start()
+        if action == Operation.Stop:
+            return self.stop()
+        raise OrchestratorException(
+            self,
+            f"Unrecognised operation: {action!r}",
+        )
 
-    def start(self, parallel: bool = False):
+    def start(self, parallel: bool = False) -> None:
         """Starts processor execution (sequentially or in parallel)."""
+        if self._running:
+            return
         self._running = True
         self.emit_event(Event.OrchestrationStarted)
 
-        if parallel:
-            threads = []
-            for processor in self._processors:
-                thread = threading.Thread(
-                    target=self._start_processor, args=(processor,), daemon=True
-                )
-                threads.append(thread)
-                thread.start()
+        try:
+            if parallel:
+                threads: List[threading.Thread] = []
+                errors: List[BaseException] = []
+                lock = threading.Lock()
 
-            for thread in threads:
-                thread.join()
-        else:
-            for processor in self._processors:
-                self._start_processor(processor)
+                def _runner(p: IProcessor) -> None:
+                    try:
+                        self._start_processor(p)
+                    except BaseException as e:  # noqa: BLE001
+                        with lock:
+                            errors.append(e)
 
-        self.emit_event(Event.OrchestrationCompleted)
+                for processor in self._processors:
+                    thread = threading.Thread(target=_runner, args=(processor,), daemon=False)
+                    threads.append(thread)
+                    thread.start()
 
-    def stop(self):
+                for thread in threads:
+                    thread.join()
+
+                if errors:
+                    raise errors[0]
+            else:
+                for processor in self._processors:
+                    if not self._running:
+                        break
+                    self._start_processor(processor)
+        finally:
+            self._running = False
+            self.emit_event(Event.OrchestrationCompleted)
+
+    def stop(self) -> None:
         self._running = False
         self.emit_event(Event.OrchestrationStopped)
 
+    # endregion Public
 
-# if __name__ == "__main__":
-#     import gc
-#     import unittest
 
-#     unittest.main()
-#     gc.collect()
+# --------------------------------------------------------------------------- #
+# endregion Orchestrators                                                     #
+# --------------------------------------------------------------------------- #

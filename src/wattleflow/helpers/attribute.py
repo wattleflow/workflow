@@ -1,25 +1,26 @@
-# Module name: attribute.py
+# Module name: helpers/attribute.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
-"""
-Desscription: This module provides utilities for attribute introspection, validation, and
-dynamic loading within the Wattleflow framework. It includes helpers to:
-- derive object/type names and locate attributes safely,
-- enforce allowed/mandatory keyword arguments,
-- convert and validate types (including Enum members),
-- load classes from dotted paths via ClassLoader,
-- retrieve attributes from __dict__ and __slots__,
-with consistent error handling through AttributeException.
-"""
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
 
 from __future__ import annotations
 from enum import Enum
 from typing import Any, Optional
 from wattleflow.core import IWattleflow
 from wattleflow.concrete.exception import AttributeException
+
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Attribute                                                            #
+# --------------------------------------------------------------------------- #
 
 
 class Attribute:
@@ -119,11 +120,7 @@ class Attribute:
             return
 
         varname = Attribute.find_name_by_variable(target)
-        name = (
-            target.__class__.__name__
-            if hasattr(target, "__class__")
-            else type(target).__name__
-        )
+        name = target.__class__.__name__ if hasattr(target, "__class__") else type(target).__name__
         name = varname if varname else name
         expected_name = expected_type.__name__
         owner = getattr(caller, "name", caller.__class__.__name__)
@@ -154,13 +151,9 @@ class Attribute:
         Attribute.evaluate(caller, attr, cls)  # type: ignore
 
     @staticmethod
-    def load_from_class(
-        name: str, obj: object, cls: type, caller: object = None, **kwargs
-    ):
+    def load_from_class(name: str, obj: object, cls: type, caller: object = None, **kwargs):
         if not isinstance(obj, str):
-            raise TypeError(
-                f"Expected class path as string for {name}, got {type(obj).__name__}"
-            )
+            raise TypeError(f"Expected class path as string for {name}, got {type(obj).__name__}")
 
         from wattleflow.helpers.system import (
             ClassLoader,
@@ -282,9 +275,7 @@ class Attribute:
             ) from e
 
     @staticmethod
-    def optional(
-        caller: object, name: str, cls: type, default: Optional[object], **kwargs
-    ):
+    def optional(caller: object, name: str, cls: type, default: Optional[object], **kwargs):
         if (not kwargs) and (not default):
             return
 
@@ -320,3 +311,8 @@ class Attribute:
 
         error = f"{caller!r} is missing attribute {name!r}."
         raise AttributeException(caller=caller, error=error)
+
+
+# --------------------------------------------------------------------------- #
+# endregion Attribute                                                         #
+# --------------------------------------------------------------------------- #

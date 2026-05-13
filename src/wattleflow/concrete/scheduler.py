@@ -1,8 +1,12 @@
 # Module name: scheduler.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
+
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
 
 from __future__ import annotations
 import threading
@@ -13,6 +17,14 @@ from wattleflow.core import IEventListener, IScheduler
 from wattleflow.concrete import AuditLogger
 from wattleflow.constants.enums import Event
 from wattleflow.decorators.preset import PresetDecorator
+
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Schedulers                                                           #
+# --------------------------------------------------------------------------- #
 
 
 class Scheduler(IScheduler, AuditLogger, ABC):
@@ -107,3 +119,8 @@ class Scheduler(IScheduler, AuditLogger, ABC):
     # Must be implemented if using PresetDecorator
     def __getattr__(self, name: str) -> Any:
         return getattr(self._preset, name)
+
+
+# --------------------------------------------------------------------------- #
+# endregion Schedulers                                                        #
+# --------------------------------------------------------------------------- #

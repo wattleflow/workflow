@@ -3,6 +3,11 @@
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
+
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
+
 from __future__ import annotations
 import logging
 from pathlib import Path
@@ -13,8 +18,18 @@ from wattleflow.constants.enums import Event
 
 try:
     import yaml
+    from jsonschema import validate
 except Exception:
-    from wattleflow.helpers.yaml import yaml  # noqa: E401
+    from wattleflow.helpers.yaml import yaml, validate  # noqa: E401
+
+
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Config                                                               #
+# --------------------------------------------------------------------------- #
 
 
 @final
@@ -120,9 +135,22 @@ class Config(AuditLogger):
         try:
             with open(self.config_file, "r") as file:
                 self._data = yaml.safe_load(file)  # type: ignore
+
+            try:
+                schema = {
+                    "type": "object",
+                    "properties": {"debug": {"type": "boolean"}},
+                }
+                validate(instance=self._data, schema=schema)
+            except Exception as e:
+                self.error(
+                    msg="Config._load_settings",
+                    error=f"Config.validate error: {str(e)}",
+                )
+
         except FileNotFoundError as e:
             raise FileNotFoundError(f"Configuration file not found: {self.config_file}") from e
-        except yaml.YAMLError as e:  # type: ignore
+        except yaml.YAMLError as e:
             raise ValueError(f"Invalid YAML file: {self.config_file}. Error: {e}") from e
 
     @staticmethod
@@ -155,3 +183,8 @@ class Config(AuditLogger):
                 return item
 
         return {}
+
+
+# --------------------------------------------------------------------------- #
+# endregion Config                                                            #
+# --------------------------------------------------------------------------- #

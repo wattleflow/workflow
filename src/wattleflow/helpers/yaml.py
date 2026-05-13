@@ -1,4 +1,4 @@
-# Module name: yaml.py
+# Module name: helpers/yaml.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -13,18 +13,94 @@ two and four space blocks) without assuming a fixed indent step.
 """
 
 
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
+
+from __future__ import annotations
 import os
 import re
 from pathlib import Path
 from typing import Any, Optional, Union
 
 
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
 _KEY_RE = re.compile(r"^([^:\s\"'\[\]\{\}][^:\s]*)\s*:(?=\s|$)")
+
+# --------------------------------------------------------------------------- #
+# region Global methods                                                       #
+# --------------------------------------------------------------------------- #
+
+
+def validate(instance, schema) -> None:
+    if not isinstance(schema, dict):
+        raise ValueError("Schema must be a dict")
+
+    schema_type = schema.get("type")
+
+    # type check
+    if schema_type:
+        type_map = {
+            "object": dict,
+            "array": list,
+            "string": str,
+            "integer": int,
+            "number": (int, float),
+            "boolean": bool,
+            "null": type(None),
+        }
+
+        if schema_type not in type_map:
+            raise ValueError(f"Unsupported type: {schema_type}")
+
+        if not isinstance(instance, type_map[schema_type]):
+            raise TypeError(f"Expected type '{schema_type}', got '{type(instance).__name__}'")
+
+    # object validation
+    if schema_type == "object":
+        properties = schema.get("properties", {})
+        required = schema.get("required", [])
+
+        # required fields
+        for key in required:
+            if key not in instance:
+                raise ValueError(f"Missing required property: {key}")
+
+        # property validation
+        for key, value in instance.items():
+            if key in properties:
+                validate(value, properties[key])
+
+    # array validation
+    if schema_type == "array":
+        items_schema = schema.get("items")
+        if items_schema:
+            for item in instance:
+                validate(item, items_schema)
+
+    # numeric constraints
+    if isinstance(instance, (int, float)):
+        if "minimum" in schema and instance < schema["minimum"]:
+            raise ValueError(f"Value {instance} < minimum {schema['minimum']}")
+        if "maximum" in schema and instance > schema["maximum"]:
+            raise ValueError(f"Value {instance} > maximum {schema['maximum']}")
+
+
+# --------------------------------------------------------------------------- #
+# endregion Global methods                                                    #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region yaml                                                                 #
+# --------------------------------------------------------------------------- #
 
 
 class yaml:
     class YAMLError(Exception):
-        """Raised when the YAML source cannot be parsed."""
+        pass
 
     class _State:
         __slots__ = ("lines", "i")
@@ -74,8 +150,17 @@ class yaml:
 
         if len(s) >= 2 and s[0] == '"' and s[-1] == '"':
             _esc = {
-                "n": "\n", "t": "\t", "r": "\r", "\\": "\\", '"': '"',
-                "0": "\0", "b": "\b", "f": "\f", "v": "\v", "/": "/", "'": "'",
+                "n": "\n",
+                "t": "\t",
+                "r": "\r",
+                "\\": "\\",
+                '"': '"',
+                "0": "\0",
+                "b": "\b",
+                "f": "\f",
+                "v": "\v",
+                "/": "/",
+                "'": "'",
             }
             return re.sub(
                 r"\\(.)",
@@ -107,6 +192,7 @@ class yaml:
                 pass
 
         return s
+
     # endregion
 
     # region line preparation
@@ -125,6 +211,7 @@ class yaml:
             indent = len(no_comm) - len(no_comm.lstrip(" "))
             lines.append((indent, no_comm.strip()))
         return lines
+
     # endregion
 
     # region recursive parser
@@ -183,9 +270,7 @@ class yaml:
 
             key, sep, rest = content.partition(":")
             if not sep:
-                raise yaml.YAMLError(
-                    f"expected ':' in mapping at indent {map_indent}: {content!r}"
-                )
+                raise yaml.YAMLError(f"expected ':' in mapping at indent {map_indent}: {content!r}")
 
             key_parsed = self._parse_scalar(key.strip())
             rest = rest.strip()
@@ -198,6 +283,7 @@ class yaml:
 
             obj[key_parsed] = val
         return obj
+
     # endregion
 
     # region public API
@@ -236,4 +322,10 @@ class yaml:
                     pass
             return instance.parse_yaml(source)
         raise TypeError("safe_load accepts a file object, YAML string, or path.")
+
     # endregion
+
+
+# --------------------------------------------------------------------------- #
+# endregion yaml                                                              #
+# --------------------------------------------------------------------------- #

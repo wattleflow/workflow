@@ -4,8 +4,9 @@
 # License: Apache 2 Licence
 #
 # History:
-#   2024-06-01: Initial creation of the TextStream and TextFile. Stream classes for handling text-based streams with macro processing capabilities.
-#   2026-03-16: Added file size limit check to TextFileStream to prevent OOM issues with large files.
+#   2024-06-01: Initial creation of the TextStream and TextFile. Stream classes for handling
+#   text-based streams with macro processing capabilities.
+#   2026-03-16: Added file size limit check to TextFileStream to prevent OOM issues with large files
 
 
 """
@@ -14,11 +15,25 @@ Wattleflow framework. It provides structured tools for managing and
 processing stream-based naming operations.
 """
 
-__FILE_SIZE_LIMIT__ = 50 * 1024 * 1024  # 50 MB
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
 
+from __future__ import annotations
 from typing import Any, List, Optional
 from .macros import TextMacros
 from wattleflow.concrete.exception import AuditException
+
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+
+__FILE_SIZE_LIMIT__ = 50 * 1024 * 1024  # 50 MB
+
+# --------------------------------------------------------------------------- #
+# region Streans                                                              #
+# --------------------------------------------------------------------------- #
 
 
 class TextStream:
@@ -110,3 +125,8 @@ class TextFileStream(TextStream):
 
     def __repr__(self) -> str:
         return f'TextFileStream(content:"{self.content[:10]}", size: "{self.size}")'
+
+
+# --------------------------------------------------------------------------- #
+# endregion Streans                                                           #
+# --------------------------------------------------------------------------- #

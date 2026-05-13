@@ -1,33 +1,42 @@
-name: Build and Store Artifacts
+name: Build & Publish
 
 on:
   push:
     tags:
       - "v*"
 
-permissions:
-  contents: read
-
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v3
+      - uses: actions/checkout@v4
         with:
-          python-version: "3.9"
+          fetch-depth: 0  # OBAVEZNO za setuptools_scm
 
-      - name: Install dependencies
-        run: pip install build setuptools setuptools_scm wheel
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: |
+          pip install --upgrade pip
+          pip install build twine
 
       - name: Build package
         run: python -m build
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: python-package
-          path: dist/
+      - name: Verify version is clean
+        run: |
+          VERSION=$(python -c "import importlib.metadata as m; print(m.version('wattleflow-workflow'))")
+          echo "Version: $VERSION"
+          if [[ "$VERSION" == *dev* ]] || [[ "$VERSION" == *post* ]]; then
+            echo "Non-clean version detected!"
+            exit 1
+          fi
+
+      - name: Publish to PyPI
+        run: twine upload dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}

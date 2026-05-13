@@ -1,6 +1,6 @@
 # Module name: concrete/document.py
 # Author: (wattleflow@outlook.com)
-# Copyright: © 2022–2025 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
@@ -12,16 +12,28 @@ objects. Includes type-safe content updates, UTC-based metadata tracking,
 and consistent audit logging for document lifecycle operations.
 """
 
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
+
+from __future__ import annotations
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
-from logging import Handler, NOTSET
+from datetime import datetime
 from typing import Dict, Generic, Mapping, Optional, TypeVar, Type
 from types import MappingProxyType
 from uuid import uuid4
 from wattleflow.core import IAdaptee, IAdapter, ITarget, T
 from wattleflow.concrete import AuditLogger
 from wattleflow.constants import Event
+from wattleflow.helpers.datetime import Now
 
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Types                                                                #
+# --------------------------------------------------------------------------- #
 
 Adaptee = TypeVar("Adaptee", bound=IAdaptee)
 
@@ -29,10 +41,16 @@ Adaptee = TypeVar("Adaptee", bound=IAdaptee)
 _AUDIT_KEYS: frozenset = frozenset({"last_change_key", "last_change_time"})
 
 
+# --------------------------------------------------------------------------- #
+# endregion Types                                                             #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region GenericDocument                                                      #
+# --------------------------------------------------------------------------- #
+
+
 class Document(IAdaptee, Generic[T], AuditLogger, ABC):
-    # region FIX-01: Added missing '_expected_type' to __slots__
-    # '_expected_type' is assigned in __init__ but was absent from __slots__,
-    # causing AttributeError on first assignment in classes that use __slots__.
     __slots__ = (
         "_content",
         "_expected_type",
@@ -40,23 +58,15 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
         "_initialised",
         "_metadata",
     )
-    # endregion FIX-01
 
-    def __init__(
-        self,
-        content: T,
-        level: int = NOTSET,
-        handler: Optional[Handler] = None,
-    ):
+    def __init__(self, content: T, **kwargs):
+        level = kwargs.pop("level", "NOTSET")
+        handler = kwargs.pop("handler", None)
+
         IAdaptee.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
 
-        self.debug(
-            msg=Event.Constructor.value,
-            step=Event.Started.value,
-            level=level,
-            handler=handler,
-        )
+        self.debug(msg=Event.Constructor.value, step=Event.Started.value, kwargs=kwargs)
 
         # internal interface
         self._identifier: str = str(uuid4())
@@ -65,7 +75,7 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
         # lock after first assignment
         self._expected_type: Optional[Type[object]] = None
 
-        self.update_metadata(key="created_at", value=datetime.now(timezone.utc))
+        self.update_metadata(key="created_at", value=Now.utc())
         self.update_content(content=content)
 
         self.debug(msg=Event.Constructor.value, step=Event.Completed.value)
@@ -89,6 +99,9 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
     @abstractmethod
     def size(self) -> int: ...  # noqa: E704
 
+    def clean(self) -> None:
+        self.error(msg=Event.Clean.name, step=Event.Starting.name, error="NOT IMPLEMENTED")
+
     def specific_request(self) -> "Document":
         return self
 
@@ -100,9 +113,7 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
         )
 
         if content is None:
-            self._content = None  # Can clear the content
-            # Record the change directly — avoids calling update_metadata with
-            # reserved audit keys, which is now guarded (see FIX-06).
+            self._content = None
             self._metadata["last_change_key"] = "content"
             self._metadata["last_change_time"] = self.utc_time_stamp()
             return
@@ -164,7 +175,12 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
         )
 
     def utc_time_stamp(self) -> datetime:
-        return datetime.now(timezone.utc)
+        return Now.utc()
+
+    def __del__(self):
+        self.debug(msg=Event.Delete.name, step=Event.Starting.name)
+        self.warning(msg=Event.Delete.name, error="NOT IMPLEMENTED")
+        self.debug(msg=Event.Delete.name, step=Event.Completed.name)
 
     def __eq__(self, other: object) -> bool:
         return (
@@ -180,7 +196,16 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
         return f"{self.identifier}"
 
 
+# --------------------------------------------------------------------------- #
+# endregion GenericDocument                                                   #
+# --------------------------------------------------------------------------- #
+
 # Adapter with specific_request adaptee object call
+# --------------------------------------------------------------------------- #
+# region Adapter                                                              #
+# --------------------------------------------------------------------------- #
+
+
 class DocumentAdapter(IAdapter, Generic[T]):
     def __init__(self, adaptee: T):
         if not isinstance(adaptee, IAdaptee):
@@ -191,7 +216,16 @@ class DocumentAdapter(IAdapter, Generic[T]):
         return self._adaptee.specific_request()
 
 
+# --------------------------------------------------------------------------- #
+# endregion Adapter                                                           #
+# --------------------------------------------------------------------------- #
+
 # Facade implements ITarget and delegates access methods adaptee object
+# --------------------------------------------------------------------------- #
+# region Facade                                                               #
+# --------------------------------------------------------------------------- #
+
+
 class DocumentFacade(ITarget, Generic[Adaptee], ABC):
     __slots__ = ("_adapter",)
 
@@ -209,15 +243,16 @@ class DocumentFacade(ITarget, Generic[Adaptee], ABC):
 
     def __getattr__(self, attr: str):
         if attr.startswith("_"):
-            raise AttributeError(
-                f"'{self.__class__.__name__}' object has no attribute '{attr}'"
-            )
+            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
         adaptee = self._adapter.request()
         if hasattr(adaptee, attr):
             return getattr(adaptee, attr)
-        raise AttributeError(
-            f"'{self.__class__.__name__}' object has no attribute '{attr}'"
-        )
+        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
 
     def __repr__(self) -> str:
         return f"{self.name}:{getattr(self, 'identifier', '')}"
+
+
+# --------------------------------------------------------------------------- #
+# endregion Facade                                                            #
+# --------------------------------------------------------------------------- #
