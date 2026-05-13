@@ -23,7 +23,7 @@ classifiers = [
 
 dependencies = [
     "cryptography",
-    "wattleflow>=0.0.0.34",
+    "wattleflow>=0.0.0.35",
 ]
 
 [build-system]
