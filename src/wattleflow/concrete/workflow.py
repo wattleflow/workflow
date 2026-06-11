@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 import difflib
+import os
 from abc import abstractmethod, ABC
 from typing import Dict, List, Type
 from logging import getLogger
@@ -22,7 +23,6 @@ from wattleflow.concrete.manager import (
     DriverManager,
     ProcessorManager,
 )
-from wattleflow.helpers.attribute import Attribute
 from wattleflow.helpers.config_adapter import ConfigAdapter
 
 
@@ -82,6 +82,8 @@ class GenericWorkflow(IOriginator, AuditLogger, ABC):
             drivers=drivers,
             processors=processors,
         )
+
+        from wattleflow.helpers.attribute import Attribute
 
         Attribute.evaluate(self, adapter, ConfigAdapter)
         Attribute.evaluate(self, connections, ConnectionManager)
@@ -202,6 +204,11 @@ class WorkflowFactory:
 
         workflow_class = cls._resolve_section("workflows", workflow)
 
+        # Runtime env vars (e.g. TIKA_SERVER_JAR, JAVA_HOME) ----------- #
+        # Applied before connections/drivers/processors are built so any
+        # library that reads env at import-time (tika, pyspark) sees them.
+        cls._apply_runtime_env(workflow.get("runtime"))
+
         # Global audit logger settings --------------------------------- #
         global_audit = {
             "level": adapter.find("logging", "level", default="NOTSET"),
@@ -227,6 +234,45 @@ class WorkflowFactory:
     # ------------------------------------------------------------------ #
     # region Component builders
     # ------------------------------------------------------------------ #
+
+    # Known runtime keys map to env-vars consumed by external libraries.
+    # Anything not in this map is exported verbatim under runtime.env.
+    _RUNTIME_KEY_TO_ENV: Dict[str, str] = {
+        "tika_server_jar": "TIKA_SERVER_JAR",
+        "tika_path": "TIKA_PATH",
+        "tika_client_only": "TIKA_CLIENT_ONLY",
+        "tika_log_path": "TIKA_LOG_PATH",
+        "java_home": "JAVA_HOME",
+        "spark_home": "SPARK_HOME",
+        "pyspark_python": "PYSPARK_PYTHON",
+    }
+
+    @classmethod
+    def _apply_runtime_env(cls, runtime: dict | None) -> None:
+        if not runtime:
+            return
+        for key, env_name in cls._RUNTIME_KEY_TO_ENV.items():
+            value = runtime.get(key)
+            if value is None or value == "":
+                continue
+            os.environ[env_name] = str(value)
+            logger.debug(
+                msg="WorkflowFactory.runtime",
+                key=key,
+                env=env_name,
+                value=str(value),
+            )
+        extra = runtime.get("env") or {}
+        if isinstance(extra, dict):
+            for env_name, value in extra.items():
+                if value is None:
+                    continue
+                os.environ[str(env_name)] = str(value)
+                logger.debug(
+                    msg="WorkflowFactory.runtime",
+                    env=str(env_name),
+                    value=str(value),
+                )
 
     @classmethod
     def _audit(cls, config: dict, default: dict) -> dict:

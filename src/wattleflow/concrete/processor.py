@@ -9,6 +9,7 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+import gc
 from abc import abstractmethod, ABC
 from enum import Enum
 from logging import Handler
@@ -26,7 +27,6 @@ from wattleflow.concrete.memento import GenericMemento
 from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.constants.enums import Event
 from wattleflow.decorators.preset import PresetDecorator
-from wattleflow.helpers import Attribute
 from wattleflow.concrete.exception import PipelineException, ProcessorException
 from wattleflow.constants.enums import Operation
 
@@ -93,6 +93,7 @@ class GenericProcessor(IProcessor, IOriginator, AuditLogger, ABC):
         "_blackboard",
         "_current",
         "_cycle",
+        "_flush_per_cycle",
         "_fsm",
         "_generator",
         "_pipelines",
@@ -105,14 +106,35 @@ class GenericProcessor(IProcessor, IOriginator, AuditLogger, ABC):
         self,
         **kwargs,
     ):
+
         level = kwargs.pop("level", 0)
         handler: Optional[Handler] = kwargs.pop("handler", None)
-
         blackboard: Optional[IBlackboard] = kwargs.pop("blackboard", None)
         pipelines: Optional[List[IPipeline]] = kwargs.pop("pipelines", None)
+        flush_per_cycle = kwargs.pop("flush_per_cycle", None)
+        legacy_defer = kwargs.pop("defer_flush", None)
 
+        if flush_per_cycle is None and legacy_defer is not None:
+            flush_per_cycle = not bool(legacy_defer)
+        if flush_per_cycle is None:
+            flush_per_cycle = True
+
+        if blackboard is not None:
+            assert isinstance(blackboard, IBlackboard), (
+                "Expected IBlackboard. Found %s" % type(blackboard)
+            )
+        if pipelines is not None:
+            assert isinstance(pipelines, list), "Expected list. Found %s" % type(
+                pipelines
+            )
+
+        kwargs.pop("allowed", None)
         IProcessor.__init__(self)
-        self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
+        self._preset: PresetDecorator = PresetDecorator(
+            self,
+            allowed=self.ALLOWED,
+            **kwargs,
+        )
 
         IOriginator.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
@@ -122,16 +144,20 @@ class GenericProcessor(IProcessor, IOriginator, AuditLogger, ABC):
             step=Event.Starting.value,
             blackboard=blackboard,
             pipelines=pipelines,
+            flush_per_cycle=flush_per_cycle,
             kwargs=kwargs,
         )
 
-        if blackboard:
-            Attribute.evaluate(self, blackboard, IBlackboard)
-
-        if pipelines:
-            Attribute.evaluate(self, pipelines, list)
+        if legacy_defer is not None:
+            self.warning(
+                msg="config",
+                deprecated="defer_flush",
+                use="flush_per_cycle",
+                value=flush_per_cycle,
+            )
 
         self._cycle: int = 0
+        self._flush_per_cycle: bool = bool(flush_per_cycle)
         self._fsm: StateMachine = StateMachine(
             TRANSITIONS,
             ProcessorState.IDLE,
@@ -145,10 +171,9 @@ class GenericProcessor(IProcessor, IOriginator, AuditLogger, ABC):
 
         self.debug(
             msg=Event.Constructor.value,
-            step=Event.Completed.value,
+            step=Event.Completed.name,
             cycle=self._cycle,
             preset=self._preset,
-            state=self._fsm.state.name,
         )
 
     # Must be implemented if using PresetDecorator
@@ -169,18 +194,33 @@ class GenericProcessor(IProcessor, IOriginator, AuditLogger, ABC):
                 try:
                     self._blackboard.clean()
                 except Exception as e:
-                    self.error(Event.Deleting.name, member="_blackboard", error=e)
+                    name = self.__class__.__name__
+                    reason = f"{name} destructor error: {str(e)}"
+                    self.error(
+                        msg=Event.Deleting.name,
+                        member="_blackboard",
+                        reason=reason,
+                        # trace=traceback.format_exc(),
+                    )
                 self._blackboard = None
 
             self._current = None
             self._pipelines.clear()
             self._generator = None
             self._preset = None
-
-        except Exception:
-            pass
-
-        self.debug(Event.Delete.name, step=Event.Completed.name)
+        except Exception as e:
+            reason = (
+                "Destructor %s.__del__  error: %s" % self.__class__.__name__,
+                str(e),
+            )
+            self.error(
+                msg=Event.Deleting.name,
+                reason=reason,
+                # trace=traceback.format_exc(),
+            )
+        finally:
+            self.debug(Event.Delete.name, step=Event.Completed.name)
+            gc.collect()
 
     # endregion Private
 
@@ -194,6 +234,10 @@ class GenericProcessor(IProcessor, IOriginator, AuditLogger, ABC):
     def cycle(self) -> int:
         return self._cycle
 
+    @property
+    def flush_per_cycle(self) -> bool:
+        return self._flush_per_cycle
+
     # endregion Property
 
     @abstractmethod
@@ -206,11 +250,7 @@ class GenericProcessor(IProcessor, IOriginator, AuditLogger, ABC):
         return GenericMemento(cycle=self._cycle, state=self._fsm.state)
 
     def restore_state(self, memento: IMemento) -> None:
-        # if not isinstance(memento, ProcessorMemento):
-        #     raise ProcessorException(caller=self, error="Invalid memento")
-
         saved_state = memento.get_state()
-
         # LOAD recovery only valid from IDLE or FAILED — validate before mutating.
         if (saved_state, ProcessorAction.LOAD) not in TRANSITIONS:
             raise ProcessorException(
@@ -251,7 +291,7 @@ class GenericProcessor(IProcessor, IOriginator, AuditLogger, ABC):
         return False
 
     def start(self) -> None:
-        self.debug(msg=Event.Start.value, step=Event.Started.value)
+        self.debug(msg=Event.Start.value, step=Event.Started.name)
 
         if self._blackboard is None:
             raise ProcessorException(self, f"Missing {self.name!r} blackboard!")
@@ -275,10 +315,22 @@ class GenericProcessor(IProcessor, IOriginator, AuditLogger, ABC):
 
                     self._cycle += 1
                     self._fsm.apply(ProcessorAction.CYCLE_COMPLETED)
-                    self.blackboard.flush(self)
+                    if self._flush_per_cycle:
+                        self.blackboard.flush(caller=self)
                 except Exception as e:
-                    self.error(msg="Pipeline processing failed", error=str(e))
-                    raise PipelineException(caller=self, error=str(e)) from e
+                    reason = "%s.start error: Pipeline processing failed: %s" % (
+                        self.__class__.__name__,
+                        str(e),
+                    )
+                    self.error(
+                        msg=Event.Start.name,
+                        reason=reason,
+                    )
+                    raise PipelineException(
+                        caller=self,
+                        error=reason,
+                        # trace=traceback.format_exc()
+                    ) from e
 
             self._fsm.apply(ProcessorAction.RECORDS_PROCESSED)
 
@@ -292,14 +344,22 @@ class GenericProcessor(IProcessor, IOriginator, AuditLogger, ABC):
         self.debug(msg=Event.Start.name, step=Event.Completed.name)
 
     def register_blackboard(self, blackboard: IBlackboard) -> None:
-        self.debug(Event.Register.name, step=Event.Starting.name, blackboard=self._blackboard)
-        Attribute.evaluate(self, blackboard, IBlackboard)
+        self.debug(
+            Event.Register.name, step=Event.Starting.name, blackboard=self._blackboard
+        )
+        assert isinstance(blackboard, IBlackboard), (
+            "Expected IBlackboard. Found %s" % type(blackboard)
+        )
         self._blackboard = blackboard
-        self.debug(Event.Register.name, step=Event.Completed.name, added=self._blackboard)
+        self.debug(
+            Event.Register.name, step=Event.Completed.name, added=self._blackboard
+        )
 
     def register_pipeline(self, pipeline: IPipeline) -> None:
         self.debug(Event.Register.name, step=Event.Starting.name, pipeline=pipeline)
-        Attribute.evaluate(self, pipeline, IPipeline)
+        assert isinstance(pipeline, IPipeline), "Expected IPipeline. Found %s" % type(
+            pipeline
+        )
         self._pipelines.append(pipeline)
         self.debug(
             Event.Register.name,

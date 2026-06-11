@@ -233,7 +233,9 @@ class NotFoundException(AttributeError):
         except Exception:
             var_name = "Unknown Variable"
 
-        target_name = target.__name__ if isinstance(target, type) else type(target).__name__
+        target_name = (
+            target.__name__ if isinstance(target, type) else type(target).__name__
+        )
         msg = f"No [{var_name}] found in [{target_name}]"
         super().__init__(msg)
 
@@ -330,6 +332,10 @@ class ProcessorException(AuditException):
 
 
 class RepositoryException(AuditException):
+    pass
+
+
+class StrategyException(AuditException):
     pass
 
 

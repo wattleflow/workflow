@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 from enum import Enum
-from typing import Generic, Mapping, Optional, Tuple, TypeVar
+from typing import Callable, Generic, Mapping, Optional, Tuple, TypeVar
 from wattleflow.core import IStateMachine
 
 # --------------------------------------------------------------------------- #
@@ -69,4 +69,56 @@ class StateMachine(IStateMachine, Generic[State, Action]):
 
 # --------------------------------------------------------------------------- #
 # endregion StateMachine                                                      #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region GuardedStateMachine                                                  #
+# --------------------------------------------------------------------------- #
+
+
+class GuardedStateMachine(IStateMachine):
+    """One-shot guard wrapper for a StateMachine (GoF Decorator pattern).
+
+    Runs ``guard(inner)`` exactly once, before the first ``apply()`` call.
+    If the guard raises, the underlying transition does not happen. After a
+    successful guard the wrapper transparently delegates to the inner FSM.
+    """
+
+    __slots__ = ("_inner", "_guard", "_consumed")
+
+    def __init__(
+        self,
+        inner: StateMachine,
+        guard: Callable[[StateMachine], None],
+    ) -> None:
+        IStateMachine.__init__(self)
+        self._inner = inner
+        self._guard = guard
+        self._consumed = False
+        # Preserve the inner FSM's name so logs stay consistent.
+        self.name = getattr(inner, "name", self.__class__.__name__)
+
+    @property
+    def inner(self) -> StateMachine:
+        return self._inner
+
+    @property
+    def state(self):
+        return self._inner.state
+
+    def can(self, action) -> bool:
+        return self._inner.can(action)
+
+    def apply(self, action) -> None:
+        if not self._consumed:
+            self._guard(self._inner)
+            self._consumed = True
+        self._inner.apply(action)
+
+    def __repr__(self) -> str:
+        return f"Guarded({self._inner!r})"
+
+
+# --------------------------------------------------------------------------- #
+# endregion GuardedStateMachine                                               #
 # --------------------------------------------------------------------------- #

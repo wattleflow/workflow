@@ -10,19 +10,25 @@ extensions and raw byte content using magic signatures and content heuristics.
 Supports files downloaded from the web or read from local disk.
 """
 
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
 from __future__ import annotations
-
 import io
 import re
 from enum import Enum, auto
 from pathlib import Path
 from urllib.parse import urlparse
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
 
-
+# --------------------------------------------------------------------------- #
+# region Constants                                                            #
+# --------------------------------------------------------------------------- #
 # Module-level constants — defined here to avoid Enum member pollution
 # OLE2 Compound Document header shared by legacy .xls and .doc files
 _OLE2_MAGIC: bytes = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
-
 # Compiled pattern for log-line recognition (reused across calls)
 _LOG_RE: re.Pattern[str] = re.compile(
     r"(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2})"  # ISO-8601 timestamp
@@ -30,16 +36,21 @@ _LOG_RE: re.Pattern[str] = re.compile(
     r"|\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}",  # US date + time
     re.IGNORECASE,
 )
-
 # Extension → FileType mapping (populated once at class definition time)
 _EXT_MAP: dict[str, str] = {
+    ".avro": "AVRO",
     ".csv": "CSV",
     ".doc": "DOC",
-    ".docx": "DOC",
+    ".docx": "DOCX",
     ".json": "JSON",
     ".jsonld": "GRAPH",
     ".log": "LOG",
     ".graph": "GRAPH",
+    ".md": "MARKDOWN",
+    ".markdown": "MARKDOWN",
+    ".orc": "ORC",
+    ".pb": "PROTOBUF",
+    ".protobuf": "PROTOBUF",
     ".ttl": "GRAPH",
     ".n3": "GRAPH",
     ".nt": "GRAPH",
@@ -51,32 +62,53 @@ _EXT_MAP: dict[str, str] = {
     ".xls": "XLS",
     ".xlsx": "XLS",
 }
-
 # PNG signature — first 8 bytes of every PNG file per RFC 2083.
 _PNG_MAGIC: bytes = b"\x89PNG\r\n\x1a\n"
-
+# Apache Avro Object Container File — header magic "Obj\x01"
+_AVRO_MAGIC: bytes = b"Obj\x01"
+# Apache ORC — "ORC" at file start (writer-emitted) and again as the very
+# last 3 bytes of the postscript (mandatory per ORC v1 spec).
+_ORC_MAGIC: bytes = b"ORC"
+# Markdown heuristics — ATX heading, fenced code block, setext underline.
+_MD_RE: re.Pattern[str] = re.compile(
+    r"(?m)^(#{1,6}\s+\S"        # ATX heading: '# foo'
+    r"|```[\w]*$"                # fenced code block opener
+    r"|[-=]{3,}\s*$)"            # setext underline
+)
 # Maximum bytes read from disk during content-based detection (prevents OOM)
 _DETECT_MAX_BYTES: int = 50 * 1024 * 1024  # 50 MB
-
 # XLS stream names encoded as UTF-16LE (present in OLE2 directory sectors)
 _XLS_STREAM_UTF16: tuple[bytes, ...] = (
     b"W\x00o\x00r\x00k\x00b\x00o\x00o\x00k\x00",
     b"B\x00o\x00o\x00k\x00",
 )
-
 # DOC stream name encoded as UTF-16LE
-_DOC_STREAM_UTF16: bytes = b"W\x00o\x00r\x00d\x00D\x00o\x00c\x00u\x00m\x00e\x00n\x00t\x00"
+_DOC_STREAM_UTF16: bytes = (
+    b"W\x00o\x00r\x00d\x00D\x00o\x00c\x00u\x00m\x00e\x00n\x00t\x00"
+)
+# --------------------------------------------------------------------------- #
+# endregion Constants                                                         #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region Helpers                                                              #
+# --------------------------------------------------------------------------- #
 
 
 class FileType(Enum):
+    AVRO = auto()
     CSV = auto()
     DOC = auto()
+    DOCX = auto()
     DATAFRAME = auto()  # not detectable from content — assigned externally by callers
     JSON = auto()
     LOG = auto()
     GRAPH = auto()
+    MARKDOWN = auto()
+    ORC = auto()
     PDF = auto()
     PICKLE = auto()
+    PROTOBUF = auto()
     PNG = auto()
     TXT = auto()
     XLS = auto()
@@ -90,6 +122,10 @@ class FileType(Enum):
         unrecognised *and* the URI points to a local file, falls back to
         content-based detection by reading the file from disk.
         Remote URLs with unknown extensions return UNKNOWN without I/O.
+
+        Note: PROTOBUF and DATAFRAME have no magic header and are only
+        recognised by extension (``.pb`` / ``.protobuf``) or by explicit
+        caller assignment, respectively.
         """
         suffix = Path(urlparse(uri).path).suffix.lower()
         name = _EXT_MAP.get(suffix)
@@ -108,15 +144,19 @@ class FileType(Enum):
 
         Detection order:
           1. PDF      — %PDF magic header
-          2. OLE2     — legacy .xls / .doc (D0 CF 11 E0 …)
-          3. OOXML    — ZIP-based .xlsx / .docx (PK\\x03\\x04)
-          4. PICKLE   — protocol 2-5 magic (\\x80\\x02 … \\x80\\x05)
-          5. GRAPH    — JSON-LD (@context), Turtle (@prefix/@base), N-Triples
-          6. JSON     — UTF-8 starting with { or [
-          7. LOG      — lines with timestamps / log-level keywords
-          8. CSV      — consistent comma / semicolon / tab columns
-          9. TXT      — any valid UTF-8 text
-         10. UNKNOWN  — binary or unrecognised
+          2. PNG      — \\x89PNG\\r\\n\\x1a\\n magic
+          3. AVRO     — Obj\\x01 magic
+          4. ORC      — "ORC" at file start, or postscript tail
+          5. OLE2     — legacy .xls / .doc (D0 CF 11 E0 …)
+          6. OOXML    — ZIP-based .xlsx / .docx (PK\\x03\\x04)
+          7. PICKLE   — protocol 2-5 magic (\\x80\\x02 … \\x80\\x05)
+          8. GRAPH    — JSON-LD (@context), Turtle (@prefix/@base), N-Triples
+          9. JSON     — UTF-8 starting with { or [
+         10. MARKDOWN — heading / fenced code / setext heuristics
+         11. LOG      — lines with timestamps / log-level keywords
+         12. CSV      — consistent comma / semicolon / tab columns
+         13. TXT      — any valid UTF-8 text
+         14. UNKNOWN  — binary or unrecognised
         """
         if not data:
             return FileType.UNKNOWN
@@ -128,6 +168,15 @@ class FileType(Enum):
 
         if data[:8] == _PNG_MAGIC:
             return FileType.PNG
+
+        if data[:4] == _AVRO_MAGIC:
+            return FileType.AVRO
+
+        # ORC: writer emits "ORC" at file start; the postscript also ends
+        # with the magic. Checking both covers truncated reads of the head
+        # and full reads where only the tail is canonical.
+        if data[:3] == _ORC_MAGIC or data[-3:] == _ORC_MAGIC:
+            return FileType.ORC
 
         if data[:8] == _OLE2_MAGIC:
             return FileType._detect_ole2(data)
@@ -174,7 +223,7 @@ class FileType(Enum):
                     if info.filename.startswith("xl/"):
                         return FileType.XLS
                     if info.filename.startswith("word/"):
-                        return FileType.DOC
+                        return FileType.DOCX
         except Exception:  # BadZipFile, EOFError, ValueError, etc.
             pass
         return FileType.UNKNOWN
@@ -213,11 +262,19 @@ class FileType(Enum):
         if (
             stripped[0] == "<"
             and stripped.count("<") >= 2
-            and stripped[: stripped.find("\n", 0, 512) + 1 or 512].rstrip().endswith(".")
+            and stripped[: stripped.find("\n", 0, 512) + 1 or 512]
+            .rstrip()
+            .endswith(".")
         ):
             return FileType.GRAPH
 
         lines: list[str] = [ln for ln in stripped.splitlines() if ln.strip()]
+
+        # --- MARKDOWN ---
+        # Checked before LOG so that headings (# ...) and fenced code blocks
+        # are not mis-classified as log lines.
+        if _MD_RE.search(text):
+            return FileType.MARKDOWN
 
         # --- LOG ---
         if _is_log(lines):
@@ -257,3 +314,8 @@ def _detect_delimited(lines: list[str]) -> FileType | None:
         if counts[0] > 0 and len(set(counts)) <= 2:
             return FileType.CSV
     return None
+
+
+# --------------------------------------------------------------------------- #
+# endregion Helpers                                                           #
+# --------------------------------------------------------------------------- #

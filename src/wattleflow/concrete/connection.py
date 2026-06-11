@@ -181,6 +181,13 @@ class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[Connec
             error = "`connection_name` must be provided in connection kwargs!"
             raise ConnectionException(caller=self, error=error, **kwargs)
 
+        # Subclasses declare configurable kwargs via the ``ALLOWED`` class
+        # attribute; auto-inject it so callers do not have to repeat it.
+        if "allowed" not in kwargs:
+            class_allowed = getattr(type(self), "ALLOWED", None)
+            if class_allowed is not None:
+                kwargs["allowed"] = list(class_allowed)
+
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
         self._connection_name = connection_name
         self._lazy_loading = kwargs.pop("lazy_loading", False)
@@ -199,7 +206,7 @@ class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[Connec
 
         self.debug(
             msg=Event.Constructor.value,
-            step=Event.Completed.value,
+            step=Event.Completed.name,
             connection_name=self.connection_name,
             state=self._fsm.state.value,
             preset=repr(self._preset),
@@ -227,10 +234,10 @@ class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[Connec
 
     @contextmanager
     def context(self) -> Generator[Connection, None, None]:
-        self.debug(msg=Event.Context.value, step=Event.Started.value, fnc="context")
+        self.debug(msg=Event.Context.value, step=Event.Started.name, fnc="context")
         with self.connect() as conn:
             yield conn
-        self.debug(msg=Event.Context.value, step=Event.Completed.value, fnc="context")
+        self.debug(msg=Event.Context.value, step=Event.Completed.name, fnc="context")
 
     # endregion Context handling
 
@@ -238,14 +245,14 @@ class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[Connec
         try:
             self.debug(msg="__del__", step=Event.Starting.value)
             self.ensure_closed()
-            self.debug(msg="__del__", step=Event.Completed.value)
+            self.debug(msg="__del__", step=Event.Completed.name)
         except Exception as e:
             self.warning(msg="__del__", error=f"Caught during __del__: {e}")
 
     def __enter__(self):
         self.debug(msg=Event.Enter.value, step=Event.Starting.value, fnc="__enter__")
         self._context = self.connect()
-        self.debug(msg=Event.Enter.value, step=Event.Completed.value, fnc="__enter__")
+        self.debug(msg=Event.Enter.value, step=Event.Completed.name, fnc="__enter__")
         return self._context.__enter__()
 
     def __exit__(self, exc_type, exc, tb):
@@ -359,16 +366,16 @@ class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[Connec
 
     def request(self, **kwargs: Any) -> Any:
         action = kwargs.get("action")
-        self.debug(msg=Event.Operation.value, step=Event.Started.value, action=action)
+        self.debug(msg=Event.Operation.value, step=Event.Started.name, action=action)
 
         if action is Operation.Connect:
             result = self.ensure_created()
-            self.debug(msg=Event.Operation.value, step=Event.Completed.value, action=action)
+            self.debug(msg=Event.Operation.value, step=Event.Completed.name, action=action)
             return result
 
         if action is Operation.Disconnect:
             result = self.ensure_closed()
-            self.debug(msg=Event.Operation.value, step=Event.Completed.value, action=action)
+            self.debug(msg=Event.Operation.value, step=Event.Completed.name, action=action)
             return result
 
         raise RuntimeError(f"Unknown action: {action}")

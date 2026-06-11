@@ -74,9 +74,10 @@ class ConnectionManager(IObserver, AuditLogger):
                 errors.append(f"{name}: {e}")
 
         if errors:
-            self.error(msg="__del__", error=f"Errors during cleanup: {errors}")
+            reason = ("Destructor %s errors: %s" % self.__class__.__name__, errors)
+            self.error(msg=Event.Delete.name, reason=reason)
         else:
-            self.debug(msg="__del__", step=Event.Completed.value)
+            self.debug(msg=Event.Delete.name, step=Event.Completed.name)
 
         self._connections.clear()
 
@@ -99,13 +100,19 @@ class ConnectionManager(IObserver, AuditLogger):
             # return self._connections[name]._connected if success else False
             return success
         except Exception as e:
-            self.error(msg="Failed to disconnect!", name=name, error=str(e), **kwargs)
+            reason = "Disconnect %s error: %s" % self.__class__.__name__, str(e)
+            self.error(msg="Failed to disconnect!", name=name, reason=reason)
             return False
 
     def get_connection(self, name: str) -> Connection:
         if name not in self._connections:
+            error = (
+                "%s.get_connection error: Connection name not registered!" % self.__class__.__name__
+            )
             raise ConnectionManagerException(
-                caller=self, error=f"Connection '{name}' is not registered!"
+                caller=self,
+                name=name,
+                error=error,
             )
         return self._connections[name]
 
@@ -115,11 +122,14 @@ class ConnectionManager(IObserver, AuditLogger):
         connection_name: str = kwargs.pop("connection_name", connection.connection_name)
 
         if connection_name is None:
+            error = (
+                "%s.register_connection error: Connection name is required!"
+                % self.__class__.__name__
+            )
             raise ConnectionManagerException(
                 caller=self,
-                error="Connection name is required for registration!",
                 connection=connection,
-                **kwargs,
+                error=error,
             )
 
         if connection_name in self._connections:
@@ -184,12 +194,13 @@ class DriverManager(IObserver, AuditLogger):
                 errors.append(f"{name}: {e}")
 
         if errors:
-            self.error(msg="__del__", error=f"Errors during cleanup: {errors}")
+            reason = "Destructor %s.__del__ error: %s" % self.__class__.__name__, errors
+            self.error(msg=Event.Delete.name, reason=reason)
         else:
-            self.debug(msg="__del__", step=Event.Completed.value)
+            self.debug(msg=Event.Delete.name, step=Event.Completed.name)
 
         self._drivers.clear()
-        self.debug(msg="__del__", step=Event.Completed.name)
+        self.debug(msg=Event.Delete.name, step=Event.Completed.name)
 
     def __hash__(self) -> str:
         return abs(hash(id(self)))
@@ -297,7 +308,7 @@ class ProcessorManager(IObserver, AuditLogger):
         if errors:
             self.error(msg="__del__", error=f"Errors during cleanup: {errors}")
         else:
-            self.debug(msg="__del__", step=Event.Completed.value)
+            self.debug(msg="__del__", step=Event.Completed.name)
 
         self._processors.clear()
         self.debug(msg=Event.Delete.name, step=Event.Completed.name)

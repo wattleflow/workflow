@@ -10,6 +10,7 @@ license = "Apache-2.0"
 authors = [{ name = "wattleflow", email = "wattleflow@outlook.com" }]
 keywords = ["wattleflow", "workflow", "data", "engineering", "framework", "python", "library", "software engineering"]
 requires-python = ">=3.10"
+
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python :: 3.11",
@@ -39,6 +40,11 @@ documentation = "https://github.com/wattleflow/workflow.git"
 package-dir = {"" = "src"}
 include-package-data = false
 
+[tool.setuptools.package-data]
+# Vendored OSCAL resources (ASD ISM catalog/profiles, NIST->ISM crosswalk) must
+# ship with the wheel; the loaders read them at runtime.
+"wattleflow.oscal" = ["resources/**/*.json"]
+
 #[tool.setuptools_scm]
 #write_to = "src/wattleflow/concrete/_version.py"
 #version_scheme = "post-release"
@@ -51,11 +57,13 @@ fallback_version = "0.0.0"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-exclude = ["wattleflow.api*"]
+# wattleflow.core ships in the separate `wattleflow` dependency (reached here via
+# a dev symlink); api is a FastAPI MVC layer kept out of the core package.
+exclude = ["wattleflow.api*", "wattleflow.core*"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B"]

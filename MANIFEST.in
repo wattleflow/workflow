@@ -1,22 +1,39 @@
+# Source distribution contents — wattleflow-workflow (stdli) only.
+#
+# Project builds the wheel FROM this sdist, so pruning here keeps
+# third-party-coupled modules out of the wheel as well. Core ships:
+#   concrete + constants + decorators (incl. oscal glue) + oscal engine
+#   + the import-clean helpers subset.
+# Specializations (connections/, drivers/, processors/, pipelines/, documents/,
+# strategies/, mappers/, api/, blackboards/, ...) and the third-party-coupled
+# helpers move to the separate wattleflow projects / wattleflow-cryptography
+# / examples projects (zero-trust packaging).
+#
+# "import-clean" = importable with only wattleflow-core (stdlib) + wattleflow-workflow + cryptography;
+# any third-party use is lazy/optional (try/except fallback or in-function import),
+# so installing this wheel never forces a third-party dependency.
+
 global-exclude *
+global-exclude .*
+global-exclude *.pyc
+global-exclude *.json
+global-exclude *.yaml
+global-exclude __pycache__/*
 
-include src/concrete/**/*.py
-include src/constants/**/*.py
-include src/decorators/**/*.py
-include src/doc/**/*
-include src/helpers/**/*.py
-include src/managers/**/*.py
-include src/mappers/**/*.py
-include src/orchestrators/**/*.py
-include src/mappers/**/*.py
+# --- Clean core packages ---
+recursive-include src/wattleflow/concrete *.py
+recursive-include src/wattleflow/constants *.py
+recursive-include src/wattleflow/decorators *.py
+recursive-include src/wattleflow/helpers *.py
 
-exclude *.log
-exclude *.tmp
-exclude *.yaml
 
-prune tests/
-prune docs/
-prune data/
+# --- Drop third-party-coupled helpers not used by the core (-> wattleflow-processors) ---
+recursive-exclude src/wattleflow/helpers/converters *.py
+exclude src/wattleflow/helpers/generators.py
+exclude src/wattleflow/helpers/image_guard.py
+exclude src/wattleflow/helpers/protobuf.py
 
-include README.md LICENSE pyproject.toml
-include project.toml
+# --- Never ship the core (ships via the separate project dependency) ---
+prune src/wattleflow/core
+
+include README.md LICENSE pyproject.toml requirements-dev.txt

@@ -1,4 +1,4 @@
-# Module name: cron_job.py
+# Module name: schedulers/cron_job.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -23,7 +23,7 @@ from constants.enums import Event
 # --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
-# region Imports                                                              #
+# region Classes                                                              #
 # --------------------------------------------------------------------------- #
 
 
@@ -52,5 +52,5 @@ class CronJobScheduler(Scheduler):
 
 
 # --------------------------------------------------------------------------- #
-# endregion Imports                                                           #
+# endregion Classes                                                           #
 # --------------------------------------------------------------------------- #

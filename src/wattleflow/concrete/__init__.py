@@ -26,7 +26,7 @@ from .pipeline import GenericPipeline
 from .processor import GenericProcessor
 from .repository import GenericRepository
 from .scheduler import Scheduler
-from .state_machine import StateMachine
+from .state_machine import GuardedStateMachine, StateMachine
 from .strategy import (
     Strategy,
     StrategyGenerate,
@@ -37,32 +37,18 @@ from .strategy import (
 from .workflow import GenericWorkflow, WorkflowFactory
 
 __all__ = [
-    "AllowedKeysValidator",
-    "AllowedValuesValidator",
-    "AuditLogger",
     "AsyncHandler",
-    "AwsSecretsResolver",
-    "AzureKeyVaultResolver",
-    "Config",
-    "EnvVarResolver",
-    "GcpSecretResolver",
-    "IConfigValidator",
-    "NonEmptyValidator",
-    "RequiredKeysValidator",
-    "SecretResolverChain",
-    "TypeValidator",
-    "VaultResolver",
-    "ConnectionManager",
+    "AuditLogger",
     "Connection",
     "ConnectionAction",
+    "ConnectionManager",
     "ConnectionState",
-    "GenericConnection",
     "Document",
     "DocumentAdapter",
     "DocumentFacade",
     "DriverAction",
-    "DriverMetadata",
     "DriverManager",
+    "DriverMetadata",
     "DriverState",
     "GenericBlackboard",
     "GenericConnection",
@@ -72,9 +58,8 @@ __all__ = [
     "GenericProcessor",
     "GenericRepository",
     "GenericWorkflow",
+    "GuardedStateMachine",
     "LazyDriverProxy",
-    "MementoClass",
-    "ObservableClass",
     "Orchestrator",
     "ProcessorManager",
     "Scheduler",

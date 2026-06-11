@@ -4,8 +4,19 @@
 # License: Apache 2 Licence
 
 
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
 from __future__ import annotations
 from enum import Enum
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------------------- #
+# region Constants                                                            #
+# --------------------------------------------------------------------------- #
 
 
 # Connection status
@@ -29,15 +40,17 @@ class EventLog(Enum):
     VERSION = "0.0.0.1"
 
 
+# Logging format
 class LogFormat(Enum):
-    DEFAULT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    Detailed = "%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(filename)s:%(lineno)d"
+    DEFAULT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+    Detailed = "%(asctime)s - %(levelname)s - %(name)s - %(message)s - %(filename)s:%(lineno)d"
     Custom = (
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(src_filename)s:%(src_lineno)d"  # noqa: E501
+        "%(asctime)s - %(levelname)s - %(name)s - %(message)s - %(src_filename)s:%(src_lineno)d"
     )
-    JSON = '{"time": "%(asctime)s", "name": "%(name)s", "level": "%(levelname)s", "message": "%(message)s"}'  # noqa: E501
+    JSON = '{"time": "%(asctime)s", "name": "%(name)s", "level": "%(levelname)s", "message": "%(message)s"}'
 
 
+# Protective markings and classification levels
 class ProtectiveMarkings(Enum):
     BASELINE = "678bf03b-47ad-9601-2e4b-7cf24f90a91a"
     PROTECTED = "a2da5a89-14a4-3f9d-2ff7-883c5125f70c"
@@ -48,6 +61,7 @@ class ProtectiveMarkings(Enum):
     VERSION = "0.0.0.1"
 
 
+# Wattleflow OSCAL identifiers for audit and compliance
 class WattleflowOSCAL(Enum):
     VERSION = "0.0.0.1"
     RELEASE_DATE = "2024/10/10"
@@ -56,3 +70,8 @@ class WattleflowOSCAL(Enum):
     GUIDELINES_FOR_SOFTWARE_DEVELOPMENT = "506198a8-7ae8-4c95-8b7b-2a4833cfab4b"
     BEST_PRACTICES_FOR_EVENT_LOGGING_AND_THREAT_DETECTION = "b95c4745-572a-4121-b4e1-d0baa90a84fc"
     WINDOWS_EVENT_LOGGING_AND_FORWARDING = "de239dae-d1e8-4969-9680-ef3444d32a83"
+
+
+# --------------------------------------------------------------------------- #
+# endregion Constants                                                         #
+# --------------------------------------------------------------------------- #

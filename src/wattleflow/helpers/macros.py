@@ -20,7 +20,9 @@ from typing import List, Tuple
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
-ADD_VALUE_ERROR = "Tuple macro must be: (pattern, replacement) or (pattern, replacement, flags)."
+ADD_VALUE_ERROR = (
+    "Tuple macro must be: (pattern, replacement) or (pattern, replacement, flags)."
+)
 
 # Detects common catastrophic backtracking structures:
 #   (a+)+  (a*)* (a+)* (a?)+  and quantified groups followed by { repetition
@@ -93,18 +95,24 @@ class TextMacros:
                         raise ValueError(ADD_VALUE_ERROR)
                 elif isinstance(macro, dict):
                     if "pattern" not in macro or "replacement" not in macro:
-                        raise ValueError("Dict macro must contain 'pattern' and 'replacement'.")
+                        raise ValueError(
+                            "Dict macro must contain 'pattern' and 'replacement'."
+                        )
                     pattern = macro["pattern"]
                     replacement = macro["replacement"]
                     flags = macro.get("flags", self.flag)
                 else:
-                    raise ValueError(f"Macro must be tuple or dict, got {type(macro).__name__}")
+                    raise ValueError(
+                        f"Macro must be tuple or dict, got {type(macro).__name__}"
+                    )
 
                 _check_redos(pattern)
                 try:
                     compiled = re.compile(pattern, flags)
                 except re.error as e:
-                    raise re.error(f"Invalid pattern {pattern!r} (flags={flags}): {e}") from e
+                    raise re.error(
+                        f"Invalid pattern {pattern!r} (flags={flags}): {e}"
+                    ) from e
 
                 # self._validate_replacement(compiled, replacement)
                 self._compiled.append((compiled, replacement))
@@ -117,7 +125,11 @@ class TextMacros:
                 )
                 continue
 
-    def run(self, text, flag=re.IGNORECASE):
+    def run(self, text: str) -> str:
+        # Flags are baked into each compiled pattern during add().
+        # Pattern.sub's 3rd positional arg is `count`, not flags — passing
+        # re.IGNORECASE (int value 2) here silently capped substitutions at 2.
+        result = text
         for pattern, replacement in self._compiled:
-            text = pattern.sub(replacement, text, flag)
-        return text
+            result = pattern.sub(replacement, result)
+        return result

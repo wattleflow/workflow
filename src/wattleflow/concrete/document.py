@@ -66,7 +66,7 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
         IAdaptee.__init__(self)
         AuditLogger.__init__(self, level=level, handler=handler)
 
-        self.debug(msg=Event.Constructor.value, step=Event.Started.value, kwargs=kwargs)
+        self.debug(msg=Event.Constructor.value, step=Event.Started.name, kwargs=kwargs)
 
         # internal interface
         self._identifier: str = str(uuid4())
@@ -78,7 +78,7 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
         self.update_metadata(key="created_at", value=Now.utc())
         self.update_content(content=content)
 
-        self.debug(msg=Event.Constructor.value, step=Event.Completed.value)
+        self.debug(msg=Event.Constructor.value, step=Event.Completed.name)
 
     @property
     def content(self) -> T:
@@ -100,7 +100,11 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
     def size(self) -> int: ...  # noqa: E704
 
     def clean(self) -> None:
-        self.error(msg=Event.Clean.name, step=Event.Starting.name, error="NOT IMPLEMENTED")
+        self.debug(msg=Event.Clean.name, step=Event.Starting.name)
+        self._content = None
+        self._metadata.clear()
+        # self._expected_type = None
+        self.debug(msg=Event.Clean.name, step=Event.Completed.name)
 
     def specific_request(self) -> "Document":
         return self
@@ -134,7 +138,7 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
     def update_metadata(self, key: str, value: object) -> None:
         self.debug(
             msg=Event.Update.value,
-            step=Event.Started.value,
+            step=Event.Started.name,
             key=key,
             value=value,
         )
@@ -171,16 +175,17 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
 
         self.debug(
             msg=Event.Update.value,
-            step=Event.Completed.value,
+            step=Event.Completed.name,
         )
 
     def utc_time_stamp(self) -> datetime:
         return Now.utc()
 
     def __del__(self):
-        self.debug(msg=Event.Delete.name, step=Event.Starting.name)
-        self.warning(msg=Event.Delete.name, error="NOT IMPLEMENTED")
-        self.debug(msg=Event.Delete.name, step=Event.Completed.name)
+        try:
+            self.clean()
+        except Exception:
+            pass
 
     def __eq__(self, other: object) -> bool:
         return (
@@ -243,11 +248,15 @@ class DocumentFacade(ITarget, Generic[Adaptee], ABC):
 
     def __getattr__(self, attr: str):
         if attr.startswith("_"):
-            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
+            raise AttributeError(
+                f"'{self.__class__.__name__}' object has no attribute '{attr}'"
+            )
         adaptee = self._adapter.request()
         if hasattr(adaptee, attr):
             return getattr(adaptee, attr)
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
+        raise AttributeError(
+            f"'{self.__class__.__name__}' object has no attribute '{attr}'"
+        )
 
     def __repr__(self) -> str:
         return f"{self.name}:{getattr(self, 'identifier', '')}"

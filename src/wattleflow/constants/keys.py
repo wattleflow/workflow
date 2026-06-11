@@ -1,12 +1,15 @@
-# Module name: keys.py
+# Module name: constants/keys.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
+# --------------------------------------------------------------------------- #
+# region Constants                                                            #
+# --------------------------------------------------------------------------- #
+
 # All keys, must be in a small caps.
 KEY_AUDIT_MANAGER = "audit_manager"
-
 KEY_NAME = "name"
 KEY_CONFIG_FILE_NAME = "config.yaml"
 
@@ -94,3 +97,7 @@ KEY_ENGINE = "engine"
 KEY_DRIVER = "driver"
 KEY_URL = "url"
 KEY_VERSION = "version"
+
+# --------------------------------------------------------------------------- #
+# endregion Constants                                                         #
+# --------------------------------------------------------------------------- #

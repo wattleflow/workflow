@@ -17,7 +17,6 @@ from wattleflow.concrete import AuditLogger
 from wattleflow.concrete.exception import AuditException
 from wattleflow.constants import Event
 from wattleflow.decorators.preset import PresetDecorator
-from wattleflow.helpers import Attribute
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -42,6 +41,8 @@ class PipelineError(AuditException):
 
 
 class GenericPipeline(IPipeline, AuditLogger, ABC):
+    # __slots__ = ("_preset",)
+
     def __init__(
         self,
         level: int = NOTSET,
@@ -52,7 +53,7 @@ class GenericPipeline(IPipeline, AuditLogger, ABC):
         AuditLogger.__init__(self, level=level, handler=handler)
 
         self.debug(
-            msg=Event.Constructor.value,
+            msg=Event.Constructor.name,
             level=level,
             handler=handler,
             **kwargs,
@@ -66,7 +67,15 @@ class GenericPipeline(IPipeline, AuditLogger, ABC):
             try:
                 del self._preset
             except Exception as e:
-                self.error(msg=Event.Delete.name, preset=self._preset, error=str(e))
+                reason = (
+                    "Destructor %s.__del__ error: %s" % self.__class__.__name__,
+                    str(e),
+                )
+                self.error(
+                    msg=Event.Delete.name,
+                    preset=self._preset,
+                    reason=reason,
+                )
 
     # Must be implemented if using PresetDecorator
     def __getattr__(self, name: str) -> Any:
@@ -79,6 +88,13 @@ class GenericPipeline(IPipeline, AuditLogger, ABC):
     # endregion
 
     @abstractmethod
+    def transform(
+        self,
+        processor: IProcessor,
+        facade: ITarget,
+        **kwargs,
+    ) -> Any: ...
+
     def process(
         self,
         processor: IProcessor,
@@ -86,15 +102,37 @@ class GenericPipeline(IPipeline, AuditLogger, ABC):
         **kwargs,
     ) -> None:
         self.debug(
-            msg=Event.Process.value,
-            step=Event.Starting.value,
+            msg=Event.Process.name,
+            step=Event.Starting.name,
             processor=processor,
             facade=facade,
-            **kwargs,
         )
-
-        Attribute.evaluate(caller=self, target=processor, expected_type=IProcessor)
-        Attribute.evaluate(caller=self, target=facade, expected_type=ITarget)
+        result = None
+        try:
+            assert isinstance(processor, IProcessor), (
+                "Expected IProcessor. Found %s" % type(processor)
+            )
+            assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(
+                facade
+            )
+            self.transform(processor, facade, **kwargs)
+        except AssertionError as e:
+            self.error(msg=Event.Process.name, step=Event.Failed.name, error=str(e))
+            raise PipelineError(str(e)) from e
+        except Exception as e:
+            error = "%s.process error: %s" % (self.__class__.__name__, str(e))
+            self.error(msg=Event.Process.name, step=Event.Failed.name, reason=error)
+            raise PipelineError(
+                caller=self,
+                error=error,
+                # trace=traceback.format_exc(),
+            ) from e
+        finally:
+            self.debug(
+                msg=Event.Process.name,
+                step=Event.Completed.name,
+                result=result,
+            )
 
 
 # --------------------------------------------------------------------------- #
