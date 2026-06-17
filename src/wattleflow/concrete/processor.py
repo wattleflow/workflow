@@ -128,11 +128,11 @@ class GenericProcessor(IProcessor, IOriginator, AuditLogger, ABC):
                 pipelines
             )
 
-        kwargs.pop("allowed", None)
+        allowed = kwargs.pop("allowed", getattr(self, "ALLOWED", []))
         IProcessor.__init__(self)
         self._preset: PresetDecorator = PresetDecorator(
             self,
-            allowed=self.ALLOWED,
+            allowed=allowed,
             **kwargs,
         )
 

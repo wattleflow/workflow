@@ -1,8 +1,12 @@
 # WattleFlow Workflow Framework
+![WattleFlow Logo](https://github.com/wattleflow/core/raw/default/src/wattleflow/logo/wattleflow.png)
 
-![WattleFlow Logo](doc/wattleflow.png)
+[![PyPI version](https://img.shields.io/pypi/v/wattleflow-workflow.svg)](https://pypi.org/project/wattleflow-workflow/)
+[![Python versions](https://img.shields.io/pypi/pyversions/wattleflow-workflow.svg)](https://pypi.org/project/wattleflow-workflow/)
+[![License](https://img.shields.io/pypi/l/wattleflow-workflow.svg)](https://github.com/wattleflow-workflow/core/blob/default/LICENSE)
 
-WattleFlow—graceful flow,
+---
+**WattleFlow** — graceful flow,
 modular, scaled with purpose,
 patterns guide the stream,
 extensible, clear design,
@@ -12,12 +16,13 @@ built to last and grow.
 
 | Characteristic           | Value                                                                   |
 | ------------------------ | ----------------------------------------------------------------------- |
-| **Version**              | 0.0.0.67 (latest release)                                               |
-| **License**              | Apache 2.0 License                                                      |
-| **Python Compatibility** | Python >=3.11                                                           |
-| **Dependencies**         | wattleflow                                                              |
+| **Version**              | [![PyPI version](https://img.shields.io/pypi/v/wattleflow-workflow.svg)](https://pypi.org/project/wattleflow-workflow/) (latest release) |
+| **License**              | [![License](https://img.shields.io/pypi/l/wattleflow-workflow.svg)](https://github.com/wattleflow-workflow/core/blob/default/LICENSE) |
+| **Python Compatibility** | [![Python versions](https://img.shields.io/pypi/pyversions/wattleflow-workflow.svg)](https://pypi.org/project/wattleflow-workflow/)|
+| **Dependencies**         | [wattleflow-core](https://www.github.com/wattleflow/core.git),[wattleflow-oscal](https://www.github.com/wattleflow/oscal.git) |
 | **Size**                 | nimble                                                                  |
-| **Documentation**        | [WattleFlow Core Documentation](https://github.com/wattleflow/docs.git) |
+| **Documentation**        | [Wattleflow **Core** Documentation](https://github.com/wattleflow/docs.git) |
+
 
 
 # WattleFlow Workflow

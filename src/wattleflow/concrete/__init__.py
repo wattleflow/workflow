@@ -24,7 +24,7 @@ from .memento import GenericMemento
 from .orchestrator import Orchestrator
 from .pipeline import GenericPipeline
 from .processor import GenericProcessor
-from .repository import GenericRepository
+from .repository import GenericRepository, RepositoryWithDriver
 from .scheduler import Scheduler
 from .state_machine import GuardedStateMachine, StateMachine
 from .strategy import (
@@ -57,6 +57,7 @@ __all__ = [
     "GenericPipeline",
     "GenericProcessor",
     "GenericRepository",
+    "RepositoryWithDriver",
     "GenericWorkflow",
     "GuardedStateMachine",
     "LazyDriverProxy",
