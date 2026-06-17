@@ -11,7 +11,6 @@ modular, scaled with purpose,
 patterns guide the stream,
 extensible, clear design,
 built to last and grow.
-
 ---
 
 | Characteristic           | Value                                                                   |

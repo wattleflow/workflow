@@ -2,8 +2,7 @@
 
 [project]
 name = "wattleflow-workflow"
-# dynamic = ["version"]
-version = "0.0.0.68"
+version = "0.0.0.69"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"
@@ -24,7 +23,7 @@ classifiers = [
 
 dependencies = [
     "cryptography",
-    "wattleflow>=0.0.0.35",
+    "wattleflow>=0.0.0.37",
 ]
 
 [build-system]
