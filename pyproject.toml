@@ -3,13 +3,13 @@
 [project]
 name = "wattleflow-workflow"
 # dynamic = ["version"]
-version = "0.0.0.67"
+version = "0.0.0.68"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"
 authors = [{ name = "wattleflow", email = "wattleflow@outlook.com" }]
 keywords = ["wattleflow", "workflow", "data", "engineering", "framework", "python", "library", "software engineering"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 classifiers = [
     "Development Status :: 5 - Production/Stable",
