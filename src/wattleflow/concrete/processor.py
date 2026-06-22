@@ -17,7 +17,6 @@ from typing import Any, Generator, List, Optional
 from wattleflow.core import (
     IBlackboard,
     IOriginator,
-    IMemento,
     IPipeline,
     IProcessor,
     ITarget,
@@ -246,10 +245,10 @@ class GenericProcessor(IProcessor, IOriginator, AuditLogger, ABC):
 
     # region Memento
 
-    def save_state(self) -> IMemento:
+    def save_state(self) -> GenericMemento:
         return GenericMemento(cycle=self._cycle, state=self._fsm.state)
 
-    def restore_state(self, memento: IMemento) -> None:
+    def restore_state(self, memento: GenericMemento) -> None:
         saved_state = memento.get_state()
         # LOAD recovery only valid from IDLE or FAILED — validate before mutating.
         if (saved_state, ProcessorAction.LOAD) not in TRANSITIONS:

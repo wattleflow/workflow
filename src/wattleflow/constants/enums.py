@@ -30,10 +30,10 @@ class Classification(Enum):
 
 # Classification DLM
 class ClassificationDLM(Enum):
-    CABINET = "CABINET"
-    LEGAL_PREVILEGE = "Legal Privilege"
     PERSONAL = "Personal"
     SENSITIVE = "Sensitive"
+    LEGAL_PREVILEGE = "Legal Privilege"
+    CABINET = "CABINET"
     UNCLASSIFIED = "UNCLASSIFIED"
     UNDEFINED = "Undefined"
 

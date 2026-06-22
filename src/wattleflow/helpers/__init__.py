@@ -23,6 +23,7 @@ from .config_validator import (
 )
 from .datetime import Now
 from .dictionaries import AttributeDict, Dictionary
+from .files import FileScanner
 from .handlers import TraceHandler
 from .localmodels import DownloadedModels, StoredModels
 from .macros import TextMacros
@@ -62,6 +63,7 @@ __all__ = [
     "ClassLoader",
     "ConfigValidator",
     "DequeList",
+    "FileScanner",
     "ValidationError",
     "validate_config_file",
     "FileStorage",

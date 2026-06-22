@@ -23,7 +23,6 @@ import re
 from pathlib import Path
 from typing import Any, Optional, Union
 
-
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #

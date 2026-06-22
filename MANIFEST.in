@@ -29,7 +29,7 @@ recursive-include src/wattleflow/helpers *.py
 
 # --- Drop third-party-coupled helpers not used by the core (-> wattleflow-processors) ---
 recursive-exclude src/wattleflow/helpers/converters *.py
-exclude src/wattleflow/helpers/generators.py
+exclude src/wattleflow/helpers/*.bak
 exclude src/wattleflow/helpers/image_guard.py
 exclude src/wattleflow/helpers/protobuf.py
 

@@ -4,6 +4,7 @@
 # License: Apache 2 Licence
 
 
+# region Example
 """
 # Examples:
 
@@ -24,7 +25,7 @@ except Exception as e:
     print(str(e))
 
 """
-
+# endregion Example
 
 # --------------------------------------------------------------------------- #
 # region Imports                                                              #
