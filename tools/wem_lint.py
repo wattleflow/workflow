@@ -29,12 +29,15 @@ Exit code is non-zero if any ERROR-level violation is found.
 from __future__ import annotations
 import argparse
 import ast
+import fnmatch
 import logging
 import re
 import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Iterator
+
+_STDLIB = set(sys.stdlib_module_names)
 
 try:
     import yaml
@@ -128,32 +131,58 @@ class Naming:
             return parts[1]
         return None  # class sits directly in the domain package
 
+    @staticmethod
+    def foreign_imports(path: Path, core_libs: set[str]) -> set[str]:
+        # Top-level imports outside (stdlib ∪ wattleflow ∪ core_libs) — i.e. the
+        # third-party libraries that place a module outside clean core.
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError:
+            return set()
+        allowed = _STDLIB | {"wattleflow"} | core_libs
+        foreign: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names = [a.name for a in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                names = [node.module]
+            else:
+                continue
+            for module in names:
+                top = module.split(".")[0]
+                if top and top not in allowed:
+                    foreign.add(top)
+        return foreign
+
 
 # --------------------------------------------------------------------------- #
 # region Source tree — Iterator / Aggregate (ISyncAggregate, IIterator)       #
 # --------------------------------------------------------------------------- #
 class PyFileIterator(IIterator[Path]):
-    """Yields every non-cache .py file under a root, in stable order."""
+    """Yields every non-cache, in-scope .py file under a root, in stable order."""
 
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, exclude: frozenset[Path] = frozenset()):
         super().__init__()
         self._root = root
+        self._exclude = exclude
 
     def create_iterator(self) -> Iterator[Path]:
         for path in sorted(self._root.rglob("*.py")):
-            if "__pycache__" not in path.parts:
-                yield path
+            if "__pycache__" in path.parts or path in self._exclude:
+                continue
+            yield path
 
 
 class SourceTree(ISyncAggregate[Path]):
     """Aggregate over the source tree; hands out fresh file iterators."""
 
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, exclude: frozenset[Path] = frozenset()):
         super().__init__()
         self._root = root
+        self._exclude = exclude
 
     def create_iterator(self) -> PyFileIterator:
-        return PyFileIterator(self._root)
+        return PyFileIterator(self._root, self._exclude)
 
 
 # --------------------------------------------------------------------------- #
@@ -182,7 +211,10 @@ class NomenclatureRule(IStrategy):
             add(ERROR, e.lineno or 0, path.name, f"syntax error: {e}")
             return
 
-        bases = set(reg["pipeline_bases"])
+        # `bases` is a family→[bases] map; pipeline detection reads the pipeline
+        # family (older registries used a flat `pipeline_bases` list).
+        pipeline_bases = reg.get("bases", {}).get("pipeline") or reg.get("pipeline_bases", [])
+        bases = set(pipeline_bases)
         subpkg = Naming.class_subpackage(path, src, "pipelines")
         canon_pkg = reg.get("package_aliases", {}).get(subpkg, subpkg)
 
@@ -235,11 +267,15 @@ class NomenclatureRule(IStrategy):
             self._check_grammar(node, path, reg, canon_pkg, findings)
 
     def _check_grammar(self, node, path, reg, canon_pkg, findings):
+        # The Subject/Operation grammar is a processors-only vocabulary; a registry
+        # that does not declare it (e.g. clean-core workflow) opts out of the check.
+        if not reg.get("subjects"):
+            return
         name = node.name
         segs = Naming.tokenize(name[len("Pipeline") :])
-        subjects, operations = reg["subjects"], reg["operations"]
-        targets, qualifiers = reg["targets"], reg["qualifiers"]
-        acronyms, synonyms = reg["acronyms"], reg.get("synonyms", {})
+        subjects, operations = reg["subjects"], reg.get("operations", [])
+        targets, qualifiers = reg.get("targets", []), reg.get("qualifiers", [])
+        acronyms, synonyms = reg.get("acronyms", []), reg.get("synonyms", {})
 
         def add(sev, msg):
             findings.append(Finding("ORG-02", sev, path, node.lineno, name, msg))
@@ -529,8 +565,26 @@ class WemLint(IStrategyContext):
         super().__init__()
         self._src = src
         self._reg = reg
-        self._source = SourceTree(src)
+        self.excluded = self._out_of_scope(src, reg)
+        self._source = SourceTree(src, self.excluded)
         self._strategy: IStrategy | None = None
+
+    @staticmethod
+    def _out_of_scope(src: Path, reg: dict) -> frozenset[Path]:
+        scope = reg.get("scope", {})
+        # Local names (own domains + shared namespace) are intra-project even when
+        # imported bare (a malformed `from concrete import …`), never third-party.
+        local = set(reg.get("domains", [])) | {reg.get("shared_namespace", "")}
+        core_libs = set(scope.get("core_libraries", [])) | local
+        globs = scope.get("exclude_paths", [])
+        excluded: set[Path] = set()
+        for path in src.rglob("*.py"):
+            if "__pycache__" in path.parts:
+                continue
+            rel = path.relative_to(src).as_posix()
+            if any(fnmatch.fnmatch(rel, g) for g in globs) or Naming.foreign_imports(path, core_libs):
+                excluded.add(path)
+        return frozenset(excluded)
 
     def set_strategy(self, strategy: IStrategy) -> None:
         self._strategy = strategy
@@ -618,13 +672,14 @@ class Application:
         except ValueError as e:
             print(f"wem_lint: {e}", file=sys.stderr)
             return 2
-        findings = WemLint(args.src, reg).run(rules)
+        lint = WemLint(args.src, reg)
+        findings = lint.run(rules)
 
         if args.quiet:
             findings = [f for f in findings if f.severity != INFO]
-        return self._report(args, selected, findings)
+        return self._report(args, selected, findings, len(lint.excluded))
 
-    def _report(self, args, selected, findings) -> int:
+    def _report(self, args, selected, findings, excluded=0) -> int:
         errors = sum(1 for f in findings if f.severity == ERROR)
         warns = sum(1 for f in findings if f.severity == WARNING)
         infos = sum(1 for f in findings if f.severity == INFO)
@@ -639,7 +694,10 @@ class Application:
                 print(f.render(args.src))
 
         print(f"\n{'-' * 60}")
-        print(f"wem_lint: {errors} error(s), {warns} warning(s), {infos} info")
+        print(
+            f"wem_lint: {errors} error(s), {warns} warning(s), {infos} info "
+            f"({excluded} module(s) out of scope — third-party / non-core)"
+        )
         print(
             "Notes: ORG-01 fan-in counts direct `wattleflow.helpers.<mod>` imports only; "
             "aggregate `from wattleflow.helpers import X` is not resolved, so fan-in is a "
