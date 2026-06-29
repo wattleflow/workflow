@@ -19,7 +19,6 @@ collections.
 from __future__ import annotations
 from collections import deque
 from typing import Any, Iterable
-from wattleflow.core import IWattleflow
 from wattleflow.constants.errors import ERROR_NOT_FOUND
 
 
@@ -34,7 +33,10 @@ REPLACE_ALL = "all"
 # --------------------------------------------------------------------------- #
 
 
-class DequeList(IWattleflow, deque):
+# Subclasses deque only: IWattleflow's non-empty __slots__ ("name") is a solid
+# C-layout base that cannot be combined with the deque builtin (layout conflict).
+# We replicate the IWattleflow identity surface (name / __str__ / __repr__) inline.
+class DequeList(deque):
     """
     Extended deque s simplified search and crud over elements.
     - find(*args, **kwargs)
@@ -44,6 +46,13 @@ class DequeList(IWattleflow, deque):
 
     def __init__(self, iterable: Iterable[Any] | None = None):
         super().__init__(iterable or ())
+        self.name = type(self).__name__
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}(name={self.name!r})"
 
     @staticmethod
     def _matches(item: Any, args: tuple, kwargs: dict) -> bool:

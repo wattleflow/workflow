@@ -102,7 +102,10 @@ TRANSITIONS = {
 # --------------------------------------------------------------------------- #
 
 
-class GenericBlackboard(IBlackboard, Generic[T], AuditLogger, ABC):
+# AuditLogger precedes Generic[T] so IWattleflow lands before Generic in the MRO,
+# matching IOriginator's ordering; otherwise LargeBlackboard (GenericBlackboard +
+# IOriginator) cannot linearise a consistent MRO.
+class GenericBlackboard(IBlackboard, AuditLogger, Generic[T], ABC):
     __slots__ = (
         "_canvas",
         "_preset",

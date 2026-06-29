@@ -467,11 +467,21 @@ class TypeVarRule(IStrategy):
     def _check_name(self, name, call, roles, synonyms, grandfathered, acronyms, line, add):
         # 5) variance must not be encoded in the name — use covariant=/contravariant=.
         if name.endswith(("_co", "_contra")):
-            add(ERROR, line, name, "variance encoded in name — declare it via TypeVar() args (criterion 5)")
+            add(
+                ERROR,
+                line,
+                name,
+                "variance encoded in name — declare it via TypeVar() args (criterion 5)",
+            )
             return
         # branded name pending an ADR decision (rename to canonical role vs keep) → WARN.
         if name in grandfathered:
-            add(WARNING, line, name, "branded TypeVar — ADR must decide rename to canonical role vs keep (criterion 1)")
+            add(
+                WARNING,
+                line,
+                name,
+                "branded TypeVar — ADR must decide rename to canonical role vs keep (criterion 1)",
+            )
             return
         # 2/3) bare single-letter is allowed ONLY for one unconstrained parameter.
         if len(name) == 1 and name.isalpha():
@@ -487,7 +497,12 @@ class TypeVarRule(IStrategy):
         # 2) mechanism suffix carries zero discriminating information.
         suffix = self._mechanism_suffix(name)
         if suffix:
-            add(ERROR, line, name, f"mechanism suffix '{suffix}' carries no information — drop it (criterion 2)")
+            add(
+                ERROR,
+                line,
+                name,
+                f"mechanism suffix '{suffix}' carries no information — drop it (criterion 2)",
+            )
             return
         # 6) synonym of a canonical role.
         canon = synonyms.get(name)
@@ -498,10 +513,20 @@ class TypeVarRule(IStrategy):
         for tok in Naming.tokenize(name):
             cf = Naming.casefold_lookup(tok, acronyms)
             if cf and cf != tok:
-                add(ERROR, line, name, f"acronym '{tok}' wrong casing — expected '{cf}' (criterion 4)")
+                add(
+                    ERROR,
+                    line,
+                    name,
+                    f"acronym '{tok}' wrong casing — expected '{cf}' (criterion 4)",
+                )
         # 1) must resolve to the registered role vocabulary.
         if name not in roles:
-            add(ERROR, line, name, "not in the registered role vocabulary (extend via ADR, criterion 1)")
+            add(
+                ERROR,
+                line,
+                name,
+                "not in the registered role vocabulary (extend via ADR, criterion 1)",
+            )
 
     @staticmethod
     def _typevar_assign(node) -> tuple[str, ast.Call] | None:
@@ -582,7 +607,9 @@ class WemLint(IStrategyContext):
             if "__pycache__" in path.parts:
                 continue
             rel = path.relative_to(src).as_posix()
-            if any(fnmatch.fnmatch(rel, g) for g in globs) or Naming.foreign_imports(path, core_libs):
+            if any(fnmatch.fnmatch(rel, g) for g in globs) or Naming.foreign_imports(
+                path, core_libs
+            ):
                 excluded.add(path)
         return frozenset(excluded)
 
