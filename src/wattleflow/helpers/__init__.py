@@ -23,6 +23,7 @@ from .config_validator import (
 )
 from .datetime import Now
 from .dictionaries import AttributeDict, Dictionary
+from .dotenv import DotEnvParser, DotEnvResolver, find_env_file
 from .files import FileScanner
 from .handlers import TraceHandler
 from .localmodels import DownloadedModels, StoredModels
@@ -63,6 +64,9 @@ __all__ = [
     "ClassLoader",
     "ConfigValidator",
     "DequeList",
+    "DotEnvParser",
+    "DotEnvResolver",
+    "find_env_file",
     "FileScanner",
     "ValidationError",
     "validate_config_file",

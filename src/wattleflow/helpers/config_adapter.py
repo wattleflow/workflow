@@ -71,16 +71,23 @@ def config_section(*path: str):
     return decorator
 
 
-def deep_resolve(value: Any, chain: SecretResolverChain) -> Any:
+def deep_resolve(value: Any, chain: SecretResolverChain, strict: bool = False) -> Any:
     if isinstance(value, str):
         resolved = chain.resolve(value)
-        return resolved if resolved is not None else value
+        if resolved is not None:
+            return resolved
+        # A value shaped like ${prefix:ref} that no resolver could satisfy is a
+        # configuration error under strict resolution — fail loudly rather than
+        # leak the literal token into a driver path/credential.
+        if strict and _REF_PATTERN.match(value):
+            raise ValueError(f"Unresolved configuration reference: {value!r}")
+        return value
 
     if isinstance(value, dict):
-        return {k: deep_resolve(v, chain) for k, v in value.items()}
+        return {k: deep_resolve(v, chain, strict) for k, v in value.items()}
 
     if isinstance(value, list):
-        return [deep_resolve(v, chain) for v in value]
+        return [deep_resolve(v, chain, strict) for v in value]
 
     return value
 
@@ -378,6 +385,7 @@ class ConfigAdapter(AuditLogger):
         self._config_file: Path = config_file
         self._section_path = section_path
         self._chain = resolver_chain
+        self._strict: bool = kwargs.get("strict", False)
         self._root: Any = None
         self._resolved: Any = None
 
@@ -391,13 +399,13 @@ class ConfigAdapter(AuditLogger):
         self._root = config.find(*self._section_path)
 
         if self._chain:
-            self._resolved = deep_resolve(self._root, self._chain)
+            self._resolved = deep_resolve(self._root, self._chain, self._strict)
         else:
             self._resolved = self._root
 
     def _maybe_resolve(self, value: Any) -> Any:
         if self._chain:
-            return deep_resolve(value, self._chain)
+            return deep_resolve(value, self._chain, self._strict)
         return value
 
     def find(

@@ -23,7 +23,12 @@ from wattleflow.concrete.manager import (
     DriverManager,
     ProcessorManager,
 )
-from wattleflow.helpers.config_adapter import ConfigAdapter
+from wattleflow.helpers.config_adapter import (
+    ConfigAdapter,
+    EnvVarResolver,
+    SecretResolverChain,
+)
+from wattleflow.helpers.dotenv import DotEnvResolver, find_env_file
 
 
 # --------------------------------------------------------------------------- #
@@ -190,7 +195,27 @@ class WorkflowFactory:
         config_path = kwargs.pop("config_path")
         workflow_name = kwargs.pop("workflow_name")
         sections = kwargs.pop("sections")
-        adapter: ConfigAdapter = ConfigAdapter(config_path, *sections)
+        env_file = kwargs.pop("env_file", None)
+
+        # Per-file ${dotenv:...} overrides + ${env:VAR} from os.environ.
+        # The .env section is keyed by the YAML file name; discovery walks up
+        # from the config directory so one .env may sit next to the configs or
+        # at the project root. Unresolved references fail the build (strict).
+        from pathlib import Path
+
+        if env_file is None:
+            env_file = find_env_file(config_path)
+        resolver_chain = (
+            SecretResolverChain()
+            .add(DotEnvResolver(env_file, section=Path(config_path).name))
+            .add(EnvVarResolver())
+        )
+        adapter: ConfigAdapter = ConfigAdapter(
+            config_path,
+            *sections,
+            resolver_chain=resolver_chain,
+            strict=True,
+        )
 
         # Workflow class ----------------------------------------------- #
         workflow: List[dict] = adapter.find(

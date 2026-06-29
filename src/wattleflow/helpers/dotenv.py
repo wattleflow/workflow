@@ -1,0 +1,132 @@
+# Module name: helpers/dotenv.py
+# Author: (wattleflow@outlook.com)
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
+# License: Apache 2 Licence
+
+
+"""
+Per-file ``.env`` overrides for workflow YAML configuration.
+
+The ``.env`` file is an INI document whose sections are keyed by the YAML
+file name and whose keys are dotted paths used purely as opaque lookup keys:
+
+    [03_pii_reduction.yaml]
+    managers.drivers.configuration.read_path  = /data/in
+    managers.drivers.configuration.write_path = /data/out
+
+A YAML value of ``${dotenv:managers.drivers.configuration.read_path}`` is then
+substituted from the section matching that YAML file. ``DotEnvResolver`` plugs
+into the existing ``SecretResolverChain`` (helpers.config_adapter) — it is the
+read-side companion of ``EnvVarResolver`` but sourced from the INI file rather
+than ``os.environ``. Discovery walks upward from the YAML directory so a single
+``.env`` may live next to the configs or at the project root.
+"""
+
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
+
+from __future__ import annotations
+import configparser
+from pathlib import Path
+from typing import Optional
+
+from wattleflow.helpers.config_adapter import ISecretResolver
+
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+__all__ = ["DEFAULT_ENV_FILENAME", "DotEnvParser", "DotEnvResolver", "find_env_file"]
+
+DEFAULT_ENV_FILENAME = ".env"
+
+# --------------------------------------------------------------------------- #
+# region Discovery                                                            #
+# --------------------------------------------------------------------------- #
+
+
+def find_env_file(
+    start: str | Path,
+    filename: str = DEFAULT_ENV_FILENAME,
+) -> Optional[Path]:
+    """Walk upward from ``start`` (file or directory) returning the first
+    ``filename`` found, or ``None``. Lets one ``.env`` sit next to the YAML
+    configs or higher up at the project root."""
+    p = Path(start).resolve()
+    base = p if p.is_dir() else p.parent
+    for directory in [base, *base.parents]:
+        candidate = directory / filename
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+# --------------------------------------------------------------------------- #
+# endregion Discovery                                                         #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region DotEnvParser                                                         #
+# --------------------------------------------------------------------------- #
+
+
+class DotEnvParser:
+    """Parse an INI-style ``.env`` file into ``{section: {key: value}}``.
+
+    Keys are kept case-sensitively and verbatim (dots preserved) by overriding
+    ``optionxform``; interpolation is disabled so values may contain ``%`` and
+    ``$`` freely.
+    """
+
+    @staticmethod
+    def parse(env_file: str | Path) -> dict[str, dict[str, str]]:
+        path = Path(env_file)
+        if not path.is_file():
+            raise FileNotFoundError(f"DotEnvParser: env file not found: {path}")
+
+        parser = configparser.ConfigParser(interpolation=None)
+        parser.optionxform = str  # preserve key case and dots verbatim
+        try:
+            parser.read(path, encoding="utf-8")
+        except configparser.Error as e:
+            raise ValueError(f"DotEnvParser: invalid .env file {path}: {e}") from e
+
+        return {section: dict(parser.items(section)) for section in parser.sections()}
+
+
+# --------------------------------------------------------------------------- #
+# endregion DotEnvParser                                                      #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region DotEnvResolver                                                       #
+# --------------------------------------------------------------------------- #
+
+
+class DotEnvResolver(ISecretResolver):
+    """Resolves ``${dotenv:dotted.key}`` from a single section of a ``.env`` file.
+
+    The section is the YAML file name (e.g. ``03_pii_reduction.yaml``); the
+    reference is an opaque key within that section. An absent section yields an
+    empty map, so unknown keys return ``None`` — the chain reports it and, under
+    strict resolution (helpers.config_adapter.deep_resolve), the build fails.
+    """
+
+    PREFIX = "dotenv"
+
+    __slots__ = ("_section", "_values")
+
+    def __init__(self, env_file: Optional[str | Path], section: str) -> None:
+        self._section = section
+        self._values: dict[str, str] = {}
+        if env_file is not None:
+            self._values = DotEnvParser.parse(env_file).get(section, {})
+
+    def _fetch(self, ref: str) -> Optional[str]:
+        return self._values.get(ref)
+
+
+# --------------------------------------------------------------------------- #
+# endregion DotEnvResolver                                                    #
+# --------------------------------------------------------------------------- #
