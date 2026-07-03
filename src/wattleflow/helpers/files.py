@@ -25,13 +25,15 @@ Example:
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
+import re
 from collections.abc import Iterable, Iterator
 from pathlib import Path
+from wattleflow.helpers.routing import PatternSpec
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
 
-__all__ = ["FileScanner"]
+__all__ = ["FileScanner", "FileSourceScanner"]
 
 # --------------------------------------------------------------------------- #
 # region FileScanner                                                          #
@@ -128,4 +130,61 @@ class FileScanner:
 
 # --------------------------------------------------------------------------- #
 # endregion FileScanner                                                       #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# region FileSourceScanner                                                    #
+# --------------------------------------------------------------------------- #
+
+
+class FileSourceScanner:
+    """Config-driven source-file generator: yields each file under ``source_path``
+    whose NAME matches the pattern and is not excluded.
+
+    A processor delegates *which files* to this helper (which owns the
+    ``PatternSpec`` parsed from the ``pattern`` config — a glob plus an optional
+    routing rule built from ``pattern.labels``) and keeps only persistence.
+    Matching is by file NAME, never the path: the glob matches the filename and
+    the exclusion matches its stem. Iterate the instance directly::
+
+        scanner = FileSourceScanner(src, {"glob": "*.pdf", "format": ..., "labels": ...})
+        for path in scanner:
+            label = scanner.rule.classify(path.name) if scanner.rule else None
+    """
+
+    def __init__(
+        self,
+        source_path: str | Path,
+        pattern: str | dict | None,
+        *,
+        recursive: bool = False,
+        exclude: str | None = None,
+    ) -> None:
+        self._source: Path = Path(source_path)
+        self.spec: PatternSpec = PatternSpec.parse(pattern if pattern is not None else "*")
+        self._recursive: bool = bool(recursive)
+        self._exclude: re.Pattern | None = re.compile(exclude) if exclude else None
+
+    @property
+    def source_path(self) -> Path:
+        return self._source
+
+    @property
+    def rule(self):
+        # The routing rule parsed from pattern.labels (None for a plain glob).
+        return self.spec.rule
+
+    def __iter__(self) -> Iterator[Path]:
+        if not self._source.exists():
+            raise FileNotFoundError(f"source_path '{self._source}' does not exist")
+        for filepath in FileScanner.scan(self._source, self.spec.glob, self._recursive):
+            # Name-based exclusion (on the stem): the processor searches by file
+            # NAME, not by path.
+            if self._exclude and self._exclude.findall(filepath.stem):
+                continue
+            yield filepath
+
+
+# --------------------------------------------------------------------------- #
+# endregion FileSourceScanner                                                 #
 # --------------------------------------------------------------------------- #
