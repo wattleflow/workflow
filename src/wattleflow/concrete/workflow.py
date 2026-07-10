@@ -402,7 +402,10 @@ class WorkflowFactory:
             for pipeline in pipelines_config:
                 pipeline_class = cls._resolve_section("processors.pipelines", pipeline)
                 pipeline_audit = cls._audit(pipeline, global_audit)
-                processor.register_pipeline(pipeline=pipeline_class(**pipeline_audit))
+                pipeline_configuration = dict(pipeline.get("configuration", {}) or {})
+                processor.register_pipeline(
+                    pipeline=pipeline_class(**pipeline_audit, **pipeline_configuration)
+                )
 
             # Blackboard & strategy_create class ---------------------------- #
             blackboard_config = config.get("blackboard", {}) or {}

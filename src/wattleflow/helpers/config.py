@@ -153,15 +153,15 @@ class Config(AuditLogger):
         except yaml.YAMLError as e:
             raise ValueError(f"Invalid YAML file: {self.config_file}. Error: {e}") from e
 
-    @staticmethod
-    def flatten_config(config: dict, parent_key: str = "", sep: str = "_") -> dict:
+    @classmethod
+    def flatten_config(cls, config: dict, parent_key: str = "", sep: str = "_") -> dict:
         items = {}
 
         for key, value in config.items():
             new_key = f"{parent_key}{sep}{key}" if parent_key else key
 
             if isinstance(value, dict):
-                items.update(Config.flatten_config(value, new_key, sep=sep))
+                items.update(cls.flatten_config(value, new_key, sep=sep))
             else:
                 items[new_key] = value
 

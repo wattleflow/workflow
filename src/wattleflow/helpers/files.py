@@ -45,8 +45,8 @@ class FileScanner:
 
     DEFAULT_PATTERN = "*"
 
-    @staticmethod
-    def normalise(pattern: str | Iterable[str] | None) -> list[str]:
+    @classmethod
+    def normalise(cls, pattern: str | Iterable[str] | None) -> list[str]:
         """Validate a ``pattern`` config value and return a list of glob strings.
 
         Accepts a single glob string or a list/tuple of glob strings; ``None``
@@ -54,7 +54,7 @@ class FileScanner:
         every YAML config that uses ``pattern`` is held to the same format.
         """
         if pattern is None:
-            return [FileScanner.DEFAULT_PATTERN]
+            return [cls.DEFAULT_PATTERN]
 
         if isinstance(pattern, str):
             raw: list = [pattern]
@@ -98,8 +98,9 @@ class FileScanner:
                 out.append(ch)
         return "".join(out)
 
-    @staticmethod
+    @classmethod
     def scan(
+        cls,
         search_path: str | Path,
         pattern: str | Iterable[str] | None = None,
         recursive: bool = False,
@@ -112,8 +113,8 @@ class FileScanner:
         """
         base = Path(search_path)
         seen: set[Path] = set()
-        for glob_pattern in FileScanner.normalise(pattern):
-            caseless = FileScanner.caseless(glob_pattern)
+        for glob_pattern in cls.normalise(pattern):
+            caseless = cls.caseless(glob_pattern)
             matches = base.rglob(caseless) if recursive else base.glob(caseless)
             for path in matches:
                 if not path.is_file():

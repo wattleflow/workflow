@@ -21,7 +21,7 @@ from .config_validator import (
     ConfigValidator,
     ValidationError,
 )
-from .datetime import Now
+from .datetime import CreatedVerdict, CreatedWithin, Now
 from .dictionaries import AttributeDict, Dictionary
 from .dotenv import DotEnvParser, DotEnvResolver, find_env_file
 from .files import FileScanner
@@ -29,6 +29,7 @@ from .handlers import TraceHandler
 from .localmodels import DownloadedModels, StoredModels
 from .macros import TextMacros
 from .normaliser import CaseText, Normaliser
+from .ocr import OcrText
 from .pathadder import show_paths, override_paths
 from .sanitiser import sanitised_uri
 from .streams import TextStream, TextFileStream
@@ -59,6 +60,8 @@ __all__ = [
     "GcpSecretResolver",
     "ISecretResolver",
     "Now",
+    "CreatedWithin",
+    "CreatedVerdict",
     "SecretResolverChain",
     "VaultResolver",
     "ClassLoader",
@@ -81,6 +84,7 @@ __all__ = [
     "TempPathHelper",
     "TextFileStream",
     "Normaliser",
+    "OcrText",
     "TextMacros",
     "TextStream",
     "TraceHandler",

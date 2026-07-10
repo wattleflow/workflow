@@ -77,7 +77,7 @@ class GenericRepository(IRepository, AuditLogger, ABC):
     def __eq__(self, other: "GenericRepository") -> bool:
         if not isinstance(other, GenericRepository):
             return NotImplemented
-        self.info(msg=Event.Probing.value, eq=hash(self) == hash(other))
+        self.debug(msg=Event.Probing.value, eq=hash(self) == hash(other))
         return hash(self) == hash(other)
 
     def __hash__(self) -> int:

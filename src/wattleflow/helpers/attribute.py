@@ -49,12 +49,12 @@ class Attribute:
     def find_object_by_name(obj):
         return getattr(obj, "__name__", "Unknown")
 
-    @staticmethod
-    def allowed(caller: object, allowed, **kwargs) -> bool:
+    @classmethod
+    def allowed(cls, caller: object, allowed, **kwargs) -> bool:
         if allowed is None:
             return False
 
-        Attribute.evaluate(caller, allowed, list)
+        cls.evaluate(caller, allowed, list)
 
         if not len(allowed) > 0:
             return False
@@ -107,8 +107,9 @@ class Attribute:
             **kwargs,
         )
 
-    @staticmethod
+    @classmethod
     def evaluate(
+        cls,
         caller: IWattleflow,
         target: object,
         expected_type: type,
@@ -119,7 +120,7 @@ class Attribute:
         if target is expected_type:
             return
 
-        varname = Attribute.find_name_by_variable(target)
+        varname = cls.find_name_by_variable(target)
         name = target.__class__.__name__ if hasattr(target, "__class__") else type(target).__name__
         name = varname if varname else name
         expected_name = expected_type.__name__
