@@ -32,6 +32,8 @@ recursive-exclude src/wattleflow/helpers/converters *.py
 exclude src/wattleflow/helpers/*.bak
 exclude src/wattleflow/helpers/image_guard.py
 exclude src/wattleflow/helpers/protobuf.py
+exclude src/wattleflow/helpers/localmodels.py
+exclude src/wattleflow/decorators/encrypted_preset.py
 
 # --- Never ship the core (ships via the separate project dependency) ---
 prune src/wattleflow/core

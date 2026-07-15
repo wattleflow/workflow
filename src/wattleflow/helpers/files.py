@@ -15,7 +15,7 @@ Windows and macOS, and validates the ``pattern`` value so every YAML config
 that uses it is held to the same format.
 
 Example:
-    from wattleflow.helpers import FileScanner
+    from wattleflow.helpers.files import FileScanner
 
     for path in FileScanner.scan("/data", "*.txt", recursive=True):
         print(path)
