@@ -35,6 +35,13 @@ exclude src/wattleflow/helpers/protobuf.py
 exclude src/wattleflow/helpers/localmodels.py
 exclude src/wattleflow/decorators/encrypted_preset.py
 
+# formatters/parsers: only the stdlib base.py contract stays; concrete formats + factory
+# moved to wattleflow-processors
+recursive-exclude src/wattleflow/helpers/formatters *.py
+recursive-exclude src/wattleflow/helpers/parsers *.py
+include src/wattleflow/helpers/formatters/base.py
+include src/wattleflow/helpers/parsers/base.py
+
 # --- Never ship the core (ships via the separate project dependency) ---
 prune src/wattleflow/core
 

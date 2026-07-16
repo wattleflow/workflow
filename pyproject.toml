@@ -2,7 +2,7 @@
 
 [project]
 name = "wattleflow-workflow"
-version = "0.0.0.79"
+version = "0.0.0.80"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"
