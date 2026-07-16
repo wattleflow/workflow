@@ -13,6 +13,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Optional, Union
 
+# NOTE: Guarded optional dependency (ADR-ORG-07) — `helpers/yaml.py` is a functionally
+# complete stdlib fallback, so the effective closure stays stdlib and this module keeps
+# its place in the clean core (ADR-ORG-06 §2.1 exception). Verified by masking test.
 try:
     import yaml as _yaml
 except Exception:

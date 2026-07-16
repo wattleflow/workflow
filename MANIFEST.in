@@ -1,17 +1,22 @@
-# Source distribution contents — wattleflow-workflow (stdli) only.
+# Source distribution contents — wattleflow-workflow (stdlib only).
 #
-# Project builds the wheel FROM this sdist, so pruning here keeps
-# third-party-coupled modules out of the wheel as well. Core ships:
-#   concrete + constants + decorators (incl. oscal glue) + oscal engine
-#   + the import-clean helpers subset.
-# Specializations (connections/, drivers/, processors/, pipelines/, documents/,
-# strategies/, mappers/, api/, blackboards/, ...) and the third-party-coupled
-# helpers move to the separate wattleflow projects / wattleflow-cryptography
-# / examples projects (zero-trust packaging).
+# The wheel is built FROM this sdist, so what is pruned here stays out of the
+# wheel as well. This file is therefore the packaging enforcement point for
+# zero-trust (POLICY §7.1) — not just an sdist convenience.
 #
-# "import-clean" = importable with only wattleflow-core (stdlib) + wattleflow-workflow + cryptography;
-# any third-party use is lazy/optional (try/except fallback or in-function import),
-# so installing this wheel never forces a third-party dependency.
+# Ships: concrete + constants + decorators (incl. the OSCAL decorator glue)
+#        + the import-clean helpers subset.
+#
+# Everything third-party-coupled — specialisations (connections/, drivers/,
+# processors/, pipelines/, documents/, strategies/, blackboards/, mappers/,
+# api/) and the third-party helpers — lives in the separate wattleflow
+# distributions (wattleflow-processors, wattleflow-cad) or the examples project.
+#
+# "import-clean" = importable with only stdlib + the `wattleflow` core package.
+# A third-party reference is allowed in the core ONLY as a *guarded optional
+# dependency* (ADR-ORG-07): try/except with a functionally complete stdlib
+# fallback — e.g. helpers/config*.py → yaml/jsonschema, falling back to
+# helpers/yaml.py. Installing this wheel never forces a third-party dependency.
 
 global-exclude *
 global-exclude .*
@@ -26,23 +31,27 @@ recursive-include src/wattleflow/constants *.py
 recursive-include src/wattleflow/decorators *.py
 recursive-include src/wattleflow/helpers *.py
 
-
-# --- Drop third-party-coupled helpers not used by the core (-> wattleflow-processors) ---
-recursive-exclude src/wattleflow/helpers/converters *.py
-exclude src/wattleflow/helpers/*.bak
-exclude src/wattleflow/helpers/image_guard.py
-exclude src/wattleflow/helpers/protobuf.py
-exclude src/wattleflow/helpers/localmodels.py
-exclude src/wattleflow/decorators/encrypted_preset.py
-
-# formatters/parsers: only the stdlib base.py contract stays; concrete formats + factory
-# moved to wattleflow-processors
+# formatters/parsers: only the stdlib base.py contract ships; concrete formats and
+# the factories live in wattleflow-processors. The exclude/include pair is policy,
+# not history — it keeps a newly added concrete format out of the core by default.
 recursive-exclude src/wattleflow/helpers/formatters *.py
 recursive-exclude src/wattleflow/helpers/parsers *.py
 include src/wattleflow/helpers/formatters/base.py
 include src/wattleflow/helpers/parsers/base.py
 
-# --- Never ship the core (ships via the separate project dependency) ---
+# --- Never ship the core (it ships via the separate `wattleflow` dependency) ---
+# Defensive: core/ is absent from a clean checkout but reappears as a dev symlink,
+# and must not be swept into this distribution when it does (mirrors the
+# `wattleflow.core*` exclude in pyproject packages.find).
 prune src/wattleflow/core
+
+# --- NFR enforcement tooling ---
+# The controlled-vocabulary registry ships so the NFR lint is reproducible from
+# the sdist; it is data under ADR governance, not an importable module. Both
+# files are needed together — the lint carries no built-in vocabulary.
+# (`global-exclude *.yaml` above means the registry needs an explicit include.)
+# include tools/naming_registry.yaml
+include tools/wem_lint.py
+# include tools/README.md
 
 include README.md LICENSE pyproject.toml requirements-dev.txt

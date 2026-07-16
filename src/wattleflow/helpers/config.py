@@ -16,6 +16,12 @@ from wattleflow.concrete.exception import AuditException
 from wattleflow.concrete.logger import AuditLogger
 from wattleflow.constants.enums import Event
 
+# NOTE: Guarded optional dependency (ADR-ORG-07) — PyYAML/jsonschema only accelerate
+# and extend; `helpers/yaml.py` is a functionally complete stdlib fallback, so this
+# module's effective closure stays stdlib and it belongs in the clean core (ADR-ORG-06
+# §2.1 exception). Verified by the masking test: mask both packages and this must still
+# import and parse. Keep the fallback at parity — a silently divergent shim is worse
+# than an ImportError.
 try:
     import yaml
     from jsonschema import validate

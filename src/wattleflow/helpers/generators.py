@@ -6,12 +6,15 @@
 
 """
 This module provides Python generator utilities for use within the Wattleflow
-framework. It includes methods for generating numeric sequences, random data
-records, and segmented text streams based on configurable patterns.
+framework. It includes methods for generating numeric sequences and segmented
+text streams based on configurable patterns.
+
+Random sample-data generation lives in `wattleflow.helpers.random_data`
+(wattleflow-processors) — it is backed by numpy.
 
 
 Example 1: Generator counter from 1 to a given range
-    from wattleflow.helpers.generators import inc, text_generator, records
+    from wattleflow.helpers.generators import inc, text_generator
 
     counter = inc()
     for _ in range(5):
@@ -27,13 +30,6 @@ Example 2: Generator split text into sentences
     This is the first sentence
     This is the second sentence
     And finally third sentence
-
-Example 3: Generate random values
-    data = records(5)
-    print(data)
-
-    Result:
-    List of 5 random numbers between 0 and 1
 """
 
 
@@ -52,14 +48,6 @@ import re
 # --------------------------------------------------------------------------- #
 # region Global methods                                                       #
 # --------------------------------------------------------------------------- #
-
-
-def records(n):
-    # numpy is a heavy optional dependency — import lazily so importing
-    # this module never pays the cost unless `records` is actually called.
-    import numpy as np
-
-    return np.random.rand(n)
 
 
 def inc(start: int = 0):

@@ -18,12 +18,14 @@ The tool dogfoods the framework's own design-pattern interfaces (wattleflow.core
   * Iterator/Aggregate (ISyncAggregate, IIterator) — SourceTree walks the .py tree
   * Builder (IBuilder)                             — ImportGraphBuilder (ORG-01)
   * Strategy/Context (IStrategy, IStrategyContext) — one rule per NFR, run by WemLint
+  * Factory (IFactory)                             — RuleFactory maps an NFR id to its rule
 
 Usage:
-    python tools/wem_lint.py [--src SRC] [--registry FILE] [--quiet]
+    python tools/wem_lint.py [--src SRC] [--registry FILE] [--quiet] [--select IDS]
     # from code: raise SystemExit(Application(argv).run())
 
-Exit code is non-zero if any ERROR-level violation is found.
+Exit code is non-zero if any ERROR-level violation is found (WARNING/INFO do not
+fail the build — grandfathered legacy is reported, not blocked; see NFR.md).
 """
 
 from __future__ import annotations
@@ -88,6 +90,10 @@ class Finding:
 
 
 # --------------------------------------------------------------------------- #
+# endregion Findings                                                          #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
 # region Naming — name & layout primitives                                    #
 # --------------------------------------------------------------------------- #
 class Naming:
@@ -133,8 +139,11 @@ class Naming:
 
     @staticmethod
     def foreign_imports(path: Path, core_libs: set[str]) -> set[str]:
-        # Top-level imports outside (stdlib ∪ wattleflow ∪ core_libs) — i.e. the
-        # third-party libraries that place a module outside clean core.
+        # Root packages imported from outside (stdlib ∪ wattleflow ∪ core_libs) —
+        # the third-party libraries that place a module outside clean core.
+        # ast.walk (not just tree.body) is deliberate: a lazy, in-function import
+        # still fixes the module's home distribution (ADR-ORG-06 §2.1), so it must
+        # count here exactly like a module-level one.
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except SyntaxError:
@@ -154,6 +163,10 @@ class Naming:
                     foreign.add(top)
         return foreign
 
+
+# --------------------------------------------------------------------------- #
+# endregion Naming — name & layout primitives                                 #
+# --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
 # region Source tree — Iterator / Aggregate (ISyncAggregate, IIterator)       #
@@ -186,10 +199,20 @@ class SourceTree(ISyncAggregate[Path]):
 
 
 # --------------------------------------------------------------------------- #
+# endregion Source tree — Iterator / Aggregate (ISyncAggregate, IIterator)    #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
 # region NFR-ORG-02 — Class Nomenclature                                      #
 # --------------------------------------------------------------------------- #
 class NomenclatureRule(IStrategy):
-    """NFR-ORG-02 — class-name grammar over the pipelines domain."""
+    """NFR-ORG-02 — class-name grammar, scoped to the `pipelines` domain.
+
+    KNOWN GAP: a registry without a `pipelines` domain (the clean-core workflow
+    tree) makes this rule inert — including criterion 6, which NFR-ORG-02 scopes to
+    *every* class, and which NFR-ORG-04/05 delegate here. Widening criterion 6 to
+    all domains is a behaviour change, so it is a worklist item, not a silent fix.
+    """
 
     def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
         findings: list[Finding] = []
@@ -343,6 +366,10 @@ class NomenclatureRule(IStrategy):
 
 
 # --------------------------------------------------------------------------- #
+# endregion NFR-ORG-02 — Class Nomenclature                                   #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
 # region NFR-ORG-01 — Dependency Locality                                     #
 # --------------------------------------------------------------------------- #
 class ImportGraphBuilder(IBuilder):
@@ -425,6 +452,10 @@ class DependencyLocalityRule(IStrategy):
             )
         return findings
 
+
+# --------------------------------------------------------------------------- #
+# endregion NFR-ORG-01 — Dependency Locality                                  #
+# --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
 # region NFR-ORG-03 — TypeVar Nomenclature                                    #
@@ -581,6 +612,10 @@ class TypeVarRule(IStrategy):
 
 
 # --------------------------------------------------------------------------- #
+# endregion NFR-ORG-03 — TypeVar Nomenclature                                 #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
 # region Linter — Strategy context (IStrategyContext)                         #
 # --------------------------------------------------------------------------- #
 class WemLint(IStrategyContext):
@@ -630,6 +665,10 @@ class WemLint(IStrategyContext):
 
 
 # --------------------------------------------------------------------------- #
+# endregion Linter — Strategy context (IStrategyContext)                      #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
 # region Rule factory (IFactory)                                              #
 # --------------------------------------------------------------------------- #
 class RuleFactory(IFactory):
@@ -656,15 +695,14 @@ class RuleFactory(IFactory):
 
 
 # --------------------------------------------------------------------------- #
+# endregion Rule factory (IFactory)                                           #
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
 # region Application                                                          #
 # --------------------------------------------------------------------------- #
 class Application:
-    """CLI wrapper around the lint: builds the parser and runs the selected rules.
-
-    `run` is the single entry point (replaces the old module-level `main`); the
-    parser builder, the lint driver and the report renderer are each invoked
-    once, so they live here as private methods.
-    """
+    """CLI wrapper around the lint: builds the parser and runs the selected rules."""
 
     def __init__(self, argv: list[str] | None = None):
         self.argv = argv
@@ -738,3 +776,4 @@ if __name__ == "__main__":
 # --------------------------------------------------------------------------- #
 # endregion Application                                                       #
 # --------------------------------------------------------------------------- #
+

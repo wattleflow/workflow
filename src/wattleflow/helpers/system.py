@@ -31,12 +31,7 @@ from logging import NOTSET, Handler, getLogger
 from os import PathLike
 from pathlib import Path
 from tempfile import gettempdir
-from typing import Sequence, Mapping, Union
-
-try:  # Python 3.8+
-    from typing import final, Optional
-except Exception:  # Python 3.7 fallback
-    from typing_extensions import final, Optional  # type: ignore
+from typing import Sequence, Mapping, Union, final, Optional
 
 from wattleflow.core import IWattleflow
 from wattleflow.concrete.logger import AuditLogger
