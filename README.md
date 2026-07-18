@@ -18,7 +18,7 @@ built to last and grow.
 | **Version**              | [![PyPI version](https://img.shields.io/pypi/v/wattleflow-workflow.svg)](https://pypi.org/project/wattleflow-workflow/) (latest release) |
 | **License**              | [![License](https://img.shields.io/pypi/l/wattleflow-workflow.svg)](https://github.com/wattleflow-workflow/core/blob/default/LICENSE) |
 | **Python Compatibility** | [![Python versions](https://img.shields.io/pypi/pyversions/wattleflow-workflow.svg)](https://pypi.org/project/wattleflow-workflow/)|
-| **Dependencies**         | [wattleflow-core](https://www.github.com/wattleflow/core.git),[wattleflow-oscal](https://www.github.com/wattleflow/oscal.git) |
+| **Dependencies**         | [wattleflow-core](https://www.github.com/wattleflow/core.git)|
 | **Size**                 | nimble                                                                  |
 | **Documentation**        | [Wattleflow **Core** Documentation](https://github.com/wattleflow/docs.git) |
 
@@ -49,7 +49,7 @@ pip install wattleflow-workflow
 
 
 # Documentation
-Comprehensive documentation will be available at the [Git Hub](https://github.com/wattleflow/docs.git).
+Comprehensive documentation will be available at the [Git Hub](https://github.com/wattleflow/documentation.git).
 
 # Contributing
 We welcome contributions! Please check our GitHub repository for guidelines.

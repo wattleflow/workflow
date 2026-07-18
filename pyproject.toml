@@ -2,7 +2,7 @@
 
 [project]
 name = "wattleflow-workflow"
-version = "0.0.0.83"
+version = "0.0.0.84"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"
@@ -39,14 +39,7 @@ package-dir = {"" = "src"}
 include-package-data = false
 
 [tool.setuptools.package-data]
-# Vendored OSCAL resources (ASD ISM catalog/profiles, NIST->ISM crosswalk) must
-# ship with the wheel; the loaders read them at runtime.
-"wattleflow.oscal" = ["resources/**/*.json"]
 
-#[tool.setuptools_scm]
-#write_to = "src/wattleflow/concrete/_version.py"
-#version_scheme = "post-release"
-#local_scheme = "node-and-date"
 
 [tool.setuptools_scm]
 version_scheme = "no-guess-dev"
@@ -75,3 +68,4 @@ ignore = ["E203", "E731", "I001"]  # I001/I003 - isort import order (intentional
 # pip list --outdated
 # strace -f -e trace=file -o trace.log pip install -e .
 # strace -f -e trace=file -o trace.log pip list --outdated
+

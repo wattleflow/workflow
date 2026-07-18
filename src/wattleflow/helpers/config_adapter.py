@@ -170,7 +170,7 @@ class EnvVarResolver(ISecretResolver):
 
 
 # NOTE: Cloud-backed resolvers (aws, azure, gcp, vault) live in
-# `wattleflow.helpers.cloud_secrets` (wattleflow-processors) — each references a
+# `wattleflow.helpers.cloud.cloud_secrets` (wattleflow-processors) — each references a
 # third-party SDK, which fixes their home distribution (ADR-ORG-06 §2.1). This
 # module keeps the stable abstraction and the stdlib-only resolvers.
 
