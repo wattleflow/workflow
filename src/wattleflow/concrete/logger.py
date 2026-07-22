@@ -178,9 +178,9 @@ class AuditLogger(ILogger):
     def _log_msg(self, method, msg: str, *args, **kwargs) -> None:
         def safe_repr(obj: object, maxlen: int = 100) -> str:
             try:
-                from pandas import DataFrame
-
-                if isinstance(obj, DataFrame):
+                # Frame-like objects (pandas/polars) have huge reprs; show the type
+                # name instead. Detected structurally to avoid a third-party import.
+                if hasattr(obj, "shape") and hasattr(obj, "columns"):
                     s = obj.__class__.__name__
                 else:
                     s = repr(obj)

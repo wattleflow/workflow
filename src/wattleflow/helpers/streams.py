@@ -20,9 +20,9 @@ processing stream-based naming operations.
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+from pathlib import Path
 from typing import Any, List, Optional
 from .macros import TextMacros
-from wattleflow.concrete.exception import AuditException
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -97,27 +97,14 @@ class TextFileStream(TextStream):
         macros: Optional[List] = None,
     ):
 
-        from pathlib import Path
-
         self.filename: Path = Path(file_path)
-
         if not self.filename.exists():
-            raise AuditException(
-                caller=self,
-                error=f"File not found {self.filename.name}",
-                file_path=file_path,
-            )
+            raise FileNotFoundError(f"File not found: {self.filename}")
 
         # Security check: limit file size to prevent memory issues - OOM
         file_size = self.filename.stat().st_size
         if file_size > __FILE_SIZE_LIMIT__:
-            from wattleflow.concrete.exception import AuditException
-
-            raise AuditException(
-                caller=self,
-                error=f"File too large: {file_size} bytes (max {__FILE_SIZE_LIMIT__})",
-                file_path=file_path,
-            )
+            raise ValueError(f"File too large: {file_size} bytes (max {__FILE_SIZE_LIMIT__})")
 
         content = self.filename.read_text(encoding=encoding)
 

@@ -25,7 +25,6 @@ import shlex
 import shutil
 import subprocess
 
-from abc import ABC
 from importlib import import_module
 from logging import NOTSET, Handler, getLogger
 from os import PathLike
@@ -34,18 +33,13 @@ from tempfile import gettempdir
 from typing import Sequence, Mapping, Union, final, Optional
 
 from wattleflow.core import IWattleflow
-from wattleflow.concrete.logger import AuditLogger
-from wattleflow.constants import Event
+from wattleflow.constants.enums import Event
 from wattleflow.constants.keys import KEY_CONFIG_FILE_NAME
 from wattleflow.helpers.normaliser import Normaliser
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
-
-
-__author__ = "WattleFlow"
-__copyright__ = "© 2022–2026 WattleFlow. All rights reserved"
 
 
 # --------------------------------------------------------------------------- #
@@ -78,45 +72,27 @@ class ClassLoader(IWattleflow):
 
         IWattleflow.__init__(self)
 
-        self.log = AuditLogger(
-            level=level,
-            logger=getLogger(f"[{self.__class__.__name__}]"),
-            handler=handler,
-        )
+        # Stdlib logger (no concrete.AuditLogger — keeps helpers below domains).
+        # Stdlib accepts only exc_info/extra/stack_info/stacklevel as kwargs, so
+        # context goes into the message via lazy %-formatting.
+        self.log = getLogger(self.__class__.__name__)
+        if level:
+            self.log.setLevel(level)
+        if handler is not None and handler not in self.log.handlers:
+            self.log.addHandler(handler)
 
-        self.log.debug(
-            msg=Event.Constructor.value,
-            class_path=class_path,
-            level=level,
-            handler=handler,
-        )
+        self.log.debug("%s: class_path=%s", Event.Constructor.value, class_path)
 
         try:
             module_path, class_name = class_path.rsplit(".", 1)
         except ValueError as e:
-            self.log.error(
-                msg=Event.Constructor.value,
-                reason=str(e),
-                class_path=class_path,
-                error=e,
-            )
+            self.log.error("%s: invalid class path %r: %s", Event.Constructor.value, class_path, e)
             raise ValueError(f"Invalid class path: {class_path}") from e
-
-        self.log.debug(
-            msg=Event.Constructor.value,
-            module_path=module_path,
-            class_name=class_name,
-        )
 
         try:
             module = import_module(module_path)
         except ModuleNotFoundError as e:
-            self.log.error(
-                msg="Module not found",
-                reason=str(e),
-                module_path=module_path,
-                error=e,
-            )
+            self.log.error("module not found %r: %s", module_path, e)
             raise
 
         # FIX: previously warning fired unconditionally *before* the hasattr
@@ -124,40 +100,21 @@ class ClassLoader(IWattleflow):
         # unverified. Validate first, then debug-log the resolution.
         if not hasattr(module, class_name):
             error = f"Class '{class_name}' not found in module '{module_path}'"
-            self.log.error(
-                msg=Event.Constructor.value,
-                reason=error,
-                class_name=class_name,
-                module_path=module_path,
-            )
+            self.log.error("%s: %s", Event.Constructor.value, error)
             raise AttributeError(error)
 
         cls = getattr(module, class_name)
         self.cls = cls
 
-        self.log.debug(
-            msg=Event.Constructor.value,
-            status="class resolved",
-            module_path=module_path,
-            class_name=class_name,
-        )
+        self.log.debug("%s: class resolved %s.%s", Event.Constructor.value, module_path, class_name)
 
         try:
             self.instance = cls(*args, **kwargs)
         except Exception as e:
-            self.log.error(
-                msg="Class instantiation failed",
-                cls=cls,
-                error=e,
-                reason=str(e),
-            )
+            self.log.error("class instantiation failed for %s: %s", cls, e)
             raise
 
-        self.log.debug(
-            msg=Event.Constructor.value,
-            status="Class loaded",
-            cls=cls.__name__,
-        )
+        self.log.debug("%s: class loaded %s", Event.Constructor.value, cls.__name__)
 
 
 @final

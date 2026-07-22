@@ -15,8 +15,8 @@ class, which manages and executes scheduled tasks within the Wattleflow framewor
 
 from __future__ import annotations
 import time
-from concrete.scheduler import Scheduler
-from constants.enums import Event
+from wattleflow.concrete.scheduler import Scheduler
+from wattleflow.constants.enums import Event
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #

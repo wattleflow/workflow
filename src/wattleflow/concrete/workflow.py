@@ -88,7 +88,7 @@ class GenericWorkflow(IOriginator, AuditLogger, ABC):
             processors=processors,
         )
 
-        from wattleflow.helpers.attribute import Attribute
+        from wattleflow.concrete.helpers import Attribute
 
         Attribute.evaluate(self, adapter, ConfigAdapter)
         Attribute.evaluate(self, connections, ConnectionManager)

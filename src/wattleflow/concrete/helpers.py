@@ -1,4 +1,4 @@
-# Module name: helpers/attribute.py
+# Module name: concrete/helpers.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -19,7 +19,7 @@ from wattleflow.concrete.exception import AttributeException
 # --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
-# region Attribute                                                            #
+# region Classes                                                              #
 # --------------------------------------------------------------------------- #
 
 
@@ -91,13 +91,8 @@ class Attribute:
             except Exception:  # pylint: disable=broad-except
                 expected = cls.__name__
 
-        from wattleflow.helpers.functions import (
-            _NC,
-            _NT,
-        )  # pylint: disable=import-outside-toplevel
-
         txt = "{}: unexpected type found [{}:{}] expected [{}]"
-        error = txt.format(_NC(caller), value, _NT(value), expected)
+        error = txt.format(NameHelper.nc(caller), value, NameHelper.nt(value), expected)
 
         raise AttributeException(
             caller=caller,  # type: ignore
@@ -314,6 +309,76 @@ class Attribute:
         raise AttributeException(caller=caller, error=error)
 
 
+class NameHelper:
+    """Concrete-local object-name primitives.
+
+    A domain-local copy of the helpers.functions trio, so concrete/ need not import
+    back into wattleflow.helpers — that reverse edge is what turns helpers→concrete
+    into an ORG-01 cycle.
+    """
+
+    @staticmethod
+    def obj_name(o):
+        """__name__ of a class/function/module, else None."""
+        return getattr(o, "__name__", None)
+
+    @staticmethod
+    def cls_name(o):
+        """__class__.__name__ if present, else None."""
+        return getattr(getattr(o, "__class__", None), "__name__", None)
+
+    @staticmethod
+    def typ_name(o) -> str:
+        """type(o).__name__ — always a string."""
+        return type(o).__name__
+
+    @staticmethod
+    def print_all(o):
+        """
+        Print all attributes (including private/protected) from __dict__ of object.
+        """
+        return [print(f"{k}: {v}") for k, v in o.__dict__.items()]
+
+    @classmethod
+    def list_vars(cls, o):
+        """
+        Return a list of variable names from vars(o) excluding
+        names that start AND end with an underscore.
+        """
+        return [n for n in vars(o) if not (n.startswith("_") and n.endswith("_"))]
+
+    @classmethod
+    def list_dir(cls, o):
+        """
+        Return a list of names from dir(o) excluding
+        names that start AND end with an underscore.
+        """
+        return [n for n in dir(o) if not (n.startswith("_") and n.endswith("_"))]
+
+    @classmethod
+    def print_prop(cls, o):
+        """
+        Print public/protected properties from __dict__ (skip names starting and ending with '_').
+        """
+        return [
+            print(f"{k}: {v}")
+            for k, v in o.__dict__.items()
+            if not (k.startswith("_") and k.endswith("_"))
+        ]
+
+    @classmethod
+    def name(cls, o):
+        return cls.obj_name(o)
+
+    @classmethod
+    def nc(cls, o):
+        return cls.cls_name(o)
+
+    @classmethod
+    def nt(cls, o) -> str:
+        return cls.typ_name(o)
+
+
 # --------------------------------------------------------------------------- #
-# endregion Attribute                                                         #
+# endregion Classes                                                         #
 # --------------------------------------------------------------------------- #

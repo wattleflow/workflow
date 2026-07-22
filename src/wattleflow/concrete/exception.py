@@ -1,4 +1,4 @@
-# Module name: concrete/exceptions.py
+# Module name: concrete/exception.py
 # Author: (wattleflow@outlook.com)
 # Copyright: @ 2022-2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -22,33 +22,6 @@ from wattleflow.constants.errors import ERROR_UNEXPECTED_TYPE
 # --------------------------------------------------------------------------- #
 
 _logger = logging.getLogger("wattleflow.exception")
-
-# --------------------------------------------------------------------------- #
-# region hide
-# --------------------------------------------------------------------------- #
-# class MyError(Exception):
-#     def __init__(self, msg: str, **context):
-#         super().__init__(msg)
-#         self.context = context
-
-#     def __str__(self):
-#         if self.context:
-#             ctx = ", ".join(f"{k}={v!r}" for k, v in self.context.items())
-#             return f"{self.args[0]} [{ctx}]"
-#         return self.args[0]
-
-# def operation():
-#     try:
-#         risky_call()
-#     except (IOError, ValueError) as e:
-#         raise MyError(
-#             "operation failed",
-#             stage="parsing",
-#             input_file=path,
-#         ) from e
-# --------------------------------------------------------------------------- #
-# endregion hide
-# --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
 # region Audit base class                                                     #
@@ -233,19 +206,16 @@ class NotFoundException(AttributeError):
         except Exception:
             var_name = "Unknown Variable"
 
-        target_name = (
-            target.__name__ if isinstance(target, type) else type(target).__name__
-        )
+        target_name = target.__name__ if isinstance(target, type) else type(target).__name__
         msg = f"No [{var_name}] found in [{target_name}]"
         super().__init__(msg)
 
 
 class UnexpectedTypeException(TypeError):
     def __init__(self, caller, found, expected_type):
-        # Deferred import - wattleflow.helpers triggers helpers/__init__.py
-        # which loads helpers.attribute, which imports AttributeException from
-        # this module. Importing at module level creates a circular import.
-        from wattleflow.helpers.functions import _NC, _NT
+        # Lazy: concrete.helpers imports AttributeException from this module at
+        # module level — a top-level import here would be a circular import.
+        from wattleflow.concrete.helpers import NameHelper
 
         try:
             _frame = inspect.currentframe().f_back  # type: ignore
@@ -257,9 +227,9 @@ class UnexpectedTypeException(TypeError):
             var_name = "Unknown Variable"
 
         error = ERROR_UNEXPECTED_TYPE.format(
-            _NC(caller) if callable(_NC) else str(caller),
+            NameHelper.nc(caller),
             var_name,
-            _NT(found) if callable(_NT) else type(found).__name__,
+            NameHelper.nt(found),
             expected_type.__name__,
         )
         super().__init__(error)
@@ -291,7 +261,7 @@ class ClassLoaderException(AuditException):
 # --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
-# region Workflow classes exceptions                                          #
+# region Workflow exceptions classes                                          #
 # --------------------------------------------------------------------------- #
 
 
@@ -340,7 +310,7 @@ class StrategyException(AuditException):
 
 
 # --------------------------------------------------------------------------- #
-# endregion Workflow classes exceptions                                       #
+# endregion Workflow exceptions classes                                       #
 # --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
