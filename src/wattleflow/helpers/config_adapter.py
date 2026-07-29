@@ -20,13 +20,13 @@ from wattleflow.core import IHandler
 from wattleflow.concrete.logger import AuditLogger
 from wattleflow.helpers.config import Config
 
-# NOTE: Guarded optional dependency (ADR-ORG-07) — `helpers/yaml.py` is a functionally
+# NOTE: Guarded optional dependency (DR-WFL-003) — `helpers/yaml.py` is a functionally
 # complete stdlib fallback, so the effective closure stays stdlib and this module keeps
-# its place in the clean core (ADR-ORG-06 §2.1 exception). Verified by masking test.
+# its place in the clean core (DR-WFL-002 §2.1 exception). Verified by masking test.
 try:
     import yaml
 except Exception:
-    from wattleflow.helpers.yaml import yaml  # noqa: E401
+    from wattleflow.helpers.yaml import yaml  # noqa: F401
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -171,7 +171,7 @@ class EnvVarResolver(ISecretResolver):
 
 # NOTE: Cloud-backed resolvers (aws, azure, gcp, vault) live in
 # `wattleflow.helpers.cloud.cloud_secrets` (wattleflow-processors) — each references a
-# third-party SDK, which fixes their home distribution (ADR-ORG-06 §2.1). This
+# third-party SDK, which fixes their home distribution (DR-WFL-002 §2.1). This
 # module keeps the stable abstraction and the stdlib-only resolvers.
 
 

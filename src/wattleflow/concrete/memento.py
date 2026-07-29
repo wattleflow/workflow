@@ -12,6 +12,7 @@ from __future__ import annotations
 from types import MappingProxyType
 from typing import Any, Dict, Mapping
 from wattleflow.core import IMemento
+from wattleflow.concrete.wattleflow import Wattleflow
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -22,7 +23,7 @@ from wattleflow.core import IMemento
 # --------------------------------------------------------------------------- #
 
 
-class GenericMemento(IMemento):
+class GenericMemento(Wattleflow, IMemento):
     """Immutable snapshot container.
 
     Accepts arbitrary keyword payload and exposes it via attribute-style

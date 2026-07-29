@@ -35,6 +35,7 @@ from wattleflow.constants.enums import (
 )
 from wattleflow.concrete.manager import ConnectionManager
 from wattleflow.concrete.exception import AuditException
+from wattleflow.concrete.wattleflow import Wattleflow
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -58,7 +59,7 @@ class OrchestratorException(AuditException):
 # --------------------------------------------------------------------------- #
 
 
-class Orchestrator(IEventSource, IFacade):
+class Orchestrator(Wattleflow, IEventSource, IFacade):
     def __init__(
         self,
         connection_manager: ConnectionManager,

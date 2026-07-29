@@ -27,8 +27,8 @@ from wattleflow.core import (
     IProcessor,
     IRepository,
     IWattleflow,
-    T,
 )
+from wattleflow.core.transactional import Item
 from wattleflow.concrete.logger import AuditLogger
 from wattleflow.concrete.strategy import StrategyCreate
 from wattleflow.constants.enums import Event
@@ -102,10 +102,10 @@ TRANSITIONS = {
 # --------------------------------------------------------------------------- #
 
 
-# AuditLogger precedes Generic[T] so IWattleflow lands before Generic in the MRO,
+# AuditLogger precedes Generic[Item] so IWattleflow lands before Generic in the MRO,
 # matching IOriginator's ordering; otherwise LargeBlackboard (GenericBlackboard +
 # IOriginator) cannot linearise a consistent MRO.
-class GenericBlackboard(IBlackboard, AuditLogger, Generic[T], ABC):
+class GenericBlackboard(IBlackboard, AuditLogger, Generic[Item], ABC):
     __slots__ = (
         "_canvas",
         "_preset",
@@ -117,7 +117,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, Generic[T], ABC):
     def __init__(
         self,
         strategy_create: StrategyCreate,
-        canvas: T,
+        canvas: Item,
         **kwargs,
     ):
         level: Union[str, int] = kwargs.pop("level", "NOTSET")
@@ -145,7 +145,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, Generic[T], ABC):
         )
 
         self._strategy_create = strategy_create
-        self._canvas: T = canvas
+        self._canvas: Item = canvas
         self._repositories: Repositories = []
 
         self.debug(msg=Event.Constructor.value, step=Event.Completed.name)
@@ -193,7 +193,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, Generic[T], ABC):
 
     # region Property
     @property
-    def canvas(self) -> Mapping[T]:
+    def canvas(self) -> Mapping[Item]:
         return MappingProxyType(self._canvas)
 
     @property
@@ -211,7 +211,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, Generic[T], ABC):
     def clean(self): ...
 
     @abstractmethod
-    def create(self, caller: IProcessor, **kwargs) -> T: ...
+    def create(self, caller: IProcessor, **kwargs) -> Item: ...
 
     @abstractmethod
     def delete(self, identifier: str, **kwargs) -> None: ...
@@ -220,7 +220,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, Generic[T], ABC):
     def flush(self, caller: IWattleflow, **kwargs) -> None: ...
 
     @abstractmethod
-    def read(self, identifier: str, **kwargs) -> T: ...
+    def read(self, identifier: str, **kwargs) -> Item: ...
 
     @abstractmethod
     def write(self, pipeline: IPipeline, facade: Any, **kwargs) -> Any: ...

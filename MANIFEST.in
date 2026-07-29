@@ -1,11 +1,17 @@
-# Source distribution contents — wattleflow-workflow (stdlib only).
+# Source distribution contents — wattleflow-workflow (clean core).
 #
 # The wheel is built FROM this sdist, so what is pruned here stays out of the
 # wheel as well. This file is therefore the packaging enforcement point for
 # zero-trust (POLICY §7.1) — not just an sdist convenience.
 #
-# Ships: concrete + constants + decorators (incl. the OSCAL decorator glue)
-#        + the import-clean helpers subset.
+# WHY IT IS AUTHORITATIVE: `global-exclude *` on the first directive line drops
+# the default file list (including setuptools_scm's git-tracked set), so nothing
+# ships unless it is explicitly re-added below. Delete that line and packaging
+# silently reverts to "whatever git tracks" — the boundary stops being enforced.
+#
+# Ships: the import-clean package set — audit, concrete, constants, decorators
+#        (incl. the OSCAL decorator glue), helpers, managers, orchestrators,
+#        schedulers.
 #
 # Everything third-party-coupled — specialisations (connections/, drivers/,
 # processors/, pipelines/, documents/, strategies/, blackboards/, mappers/,
@@ -14,9 +20,16 @@
 #
 # "import-clean" = importable with only stdlib + the `wattleflow` core package.
 # A third-party reference is allowed in the core ONLY as a *guarded optional
-# dependency* (ADR-ORG-07): try/except with a functionally complete stdlib
+# dependency* (DR-WFL-003): try/except with a functionally complete stdlib
 # fallback — e.g. helpers/config*.py → yaml/jsonschema, falling back to
 # helpers/yaml.py. Installing this wheel never forces a third-party dependency.
+# Measured 2026-07-28: 62 of 65 modules are stdlib-only; all 3 exceptions
+# (helpers/config.py, config_adapter.py, config_validator.py) carry the guard.
+#
+# INVARIANT: this include list must cover every package that
+# `[tool.setuptools.packages.find]` in pyproject.toml declares. A package
+# declared there but absent here installs as an empty directory, so the
+# consumer's `import` fails at runtime instead of at install time.
 
 global-exclude *
 global-exclude .*
@@ -26,10 +39,17 @@ global-exclude *.yaml
 global-exclude __pycache__/*
 
 # --- Clean core packages ---
+# audit/, managers/ and orchestrators/ carry no code — they are documented
+# extension points ("build once, use often"). They ship because pyproject
+# declares them as packages; see the invariant above.
+recursive-include src/wattleflow/audit *.py
 recursive-include src/wattleflow/concrete *.py
 recursive-include src/wattleflow/constants *.py
 recursive-include src/wattleflow/decorators *.py
 recursive-include src/wattleflow/helpers *.py
+recursive-include src/wattleflow/managers *.py
+recursive-include src/wattleflow/orchestrators *.py
+recursive-include src/wattleflow/schedulers *.py
 
 # formatters/parsers: only the stdlib base.py contract ships; concrete formats and
 # the factories live in wattleflow-processors. The exclude/include pair is policy,
@@ -45,13 +65,26 @@ include src/wattleflow/helpers/parsers/base.py
 # `wattleflow.core*` exclude in pyproject packages.find).
 prune src/wattleflow/core
 
+# --- Documentation lives in its own repository ---
+# `documentation/` is a symlink to the separate wattleflow-documentation repo.
+# Pruning keeps another repository's content — and its C-snapshots — out of this
+# distribution (NFR-SEC-02, minimal surface). To ship the docs instead, drop the
+# prune and write `recursive-include documentation *.md`: the directive takes a
+# DIRECTORY plus a PATTERN, so a glob path such as `documentation/*.md` matches
+# nothing and fails silently.
+prune docs
+prune documentation
+
 # --- NFR enforcement tooling ---
 # The controlled-vocabulary registry ships so the NFR lint is reproducible from
-# the sdist; it is data under ADR governance, not an importable module. Both
-# files are needed together — the lint carries no built-in vocabulary.
+# the sdist; it is data under DR governance, not an importable module. Both files
+# are needed together — the lint carries no built-in vocabulary.
 # (`global-exclude *.yaml` above means the registry needs an explicit include.)
-# include tools/naming_registry.yaml
+# tools/dictionary.yaml is a link to documentation/dictionary.yaml; the sdist
+# copy follows the link, so the content is embedded rather than a dangling link.
+# It superseded tools/naming_registry.yaml on 2026-07-28 — one file now carries
+# both vocabularies (discourse: entries/acronyms; code: the `code:` block).
 include tools/wem_lint.py
-# include tools/README.md
+include tools/dictionary.yaml
 
 include README.md LICENSE pyproject.toml requirements-dev.txt

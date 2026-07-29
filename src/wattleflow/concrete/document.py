@@ -22,8 +22,10 @@ from datetime import datetime
 from typing import Dict, Generic, Mapping, Optional, TypeVar, Type
 from types import MappingProxyType
 from uuid import uuid4
-from wattleflow.core import IAdaptee, IAdapter, ITarget, T
-from wattleflow.concrete import AuditLogger
+from wattleflow.core import IAdaptee, IAdapter, ITarget
+from wattleflow.core.transactional import Content
+from wattleflow.concrete.logger import AuditLogger
+from wattleflow.concrete.wattleflow import Wattleflow
 from wattleflow.constants import Event
 from wattleflow.helpers.datetime import Now
 
@@ -50,7 +52,7 @@ _AUDIT_KEYS: frozenset = frozenset({"last_change_key", "last_change_time"})
 # --------------------------------------------------------------------------- #
 
 
-class Document(IAdaptee, Generic[T], AuditLogger, ABC):
+class Document(IAdaptee, Generic[Content], AuditLogger, ABC):
     __slots__ = (
         "_content",
         "_expected_type",
@@ -59,7 +61,7 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
         "_metadata",
     )
 
-    def __init__(self, content: T, **kwargs):
+    def __init__(self, content: Content, **kwargs):
         level = kwargs.pop("level", "NOTSET")
         handler = kwargs.pop("handler", None)
 
@@ -70,7 +72,7 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
 
         # internal interface
         self._identifier: str = str(uuid4())
-        self._content: Optional[T] = None
+        self._content: Optional[Content] = None
         self._metadata: Dict[str, object] = {}
         # lock after first assignment
         self._expected_type: Optional[Type[object]] = None
@@ -81,7 +83,7 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
         self.debug(msg=Event.Constructor.value, step=Event.Completed.name)
 
     @property
-    def content(self) -> T:
+    def content(self) -> Content:
         obj = getattr(self, "_content", None)
         if obj is None:
             raise ValueError("Content value is missing or uninitialised.")
@@ -211,8 +213,8 @@ class Document(IAdaptee, Generic[T], AuditLogger, ABC):
 # --------------------------------------------------------------------------- #
 
 
-class DocumentAdapter(IAdapter, Generic[T]):
-    def __init__(self, adaptee: T):
+class DocumentAdapter(Wattleflow, IAdapter, Generic[Adaptee]):
+    def __init__(self, adaptee: Adaptee):
         if not isinstance(adaptee, IAdaptee):
             raise TypeError("IAdaptee must be used.")
         IAdapter.__init__(self, adaptee=adaptee)
@@ -231,7 +233,7 @@ class DocumentAdapter(IAdapter, Generic[T]):
 # --------------------------------------------------------------------------- #
 
 
-class DocumentFacade(ITarget, Generic[Adaptee], ABC):
+class DocumentFacade(Wattleflow, ITarget, Generic[Adaptee], ABC):
     __slots__ = ("_adapter",)
 
     def __init__(self, adaptee: IAdaptee):

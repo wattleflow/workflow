@@ -16,6 +16,7 @@ from contextlib import contextmanager
 from typing import Any, Dict, Generator, Generic, Optional, TypeVar
 from wattleflow.core import IObservable, IObserver
 from wattleflow.concrete.exception import ConnectionException, ManagerException
+from wattleflow.concrete.wattleflow import Wattleflow
 from wattleflow.concrete.logger import AuditLogger
 from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.constants import Event, Operation
@@ -119,7 +120,7 @@ TRANSITIONS = {
 # --------------------------------------------------------------------------- #
 
 
-class ConnectionObserverInterface(IObservable, ABC):
+class ConnectionObserverInterface(Wattleflow, IObservable, ABC):
     __slots__ = ("_observers",)
 
     def __init__(self) -> None:

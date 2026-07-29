@@ -27,6 +27,7 @@ except Exception as e:
 
 from threading import RLock
 from wattleflow.core import ILogger
+from wattleflow.concrete.wattleflow import Wattleflow
 from wattleflow.constants import LogFormat
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -77,7 +78,7 @@ class ContextFilter(Filter):
 # --------------------------------------------------------------------------- #
 
 
-class AuditLogger(ILogger):
+class AuditLogger(Wattleflow, ILogger):
     _lock = RLock()
     _instances: set[type] = set()
 
@@ -89,7 +90,7 @@ class AuditLogger(ILogger):
         formating: str = LogFormat.DEFAULT.value,
         propagate: Optional[bool] = None,
     ):
-        ILogger.__init__(self)
+        super().__init__()
 
         cls = self.__class__
 

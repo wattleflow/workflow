@@ -3,6 +3,10 @@
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
+from .wattleflow import Wattleflow
+from .singleton import Singleton
+from .iterator import LazyAsyncIterator, LazyIterator
+from .observable import ThreadSafeObservable
 from .blackboard import GenericBlackboard
 from .logger import AuditLogger, AsyncHandler
 from .connection import (
@@ -60,15 +64,20 @@ __all__ = [
     "RepositoryWithDriver",
     "GenericWorkflow",
     "GuardedStateMachine",
+    "LazyAsyncIterator",
     "LazyDriverProxy",
+    "LazyIterator",
     "Orchestrator",
     "ProcessorManager",
     "Scheduler",
+    "Singleton",
     "StateMachine",
     "Strategy",
     "StrategyCreate",
     "StrategyGenerate",
     "StrategyRead",
     "StrategyWrite",
+    "ThreadSafeObservable",
+    "Wattleflow",
     "WorkflowFactory",
 ]

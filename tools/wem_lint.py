@@ -10,15 +10,23 @@ Implements the machine-verifiable acceptance criteria of:
   * NFR-ORG-02 — Class Nomenclature (name-grammar checks)
   * NFR-ORG-03 — TypeVar Nomenclature (generic-parameter role names)
 
-The checks are purely AST/import-graph based — no target module is imported, so
-the lint runs without any third-party (such as yaml, …) dependency installed. It
-is runnable on demand now and, once a CI pipeline exists, as a quality gate.
+The checks themselves are purely AST/import-graph based — no *measured* module is
+imported, so a syntactically broken target still yields findings rather than a
+crash. It is runnable on demand now and, once a CI pipeline exists, as a quality
+gate. Runtime dependencies: PyYAML (registry) and this distribution's own
+`wattleflow.core` + `wattleflow.concrete` (see below).
 
-The tool dogfoods the framework's own design-pattern interfaces (wattleflow.core):
-  * Iterator/Aggregate (ISyncAggregate, IIterator) — SourceTree walks the .py tree
-  * Builder (IBuilder)                             — ImportGraphBuilder (ORG-01)
-  * Strategy/Context (IStrategy, IStrategyContext) — one rule per NFR, run by WemLint
-  * Factory (IFactory)                             — RuleFactory maps an NFR id to its rule
+The tool dogfoods the framework it checks (self-reference — `dictionary.yaml:
+wem-lint`), consuming both distributions:
+  * Iterator/Aggregate (ISyncAggregate, LazyIterator) — SourceTree walks the .py tree
+  * Builder (IBuilder)                                — ImportGraphBuilder (ORG-01)
+  * Strategy/Context (IStrategy, IStrategyContext)    — one rule per NFR, run by WemLint
+  * Factory (IFactory)                                — RuleFactory maps an NFR id to its rule
+  * Identity (Wattleflow)                             — the root `name` contract
+
+Consequence of the self-reference: the lint cannot run against a concrete/ layer
+that does not import. That is deliberate and declared, not a defect — the
+instrument shares the fate of what it measures.
 
 Usage:
     python tools/wem_lint.py [--src SRC] [--registry FILE] [--quiet] [--select IDS]
@@ -28,7 +36,7 @@ Usage:
     # from code: raise SystemExit(Application(argv).run())
 
 Exit code is non-zero if any ERROR-level violation is found (WARNING/INFO do not
-fail the build — grandfathered legacy is reported, not blocked; see NFR.md).
+fail the build — tolerated legacy is reported, not blocked; see NFR.md).
 """
 
 from __future__ import annotations
@@ -37,13 +45,22 @@ import ast
 import fnmatch
 import logging
 import os
+import platform
 import re
 import sys
 from collections import defaultdict
+from datetime import date
 from pathlib import Path
 from typing import Iterator
 
 _STDLIB = set(sys.stdlib_module_names)
+
+# The tool lives in <repo>/tools/ and consumes <repo>/src/wattleflow. Make the src
+# layout importable before the framework imports below — a module-level side effect,
+# legal here: tools are a consumer layer, not the interface layer.
+_REPO_SRC = Path(__file__).resolve().parents[1] / "src"
+if _REPO_SRC.is_dir() and str(_REPO_SRC) not in sys.path:
+    sys.path.insert(0, str(_REPO_SRC))
 
 try:
     import yaml
@@ -54,7 +71,6 @@ try:
     from wattleflow.core import (
         IBuilder,
         IFactory,
-        IIterator,
         IStrategy,
         IStrategyContext,
         ISyncAggregate,
@@ -63,10 +79,31 @@ try:
 except ImportError as e:  # pragma: no cover
     sys.exit(f"wem_lint requires the 'wattleflow' core package (import failed: {e})")
 
+# Identity and the lazy-iterator policy come from this distribution's concrete layer,
+# not from a local copy: the tool dogfoods the framework it measures (self-reference).
+# Since core v0.0.0.46 the root IWattleflow declares `name` abstract, so every class
+# below must mix Wattleflow in or it cannot be instantiated.
+try:
+    from wattleflow.concrete import LazyIterator, Wattleflow
+except ImportError as e:  # pragma: no cover
+    sys.exit(
+        f"wem_lint requires wattleflow.concrete (import failed: {e})\n"
+        "The lint is built on the layer it measures; a broken concrete/ layer must be "
+        "repaired before conformance can be assessed."
+    )
+
 # CamelCase tokeniser that keeps acronyms whole: "PDFExtractText" -> [PDF, Extract, Text]
 _CAMEL = re.compile(r"[A-Z]+(?![a-z])|[A-Z][a-z]+|[A-Z]|\d+")
 
-__version__ = "1.2.0"
+# Criterion-versioning convention (METHODOLOGY §1 t.2): a change in rule
+# semantics or in the criterion source is a minor bump, because the same code
+# can yield a different vector afterwards.
+# 1.4.0 — criterion source moved from tools/naming_registry.yaml (retired) to
+#         the `code:` block of dictionary.yaml; acronym-casing severity is now
+#         read from `acronym_identifier_casing.status` instead of hardcoded.
+# 1.3.0 — acronym casing ERROR -> WARNING while its DR is open; blind spots and
+#         the reproducibility triple emitted; rebuilt on core v0.0.0.46.
+__version__ = "1.4.0"
 
 # Severity is a stdlib logging level (int); the report renders its level name.
 ERROR, WARNING, INFO = logging.ERROR, logging.WARNING, logging.INFO
@@ -153,7 +190,7 @@ class Naming:
         # Root packages imported from outside (stdlib ∪ wattleflow ∪ core_libs) —
         # the third-party libraries that place a module outside clean core.
         # ast.walk (not just tree.body) is deliberate: a lazy, in-function import
-        # still fixes the module's home distribution (ADR-ORG-06 §2.1), so it must
+        # still fixes the module's home distribution (DR-WFL-002 §2.1), so it must
         # count here exactly like a module-level one.
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -183,8 +220,12 @@ class Naming:
 # --------------------------------------------------------------------------- #
 # region Source tree — Iterator / Aggregate (ISyncAggregate, IIterator)       #
 # --------------------------------------------------------------------------- #
-class PyFileIterator(IIterator[Path]):
-    """Yields every non-cache, in-scope .py file under a root, in stable order."""
+class PyFileIterator(LazyIterator[Path]):
+    """Yields every non-cache, in-scope .py file under a root, in stable order.
+
+    Since core v0.0.0.46 IIterator declares create_iterator() only; the lazy
+    build-on-first-__next__ machinery is the concrete LazyIterator policy.
+    """
 
     def __init__(self, root: Path, exclude: frozenset[Path] = frozenset()):
         super().__init__()
@@ -198,7 +239,7 @@ class PyFileIterator(IIterator[Path]):
             yield path
 
 
-class SourceTree(ISyncAggregate[Path]):
+class SourceTree(Wattleflow, ISyncAggregate[Path]):
     """Aggregate over the source tree; hands out fresh file iterators."""
 
     def __init__(self, root: Path, exclude: frozenset[Path] = frozenset()):
@@ -218,7 +259,7 @@ class SourceTree(ISyncAggregate[Path]):
 # --------------------------------------------------------------------------- #
 # region NFR-ORG-02 — Class Nomenclature                                      #
 # --------------------------------------------------------------------------- #
-class NomenclatureRule(IStrategy):
+class NomenclatureRule(Wattleflow, IStrategy):
     """NFR-ORG-02 — class-name grammar, scoped to the `pipelines` domain.
 
     KNOWN GAP: a registry without a `pipelines` domain (the clean-core workflow
@@ -312,6 +353,15 @@ class NomenclatureRule(IStrategy):
         subjects, operations = reg["subjects"], reg.get("operations", [])
         targets, qualifiers = reg.get("targets", []), reg.get("qualifiers", [])
         acronyms, synonyms = reg.get("acronyms", []), reg.get("synonyms", {})
+        # Registry-driven, like ORG-03: the enforcement level is a fact of the
+        # criterion, not a constant of the tool.
+        casing_sev = reg.get("acronym_severity", WARNING)
+        casing_pending = reg.get("acronym_pending", "an open DR")
+        casing_note = (
+            "criterion 4"
+            if casing_sev == ERROR
+            else f"undecided ({casing_pending} pending); waiver declared, not enforced"
+        )
 
         def add(sev, msg):
             findings.append(Finding("ORG-02", sev, path, node.lineno, name, msg))
@@ -325,10 +375,7 @@ class NomenclatureRule(IStrategy):
         if subject is None:
             cf = Naming.casefold_lookup(segs[0], subjects) if segs else None
             if cf:
-                add(
-                    ERROR,
-                    f"subject '{segs[0]}' has wrong casing — expected '{cf}' (PEP 8, criterion 4)",
-                )
+                add(casing_sev, f"subject '{segs[0]}' casing differs from '{cf}' — {casing_note}")
                 subject, used = cf, 1
             else:
                 trailing = next((s for s in segs if Naming.casefold_lookup(s, subjects)), None)
@@ -373,7 +420,7 @@ class NomenclatureRule(IStrategy):
                 continue
             cf = Naming.casefold_lookup(q, acronyms)
             if cf and cf != q:
-                add(ERROR, f"acronym '{q}' wrong casing — expected '{cf}' (criterion 4)")
+                add(casing_sev, f"acronym '{q}' casing differs from '{cf}' — {casing_note}")
             else:
                 add(WARNING, f"qualifier '{q}' not registered (extend via ADR, criterion 3)")
 
@@ -386,7 +433,7 @@ class NomenclatureRule(IStrategy):
 # --------------------------------------------------------------------------- #
 # region NFR-ORG-01 — Dependency Locality                                     #
 # --------------------------------------------------------------------------- #
-class ImportGraphBuilder(IBuilder):
+class ImportGraphBuilder(Wattleflow, IBuilder):
     """Builds the shared-helper fan-in graph and collects acyclicity violations."""
 
     def __init__(self, src, reg):
@@ -522,7 +569,7 @@ class ImportGraphBuilder(IBuilder):
         return nodes, adj, viol, scope
 
 
-class DependencyLocalityRule(IStrategy):
+class DependencyLocalityRule(Wattleflow, IStrategy):
     """NFR-ORG-01 — shared helpers must be acyclic and broadly used (fan-in ≥ 2)."""
 
     def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
@@ -547,7 +594,7 @@ class DependencyLocalityRule(IStrategy):
                     0,
                     f"helpers.{helper}",
                     f"shared helper used by {len(consumers)} domain(s) [{who}] — criterion 1 "
-                    "wants >=2 (grandfathered; relocate or keep domain-local)",
+                    "wants >=2 (tolerated; relocate or keep domain-local)",
                     kind="single-consumer-helper",
                     detail=f"used only by: {who}",
                 )
@@ -563,21 +610,24 @@ class DependencyLocalityRule(IStrategy):
 # --------------------------------------------------------------------------- #
 # region NFR-ORG-03 — TypeVar Nomenclature                                    #
 # --------------------------------------------------------------------------- #
-class TypeVarRule(IStrategy):
+class TypeVarRule(Wattleflow, IStrategy):
     """NFR-ORG-03 — a TypeVar name must name a semantic role, not a mechanism."""
 
     def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
         cfg = reg.get("type_vars", {})
         roles = set(cfg.get("roles", []))
         synonyms = cfg.get("synonyms", {})
-        grandfathered = set(cfg.get("grandfathered", []))
+        tolerated = set(cfg.get("tolerated", []))
         acronyms = reg.get("acronyms", [])
+        # Acronym casing is enforced at whatever level the registry declares —
+        # WARNING while the decision is open, ERROR once it is taken.
+        casing = (reg.get("acronym_severity", WARNING), reg.get("acronym_pending", "an open DR"))
         findings: list[Finding] = []
         for path in source.create_iterator():
-            self._check_file(path, roles, synonyms, grandfathered, acronyms, findings)
+            self._check_file(path, roles, synonyms, tolerated, acronyms, casing, findings)
         return findings
 
-    def _check_file(self, path, roles, synonyms, grandfathered, acronyms, findings):
+    def _check_file(self, path, roles, synonyms, tolerated, acronyms, casing, findings):
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except SyntaxError:
@@ -592,13 +642,17 @@ class TypeVarRule(IStrategy):
             if tv is None:
                 continue
             name, call = tv
-            self._check_name(name, call, roles, synonyms, grandfathered, acronyms, node.lineno, add)
+            self._check_name(
+                name, call, roles, synonyms, tolerated, acronyms, casing, node.lineno, add
+            )
             if len(name) == 1 and name.isalpha() and not self._is_constrained(call):
                 single_letters.add(name)
 
         self._check_generic_arity(tree, single_letters, add)
 
-    def _check_name(self, name, call, roles, synonyms, grandfathered, acronyms, line, add):
+    def _check_name(
+        self, name, call, roles, synonyms, tolerated, acronyms, casing, line, add
+    ):
         # 5) variance must not be encoded in the name — use covariant=/contravariant=.
         if name.endswith(("_co", "_contra")):
             add(
@@ -608,8 +662,8 @@ class TypeVarRule(IStrategy):
                 "variance encoded in name — declare it via TypeVar() args (criterion 5)",
             )
             return
-        # branded name pending an ADR decision (rename to canonical role vs keep) → WARN.
-        if name in grandfathered:
+        # branded name pending a DR decision (rename to canonical role vs keep) → WARN.
+        if name in tolerated:
             add(
                 WARNING,
                 line,
@@ -647,12 +701,13 @@ class TypeVarRule(IStrategy):
         for tok in Naming.tokenize(name):
             cf = Naming.casefold_lookup(tok, acronyms)
             if cf and cf != tok:
-                add(
-                    ERROR,
-                    line,
-                    name,
-                    f"acronym '{tok}' wrong casing — expected '{cf}' (criterion 4)",
+                severity, pending = casing
+                note = (
+                    "criterion 4"
+                    if severity == ERROR
+                    else f"undecided ({pending} pending); waiver declared, not enforced"
                 )
+                add(severity, line, name, f"acronym '{tok}' casing differs from '{cf}' — {note}")
         # 1) must resolve to the registered role vocabulary.
         if name not in roles:
             add(
@@ -722,24 +777,24 @@ class TypeVarRule(IStrategy):
 # --------------------------------------------------------------------------- #
 # region Linter — Strategy context (IStrategyContext)                         #
 # --------------------------------------------------------------------------- #
-class WemLint(IStrategyContext):
+class WemLint(Wattleflow, IStrategyContext):
     """Runs each NFR rule (an IStrategy) over the shared source tree."""
 
     def __init__(self, src: Path, reg: dict):
         super().__init__()
         self._src = src
         self._reg = reg
-        self.excluded = self._out_of_scope(src, reg)
-        self._source = SourceTree(src, self.excluded)
-        self._strategy: IStrategy | None = None
-
-    @staticmethod
-    def _out_of_scope(src: Path, reg: dict) -> frozenset[Path]:
         scope = reg.get("scope", {})
         # Local names (own domains + shared namespace) are intra-project even when
         # imported bare (a malformed `from concrete import …`), never third-party.
         local = set(reg.get("domains", [])) | {reg.get("shared_namespace", "")}
-        core_libs = set(scope.get("core_libraries", [])) | local
+        self._core_libs = set(scope.get("core_libraries", [])) | local
+        self.excluded = self._out_of_scope(src, scope, self._core_libs)
+        self._source = SourceTree(src, self.excluded)
+        self._strategy: IStrategy | None = None
+
+    @staticmethod
+    def _out_of_scope(src: Path, scope: dict, core_libs: set[str]) -> frozenset[Path]:
         globs = scope.get("exclude_paths", [])
         excluded: set[Path] = set()
         for path in src.rglob("*.py"):
@@ -752,19 +807,61 @@ class WemLint(IStrategyContext):
                 excluded.add(path)
         return frozenset(excluded)
 
+    def blind_spots(self) -> list[Finding]:
+        """Declared unmeasured territory — dictionary.yaml: `slijepa-pjega`.
+
+        A blind spot is declared, never silenced. Two sources feed this:
+        modules the clean-core scope filter dropped (they import third-party, so
+        they belong to another distribution), and the registry's own
+        `blind_spots` list. Both surface in the vector as INFO, so a reader can
+        never mistake "not measured" for "measured clean".
+        """
+        out: list[Finding] = []
+        for path in sorted(self.excluded):
+            foreign = ", ".join(sorted(Naming.foreign_imports(path, self._core_libs)))
+            reason = f"imports {foreign}" if foreign else "matched an exclude_paths glob"
+            out.append(
+                Finding(
+                    "EXC",
+                    INFO,
+                    path,
+                    0,
+                    str(path.relative_to(self._src)),
+                    f"outside clean-core scope ({reason}) — no rule measured this module",
+                    kind="out-of-scope-module",
+                    detail=reason,
+                )
+            )
+        for note in self._reg.get("blind_spots") or []:
+            out.append(
+                Finding(
+                    "EXC",
+                    INFO,
+                    self._src,
+                    0,
+                    "(registry)",
+                    f"declared blind spot: {note}",
+                    kind="declared-blind-spot",
+                    detail=str(note),
+                )
+            )
+        return out
+
     def set_strategy(self, strategy: IStrategy) -> None:
         self._strategy = strategy
 
-    def execute_strategy(self, **kwargs) -> list[Finding]:
+    def execute_strategy(self, caller: IWattleflow, **kwargs) -> list[Finding]:
+        # `caller` is part of the IStrategyContext contract since core v0.0.0.46;
+        # it is forwarded verbatim so a rule can attribute its findings.
         return self._strategy.execute(
-            self, src=self._src, reg=self._reg, source=self._source, **kwargs
+            caller, src=self._src, reg=self._reg, source=self._source, **kwargs
         )
 
     def run(self, rules) -> list[Finding]:
         findings: list[Finding] = []
         for rule in rules:
             self.set_strategy(rule)
-            findings += self.execute_strategy()
+            findings += self.execute_strategy(self)
         return findings
 
     def import_graph(self) -> ImportGraphBuilder:
@@ -783,7 +880,7 @@ class WemLint(IStrategyContext):
 # --------------------------------------------------------------------------- #
 # region Rule factory (IFactory)                                              #
 # --------------------------------------------------------------------------- #
-class RuleFactory(IFactory):
+class RuleFactory(Wattleflow, IFactory):
     """Creates the NFR check strategy for a registry id (e.g. 'ORG-02')."""
 
     _RULES: dict[str, type[IStrategy]] = {
@@ -871,6 +968,34 @@ class Application:
                 "tool treats it as foundation.",
             ),
         },
+        "out-of-scope-module": {
+            "code": "I1",
+            "ref": "dictionary.yaml: slijepa-pjega",
+            "title": "module not measured — outside clean-core scope",
+            "why": (
+                "This module imports a third-party library, so it belongs to another",
+                "distribution (wattleflow-processors / examples) and every rule skipped",
+                "it. Nothing here was checked — clean is not the same as unmeasured.",
+                "Note: a real violation can hide behind this filter. helpers/config.py",
+                "is skipped for `yaml`, yet it also imports concrete/ — an ORG-01 breach",
+                "the instrument cannot see.",
+            ),
+            "fix": (
+                "Not a defect to fix: a declared blind spot, listed so the vector never",
+                "reads as full coverage. Measure it from the distribution that owns it.",
+            ),
+        },
+        "declared-blind-spot": {
+            "code": "I2",
+            "ref": "dictionary.yaml: slijepa-pjega",
+            "title": "registry declares this as unmeasured by construction",
+            "why": (
+                "The registry's `blind_spots` list names what the instrument cannot",
+                "see by design (not by accident). Declaring it is the requirement;",
+                "silence would be the defect.",
+            ),
+            "fix": ("Nothing to do — carried into every report and every snapshot.",),
+        },
         "single-consumer-helper": {
             "code": "W1",
             "ref": "NFR-ORG-01 §1",
@@ -905,7 +1030,13 @@ class Application:
         ap = argparse.ArgumentParser(description="Wattleflow NFR lint (ORG-01, ORG-02, ORG-03)")
         ap.add_argument("--version", action="version", version=f"wem_lint {__version__}")
         ap.add_argument("--src", type=Path, default=here.parent / "src" / "wattleflow")
-        ap.add_argument("--registry", type=Path, default=here / "naming_registry.yaml")
+        ap.add_argument(
+            "--registry",
+            type=Path,
+            default=here / "dictionary.yaml",
+            help="doctrine registry; the code vocabulary is read from its `code:` block "
+            "(tools/dictionary.yaml links to documentation/dictionary.yaml)",
+        )
         ap.add_argument("--quiet", action="store_true", help="suppress INFO findings")
         ap.add_argument(
             "--format",
@@ -937,6 +1068,17 @@ class Application:
             help="write the graph to a file (plain text, no colour) instead of stdout",
         )
         ap.add_argument("--no-color", action="store_true", help="disable ANSI colour in the graph")
+        ap.add_argument(
+            "--snapshot",
+            type=Path,
+            help="write the vector as YAML (a C-snapshot when the run is green); "
+            "canonical location: documentation/workflow/conformance/",
+        )
+        ap.add_argument(
+            "--date",
+            default=date.today().isoformat(),
+            help="date stamped into the snapshot (default: today)",
+        )
         return ap
 
     def _lint(self, args) -> int:
@@ -950,7 +1092,11 @@ class Application:
                 file=sys.stderr,
             )
             return 2
-        reg = yaml.safe_load(args.registry.read_text(encoding="utf-8"))
+        try:
+            reg = self._load_registry(args.registry)
+        except (OSError, yaml.YAMLError, KeyError) as e:
+            print(f"wem_lint: cannot read registry {args.registry}: {e}", file=sys.stderr)
+            return 2
 
         selected = [s.strip() for s in args.select.split(",") if s.strip()]
         try:
@@ -960,14 +1106,72 @@ class Application:
             return 2
         lint = WemLint(args.src, reg)
         self._warn_if_misrooted(args, reg, selected)
-        findings = lint.run(rules)
+        findings = lint.run(rules) + lint.blind_spots()
 
-        if args.quiet:
-            findings = [f for f in findings if f.severity != INFO]
-        rc = self._report(args, selected, findings, len(lint.excluded))
+        triple = self._triple(reg)
+        # --quiet trims the detailed listing only. The vector and the snapshot keep
+        # every INFO, because blind spots are declared, never silenced
+        # (dictionary.yaml: slijepa-pjega) — a switch must not be able to turn
+        # "not measured" into "measured clean".
+        shown = [f for f in findings if f.severity != INFO] if args.quiet else findings
+        rc = self._report(args, selected, shown, findings, triple)
+        if args.snapshot:
+            self._write_snapshot(args, selected, findings, triple)
         if args.graph:
             self._render_graph(args, lint)
         return rc
+
+    @staticmethod
+    def _load_registry(path: Path) -> dict:
+        """Read the code vocabulary out of the doctrine registry.
+
+        Since 2026-07-28 both controlled vocabularies live in one file:
+        `entries`/`acronyms` govern the discourse, the `code:` block governs
+        code identifiers. Only the latter is a lint criterion, so it is what
+        the rules receive — flattened with two derived keys:
+
+          acronyms  — from `code.identifier_acronyms`. Deliberately NOT the
+                      top-level `acronyms` table: that one lists doctrine
+                      abbreviations (DQI, NFR, PDSA) and checking class names
+                      against it would be nonsense. The two sets are disjoint
+                      by construction.
+          acronym_severity — driven by `acronym_identifier_casing.status`, so
+                      the enforcement level is a registry fact under DR
+                      governance rather than a constant in this file.
+        """
+        doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if not isinstance(doc, dict) or "code" not in doc:
+            raise KeyError(
+                "no `code:` block — expected the merged dictionary.yaml "
+                "(naming_registry.yaml was retired 2026-07-28)"
+            )
+        reg = dict(doc["code"])
+        reg["acronyms"] = reg.get("identifier_acronyms", [])
+        casing = doc.get("acronym_identifier_casing") or {}
+        reg["acronym_severity"] = ERROR if casing.get("status") == "usvojen" else WARNING
+        reg["acronym_pending"] = casing.get("decision_pending", "an open DR")
+        reg["dictionary_version"] = doc.get("registry_version", "unversioned")
+        # The reproducibility triple names the criterion, and the criterion is now
+        # the code block — versioned apart from the discourse entries.
+        reg["registry_version"] = reg.get("criterion_version", "unversioned")
+        return reg
+
+    @staticmethod
+    def _triple(reg: dict) -> dict[str, str]:
+        # Reproducibility triple — dictionary.yaml: `trojka-reproducibilnosti`.
+        # A finding without it is not reproducible, so it is printed with every
+        # report and stored with every snapshot.
+        return {
+            "tool": f"wem_lint {__version__}",
+            # The criterion is the `code:` block, versioned apart from the
+            # discourse entries; both are named so a snapshot pins the exact file.
+            "criterion": (
+                f"dictionary.code {reg.get('registry_version', 'unversioned')}"
+                f" (dictionary {reg.get('dictionary_version', 'unversioned')})"
+            ),
+            "platform": f"python {platform.python_version()} ({platform.system()})",
+            "python_reference": str(reg.get("python_reference", "unpinned")),
+        }
 
     def _warn_if_misrooted(self, args, reg, selected) -> None:
         # ORG-01/ORG-02 are domain-scoped: a file's domain is its first path part under --src.
@@ -1043,28 +1247,58 @@ class Application:
                 lines.append(f"  {branch} {label}  {paint('; '.join(v['notes']), self._DIM)}")
             lines.append("")
 
-        legend = "  ".join(
-            paint(f"{tag} ({desc})", self._TAG_COLOUR[tag])
-            for tag, desc in (("CYCLE", "mutual"), ("LAYERING", "one-way"), ("LEAF", "misfiled leaf"))
-        )
+        tags = (("CYCLE", "mutual"), ("LAYERING", "one-way"), ("LEAF", "misfiled leaf"))
+        legend = "  ".join(paint(f"{t} ({d})", self._TAG_COLOUR[t]) for t, d in tags)
         lines.append(f"Legend: {legend}")
         return "\n".join(lines)
 
-    def _report(self, args, selected, findings, excluded=0) -> int:
+    @staticmethod
+    def _vector(findings) -> list[tuple[str, str, str, int]]:
+        # Conformance vector: counts per (NFR, kind, severity). Counting is the only
+        # operation a nominal scale admits — no weighted sum, no aggregate score
+        # (METHODOLOGY §3b/§6.1; dictionary.yaml: `vektorski-nalaz`).
+        counts: dict[tuple[str, str, str], int] = defaultdict(int)
+        for f in findings:
+            counts[(f.nfr, f.kind or "-", logging.getLevelName(f.severity))] += 1
+        return [(nfr, kind, sev, n) for (nfr, kind, sev), n in sorted(counts.items())]
+
+    def _report(self, args, selected, shown, findings, triple) -> int:
+        # `shown` is what gets listed (possibly trimmed by --quiet); `findings` is
+        # the complete set the vector and the counters are computed from.
         errors = sum(1 for f in findings if f.severity == ERROR)
         warns = sum(1 for f in findings if f.severity == WARNING)
         infos = sum(1 for f in findings if f.severity == INFO)
 
         if args.format == "compact":
-            self._report_compact(args, selected, findings)
+            self._report_compact(args, selected, shown)
         else:
-            self._report_friendly(args, findings)
+            self._report_friendly(args, shown)
+
+        print(f"\n== VECTOR {'=' * 60}")
+        rows = self._vector(findings)
+        if not rows:
+            print("  (no findings)")
+        for nfr, kind, sev, n in rows:
+            print(f"  {nfr:<7} {kind:<24} {sev:<7} {n}")
+        print(
+            "  note: conformance vector — no aggregate score is defined for these\n"
+            "  checks; the scale is nominal, so counting is the only admissible\n"
+            "  operation (METHODOLOGY §3b/§6.1). A green vector proves conformance\n"
+            "  to the declared criterion, not quality (dictionary: konformnost-vs-kvaliteta)."
+        )
+
+        print(f"\n== REPRODUCIBILITY {'=' * 52}")
+        for key in ("tool", "criterion", "platform"):
+            print(f"  {key:<10} {triple[key]}")
+        if not triple["platform"].split()[1].startswith(triple["python_reference"]):
+            print(
+                f"  WARNING    registry pins python {triple['python_reference']}, running "
+                f"{platform.python_version()} — the stdlib set tested is the\n"
+                "             interpreter's, so ORG-01 scope is not reproducible against the pin"
+            )
 
         print(f"\n{'-' * 60}")
-        print(
-            f"wem_lint: {errors} error(s), {warns} warning(s), {infos} info "
-            f"({excluded} module(s) out of scope — third-party / non-core)"
-        )
+        print(f"wem_lint: {errors} error(s), {warns} warning(s), {infos} info")
         print(
             "Notes: ORG-01 fan-in counts direct `wattleflow.helpers.<mod>` imports only; "
             "aggregate `from wattleflow.helpers import X` is not resolved, so fan-in is a "
@@ -1072,12 +1306,64 @@ class Application:
         )
         return 1 if errors else 0
 
+    def _write_snapshot(self, args, selected, findings, triple) -> None:
+        """Write the run as a machine-readable vector.
+
+        Only an all-green run is a C-snapshot (dictionary.yaml: `c-snimka` — an
+        ARCHIVED GREEN vector). A run with errors is archived too, but labelled
+        `finding-vector`, so the archive can never be mistaken for a conformance
+        record it has not earned.
+        """
+        errors = sum(1 for f in findings if f.severity == ERROR)
+        kind = "c-snapshot" if errors == 0 else "finding-vector"
+        doc = {
+            "kind": kind,
+            "green": errors == 0,
+            "date": args.date,
+            "source": str(args.src),
+            "rules_selected": selected,
+            "reproducibility_triple": {k: triple[k] for k in ("tool", "criterion", "platform")},
+            "python_reference": triple["python_reference"],
+            "vector": [
+                {"nfr": nfr, "kind": k, "severity": sev, "count": n}
+                for nfr, k, sev, n in self._vector(findings)
+            ],
+            "blind_spots": [
+                {"module": f.name, "reason": f.detail}
+                for f in findings
+                if f.nfr == "EXC"
+            ],
+            "findings": [
+                {
+                    "nfr": f.nfr,
+                    "severity": logging.getLevelName(f.severity),
+                    "kind": f.kind,
+                    "location": self._location(f, args.src),
+                    "name": f.name,
+                    "message": f.message,
+                }
+                for f in findings
+                if f.nfr != "EXC"
+            ],
+        }
+        args.snapshot.parent.mkdir(parents=True, exist_ok=True)
+        args.snapshot.write_text(
+            yaml.safe_dump(doc, sort_keys=False, allow_unicode=True), encoding="utf-8"
+        )
+        print(f"\nwem_lint: {kind} written to {args.snapshot}")
+
     def _report_compact(self, args, selected, findings) -> None:
-        for nfr in selected:
+        # Groups beyond the selected rules (EXC — blind spots) must still print, or
+        # the declared-not-silenced requirement would hold only for the vector.
+        extra = [n for n in dict.fromkeys(f.nfr for f in findings) if n not in selected]
+        for nfr in list(selected) + extra:
             group = [f for f in findings if f.nfr == nfr]
             if not group:
                 continue
-            print(f"\n=== NFR-{nfr} ===")
+            # EXC is a coverage dimension, not a requirement — labelling it NFR-EXC
+            # would invent a requirement that does not exist in NFR.md.
+            label = f"NFR-{nfr}" if nfr in RuleFactory.available() else f"{nfr} (blind spots)"
+            print(f"\n=== {label} ===")
             # Highest logging level first (ERROR=40 > WARNING=30 > INFO=20).
             for f in sorted(group, key=lambda f: (-f.severity, str(f.path), f.line)):
                 print(f.render(args.src))

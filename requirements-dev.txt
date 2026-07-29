@@ -1,6 +1,9 @@
 build
-setuptools
-setuptools_scm
+setuptools>=77
 wheel
+# pyyaml is dev-only: wem_lint reads tools/dictionary.yaml. It is NOT a runtime
+# dependency — the shipped helpers/config*.py guard the import and fall back to
+# helpers/yaml.py, so installing the wheel never forces it (DR-ORG-07).
+# pyyaml
 # ruff
-# twine
+# twine>=6.1   # older twine rejects the Metadata-Version 2.4 this project emits

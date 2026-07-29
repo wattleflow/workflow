@@ -1,8 +1,6 @@
-
-
 [project]
 name = "wattleflow-workflow"
-version = "0.0.0.85"
+version = "0.0.0.87"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"
@@ -21,12 +19,18 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
+# The core is a hard runtime dependency and its contracts are NOT stable across
+# patch-level releases: v0.0.0.46 turned IWattleflow into an ABC with an abstract
+# `name`, dropped ISingleton and the T/W TypeVars, and renamed behavioral.py ->
+# behavioural.py. Anything below that floor fails at import time, so the floor is
+# pinned. An upper cap is deliberately absent — capping every 0.0.0.x bump needs
+# the version policy (DR-013) to say what a breaking core release looks like.
 dependencies = [
-    "wattleflow",
+    "wattleflow>=0.0.0.47",
 ]
 
 [build-system]
-requires = ["setuptools", "setuptools_scm", "wheel"]
+requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project.urls]
@@ -36,25 +40,32 @@ documentation = "https://github.com/wattleflow/workflow.git"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+# File selection is MANIFEST.in's job (see its header): package-data would be a
+# second, competing source of truth for what ships.
 include-package-data = false
 
-[tool.setuptools.package-data]
-
-
-[tool.setuptools_scm]
-version_scheme = "no-guess-dev"
-local_scheme = "no-local-version"
-fallback_version = "0.0.0"
+# NOTE (versioning): [project].version above is authoritative and bumped by hand,
+# one bump per release commit — same arrangement as wattleflow-core. A
+# [tool.setuptools_scm] block used to sit here and was inert: a static
+# [project].version wins, so the tag was never consulted. The contradiction was
+# not harmless — git carries v0.0.0.85, v0.0.0.86 and v0.0.0.87 on one commit
+# (b26c5d0), and concrete/_version.py lingered as its artefact reading
+# 0.0.0.31.dev0 (removed in 0.0.0.87, as core did in its 0.0.0.35). To hand
+# versioning to the tags instead, drop `version`, add `dynamic = ["version"]` and
+# restore both the block and the build requirement — but fix the tags first.
 
 [tool.setuptools.packages.find]
 where = ["src"]
 # wattleflow.core ships in the separate `wattleflow` dependency (reached here via
 # a dev symlink); api is a FastAPI MVC layer kept out of the core package.
+# Every package this leaves declared must also be shipped by MANIFEST.in, or it
+# installs empty — see the INVARIANT in that file.
 exclude = ["wattleflow.api*", "wattleflow.core*"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+# Must track requires-python above; they disagreed (py310 vs >=3.11) until 0.0.0.87.
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B"]
@@ -68,4 +79,3 @@ ignore = ["E203", "E731", "I001"]  # I001/I003 - isort import order (intentional
 # pip list --outdated
 # strace -f -e trace=file -o trace.log pip install -e .
 # strace -f -e trace=file -o trace.log pip list --outdated
-
