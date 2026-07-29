@@ -29,7 +29,7 @@ from wattleflow.core import (
     IWattleflow,
 )
 from wattleflow.core.transactional import Item
-from wattleflow.concrete.logger import AuditLogger
+from wattleflow.concrete.wattleflow import Wattleflow
 from wattleflow.concrete.strategy import StrategyCreate
 from wattleflow.constants.enums import Event
 from wattleflow.decorators.preset import PresetDecorator
@@ -102,10 +102,10 @@ TRANSITIONS = {
 # --------------------------------------------------------------------------- #
 
 
-# AuditLogger precedes Generic[Item] so IWattleflow lands before Generic in the MRO,
+# Wattleflow precedes Generic[Item] so IWattleflow lands before Generic in the MRO,
 # matching IOriginator's ordering; otherwise LargeBlackboard (GenericBlackboard +
 # IOriginator) cannot linearise a consistent MRO.
-class GenericBlackboard(IBlackboard, AuditLogger, Generic[Item], ABC):
+class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
     __slots__ = (
         "_canvas",
         "_preset",
@@ -124,8 +124,7 @@ class GenericBlackboard(IBlackboard, AuditLogger, Generic[Item], ABC):
         handler: Optional[Handler] = kwargs.pop("handler", None)
         fmt: dict = {"fmt": kwargs.pop("fmt", {})} if kwargs.get("fmt", None) else {}
 
-        # defer_flush default je True (normalan rad: cache kroz cycle, flush na kraju).
-        # Postavi se na False za audit/debug — pisanje pri svakoj izmjeni.
+        # defer_flush default je True (cache kroz cycle or flush at the end).
         if "defer_flush" not in kwargs:
             kwargs["defer_flush"] = True
 
@@ -133,10 +132,9 @@ class GenericBlackboard(IBlackboard, AuditLogger, Generic[Item], ABC):
             "Expected StrategyCreate. Found %s" % type(strategy_create)
         )
 
-        IBlackboard.__init__(self)
+        super().__init__(level=level, handler=handler, **fmt)
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
-        AuditLogger.__init__(self, level=level, handler=handler, **fmt)
         self.debug(
             msg=Event.Constructor.value,
             step=Event.Started.name,

@@ -1,8 +1,9 @@
 build
 setuptools>=77
 wheel
-# pyyaml is dev-only: wem_lint reads tools/dictionary.yaml. It is NOT a runtime
-# dependency — the shipped helpers/config*.py guard the import and fall back to
+# pyyaml is dev-only and no longer needed by wem_lint (its criterion moved to
+# tools/dictionary.json, stdlib-only). It is NOT a runtime dependency either —
+# the shipped helpers/config*.py guard the import and fall back to
 # helpers/yaml.py, so installing the wheel never forces it (DR-ORG-07).
 # pyyaml
 # ruff

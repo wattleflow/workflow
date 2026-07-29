@@ -14,7 +14,7 @@ from abc import ABC
 from logging import Handler
 from typing import Any, Optional
 from wattleflow.core import IEventListener, IScheduler
-from wattleflow.concrete import AuditLogger
+from wattleflow.concrete.wattleflow import Wattleflow
 from wattleflow.constants.enums import Event
 from wattleflow.decorators.preset import PresetDecorator
 
@@ -27,7 +27,7 @@ from wattleflow.decorators.preset import PresetDecorator
 # --------------------------------------------------------------------------- #
 
 
-class Scheduler(IScheduler, AuditLogger, ABC):
+class Scheduler(Wattleflow, IScheduler, ABC):
     """
     Scheduler class for managing periodic and event-driven task execution.
     Utilizes event-driven execution with event listeners and supports strategy-based scheduling.
@@ -48,9 +48,8 @@ class Scheduler(IScheduler, AuditLogger, ABC):
     def count(self) -> int:
         return self._counter
 
-    def __init__(self, level: int, handler: Optional[Handler] = None, *args, **kwargs):
-        IScheduler.__init__(self, *args, **kwargs)
-        AuditLogger.__init__(self, level=level, handler=handler)
+    def __init__(self, level: int, handler: Optional[Handler] = None, **kwargs):
+        super().__init__(level=level, handler=handler, **kwargs)
 
         self.debug(
             msg=Event.Constructor.value,

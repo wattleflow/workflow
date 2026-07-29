@@ -13,7 +13,7 @@ from abc import ABC
 from typing import Any, Optional
 from wattleflow.core import IBlackboard, IRepository, ITarget
 from wattleflow.constants.enums import Event
-from wattleflow.concrete.logger import AuditLogger
+from wattleflow.concrete.wattleflow import Wattleflow
 from wattleflow.concrete.driver import GenericDriver
 from wattleflow.concrete.exception import RepositoryException
 from wattleflow.concrete.strategy import StrategyRead, StrategyWrite
@@ -29,7 +29,7 @@ from wattleflow.helpers.system import ClassLoader
 # --------------------------------------------------------------------------- #
 
 
-class GenericRepository(IRepository, AuditLogger, ABC):
+class GenericRepository(Wattleflow, IRepository, ABC):
     __slots__ = (
         "_write_counter",
         "_preset",
@@ -56,8 +56,7 @@ class GenericRepository(IRepository, AuditLogger, ABC):
                 "Expected StrategyRead. Found %s" % type(strategy_read)
             )
 
-        IRepository.__init__(self)
-        AuditLogger.__init__(self, level=level, handler=handler)
+        super().__init__(level=level, handler=handler)
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
         self.debug(

@@ -21,7 +21,7 @@ from wattleflow.core import (
     IProcessor,
     ITarget,
 )
-from wattleflow.concrete.logger import AuditLogger
+from wattleflow.concrete.wattleflow import Wattleflow
 from wattleflow.concrete.memento import GenericMemento
 from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.constants.enums import Event
@@ -87,7 +87,7 @@ TRANSITIONS = {
 # ----------------------------------------------------------------------------#
 
 
-class GenericProcessor(IProcessor, IOriginator, AuditLogger, ABC):
+class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
     __slots__ = (
         "_blackboard",
         "_current",
@@ -105,7 +105,6 @@ class GenericProcessor(IProcessor, IOriginator, AuditLogger, ABC):
         self,
         **kwargs,
     ):
-
         level = kwargs.pop("level", 0)
         handler: Optional[Handler] = kwargs.pop("handler", None)
         blackboard: Optional[IBlackboard] = kwargs.pop("blackboard", None)
@@ -128,15 +127,13 @@ class GenericProcessor(IProcessor, IOriginator, AuditLogger, ABC):
             )
 
         allowed = kwargs.pop("allowed", getattr(self, "ALLOWED", []))
-        IProcessor.__init__(self)
+        super().__init__(level=level, handler=handler)
+
         self._preset: PresetDecorator = PresetDecorator(
             self,
             allowed=allowed,
             **kwargs,
         )
-
-        IOriginator.__init__(self)
-        AuditLogger.__init__(self, level=level, handler=handler)
 
         self.debug(
             msg=Event.Constructor.value,
@@ -160,7 +157,7 @@ class GenericProcessor(IProcessor, IOriginator, AuditLogger, ABC):
         self._fsm: StateMachine = StateMachine(
             TRANSITIONS,
             ProcessorState.IDLE,
-            name="ProcessorFSM",
+            label="ProcessorFSM",
         )
 
         self._blackboard: Optional[IBlackboard] = blackboard

@@ -8,6 +8,7 @@
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
 from wattleflow.core.framework import IWattleflow
+from wattleflow.concrete.logger import AuditLogger
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
@@ -20,18 +21,25 @@ __license__ = "Apache 2 Licence"
 # --------------------------------------------------------------------------- #
 # region Implementation                                                       #
 # --------------------------------------------------------------------------- #
-class Wattleflow(IWattleflow):
+class Wattleflow(AuditLogger, IWattleflow):
     """
-    Wattleflow - canonical identity implementation of IWattleflow.
+    Wattleflow - canonical root of every framework object: identity plus audit.
 
     Identity is derived on access from the concrete type and is therefore
     immutable: no code path can rename an object after construction, which
-    keeps __str__-based audit records forgery-resistant (DR-COR-002). Holds no
-    state, declares no __init__, imposes no constructor discipline.
+    keeps __str__-based audit records forgery-resistant (DR-COR-002).
 
-    Concrete framework bases (Generic*, managers, ...) inherit this mixin
-    alongside their pattern interfaces, e.g.:
-        class GenericProcessor(Wattleflow, IProcessor[Item]): ...
+    Auditability is not optional. AuditLogger is inherited here, at the single
+    declared point, so every descendant carries it by contract rather than by
+    picking it up as a side effect of some other base.
+
+    Concrete framework bases (Generic*, managers, ...) inherit this root first,
+    ahead of their pattern interfaces, and never name AuditLogger themselves:
+        class GenericProcessor(Wattleflow, IProcessor[Item], ABC): ...
+
+    __init__ opens the cooperative chain: keyword arguments travel down the MRO
+    to AuditLogger, so subclasses issue a single super().__init__(**kwargs)
+    instead of calling each base by hand.
 
     Interface:
         name -> str      (concrete type name)
@@ -40,6 +48,9 @@ class Wattleflow(IWattleflow):
     """
 
     __slots__ = ()
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     @property
     def name(self) -> str:

@@ -13,8 +13,10 @@ Implements the machine-verifiable acceptance criteria of:
 The checks themselves are purely AST/import-graph based — no *measured* module is
 imported, so a syntactically broken target still yields findings rather than a
 crash. It is runnable on demand now and, once a CI pipeline exists, as a quality
-gate. Runtime dependencies: PyYAML (registry) and this distribution's own
-`wattleflow.core` + `wattleflow.concrete` (see below).
+gate. Runtime dependencies: none beyond the standard library and this
+distribution's own `wattleflow.core` + `wattleflow.concrete` (see below). The
+criterion is read from `tools/dictionary.json` — JSON, not YAML, so a quality
+gate never depends on a third-party parser being installed.
 
 The tool dogfoods the framework it checks (self-reference — `dictionary.yaml:
 wem-lint`), consuming both distributions:
@@ -43,11 +45,13 @@ from __future__ import annotations
 import argparse
 import ast
 import fnmatch
+import json
 import logging
 import os
 import platform
 import re
 import sys
+
 from collections import defaultdict
 from datetime import date
 from pathlib import Path
@@ -63,11 +67,6 @@ if _REPO_SRC.is_dir() and str(_REPO_SRC) not in sys.path:
     sys.path.insert(0, str(_REPO_SRC))
 
 try:
-    import yaml
-except ImportError:  # pragma: no cover
-    sys.exit("wem_lint requires PyYAML — install with: pip install pyyaml")
-
-try:
     from wattleflow.core import (
         IBuilder,
         IFactory,
@@ -79,10 +78,7 @@ try:
 except ImportError as e:  # pragma: no cover
     sys.exit(f"wem_lint requires the 'wattleflow' core package (import failed: {e})")
 
-# Identity and the lazy-iterator policy come from this distribution's concrete layer,
-# not from a local copy: the tool dogfoods the framework it measures (self-reference).
-# Since core v0.0.0.46 the root IWattleflow declares `name` abstract, so every class
-# below must mix Wattleflow in or it cannot be instantiated.
+
 try:
     from wattleflow.concrete import LazyIterator, Wattleflow
 except ImportError as e:  # pragma: no cover
@@ -98,12 +94,7 @@ _CAMEL = re.compile(r"[A-Z]+(?![a-z])|[A-Z][a-z]+|[A-Z]|\d+")
 # Criterion-versioning convention (METHODOLOGY §1 t.2): a change in rule
 # semantics or in the criterion source is a minor bump, because the same code
 # can yield a different vector afterwards.
-# 1.4.0 — criterion source moved from tools/naming_registry.yaml (retired) to
-#         the `code:` block of dictionary.yaml; acronym-casing severity is now
-#         read from `acronym_identifier_casing.status` instead of hardcoded.
-# 1.3.0 — acronym casing ERROR -> WARNING while its DR is open; blind spots and
-#         the reproducibility triple emitted; rebuilt on core v0.0.0.46.
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 
 # Severity is a stdlib logging level (int); the report renders its level name.
 ERROR, WARNING, INFO = logging.ERROR, logging.WARNING, logging.INFO
@@ -543,8 +534,14 @@ class ImportGraphBuilder(Wattleflow, IBuilder):
     def violations(self) -> list[Finding]:
         return [
             Finding(
-                "ORG-01", ERROR, path, line, f"helpers→{target} [{tag}]", msg,
-                kind=self._KIND[tag], detail=detail,
+                "ORG-01",
+                ERROR,
+                path,
+                line,
+                f"helpers→{target} [{tag}]",
+                msg,
+                kind=self._KIND[tag],
+                detail=detail,
             )
             for path, line, target, tag, note, msg, detail in self._classify()
         ]
@@ -650,9 +647,7 @@ class TypeVarRule(Wattleflow, IStrategy):
 
         self._check_generic_arity(tree, single_letters, add)
 
-    def _check_name(
-        self, name, call, roles, synonyms, tolerated, acronyms, casing, line, add
-    ):
+    def _check_name(self, name, call, roles, synonyms, tolerated, acronyms, casing, line, add):
         # 5) variance must not be encoded in the name — use covariant=/contravariant=.
         if name.endswith(("_co", "_contra")):
             add(
@@ -1033,9 +1028,9 @@ class Application:
         ap.add_argument(
             "--registry",
             type=Path,
-            default=here / "dictionary.yaml",
-            help="doctrine registry; the code vocabulary is read from its `code:` block "
-            "(tools/dictionary.yaml links to documentation/dictionary.yaml)",
+            default=here / "dictionary.json",
+            help="criterion dictionary: the code vocabulary in JSON "
+            "(cut from the `code:` block of documentation/dictionary.yaml)",
         )
         ap.add_argument("--quiet", action="store_true", help="suppress INFO findings")
         ap.add_argument(
@@ -1071,7 +1066,7 @@ class Application:
         ap.add_argument(
             "--snapshot",
             type=Path,
-            help="write the vector as YAML (a C-snapshot when the run is green); "
+            help="write the vector as JSON (a C-snapshot when the run is green); "
             "canonical location: documentation/workflow/conformance/",
         )
         ap.add_argument(
@@ -1094,7 +1089,7 @@ class Application:
             return 2
         try:
             reg = self._load_registry(args.registry)
-        except (OSError, yaml.YAMLError, KeyError) as e:
+        except (OSError, json.JSONDecodeError, KeyError) as e:
             print(f"wem_lint: cannot read registry {args.registry}: {e}", file=sys.stderr)
             return 2
 
@@ -1121,39 +1116,47 @@ class Application:
             self._render_graph(args, lint)
         return rc
 
+    # `acronym_identifier_casing.status` values that put criterion 4 in force.
+    # The Croatian form is accepted because the discourse registry the criterion
+    # was cut from still carries its own status vocabulary.
+    _STATUS_ADOPTED = frozenset({"adopted", "usvojen"})
+
     @staticmethod
     def _load_registry(path: Path) -> dict:
-        """Read the code vocabulary out of the doctrine registry.
+        """Read the code vocabulary from the criterion dictionary.
 
-        Since 2026-07-28 both controlled vocabularies live in one file:
-        `entries`/`acronyms` govern the discourse, the `code:` block governs
-        code identifiers. Only the latter is a lint criterion, so it is what
-        the rules receive — flattened with two derived keys:
+        The vocabularies are split by audience: `dictionary.yaml` governs the
+        discourse (entries/acronyms, read by people), `dictionary.json` governs
+        code identifiers (read by this lint). Only the latter is a criterion, so
+        only it is loaded here — in JSON, because a quality gate must not depend
+        on a third-party parser. Two keys are derived:
 
-          acronyms  — from `code.identifier_acronyms`. Deliberately NOT the
-                      top-level `acronyms` table: that one lists doctrine
-                      abbreviations (DQI, NFR, PDSA) and checking class names
-                      against it would be nonsense. The two sets are disjoint
-                      by construction.
+          acronyms  — from `identifier_acronyms`. Deliberately NOT the discourse
+                      `acronyms` table: that one lists doctrine abbreviations
+                      (DQI, NFR, PDSA) and checking class names against it would
+                      be nonsense. The two sets are disjoint by construction.
           acronym_severity — driven by `acronym_identifier_casing.status`, so
                       the enforcement level is a registry fact under DR
                       governance rather than a constant in this file.
         """
-        doc = yaml.safe_load(path.read_text(encoding="utf-8"))
-        if not isinstance(doc, dict) or "code" not in doc:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(doc, dict) or "domains" not in doc:
             raise KeyError(
-                "no `code:` block — expected the merged dictionary.yaml "
-                "(naming_registry.yaml was retired 2026-07-28)"
+                "no `domains` key — expected the criterion dictionary.json "
+                "(converted from dictionary.yaml#code on 2026-07-29)"
             )
-        reg = dict(doc["code"])
+        # JSON carries no comments: underscore-prefixed keys are the dictionary's
+        # prose and are dropped before the rules see it.
+        reg = {k: v for k, v in doc.items() if not k.startswith("_")}
         reg["acronyms"] = reg.get("identifier_acronyms", [])
-        casing = doc.get("acronym_identifier_casing") or {}
-        reg["acronym_severity"] = ERROR if casing.get("status") == "usvojen" else WARNING
+        casing = reg.get("acronym_identifier_casing") or {}
+        status = casing.get("status")
+        reg["acronym_severity"] = ERROR if status in Application._STATUS_ADOPTED else WARNING
         reg["acronym_pending"] = casing.get("decision_pending", "an open DR")
-        reg["dictionary_version"] = doc.get("registry_version", "unversioned")
-        # The reproducibility triple names the criterion, and the criterion is now
-        # the code block — versioned apart from the discourse entries.
+        # The reproducibility triple names the criterion (the code vocabulary) and
+        # the discourse revision it was cut from — versioned apart from each other.
         reg["registry_version"] = reg.get("criterion_version", "unversioned")
+        reg["dictionary_version"] = reg.get("dictionary_version", "unversioned")
         return reg
 
     @staticmethod
@@ -1163,11 +1166,11 @@ class Application:
         # report and stored with every snapshot.
         return {
             "tool": f"wem_lint {__version__}",
-            # The criterion is the `code:` block, versioned apart from the
+            # The criterion is the code vocabulary, versioned apart from the
             # discourse entries; both are named so a snapshot pins the exact file.
             "criterion": (
-                f"dictionary.code {reg.get('registry_version', 'unversioned')}"
-                f" (dictionary {reg.get('dictionary_version', 'unversioned')})"
+                f"dictionary.json {reg.get('registry_version', 'unversioned')}"
+                f" (dictionary.yaml {reg.get('dictionary_version', 'unversioned')})"
             ),
             "platform": f"python {platform.python_version()} ({platform.system()})",
             "python_reference": str(reg.get("python_reference", "unpinned")),
@@ -1329,9 +1332,7 @@ class Application:
                 for nfr, k, sev, n in self._vector(findings)
             ],
             "blind_spots": [
-                {"module": f.name, "reason": f.detail}
-                for f in findings
-                if f.nfr == "EXC"
+                {"module": f.name, "reason": f.detail} for f in findings if f.nfr == "EXC"
             ],
             "findings": [
                 {
@@ -1348,7 +1349,7 @@ class Application:
         }
         args.snapshot.parent.mkdir(parents=True, exist_ok=True)
         args.snapshot.write_text(
-            yaml.safe_dump(doc, sort_keys=False, allow_unicode=True), encoding="utf-8"
+            json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )
         print(f"\nwem_lint: {kind} written to {args.snapshot}")
 

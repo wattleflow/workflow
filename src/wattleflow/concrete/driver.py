@@ -13,9 +13,10 @@ from abc import ABC
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
-from wattleflow.core import IDriver, IObserver
+from wattleflow.core.behavioural import IObserver
+from wattleflow.core.transactional import IDriver
+from wattleflow.concrete.wattleflow import Wattleflow
 from wattleflow.concrete.exception import DriverException
-from wattleflow.concrete.logger import AuditLogger
 from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.constants.enums import Event
 from wattleflow.decorators.preset import PresetDecorator
@@ -101,17 +102,15 @@ TRANSITIONS = {
 # --------------------------------------------------------------------------- #
 
 
-class GenericDriver(IDriver, IObserver, AuditLogger, ABC):
+class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
     __slots__ = ("_fsm", "_preset")
 
     def __init__(self, **kwargs):
         level = kwargs.pop("level", logging.WARNING)
         handler = kwargs.pop("handler", None)
-        IDriver.__init__(self)
-        IObserver.__init__(self)
-        AuditLogger.__init__(self, level=level, handler=handler)
+        super().__init__(level=level, handler=handler)
 
-        self._fsm: StateMachine = StateMachine(TRANSITIONS, DriverState.PENDING, name="DriverFSM")
+        self._fsm: StateMachine = StateMachine(TRANSITIONS, DriverState.PENDING, label="DriverFSM")
         self._preset = PresetDecorator(parent=self, **kwargs)
 
     def __del__(self):
@@ -232,16 +231,14 @@ class GenericDriver(IDriver, IObserver, AuditLogger, ABC):
     # endregion implemention
 
 
-class LazyDriverProxy(IDriver, IObserver, AuditLogger):
+class LazyDriverProxy(Wattleflow, IDriver, IObserver):
     __slots__ = ("_factory", "_driver", "_conn_mgr", "_conn_name")
 
     def __init__(self, factory, conn_mgr, conn_name: str, **kwargs):
         level = kwargs.pop("level", logging.WARNING)
         handler = kwargs.pop("handler", None)
 
-        IDriver.__init__(self)
-        IObserver.__init__(self)
-        AuditLogger.__init__(self, level=level, handler=handler)
+        super().__init__(level=level, handler=handler)
 
         self._factory = factory  # callable → GenericDriver
         self._driver = None  # stvarni driver

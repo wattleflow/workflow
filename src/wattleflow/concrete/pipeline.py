@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 from logging import Handler, NOTSET
 from typing import Any, Optional
 from wattleflow.core import IProcessor, IPipeline, ITarget
-from wattleflow.concrete import AuditLogger
+from wattleflow.concrete.wattleflow import Wattleflow
 from wattleflow.concrete.exception import AuditException
 from wattleflow.constants import Event
 from wattleflow.decorators.preset import PresetDecorator
@@ -40,7 +40,7 @@ class PipelineError(AuditException):
 # --------------------------------------------------------------------------- #
 
 
-class GenericPipeline(IPipeline, AuditLogger, ABC):
+class GenericPipeline(Wattleflow, IPipeline, ABC):
     # __slots__ = ("_preset",)
 
     def __init__(
@@ -49,8 +49,7 @@ class GenericPipeline(IPipeline, AuditLogger, ABC):
         handler: Optional[Handler] = None,
         **kwargs,
     ):
-        IPipeline.__init__(self)
-        AuditLogger.__init__(self, level=level, handler=handler)
+        super().__init__(level=level, handler=handler)
 
         self.debug(
             msg=Event.Constructor.name,

@@ -15,7 +15,7 @@ from wattleflow.core import (
     IDriver,
     IProcessor,
 )
-from wattleflow.concrete.logger import AuditLogger
+from wattleflow.concrete.wattleflow import Wattleflow
 from wattleflow.concrete.exception import AuditException
 from wattleflow.concrete.connection import Connection
 from wattleflow.concrete.driver import DriverState
@@ -52,15 +52,14 @@ class ProcessorManagerException(AuditException):
 # --------------------------------------------------------------------------- #
 
 
-class ConnectionManager(IObserver, AuditLogger):
+class ConnectionManager(Wattleflow, IObserver):
     __slots__ = ("_connections",)
 
     def __init__(self, **kwargs):
         level = kwargs.get("level", 0)
         handler = kwargs.get("handler", None)
 
-        IObserver.__init__(self)
-        AuditLogger.__init__(self, level=level, handler=handler)
+        super().__init__(level=level, handler=handler)
 
         self._connections: Dict[str, IObserver] = {}
 
@@ -170,15 +169,14 @@ class ConnectionManager(IObserver, AuditLogger):
         self.debug(msg="update", step=Event.Started.name, **kwargs, note="Not implemented yet.")
 
 
-class DriverManager(IObserver, AuditLogger):
+class DriverManager(Wattleflow, IObserver):
     __slots__ = ("_drivers",)
 
     def __init__(self, **kwargs):
         level = kwargs.get("level", 0)
         handler = kwargs.get("handler", None)
 
-        IObserver.__init__(self)
-        AuditLogger.__init__(self, level=level, handler=handler)
+        super().__init__(level=level, handler=handler)
         self.debug(msg=Event.Constructor.name, step=Event.Started.name)
 
         self._drivers: Dict[str, IDriver] = {}
@@ -284,14 +282,13 @@ class DriverManager(IObserver, AuditLogger):
 # --------------------------------------------------------------------------- #
 
 
-class ProcessorManager(IObserver, AuditLogger):
+class ProcessorManager(Wattleflow, IObserver):
     __slots__ = ("_processors",)
 
     def __init__(self, **kwargs):
         level = kwargs.get("level", 0)
         handler = kwargs.get("handler", None)
-        IObserver.__init__(self)
-        AuditLogger.__init__(self, level=level, handler=handler)
+        super().__init__(level=level, handler=handler)
         self._processors: Dict[str, IProcessor] = {}
 
     def __del__(self):

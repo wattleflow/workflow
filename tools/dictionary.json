@@ -1,0 +1,191 @@
+{
+  "_about": [
+    "Criterion dictionary for tools/wem_lint.py — the controlled vocabulary of CODE",
+    "IDENTIFIERS the NFR lint measures src/wattleflow against (NFR-ORG-01/02/03).",
+    "JSON, not YAML: the lint is stdlib-only by design (no PyYAML dependency) and",
+    "json is the only structured format the standard library parses. Keys starting",
+    "with an underscore are prose and are dropped by the loader.",
+    "Converted from the `code:` block of documentation/dictionary.yaml on 2026-07-29",
+    "and translated to UK English. The Croatian dictionary.yaml stays the source of",
+    "truth for the DISCOURSE vocabulary (entries + acronyms) and is no longer read",
+    "by this tool.",
+    "WARNING — the discourse `acronyms` table and `identifier_acronyms` below are",
+    "NOT the same vocabulary and must not be merged: the former holds doctrine",
+    "abbreviations (DQI, NFR, PDSA, SBVR) read by people, the latter holds tokens",
+    "appearing in code identifiers (JSON, URI, SQL, OSCAL) read by the lint. Their",
+    "intersection is empty (measured 2026-07-28) and must stay empty — merging them",
+    "would make one sign carry two roles.",
+    "Versioning: `criterion_version` versions THIS criterion, `dictionary_version`",
+    "names the discourse registry revision it was cut from. They are deliberately",
+    "separate — editing an entry must not invalidate a code conformance snapshot,",
+    "nor the reverse (reproducibility triple).",
+    "Governance: every extension — a new domain, base family, acronym or TypeVar",
+    "role — requires a DR record, never an ad-hoc edit."
+  ],
+
+  "registry": "wattleflow-code-vocabulary",
+  "criterion_version": "0.3.1",
+  "dictionary_version": "0.2.0",
+  "dictionary_source": "documentation/dictionary.yaml#code",
+
+  "_python_reference": "Defines the 'stdlib' set for ORG-01; must track requires-python in pyproject.toml.",
+  "python_reference": "3.11",
+
+  "_acronym_identifier_casing": [
+    "Enforcement level of the acronym-casing criterion — a registry fact under DR",
+    "governance rather than a constant in the tool: `adopted` makes the check an",
+    "ERROR, any other status a WARNING."
+  ],
+  "acronym_identifier_casing": {
+    "status": "undecided",
+    "decision_pending": "DR-WFL-004",
+    "note": "the lint warns (WARNING, waiver declared) instead of failing the build until the decision is taken"
+  },
+
+  "_blind_spots": [
+    "Declared unmeasured territory (§5, column 3). Reported as INFO on every run so",
+    "the vector can never read as full coverage."
+  ],
+  "blind_spots": [
+    "shared_namespace is exempt from the acyclicity and locality checks",
+    "a strategic adversary is beyond the reach of the lint"
+  ],
+
+  "_rules": [
+    "The rule table as the NFR registry declares it: id, requirement, check,",
+    "severity and waiver policy. Declared but not yet consumed by wem_lint —",
+    "severity and waiver are still decided inside each rule class."
+  ],
+  "rules": [
+    {"id": "ORG-01a", "nfr": "NFR-ORG-01", "check": "clean_core_imports", "severity": "error", "waiver": "forbidden"},
+    {"id": "ORG-01b", "nfr": "NFR-ORG-01", "check": "domain_acyclicity", "severity": "error", "waiver": "dr_required"},
+    {"id": "ORG-02a", "nfr": "NFR-ORG-02", "check": "base_family_membership", "severity": "error", "waiver": "dr_required"},
+    {"id": "ORG-02b", "nfr": "NFR-ORG-02", "check": "prohibited_standalone", "severity": "error", "waiver": "forbidden"},
+    {"id": "ORG-02c", "nfr": "NFR-ORG-02", "check": "acronym_case", "severity": "warning", "waiver": "declared"},
+    {"id": "ORG-03a", "nfr": "NFR-ORG-03", "check": "typevar_role_vocabulary", "severity": "warning", "waiver": "declared"}
+  ],
+
+  "_domains": [
+    "NFR-ORG-01 — top-level functional packages under src/wattleflow. `helpers` is",
+    "the shared namespace, NOT a domain: it must not appear here, or intra-helper",
+    "imports get misreported as acyclicity breaks. `constants` is likewise absent:",
+    "it imports nothing intra-project, so it is foundation material every layer may",
+    "depend on (ORG-01 §3 misfiled-leaf, 2026-07-29)."
+  ],
+  "domains": [
+    "audit",
+    "blackboards",
+    "concrete",
+    "decorators",
+    "managers",
+    "mappers",
+    "orchestrators",
+    "schedulers"
+  ],
+
+  "shared_namespace": "helpers",
+
+  "_scope": [
+    "Clean-core filter. wattleflow-workflow is clean core: stdlib plus the libraries",
+    "listed below only (§7.1). A module importing anything outside",
+    "(stdlib ∪ wattleflow ∪ core_libraries) belongs to another distribution",
+    "(wattleflow-processors / examples) and is skipped by every rule.",
+    "`exclude_paths` opts modules out by path glob, for cases the import filter",
+    "cannot catch."
+  ],
+  "scope": {
+    "core_libraries": ["typing_extensions"],
+    "exclude_paths": []
+  },
+
+  "_bases": [
+    "NFR-ORG-02 — the inheritance roots of the framework; every concrete name in",
+    "the workflow package derives from one of these. Grouped by family: each family",
+    "lists its core interface(s) (I*, from wattleflow.core) and its concrete base(s)",
+    "(concrete/*). A class belongs to a family if it inherits one of that family's",
+    "bases; pipeline detection reads `bases.pipeline`."
+  ],
+  "bases": {
+    "root": ["IWattleflow"],
+    "observer": ["IObservable", "IObserver"],
+    "blackboard": ["IBlackboard", "GenericBlackboard"],
+    "connection": ["ConnectionObserverInterface", "GenericConnection"],
+    "document": ["IAdaptee", "IAdapter", "ITarget", "Document", "DocumentAdapter", "DocumentFacade"],
+    "driver": ["IDriver", "GenericDriver", "LazyDriverProxy"],
+    "processor": ["IProcessor", "GenericProcessor"],
+    "pipeline": ["IPipeline", "GenericPipeline"],
+    "repository": ["IRepository", "GenericRepository", "RepositoryWithDriver"],
+    "strategy": ["IStrategy", "Strategy", "StrategyGenerate", "StrategyCreate", "StrategyRead", "StrategyWrite"],
+    "workflow": ["GenericWorkflow"],
+    "orchestrator": ["IEventSource", "IFacade", "Orchestrator"],
+    "scheduler": ["IScheduler", "IEventListener", "Scheduler"],
+    "manager": ["ConnectionManager", "DriverManager", "ProcessorManager"],
+    "state_machine": ["IStateMachine", "StateMachine", "GuardedStateMachine"],
+    "memento": ["IMemento", "GenericMemento"],
+    "originator": ["IOriginator"],
+    "logger": ["ILogger", "AuditLogger"],
+    "exception": ["AuditException"]
+  },
+
+  "_prohibited_standalone": "Bare generic role nouns prohibited as standalone class names (NFR-ORG-02 criterion 6).",
+  "prohibited_standalone": [
+    "Manager",
+    "Helper",
+    "Utility",
+    "Parser",
+    "Piece"
+  ],
+
+  "_identifier_acronyms": "Acronym TOKENS as they appear in code identifiers — distinct from the discourse `acronyms` table (see the note above).",
+  "identifier_acronyms": [
+    "YAML",
+    "JSON",
+    "URI",
+    "RDF",
+    "HTML",
+    "SQL",
+    "FSM",
+    "SFTP",
+    "OSCAL"
+  ],
+
+  "_type_vars": [
+    "NFR-ORG-03 — a TypeVar names the SEMANTIC ROLE the type plays in the generic",
+    "contract, not the mechanism (the fact that it is a type). Acronym casing is",
+    "checked against `identifier_acronyms`.",
+    "roles     — the closed controlled vocabulary (criterion 1). `Adaptee` is the",
+    "            Adapter-pattern role (document.py: Generic[Adaptee]), `Connection`",
+    "            the wrapped-resource role (connection.py: Generic[Connection]).",
+    "synonyms  — collapsed to a canonical role (criterion 6; the lint flags and suggests)",
+    "tolerated — branded names awaiting a DR decision (rename to a canonical role vs",
+    "            keep): WARNING, not ERROR, until decided — the same tolerance policy",
+    "            as ORG-01."
+  ],
+  "type_vars": {
+    "roles": [
+      "Key",
+      "Value",
+      "Message",
+      "Destination",
+      "Context",
+      "Result",
+      "State",
+      "Action",
+      "Vertex",
+      "Edge",
+      "Input",
+      "Output",
+      "Element",
+      "Adaptee",
+      "Connection"
+    ],
+    "synonyms": {
+      "Yielded": "Output",
+      "Sent": "Input",
+      "Return": "Result",
+      "Returned": "Result",
+      "Elem": "Element"
+    },
+    "tolerated": ["WattleType"]
+  }
+}

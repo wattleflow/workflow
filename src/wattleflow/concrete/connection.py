@@ -17,7 +17,6 @@ from typing import Any, Dict, Generator, Generic, Optional, TypeVar
 from wattleflow.core import IObservable, IObserver
 from wattleflow.concrete.exception import ConnectionException, ManagerException
 from wattleflow.concrete.wattleflow import Wattleflow
-from wattleflow.concrete.logger import AuditLogger
 from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.constants import Event, Operation
 from wattleflow.decorators.preset import PresetDecorator
@@ -123,8 +122,8 @@ TRANSITIONS = {
 class ConnectionObserverInterface(Wattleflow, IObservable, ABC):
     __slots__ = ("_observers",)
 
-    def __init__(self) -> None:
-        IObservable.__init__(self)
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
         self._observers: Dict[str, IObserver] = {}
 
     def subscribe(self, observer: IObserver) -> None:
@@ -157,7 +156,7 @@ class ConnectionObserverInterface(Wattleflow, IObservable, ABC):
 # --------------------------------------------------------------------------- #
 
 
-class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[Connection], ABC):
+class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
     __slots__ = (
         "_connection_name",
         "_connection",
@@ -171,12 +170,11 @@ class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[Connec
 
     def __init__(self, **kwargs) -> None:
         connection_name = kwargs.pop("connection_name", None)
-        ConnectionObserverInterface.__init__(self)
 
         level = kwargs.pop("level", "NOTSET")
         handler = kwargs.pop("handler", None)
         formating = kwargs.pop("formating", None) if kwargs.get("formating") else {}
-        AuditLogger.__init__(self, level=level, handler=handler, formating=formating)
+        super().__init__(level=level, handler=handler, formating=formating)
 
         if connection_name is None or connection_name.strip() == "":
             error = "`connection_name` must be provided in connection kwargs!"
@@ -195,7 +193,7 @@ class GenericConnection(ConnectionObserverInterface, AuditLogger, Generic[Connec
         self._fsm: StateMachine = StateMachine(
             TRANSITIONS,
             ConnectionState.NEW,
-            name="ConnectionFSM",
+            label="ConnectionFSM",
         )
         self._engine: object = None
         self._connection: Connection = None

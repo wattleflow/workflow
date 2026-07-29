@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from wattleflow.core import IHandler
-from wattleflow.concrete.logger import AuditLogger
+from wattleflow.concrete.wattleflow import Wattleflow
 from wattleflow.helpers.config import Config
 
 # NOTE: Guarded optional dependency (DR-WFL-003) — `helpers/yaml.py` is a functionally
@@ -285,7 +285,7 @@ class NonEmptyValidator(IConfigValidator):
 # --------------------------------------------------------------------------- #
 
 
-class ConfigAdapter(AuditLogger):
+class ConfigAdapter(Wattleflow):
     def __init__(
         self,
         config_file: Path,
@@ -299,7 +299,7 @@ class ConfigAdapter(AuditLogger):
         validator: Optional[IConfigValidator] = kwargs.get("validator", None)
         resolver_chain: Optional[SecretResolverChain] = kwargs.get("resolver_chain", None)
 
-        AuditLogger.__init__(self, level=level, handler=handler, **formater)
+        super().__init__(level=level, handler=handler, **formater)
 
         self._config_file: Path = config_file
         self._section_path = section_path

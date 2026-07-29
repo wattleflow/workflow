@@ -39,7 +39,7 @@ class GenericMemento(Wattleflow, IMemento):
     __slots__ = ("_data",)
 
     def __init__(self, **payload: Any) -> None:
-        IMemento.__init__(self)
+        super().__init__()
         self._data: Mapping[str, Any] = MappingProxyType(dict(payload))
 
     def __getattr__(self, key: str) -> Any:

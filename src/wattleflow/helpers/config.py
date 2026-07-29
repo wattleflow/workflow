@@ -13,7 +13,7 @@ import logging
 from pathlib import Path
 from typing import final, Any, Optional, Union
 from wattleflow.concrete.exception import AuditException
-from wattleflow.concrete.logger import AuditLogger
+from wattleflow.concrete.wattleflow import Wattleflow
 from wattleflow.constants.enums import Event
 
 # NOTE: Guarded optional dependency (DR-WFL-003) — PyYAML/jsonschema only accelerate
@@ -39,7 +39,7 @@ except Exception:
 
 
 @final
-class Config(AuditLogger):
+class Config(Wattleflow):
     __slots__ = (
         "_config_file",
         "_key_filename",
@@ -57,7 +57,7 @@ class Config(AuditLogger):
         level: Union[str, int] = kwargs.get("level", "NOTSET")
         handler: Optional[logging.Handler] = kwargs.get("handler", None)
 
-        AuditLogger.__init__(self, level=level, handler=handler)
+        super().__init__(level=level, handler=handler)
 
         if Path(config_file).exists() is False:
             self.error(

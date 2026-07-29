@@ -13,7 +13,7 @@ from abc import abstractmethod, ABC
 from logging import Handler
 from typing import Optional
 from wattleflow.core import IWattleflow, IStrategy, ITarget
-from wattleflow.concrete.logger import AuditLogger
+from wattleflow.concrete.wattleflow import Wattleflow
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -24,7 +24,7 @@ from wattleflow.concrete.logger import AuditLogger
 # --------------------------------------------------------------------------- #
 
 
-class Strategy(IStrategy, AuditLogger, ABC):
+class Strategy(Wattleflow, IStrategy, ABC):
     def __init__(self, **kwargs):
         kwargs.pop("allowed", None)
         level = kwargs.pop("level", 0)
@@ -33,8 +33,7 @@ class Strategy(IStrategy, AuditLogger, ABC):
         formating = kwargs.pop("formating", None)
         formating = {"formating": formating} if formating else {}
 
-        IStrategy.__init__(self)
-        AuditLogger.__init__(self, level=level, handler=handler, **formating)
+        super().__init__(level=level, handler=handler, **formating)
 
     @abstractmethod
     def execute(self, caller: IWattleflow, **kwargs) -> Optional[ITarget]:

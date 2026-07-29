@@ -27,7 +27,6 @@ except Exception as e:
 
 from threading import RLock
 from wattleflow.core import ILogger
-from wattleflow.concrete.wattleflow import Wattleflow
 from wattleflow.constants import LogFormat
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -78,17 +77,20 @@ class ContextFilter(Filter):
 # --------------------------------------------------------------------------- #
 
 
-class AuditLogger(Wattleflow, ILogger):
+# Terminal link of the cooperative __init__ chain: it consumes the logging
+# keywords and swallows the rest, so nothing reaches object.__init__.
+class AuditLogger(ILogger):
     _lock = RLock()
     _instances: set[type] = set()
 
     def __init__(
         self,
-        level: Union[int, str],
+        level: Union[int, str] = logging.NOTSET,
         logger: Optional[Logger] = None,
         handler: Optional[Handler] = None,
         formating: str = LogFormat.DEFAULT.value,
         propagate: Optional[bool] = None,
+        **kwargs,
     ):
         super().__init__()
 
@@ -198,7 +200,9 @@ class AuditLogger(Wattleflow, ILogger):
             for k, v in data.items():
                 if v is None or isinstance(v, (bool, int, float, str)):
                     parts.append(f"{k}={v}")
-                elif isinstance(v, (list, tuple, set, dict)) and (method == self._logger.info):
+                elif isinstance(v, (list, tuple, set, dict)) and (
+                    method == self._logger.info
+                ):
                     try:
                         n = len(v)
                     except Exception:

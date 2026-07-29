@@ -70,7 +70,7 @@ class ClassLoader(IWattleflow):
         level: Union[int, str] = kwargs.pop("level", NOTSET)
         handler: Optional[Handler] = kwargs.pop("handler", None)
 
-        IWattleflow.__init__(self)
+        super().__init__()
 
         # Stdlib logger (no concrete.AuditLogger — keeps helpers below domains).
         # Stdlib accepts only exc_info/extra/stack_info/stacklevel as kwargs, so

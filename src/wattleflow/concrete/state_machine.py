@@ -9,6 +9,7 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+from abc import ABC
 from enum import Enum
 from typing import Callable, Generic, Mapping, Optional, Tuple, TypeVar
 from wattleflow.core import IStateMachine
@@ -33,8 +34,8 @@ Action = TypeVar("Action", bound=Enum)
 # --------------------------------------------------------------------------- #
 
 
-class StateMachine(IStateMachine, Generic[State, Action]):
-    __slots__ = ("_state", "_transitions")
+class StateMachine(IStateMachine, Generic[State, Action], ABC):
+    __slots__ = ("_name", "_state", "_transitions")
 
     def __init__(
         self,
@@ -43,10 +44,13 @@ class StateMachine(IStateMachine, Generic[State, Action]):
         name: Optional[str] = None,
     ) -> None:
         IStateMachine.__init__(self)
-        if name is not None:
-            self.name = name
+        self._name: str = self.name
         self._transitions = transitions
         self._state = initial
+
+    @property
+    def name(self) -> str:
+        return self._name or self.__class__.__name__
 
     @property
     def state(self) -> State:
@@ -62,9 +66,8 @@ class StateMachine(IStateMachine, Generic[State, Action]):
         self._state = self._transitions[key]
 
     def __repr__(self) -> str:
-        name = self.name or self.__class__.__name__
         state = self._state.name
-        return f"{name}:[{state}]"
+        return f"{self.name}:[{state}]"
 
 
 # --------------------------------------------------------------------------- #
@@ -76,7 +79,7 @@ class StateMachine(IStateMachine, Generic[State, Action]):
 # --------------------------------------------------------------------------- #
 
 
-class GuardedStateMachine(IStateMachine):
+class GuardedStateMachine(IStateMachine, ABC):
     """One-shot guard wrapper for a StateMachine (GoF Decorator pattern).
 
     Runs ``guard(inner)`` exactly once, before the first ``apply()`` call.
@@ -84,19 +87,25 @@ class GuardedStateMachine(IStateMachine):
     successful guard the wrapper transparently delegates to the inner FSM.
     """
 
-    __slots__ = ("_inner", "_guard", "_consumed")
+    __slots__ = ("_guard", "_inner", "_name", "_consumed")
 
     def __init__(
         self,
         inner: StateMachine,
         guard: Callable[[StateMachine], None],
+        name: Optional[str] = None,
     ) -> None:
         IStateMachine.__init__(self)
+        self._name: str = self.name
         self._inner = inner
         self._guard = guard
         self._consumed = False
-        # Preserve the inner FSM's name so logs stay consistent.
-        self.name = getattr(inner, "name", self.__class__.__name__)
+        # Preserve the inner FSM's label so logs stay consistent.
+        self._label: str = getattr(inner, "label", self.name)
+
+    @property
+    def name(self) -> str:
+        return self._name or self.__class__.__name__
 
     @property
     def inner(self) -> StateMachine:

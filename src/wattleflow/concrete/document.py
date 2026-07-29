@@ -24,7 +24,6 @@ from types import MappingProxyType
 from uuid import uuid4
 from wattleflow.core import IAdaptee, IAdapter, ITarget
 from wattleflow.core.transactional import Content
-from wattleflow.concrete.logger import AuditLogger
 from wattleflow.concrete.wattleflow import Wattleflow
 from wattleflow.constants import Event
 from wattleflow.helpers.datetime import Now
@@ -52,7 +51,10 @@ _AUDIT_KEYS: frozenset = frozenset({"last_change_key", "last_change_time"})
 # --------------------------------------------------------------------------- #
 
 
-class Document(IAdaptee, Generic[Content], AuditLogger, ABC):
+# Wattleflow precedes Generic[Content] so IWattleflow lands before Generic in the
+# MRO (same constraint as GenericBlackboard); otherwise a subclass mixing in
+# IOriginator cannot linearise.
+class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
     __slots__ = (
         "_content",
         "_expected_type",
@@ -65,8 +67,7 @@ class Document(IAdaptee, Generic[Content], AuditLogger, ABC):
         level = kwargs.pop("level", "NOTSET")
         handler = kwargs.pop("handler", None)
 
-        IAdaptee.__init__(self)
-        AuditLogger.__init__(self, level=level, handler=handler)
+        super().__init__(level=level, handler=handler)
 
         self.debug(msg=Event.Constructor.value, step=Event.Started.name, kwargs=kwargs)
 
@@ -217,7 +218,8 @@ class DocumentAdapter(Wattleflow, IAdapter, Generic[Adaptee]):
     def __init__(self, adaptee: Adaptee):
         if not isinstance(adaptee, IAdaptee):
             raise TypeError("IAdaptee must be used.")
-        IAdapter.__init__(self, adaptee=adaptee)
+        super().__init__()
+        self._adaptee = adaptee
 
     def request(self):
         return self._adaptee.specific_request()
@@ -237,7 +239,7 @@ class DocumentFacade(Wattleflow, ITarget, Generic[Adaptee], ABC):
     __slots__ = ("_adapter",)
 
     def __init__(self, adaptee: IAdaptee):
-        ITarget.__init__(self)
+        super().__init__()
         if not isinstance(adaptee, IAdaptee):
             raise TypeError("IAdaptee must be used.")
         self._adapter = DocumentAdapter(adaptee)
@@ -250,15 +252,11 @@ class DocumentFacade(Wattleflow, ITarget, Generic[Adaptee], ABC):
 
     def __getattr__(self, attr: str):
         if attr.startswith("_"):
-            raise AttributeError(
-                f"'{self.__class__.__name__}' object has no attribute '{attr}'"
-            )
+            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
         adaptee = self._adapter.request()
         if hasattr(adaptee, attr):
             return getattr(adaptee, attr)
-        raise AttributeError(
-            f"'{self.__class__.__name__}' object has no attribute '{attr}'"
-        )
+        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
 
     def __repr__(self) -> str:
         return f"{self.name}:{getattr(self, 'identifier', '')}"

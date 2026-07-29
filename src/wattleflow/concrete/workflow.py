@@ -17,7 +17,7 @@ from logging import getLogger
 from wattleflow.core import IOriginator
 from wattleflow.constants import Event
 from wattleflow.concrete.exception import AuditException
-from wattleflow.concrete.logger import AuditLogger
+from wattleflow.concrete.wattleflow import Wattleflow
 from wattleflow.concrete.manager import (
     ConnectionManager,
     DriverManager,
@@ -53,7 +53,7 @@ class WorkflowFactoryException(AuditException):
 # --------------------------------------------------------------------------- #
 
 
-class GenericWorkflow(IOriginator, AuditLogger, ABC):
+class GenericWorkflow(Wattleflow, IOriginator, ABC):
     __slots__ = (
         "_connections",
         "_drivers",
@@ -75,8 +75,7 @@ class GenericWorkflow(IOriginator, AuditLogger, ABC):
         formating = adapter.find("logging", "format", default=None)
         formating = {"formating": formating} if formating else {}
 
-        AuditLogger.__init__(self, level=level, handler=handler, **formating)
-        IOriginator.__init__(self)
+        super().__init__(level=level, handler=handler, **formating)
 
         self.debug(
             msg=Event.Constructor.name,
@@ -134,7 +133,13 @@ class GenericWorkflow(IOriginator, AuditLogger, ABC):
 # region WorkflowFactory                                                      #
 # --------------------------------------------------------------------------- #
 
-logger = AuditLogger(level="ERROR", logger=getLogger("WorflowFactory"))
+
+class WorkflowFactoryLogger(Wattleflow):
+    """Standalone audit logger for WorkflowFactory, which is not itself a
+    framework object."""
+
+
+logger = WorkflowFactoryLogger(level="ERROR", logger=getLogger("WorflowFactory"))
 
 
 class WorkflowFactory:

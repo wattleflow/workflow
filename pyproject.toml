@@ -36,23 +36,13 @@ build-backend = "setuptools.build_meta"
 [project.urls]
 homepage = "https://github.com/wattleflow/workflow.git"
 repository = "https://github.com/wattleflow/workflow.git"
-documentation = "https://github.com/wattleflow/workflow.git"
+documentation = "https://github.com/wattleflow/documentation.git"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 # File selection is MANIFEST.in's job (see its header): package-data would be a
 # second, competing source of truth for what ships.
 include-package-data = false
-
-# NOTE (versioning): [project].version above is authoritative and bumped by hand,
-# one bump per release commit — same arrangement as wattleflow-core. A
-# [tool.setuptools_scm] block used to sit here and was inert: a static
-# [project].version wins, so the tag was never consulted. The contradiction was
-# not harmless — git carries v0.0.0.85, v0.0.0.86 and v0.0.0.87 on one commit
-# (b26c5d0), and concrete/_version.py lingered as its artefact reading
-# 0.0.0.31.dev0 (removed in 0.0.0.87, as core did in its 0.0.0.35). To hand
-# versioning to the tags instead, drop `version`, add `dynamic = ["version"]` and
-# restore both the block and the build requirement — but fix the tags first.
 
 [tool.setuptools.packages.find]
 where = ["src"]
