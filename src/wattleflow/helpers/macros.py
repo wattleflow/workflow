@@ -114,7 +114,6 @@ class TextMacros:
                         f"Invalid pattern {pattern!r} (flags={flags}): {e}"
                     ) from e
 
-                # self._validate_replacement(compiled, replacement)
                 self._compiled.append((compiled, replacement))
             except Exception as e:
                 self.log.error(

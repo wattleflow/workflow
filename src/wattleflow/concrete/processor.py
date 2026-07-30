@@ -34,16 +34,16 @@ from wattleflow.constants.enums import Operation
 # --------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------#
-# region State Nachine                                                        #
+# region State machine                                                        #
 # ----------------------------------------------------------------------------#
 
 
 class ProcessorState(str, Enum):
-    IDLE = "idle"  # nothing is done
+    IDLE = "idle"
     STATE_LOADED = "state_loaded"  # restore
-    RUNNING = "running"  # active transformation
-    COMPLETED = "completed"  # dataset finnished
-    FAILED = "failed"  # faild (important for resume)
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"  # resumable
 
 
 class ProcessorAction(str, Enum):
@@ -79,7 +79,7 @@ TRANSITIONS = {
     (ProcessorState.FAILED, ProcessorAction.STORE): ProcessorState.FAILED,
 }
 # ----------------------------------------------------------------------------#
-# endregion State Nachine                                                     #
+# endregion State machine                                                     #
 # ----------------------------------------------------------------------------#
 
 # ----------------------------------------------------------------------------#
@@ -118,13 +118,11 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             flush_per_cycle = True
 
         if blackboard is not None:
-            assert isinstance(blackboard, IBlackboard), (
-                "Expected IBlackboard. Found %s" % type(blackboard)
+            assert isinstance(blackboard, IBlackboard), "Expected IBlackboard. Found %s" % type(
+                blackboard
             )
         if pipelines is not None:
-            assert isinstance(pipelines, list), "Expected list. Found %s" % type(
-                pipelines
-            )
+            assert isinstance(pipelines, list), "Expected list. Found %s" % type(pipelines)
 
         allowed = kwargs.pop("allowed", getattr(self, "ALLOWED", []))
         super().__init__(level=level, handler=handler)
@@ -325,7 +323,6 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                     raise PipelineException(
                         caller=self,
                         error=reason,
-                        # trace=traceback.format_exc()
                     ) from e
 
             self._fsm.apply(ProcessorAction.RECORDS_PROCESSED)
@@ -340,22 +337,16 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         self.debug(msg=Event.Start.name, step=Event.Completed.name)
 
     def register_blackboard(self, blackboard: IBlackboard) -> None:
-        self.debug(
-            Event.Register.name, step=Event.Starting.name, blackboard=self._blackboard
-        )
-        assert isinstance(blackboard, IBlackboard), (
-            "Expected IBlackboard. Found %s" % type(blackboard)
+        self.debug(Event.Register.name, step=Event.Starting.name, blackboard=self._blackboard)
+        assert isinstance(blackboard, IBlackboard), "Expected IBlackboard. Found %s" % type(
+            blackboard
         )
         self._blackboard = blackboard
-        self.debug(
-            Event.Register.name, step=Event.Completed.name, added=self._blackboard
-        )
+        self.debug(Event.Register.name, step=Event.Completed.name, added=self._blackboard)
 
     def register_pipeline(self, pipeline: IPipeline) -> None:
         self.debug(Event.Register.name, step=Event.Starting.name, pipeline=pipeline)
-        assert isinstance(pipeline, IPipeline), "Expected IPipeline. Found %s" % type(
-            pipeline
-        )
+        assert isinstance(pipeline, IPipeline), "Expected IPipeline. Found %s" % type(pipeline)
         self._pipelines.append(pipeline)
         self.debug(
             Event.Register.name,

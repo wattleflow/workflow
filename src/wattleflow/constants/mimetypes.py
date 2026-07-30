@@ -26,7 +26,6 @@ class MimeTypes(str, Enum):
     APPLICATION_XML = "application/xml"
     APPLICATION_ZIP = "application/zip"
     APPLICATION_OCTET_STREAM = "application/octet-stream"  # generic binary fallback
-    # APPLICATION_RECORD = "application/vnd.%s.record+json"
     APPLICATION_YOUTUBE_TRANSCRIPT = "application/vnd.youtube.transcript+json"
     APPLICATION_VND_MS_EXCEL = "application/vnd.ms-excel"  # XLS
     APPLICATION_VND_OPENXML_SPREADSHEET = (  # XLSX

@@ -118,7 +118,6 @@ class ISecretResolver(ABC):
         m = _REF_PATTERN.match(value)
         return m is not None and m.group(1) == self.PREFIX
 
-    # def resolve(self, value: str) -> Optional[str]:
     def resolve(self, value: Any, strict: bool = False) -> Optional[str]:
         m = _REF_PATTERN.match(value)
         if m is None or m.group(1) != self.PREFIX:
@@ -339,7 +338,7 @@ class ConfigAdapter(Wattleflow):
             if isinstance(node, dict):
                 node = node.get(key)
             elif isinstance(node, list):
-                # Ako je lista, pokusaj flatten traversal
+                # lists are traversed flattened
                 found = None
                 for item in node:
                     if isinstance(item, dict) and key in item:
@@ -352,7 +351,7 @@ class ConfigAdapter(Wattleflow):
             if node is None:
                 return default
 
-        # Ako je lista → filtriraj
+        # list → filter
         if isinstance(node, list):
             if name is not None:
                 for item in node:

@@ -157,6 +157,7 @@ class GenericRepository(Wattleflow, IRepository, ABC):
                 caller=self,
                 reason=reason,
                 id=identifier,
+                # trace=traceback.format_exc(),
             )
             raise RepositoryException(
                 caller=self,
@@ -180,9 +181,9 @@ class GenericRepository(Wattleflow, IRepository, ABC):
             assert isinstance(caller, IBlackboard), "Expected IBlackboard. Found %s" % type(caller)
             assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(facade)
 
-            # Repository proslijeđuje SEBE kao caller-a prema strategiji.
+            # The repository passes ITSELF as caller so the owning blackboard
             # Strategy.execute asertira (IRepository, IDriver) — upstream caller
-            # (blackboard) više ne smije curiti u strategijski sloj.
+            # does not leak into the strategy layer.
             result: bool = self._strategy_write.write(
                 caller=self,
                 facade=facade,
@@ -325,7 +326,7 @@ class RepositoryWithDriver(GenericRepository):
             assert isinstance(caller, IBlackboard), "Expected IBlackboard. Found %s" % type(caller)
             assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(facade)
 
-            # Repository proslijeđuje SEBE kao caller-a prema strategiji.
+            # The repository passes ITSELF as caller so the owning blackboard
             # Strategy.execute asertira (IRepository, IDriver).
             result: bool = self._strategy_write.write(
                 caller=self,
@@ -366,6 +367,7 @@ class RepositoryWithDriver(GenericRepository):
                 driver=driver_cls,
                 document=doc_id,
                 counter=self._write_counter,
+                # trace=traceback.format_exc(),
             )
             raise RepositoryException(caller=self, error=error, facade=facade) from e
 

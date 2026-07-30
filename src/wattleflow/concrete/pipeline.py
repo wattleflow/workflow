@@ -41,8 +41,6 @@ class PipelineError(AuditException):
 
 
 class GenericPipeline(Wattleflow, IPipeline, ABC):
-    # __slots__ = ("_preset",)
-
     def __init__(
         self,
         level: int = NOTSET,
@@ -108,12 +106,10 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
         )
         result = None
         try:
-            assert isinstance(processor, IProcessor), (
-                "Expected IProcessor. Found %s" % type(processor)
+            assert isinstance(processor, IProcessor), "Expected IProcessor. Found %s" % type(
+                processor
             )
-            assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(
-                facade
-            )
+            assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(facade)
             self.transform(processor, facade, **kwargs)
         except AssertionError as e:
             self.error(msg=Event.Process.name, step=Event.Failed.name, error=str(e))

@@ -26,42 +26,13 @@ __license__ = "Apache 2 Licence"
 
 class Singleton(IWattleflow):
     """
-    Singleton - concrete base caching one instance per concrete subclass.
+    One cached instance per concrete subclass (DR-COR-003).
 
-    This is an implementation POLICY, not a contract, and therefore lives in
-    the workflow distribution's concrete/ layer, not among the core
-    interfaces (DR-COR-003): it fixes caching, locking and init-once semantics
-    for every subclass. There is no ISingleton — the pattern declares no
-    abstract method, so it has no interface to offer.
-
-    Implements the root identity contract (name) the same way as the
-    canonical Wattleflow mixin: derived from the concrete type, immutable.
-
-    Abstract subclasses are never cached (see the inspect.isabstract guard in
-    __new__). Construction is thread-safe via a per-subclass lock, and each
-    subclass's __init__ runs exactly once for its cached instance (init-once
-    guard installed in __init_subclass__).
-
-    Interface:
-        __new__(cls, *args, **kwargs) -> cached instance per concrete subclass
-        name -> str  (concrete type name)
-
-    Design notes:
-      * INIT-ONCE: Python calls __init__ after __new__ on every construction.
-        The guard wraps each subclass __init__ so it runs only when the cached
-        instance is first built; later constructions return the same instance
-        without re-running __init__, so state is not clobbered. Validated in
-        tools/singleton_audit.py selftest.
-      * The guard is installed via __init_subclass__ (no metaclass surgery),
-        preserving whatever metaclass the subclass otherwise uses.
-      * Each subclass receives its own _lock, so first construction of
-        unrelated singletons does not serialise on one shared lock.
-      * The init-once flag is stored as an instance attribute
-        (_wf_initialized). A concrete singleton using __slots__ must include
-        that slot, or omit __slots__, for the guard to work.
-      * PROCESS-GLOBAL MUTABLE STATE: _instances is a module-lifetime registry.
-        Consumers with zero-trust requirements must treat any Singleton
-        subclass as ambient authority and prefer explicit injection (DR-COR-003).
+    Abstract subclasses are never cached; each subclass gets its own lock and
+    runs __init__ once, guarded via __init_subclass__ so no metaclass is
+    imposed. A subclass using __slots__ must include `_wf_initialized` or the
+    init-once guard cannot store its flag. `_instances` is process-global
+    mutable state — ambient authority under zero-trust (NFR-SEC-01).
     """
 
     _instances: dict = {}

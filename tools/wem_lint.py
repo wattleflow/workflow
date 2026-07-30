@@ -10,13 +10,17 @@ Implements the machine-verifiable acceptance criteria of:
   * NFR-ORG-02 — Class Nomenclature (name-grammar checks)
   * NFR-ORG-03 — TypeVar Nomenclature (generic-parameter role names)
 
-The checks themselves are purely AST/import-graph based — no *measured* module is
-imported, so a syntactically broken target still yields findings rather than a
-crash. It is runnable on demand now and, once a CI pipeline exists, as a quality
-gate. Runtime dependencies: none beyond the standard library and this
-distribution's own `wattleflow.core` + `wattleflow.concrete` (see below). The
-criterion is read from `tools/dictionary.json` — JSON, not YAML, so a quality
-gate never depends on a third-party parser being installed.
+The checks themselves are purely AST/import-graph based — a measured module is
+never imported *to be checked*, so a syntactically broken target yields findings
+rather than a crash. It is not true that no measured module is imported at all:
+the tool is built on `wattleflow.concrete`, which is itself a measured domain
+(see the self-reference below). It is runnable on demand now and, once a CI
+pipeline exists, as a quality gate. Runtime dependencies: none beyond the
+standard library and this distribution's own `wattleflow.core` +
+`wattleflow.concrete`. The criterion is read from `tools/dictionary.json` —
+JSON, not YAML, so a quality gate never depends on a third-party parser being
+installed. Severity and waiver come from that criterion's `rules` block, not
+from constants here, so the enforcement level stays under DR governance.
 
 The tool dogfoods the framework it checks (self-reference — `dictionary.yaml:
 wem-lint`), consuming both distributions:
@@ -94,7 +98,7 @@ _CAMEL = re.compile(r"[A-Z]+(?![a-z])|[A-Z][a-z]+|[A-Z]|\d+")
 # Criterion-versioning convention (METHODOLOGY §1 t.2): a change in rule
 # semantics or in the criterion source is a minor bump, because the same code
 # can yield a different vector afterwards.
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 
 # Severity is a stdlib logging level (int); the report renders its level name.
 ERROR, WARNING, INFO = logging.ERROR, logging.WARNING, logging.INFO
@@ -203,6 +207,81 @@ class Naming:
         return foreign
 
 
+class Criterion:
+    """The registry's `rules` block — declared severity and waiver per check.
+
+    Severity belongs to the criterion, which is versioned apart from this tool
+    (POLICY §9), so it is resolved from the registry instead of being a constant
+    at the emission site. `IMPLEMENTED` is the other half of the same contract:
+    it names, per declared check, the finding kinds this tool can actually emit,
+    which makes drift between registry and instrument measurable rather than
+    assumed.
+    """
+
+    LEVELS = {"error": ERROR, "warning": WARNING, "info": INFO}
+
+    # registry `check` → finding kinds emitted for it
+    IMPLEMENTED = {
+        "domain_acyclicity": ("import-cycle", "wrong-direction-import", "misfiled-leaf"),
+        "helper_fan_in": ("single-consumer-helper",),
+        "base_family_membership": ("pipeline-grammar",),
+        "prohibited_standalone": ("standalone-role-noun",),
+        "acronym_case": ("acronym-case",),
+        "typevar_role_vocabulary": ("typevar-role",),
+    }
+
+    @classmethod
+    def severity(cls, reg: dict, check: str, default: int = ERROR) -> int:
+        for rule in reg.get("rules") or ():
+            if rule.get("check") == check:
+                declared = str(rule.get("severity", "")).lower()
+                return cls.LEVELS.get(declared, default)
+        return default
+
+    @classmethod
+    def drift(cls, reg: dict, src: Path) -> list[Finding]:
+        # Two directions, both silent until now: a rule the registry declares but
+        # no code path can raise (its severity and waiver are decoration), and a
+        # check this tool emits that the registry never declared (it escapes DR
+        # governance of severity/waiver entirely).
+        declared = {r.get("check"): r for r in reg.get("rules") or () if r.get("check")}
+        out: list[Finding] = []
+        for check in sorted(set(declared) - set(cls.IMPLEMENTED)):
+            rule = declared[check]
+            out.append(
+                Finding(
+                    "EXC",
+                    INFO,
+                    src,
+                    0,
+                    f"{rule.get('id', '?')} · {check}",
+                    f"declared in the registry (severity={rule.get('severity')}, "
+                    f"waiver={rule.get('waiver')}) but no check implements it — "
+                    "the criterion promises a verdict the instrument cannot give",
+                    kind="unimplemented-rule",
+                    detail=(
+                        f"{rule.get('id', '?')} · {check} "
+                        f"(severity={rule.get('severity')}, waiver={rule.get('waiver')})"
+                    ),
+                )
+            )
+        for check in sorted(set(cls.IMPLEMENTED) - set(declared)):
+            out.append(
+                Finding(
+                    "EXC",
+                    INFO,
+                    src,
+                    0,
+                    check,
+                    "emitted by this tool but absent from the registry `rules` block — "
+                    "its severity and waiver are outside DR governance",
+                    kind="undeclared-check",
+                    detail=f"{check} → emits: {', '.join(cls.IMPLEMENTED[check])}",
+                )
+            )
+        return out
+
+
 # --------------------------------------------------------------------------- #
 # endregion Naming — name & layout primitives                                 #
 # --------------------------------------------------------------------------- #
@@ -270,8 +349,12 @@ class NomenclatureRule(Wattleflow, IStrategy):
         if domain != "pipelines":
             return
 
-        def add(sev, line, nm, msg):
-            findings.append(Finding("ORG-02", sev, path, line, nm, msg))
+        def add(sev, line, nm, msg, kind=None):
+            findings.append(Finding("ORG-02", sev, path, line, nm, msg, kind=kind))
+
+        # Severity is a registry fact, not a constant here (POLICY §9).
+        grammar_sev = Criterion.severity(reg, "base_family_membership", ERROR)
+        standalone_sev = Criterion.severity(reg, "prohibited_standalone", ERROR)
 
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -294,26 +377,29 @@ class NomenclatureRule(Wattleflow, IStrategy):
 
             if has_prefix and not is_pipeline:
                 add(
-                    ERROR,
+                    grammar_sev,
                     node.lineno,
                     node.name,
                     "`Pipeline` prefix on a non-pipeline class (criterion 2)",
+                    kind="pipeline-grammar",
                 )
             if not is_pipeline:
                 if node.name in reg.get("prohibited_standalone", []):
                     add(
-                        ERROR,
+                        standalone_sev,
                         node.lineno,
                         node.name,
                         "standalone generic role noun — must be domain-qualified (criterion 6)",
+                        kind="standalone-role-noun",
                     )
                 continue
             if not has_prefix:
                 add(
-                    ERROR,
+                    grammar_sev,
                     node.lineno,
                     node.name,
                     "pipeline class must carry the `Pipeline` prefix (criterion 2)",
+                    kind="pipeline-grammar",
                 )
                 continue
             if canon_pkg in reg.get("exempt_packages", []):
@@ -354,8 +440,8 @@ class NomenclatureRule(Wattleflow, IStrategy):
             else f"undecided ({casing_pending} pending); waiver declared, not enforced"
         )
 
-        def add(sev, msg):
-            findings.append(Finding("ORG-02", sev, path, node.lineno, name, msg))
+        def add(sev, msg, kind="pipeline-grammar"):
+            findings.append(Finding("ORG-02", sev, path, node.lineno, name, msg, kind=kind))
 
         # 1) Subject — longest leading run of segments that joins to a known subject.
         subject, used = None, 0
@@ -366,7 +452,11 @@ class NomenclatureRule(Wattleflow, IStrategy):
         if subject is None:
             cf = Naming.casefold_lookup(segs[0], subjects) if segs else None
             if cf:
-                add(casing_sev, f"subject '{segs[0]}' casing differs from '{cf}' — {casing_note}")
+                add(
+                    casing_sev,
+                    f"subject '{segs[0]}' casing differs from '{cf}' — {casing_note}",
+                    kind="acronym-case",
+                )
                 subject, used = cf, 1
             else:
                 trailing = next((s for s in segs if Naming.casefold_lookup(s, subjects)), None)
@@ -411,7 +501,11 @@ class NomenclatureRule(Wattleflow, IStrategy):
                 continue
             cf = Naming.casefold_lookup(q, acronyms)
             if cf and cf != q:
-                add(casing_sev, f"acronym '{q}' casing differs from '{cf}' — {casing_note}")
+                add(
+                    casing_sev,
+                    f"acronym '{q}' casing differs from '{cf}' — {casing_note}",
+                    kind="acronym-case",
+                )
             else:
                 add(WARNING, f"qualifier '{q}' not registered (extend via ADR, criterion 3)")
 
@@ -532,10 +626,11 @@ class ImportGraphBuilder(Wattleflow, IBuilder):
     _KIND = {"CYCLE": "import-cycle", "LAYERING": "wrong-direction-import", "LEAF": "misfiled-leaf"}
 
     def violations(self) -> list[Finding]:
+        severity = Criterion.severity(self._reg, "domain_acyclicity", ERROR)
         return [
             Finding(
                 "ORG-01",
-                ERROR,
+                severity,
                 path,
                 line,
                 f"helpers→{target} [{tag}]",
@@ -578,6 +673,7 @@ class DependencyLocalityRule(Wattleflow, IStrategy):
 
         findings = builder.violations()
         # Criterion 1: every shared helper module has fan-in >= 2 distinct domains.
+        fanin_severity = Criterion.severity(reg, "helper_fan_in", WARNING)
         for helper, doms in sorted(fanin.items()):
             consumers = doms - {shared}
             if len(consumers) >= 2:
@@ -586,7 +682,7 @@ class DependencyLocalityRule(Wattleflow, IStrategy):
             findings.append(
                 Finding(
                     "ORG-01",
-                    WARNING,
+                    fanin_severity,
                     src / shared / f"{helper}.py",
                     0,
                     f"helpers.{helper}",
@@ -619,19 +715,24 @@ class TypeVarRule(Wattleflow, IStrategy):
         # Acronym casing is enforced at whatever level the registry declares —
         # WARNING while the decision is open, ERROR once it is taken.
         casing = (reg.get("acronym_severity", WARNING), reg.get("acronym_pending", "an open DR"))
+        # Every ORG-03 verdict is the same declared check, so it carries the
+        # severity the registry gives that check (POLICY §9) — not a constant here.
+        role_sev = Criterion.severity(reg, "typevar_role_vocabulary", ERROR)
         findings: list[Finding] = []
         for path in source.create_iterator():
-            self._check_file(path, roles, synonyms, tolerated, acronyms, casing, findings)
+            self._check_file(
+                path, roles, synonyms, tolerated, acronyms, casing, role_sev, findings
+            )
         return findings
 
-    def _check_file(self, path, roles, synonyms, tolerated, acronyms, casing, findings):
+    def _check_file(self, path, roles, synonyms, tolerated, acronyms, casing, role_sev, findings):
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except SyntaxError:
             return
 
-        def add(sev, line, name, msg):
-            findings.append(Finding("ORG-03", sev, path, line, name, msg))
+        def add(sev, line, name, msg, kind="typevar-role"):
+            findings.append(Finding("ORG-03", sev, path, line, name, msg, kind=kind))
 
         single_letters: set[str] = set()
         for node in ast.walk(tree):
@@ -640,18 +741,21 @@ class TypeVarRule(Wattleflow, IStrategy):
                 continue
             name, call = tv
             self._check_name(
-                name, call, roles, synonyms, tolerated, acronyms, casing, node.lineno, add
+                name, call, roles, synonyms, tolerated, acronyms, casing, role_sev,
+                node.lineno, add,
             )
             if len(name) == 1 and name.isalpha() and not self._is_constrained(call):
                 single_letters.add(name)
 
-        self._check_generic_arity(tree, single_letters, add)
+        self._check_generic_arity(tree, single_letters, role_sev, add)
 
-    def _check_name(self, name, call, roles, synonyms, tolerated, acronyms, casing, line, add):
+    def _check_name(
+        self, name, call, roles, synonyms, tolerated, acronyms, casing, role_sev, line, add
+    ):
         # 5) variance must not be encoded in the name — use covariant=/contravariant=.
         if name.endswith(("_co", "_contra")):
             add(
-                ERROR,
+                role_sev,
                 line,
                 name,
                 "variance encoded in name — declare it via TypeVar() args (criterion 5)",
@@ -670,7 +774,7 @@ class TypeVarRule(Wattleflow, IStrategy):
         if len(name) == 1 and name.isalpha():
             if self._is_constrained(call):
                 add(
-                    ERROR,
+                    role_sev,
                     line,
                     name,
                     "single-letter name on a bounded/constrained TypeVar carries a role — "
@@ -681,7 +785,7 @@ class TypeVarRule(Wattleflow, IStrategy):
         suffix = self._mechanism_suffix(name)
         if suffix:
             add(
-                ERROR,
+                role_sev,
                 line,
                 name,
                 f"mechanism suffix '{suffix}' carries no information — drop it (criterion 2)",
@@ -690,7 +794,7 @@ class TypeVarRule(Wattleflow, IStrategy):
         # 6) synonym of a canonical role.
         canon = synonyms.get(name)
         if canon:
-            add(ERROR, line, name, f"synonym of canonical role '{canon}' — rename (criterion 6)")
+            add(role_sev, line, name, f"synonym of canonical role '{canon}' — rename (criterion 6)")
             return
         # 4) acronym casing follows PEP 8 (all-caps).
         for tok in Naming.tokenize(name):
@@ -702,11 +806,17 @@ class TypeVarRule(Wattleflow, IStrategy):
                     if severity == ERROR
                     else f"undecided ({pending} pending); waiver declared, not enforced"
                 )
-                add(severity, line, name, f"acronym '{tok}' casing differs from '{cf}' — {note}")
+                add(
+                    severity,
+                    line,
+                    name,
+                    f"acronym '{tok}' casing differs from '{cf}' — {note}",
+                    kind="acronym-case",
+                )
         # 1) must resolve to the registered role vocabulary.
         if name not in roles:
             add(
-                ERROR,
+                role_sev,
                 line,
                 name,
                 "not in the registered role vocabulary (extend via ADR, criterion 1)",
@@ -743,7 +853,7 @@ class TypeVarRule(Wattleflow, IStrategy):
         return None
 
     @staticmethod
-    def _check_generic_arity(tree, single_letters: set[str], add) -> None:
+    def _check_generic_arity(tree, single_letters: set[str], role_sev: int, add) -> None:
         # 3) two or more single-letter parameters in one Generic[...] is a violation.
         for node in ast.walk(tree):
             if not isinstance(node, ast.Subscript):
@@ -756,7 +866,7 @@ class TypeVarRule(Wattleflow, IStrategy):
             params = {e.id for e in elts if isinstance(e, ast.Name) and e.id in single_letters}
             if len(params) >= 2:
                 add(
-                    ERROR,
+                    role_sev,
                     node.lineno,
                     ",".join(sorted(params)),
                     "two or more single-letter type parameters in one Generic[...] — "
@@ -914,13 +1024,15 @@ class Application:
     _TAG_COLOUR = {"CYCLE": "\033[31m", "LAYERING": "\033[33m", "LEAF": "\033[34m"}
     _DIM, _RESET = "\033[2m", "\033[0m"
 
-    # Friendly-report catalogue: one entry per finding kind. Anatomy: what happened
+    # Friendly-report catalogue: one entry per finding kind. `code` identifies the
+    # KIND only — severity is a registry fact (POLICY §9) and is carried by the
+    # badge, so it must not be encoded in the code letter. Anatomy: what happened
     # (title) → why it matters (why) → what to do (fix). Written for a junior reader
     # — no jargon in the message; the NFR reference is the door to the full rule.
     # The explanation prints ONCE per kind; instances list compactly below it.
     _CATALOGUE = {
         "import-cycle": {
-            "code": "E1",
+            "code": "K1",
             "ref": "NFR-ORG-01 §3",
             "title": "import loop — two modules import each other",
             "why": (
@@ -934,7 +1046,7 @@ class Application:
             ),
         },
         "wrong-direction-import": {
-            "code": "E2",
+            "code": "K2",
             "ref": "NFR-ORG-01 §3",
             "title": "foundation imports an upper layer (wrong direction)",
             "why": (
@@ -950,7 +1062,7 @@ class Application:
             ),
         },
         "misfiled-leaf": {
-            "code": "E3",
+            "code": "K3",
             "ref": "NFR-ORG-01 §3",
             "title": "import target is foundation material, but labelled as a domain",
             "why": (
@@ -964,7 +1076,7 @@ class Application:
             ),
         },
         "out-of-scope-module": {
-            "code": "I1",
+            "code": "K5",
             "ref": "dictionary.yaml: slijepa-pjega",
             "title": "module not measured — outside clean-core scope",
             "why": (
@@ -981,7 +1093,7 @@ class Application:
             ),
         },
         "declared-blind-spot": {
-            "code": "I2",
+            "code": "K6",
             "ref": "dictionary.yaml: slijepa-pjega",
             "title": "registry declares this as unmeasured by construction",
             "why": (
@@ -991,8 +1103,36 @@ class Application:
             ),
             "fix": ("Nothing to do — carried into every report and every snapshot.",),
         },
+        "unimplemented-rule": {
+            "code": "K7",
+            "ref": "POLICY §9",
+            "title": "registry declares a rule this tool cannot check",
+            "why": (
+                "The criterion lists a rule with a severity and a waiver policy, but",
+                "no code path can ever raise it. The declaration promises a verdict",
+                "the instrument never gives, so a green vector overstates coverage.",
+            ),
+            "fix": (
+                "Fix: implement the check, or retire the rule from the registry",
+                "through a DR — a rule is a promise, not a comment.",
+            ),
+        },
+        "undeclared-check": {
+            "code": "K8",
+            "ref": "POLICY §9",
+            "title": "tool emits a check the registry never declared",
+            "why": (
+                "This check produces findings, yet the criterion does not list it.",
+                "Its severity and waiver therefore live in the tool instead of the",
+                "registry, outside the DR governance the criterion is meant to carry.",
+            ),
+            "fix": (
+                "Fix: declare the check in the registry `rules` block through a DR,",
+                "so its severity and waiver become a criterion fact.",
+            ),
+        },
         "single-consumer-helper": {
-            "code": "W1",
+            "code": "K4",
             "ref": "NFR-ORG-01 §1",
             "title": "shared helper used by only one package",
             "why": (
@@ -1101,7 +1241,7 @@ class Application:
             return 2
         lint = WemLint(args.src, reg)
         self._warn_if_misrooted(args, reg, selected)
-        findings = lint.run(rules) + lint.blind_spots()
+        findings = lint.run(rules) + lint.blind_spots() + Criterion.drift(reg, args.src)
 
         triple = self._triple(reg)
         # --quiet trims the detailed listing only. The vector and the snapshot keep

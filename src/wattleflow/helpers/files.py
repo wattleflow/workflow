@@ -4,21 +4,11 @@
 # License: Apache 2 Licence
 
 
-"""
-Shared, case-insensitive filesystem scanning for processors.
+"""Case-insensitive filesystem scanning.
 
-pathlib globbing is case-sensitive on case-sensitive filesystems (Linux) and
-the ``case_sensitive`` kwarg only arrives in Python 3.12, while the framework
-targets 3.11+. FileScanner rewrites each glob into case-insensitive character
-classes so a single config entry (e.g. ``*.txt``) behaves identically on Linux,
-Windows and macOS, and validates the ``pattern`` value so every YAML config
-that uses it is held to the same format.
-
-Example:
-    from wattleflow.helpers.files import FileScanner
-
-    for path in FileScanner.scan("/data", "*.txt", recursive=True):
-        print(path)
+pathlib's `case_sensitive` kwarg lands in 3.12 and the framework targets 3.11,
+so each glob is rewritten into case-insensitive character classes; one config
+entry then behaves identically on Linux, Windows and macOS.
 """
 
 # --------------------------------------------------------------------------- #

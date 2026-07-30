@@ -77,20 +77,6 @@ class Scheduler(Wattleflow, IScheduler, ABC):
     def setup_orchestrator(self) -> None:
         self.debug(msg=Event.Configuring.value, name=self.name)
 
-        # with self._lock:
-        #     if self._orchestrator is None:
-
-        # config: Config = self.load_config(config_path)
-        # connection_manager: ConnectionManager = ConnectionManager(
-        #     **config["connection_manager"]
-        # )
-        # strategy = config.get("strategy")
-
-        # self._orchestrator = Orchestrator(connection_manager, strategy)
-
-        # # Emit event when orchestrator is set up
-        # self.emit_event("OrchestratorSetup", config=config)
-
     def start_orchestration(self, parallel: bool = False):
         with self._lock:
             if self._orchestrator:

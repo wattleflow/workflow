@@ -63,7 +63,7 @@ _MONTHS = {
 
 _TSEP = r"(?:\s+at\s+|[\sT,_-]+)"
 
-# (regex, kind) — kompilira se jednom na razini modula
+# (regex, kind)
 _PATTERNS: list[tuple[re.Pattern[str], str]] = [
     # ISO: 2024-01-24 [T 14:30[:00]]
     (
@@ -73,7 +73,7 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
         ),
         "numeric",
     ),
-    # Kompaktni numerički: 20240124[T1430 | _1430]
+    # compact numeric: 20240124[T1430 | _1430]
     (
         re.compile(
             r"(?<!\d)(?P<y>\d{4})(?P<m>\d{2})(?P<d>\d{2})"
@@ -81,7 +81,7 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
         ),
         "numeric",
     ),
-    # DMY s razdjelnicima: 24/01/2024 [ 14:30]
+    # DMY with separators: 24/01/2024 [ 14:30]
     (
         re.compile(
             r"(?<!\d)(?P<d>\d{1,2})[./](?P<m>\d{1,2})[./](?P<y>\d{2,4})"
@@ -105,7 +105,7 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
         ),
         "textual",
     ),
-    # Kompaktni tekstualni bez razmaka: 24JAN20, 24Jan2020
+    # compact textual, no spaces: 24JAN20, 24Jan2020
     (re.compile(r"(?<!\w)(?P<d>\d{1,2})(?P<mon>[A-Za-z]{3})(?P<y>\d{2,4})(?!\w)"), "textual"),
 ]
 
@@ -120,8 +120,7 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
 
 
 def _format_match(match: re.Match[str], kind: str, pivot: int) -> str | None:
-    """Iz regex pogodka gradi 'YYYY-MM-DD' ili 'YYYY-MM-DD-HHMM'.
-    Vraća None ako su komponente nevažeće (npr. mjesec 13)."""
+    """Build 'YYYY-MM-DD[-HHMM]' from a match; None when components are invalid."""
     try:
         g = match.groupdict()
         if kind == "textual":
@@ -158,27 +157,16 @@ def _format_match(match: re.Match[str], kind: str, pivot: int) -> str | None:
 
 
 class Normaliser(str):
-    """
-    str podklasa s lancanim transformacijama.
-
-    Svaka metoda vraća NOVU instancu Normaliser-a (ili samu sebe
-    ako transformacija nije primjenjiva), što omogućuje fluent API:
-
-        Normaliser(Path("Izvještaj 24JAN20.PDF")).name().date().title()
-    """
+    """`str` subclass whose transformations return a new instance, so calls chain."""
 
     def __new__(cls, value: Any = "") -> "Normaliser":
-        # Prihvaća str, Path, ili bilo što što se može pretvoriti u str.
         return super().__new__(cls, "" if value is None else str(value))
 
-    # ───────────── unutarnji helper ─────────────
     def _wrap(self, value: str) -> "Normaliser":
-        """Vraća novu Normaliser instancu (ili self ako je sadržaj isti)."""
         return self if value == str(self) else Normaliser(value)
 
-    # ───────────── case transformacije ─────────────
-    # Preklapamo str metode da vraćaju Normaliser umjesto str,
-    # inače lanac puca poslije prve transformacije.
+    # str methods are overridden to return Normaliser; otherwise the chain
+    # breaks after the first transformation.
     def upper(self) -> "Normaliser":  # type: ignore[override]
         return self._wrap(str.upper(self))
 
@@ -191,20 +179,14 @@ class Normaliser(str):
     def capitalize(self) -> "Normaliser":  # type: ignore[override]
         return self._wrap(str.capitalize(self))
 
-    # Hrvatski alias
+    # Croatian spelling alias
     def capitalise(self) -> "Normaliser":
         return self.capitalize()
 
-    # ───────────── datum ─────────────
     def date(self, pivot: int = 70) -> "Normaliser":
-        """
-        Pronalazi sve prepoznatljive datume u sadržaju i zamjenjuje ih
-        kanonskim oblikom 'YYYY-MM-DD' (ili 'YYYY-MM-DD-HHMM' ako
-        sadrže vrijeme). Ostatak teksta ostaje netaknut.
+        """Rewrite recognised dates to 'YYYY-MM-DD[-HHMM]'.
 
-        Ako nema poklapanja, vraća self (izvorni sadržaj).
-
-        Dvoznamenkaste godine: y < pivot → 2000+y, inače 1900+y.
+        Two-digit years: y < pivot -> 2000+y, else 1900+y.
         """
         if not self:
             return self
@@ -218,7 +200,7 @@ class Normaliser(str):
                 nonlocal changed
                 result = _format_match(m, _kind, pivot)
                 if result is None:
-                    return m.group(0)  # nevažeći datum, ostavi kako je
+                    return m.group(0)  # invalid date — leave as written
                 changed = True
                 return result
 
@@ -226,19 +208,13 @@ class Normaliser(str):
 
         return self._wrap(text) if changed else self
 
-    # ───────────── naziv datoteke ─────────────
     def name(self, max_len: int = 40, replacement: str = "-") -> "Normaliser":
-        """
-        Normalizira naziv datoteke: ascii, [a-z0-9-], bez dvostrukih razdjelnika,
-        duljina stema <= max_len. Ekstenzija ostaje (lowercase).
-        Ako stem postane prazan, koristi se 'file'.
-        Štiti od rezerviranih Windows naziva.
-        """
+        """Normalise a filename to ascii [a-z0-9-], stem <= max_len, extension kept."""
         if not self:
             return self
 
-        # Tretiramo cijeli sadržaj kao basename — ako put sadrži razdjelnike
-        # ('/' ili '\'), pretvaramo ih u dio naziva da se sadržaj ne izgubi.
+        # The whole content is a basename: separators become part of the name
+        # rather than being dropped.
         raw = str(self).strip().lower().replace("\\", "/")
         if "/" in raw:
             head, _, tail = raw.rpartition("/")
@@ -248,27 +224,21 @@ class Normaliser(str):
             ext = Path(raw).suffix
             stem_full = Path(raw).stem
 
-        # 1) Uklanjanje dijakritika (NFKD → ASCII)
         norm = unicodedata.normalize("NFKD", stem_full)
         norm = norm.encode("ascii", "ignore").decode("ascii")
 
-        # 2) Zamjena svih ne-alfanumeričkih znakova razdjelnikom
         norm = re.sub(r"[^a-z0-9]+", replacement, norm)
 
-        # 3) Sažimanje višestrukih razdjelnika i obrezivanje rubova
         if replacement:
             rep_esc = re.escape(replacement)
             norm = re.sub(rf"{rep_esc}{{2,}}", replacement, norm).strip(replacement)
 
-        # 4) Fallback ako je prazno
         if not norm:
             norm = "file"
 
-        # 5) Rezervirani Windows nazivi
         if norm in WINDOWS_RESERVED:
             norm = f"{norm}_"
 
-        # 6) Ograničenje duljine stema
         if len(norm) > max_len:
             trimmed = norm[:max_len].rstrip(replacement) if replacement else norm[:max_len]
             norm = trimmed or "file"
@@ -287,7 +257,7 @@ class CaseText(str):
         return super().__format__(spec)
 
 
-class Normalise1r(str):
+class NormaliserFormatSpec(str):
     def __format__(self, spec: str) -> str:
         if spec == "upper":
             return self.upper()
@@ -445,117 +415,3 @@ class Normalise1r(str):
 # endregion Normaliser classes                                                #
 # --------------------------------------------------------------------------- #
 
-# region hide
-# class NormaliserDate:
-#     """Detect a date (and optional time) in a string and render as YYYY-MM-DD-HHMM.
-#     Missing time defaults to 0000. Returns None when no valid date is found."""
-
-#     MONTHS = {
-#         "jan": 1,
-#         "january": 1,
-#         "feb": 2,
-#         "february": 2,
-#         "mar": 3,
-#         "march": 3,
-#         "apr": 4,
-#         "april": 4,
-#         "may": 5,
-#         "jun": 6,
-#         "june": 6,
-#         "jul": 7,
-#         "july": 7,
-#         "aug": 8,
-#         "august": 8,
-#         "sep": 9,
-#         "sept": 9,
-#         "september": 9,
-#         "oct": 10,
-#         "october": 10,
-#         "nov": 11,
-#         "november": 11,
-#         "dec": 12,
-#         "december": 12,
-#     }
-
-#     # Date↔time separator: whitespace / T / comma / underscore, or the word "at"
-#     _TSEP = r"(?:\s+at\s+|[\sT,_]+)"
-
-#     # (pattern, kind) — order matters: specific formats first
-#     _PATTERNS = [
-#         # ISO: 2025-01-15 | 2025-01-15T14:30 | 2025-01-15 14:30:00
-#         (
-#             re.compile(
-#                 r"(?P<y>\d{4})-(?P<m>\d{1,2})-(?P<d>\d{1,2})"
-#                 rf"(?:{_TSEP}(?P<h>\d{{1,2}}):(?P<mn>\d{{2}})(?::\d{{2}})?)?"
-#             ),
-#             "numeric",
-#         ),
-#         # DMY: 15.01.2025 | 15/01/2025 | 15-01-2025 [ 14:30 | 14.30 ]
-#         (
-#             re.compile(
-#                 r"(?<!\d)(?P<d>\d{1,2})[./-](?P<m>\d{1,2})[./-](?P<y>\d{2,4})"
-#                 rf"(?:{_TSEP}(?P<h>\d{{1,2}})[:.](?P<mn>\d{{2}}))?(?!\d)"
-#             ),
-#             "numeric",
-#         ),
-#         # Textual DMY: "15 Jan 2025" | "15 January 2025 14:30"
-#         (
-#             re.compile(
-#                 r"(?<!\w)(?P<d>\d{1,2})\s+(?P<mon>[A-Za-z]{3,9})\.?\s+(?P<y>\d{2,4})"
-#                 rf"(?:{_TSEP}(?P<h>\d{{1,2}})[:.](?P<mn>\d{{2}}))?(?!\w)"
-#             ),
-#             "textual",
-#         ),
-#         # Textual MDY: "Jan 15, 2025" | "January 15 2025 14:30"
-#         (
-#             re.compile(
-#                 r"(?<!\w)(?P<mon>[A-Za-z]{3,9})\.?\s+(?P<d>\d{1,2}),?\s+(?P<y>\d{2,4})"
-#                 rf"(?:{_TSEP}(?P<h>\d{{1,2}})[:.](?P<mn>\d{{2}}))?(?!\w)"
-#             ),
-#             "textual",
-#         ),
-#         # Compact: 20250115 | 20250115T1430 | 20250115_1430 | 202501151430
-#         (
-#             re.compile(
-#                 r"(?<!\d)(?P<y>\d{4})(?P<m>\d{2})(?P<d>\d{2})"
-#                 r"(?:[T_]?(?P<h>\d{2})(?P<mn>\d{2}))?(?!\d)"
-#             ),
-#             "numeric",
-#         ),
-#     ]
-
-#     @staticmethod
-#     def transform(text: str, year_pivot: int = 70) -> Optional[str]:
-#         if not text:
-#             return None
-#         for rx, kind in DateNormaliser._PATTERNS:
-#             for match in rx.finditer(text):
-#                 try:
-#                     return DateNormaliser._build(match, kind, year_pivot)
-#                 except ValueError:
-#                     continue
-#         return None
-
-#     @staticmethod
-#     def _build_date(match: re.Match, kind: str, pivot: int) -> str:
-#         g = match.groupdict()
-#         if kind == "textual":
-#             key = g["mon"].lower().rstrip(".")
-#             if key not in DateNormaliser.MONTHS:
-#                 raise ValueError("unknown month")
-#             mo = DateNormaliser.MONTHS[key]
-#         else:
-#             mo = int(g["m"])
-
-#         y = int(g["y"])
-#         d = int(g["d"])
-#         # 2-digit year pivot: < pivot → 20xx, else 19xx
-#         if y < 100:
-#             y = 2000 + y if y < pivot else 1900 + y
-
-#         h = int(g["h"]) if g.get("h") else 0
-#         mi = int(g["mn"]) if g.get("mn") else 0
-
-#         dt = datetime(y, mo, d, h, mi)  # raises ValueError on invalid combos
-#         return f"{dt:%Y-%m-%d-%H%M}"
-# endregion hide

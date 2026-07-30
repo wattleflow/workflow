@@ -4,32 +4,9 @@
 # License: Apache 2 Licence
 
 
-"""
-This module provides Python generator utilities for use within the Wattleflow
-framework. It includes methods for generating numeric sequences and segmented
-text streams based on configurable patterns.
+"""Numeric sequence and sentence-splitting generators.
 
-Random sample-data generation lives in `wattleflow.helpers.random_data`
-(wattleflow-processors) — it is backed by numpy.
-
-
-Example 1: Generator counter from 1 to a given range
-    from wattleflow.helpers.generators import inc, text_generator
-
-    counter = inc()
-    for _ in range(5):
-        print(next(counter))
-    # result: 1, 2, 3, 4, 5
-
-Example 2: Generator split text into sentences
-
-    text = "This is the first sentence. This is the second sentence! And finally third sentence?"
-    for part in text_generator(text):
-        print(part)
-    Result:
-    This is the first sentence
-    This is the second sentence
-    And finally third sentence
+Random sample-data generation lives in wattleflow-processors (numpy-backed).
 """
 
 

@@ -29,28 +29,11 @@ _logger = logging.getLogger("wattleflow.exception")
 
 
 class AuditException(Exception):
-    """Base exception with rich location context.
+    """Base exception carrying the caller and source location of the failure.
 
-    Attributes:
-        reason:     original error message (alias: error)
-        error:      same as reason, kept for legacy callers
-        filename:   source file where the error originated
-        lineno:     source line number
-        code_line:  the source line text (stripped)
-        caller:     object that raised the exception
-        name:       caller's name attribute, falling back to class name
-
-    Backward-compat kwargs (silently consumed):
-        level, handler, exc, exc_info, internal_funcs, extra_skip
-
-    Idiomatic use - propagate the original cause via `from`:
-
-        try:
-            risky()
-        except ValueError as e:
-            raise DriverException(self, "driver failed") from e
-
-    Legacy `exc=e` kwarg also auto-chains __cause__ for backward compat.
+    `error` aliases `reason`; the legacy kwargs level, handler, exc, exc_info,
+    internal_funcs and extra_skip are consumed silently, and `exc=` chains
+    __cause__ as `raise ... from` would.
     """
 
     filename: str = ""

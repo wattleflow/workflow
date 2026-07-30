@@ -4,22 +4,14 @@
 # License: Apache 2 Licence
 
 
-"""
-Per-file ``.env`` overrides for workflow YAML configuration.
+"""Per-file `.env` overrides for workflow YAML configuration.
 
-The ``.env`` file is an INI document whose sections are keyed by the YAML
-file name and whose keys are dotted paths used purely as opaque lookup keys:
+The `.env` is an INI document sectioned by YAML file name; dotted keys are
+opaque lookup keys resolving `${dotenv:<key>}` values. Discovery walks upward
+from the YAML directory, so one `.env` may serve a whole project.
 
     [03_pii_reduction.yaml]
-    managers.drivers.configuration.read_path  = /data/in
-    managers.drivers.configuration.write_path = /data/out
-
-A YAML value of ``${dotenv:managers.drivers.configuration.read_path}`` is then
-substituted from the section matching that YAML file. ``DotEnvResolver`` plugs
-into the existing ``SecretResolverChain`` (helpers.config_adapter) — it is the
-read-side companion of ``EnvVarResolver`` but sourced from the INI file rather
-than ``os.environ``. Discovery walks upward from the YAML directory so a single
-``.env`` may live next to the configs or at the project root.
+    managers.drivers.configuration.read_path = /data/in
 """
 
 # --------------------------------------------------------------------------- #

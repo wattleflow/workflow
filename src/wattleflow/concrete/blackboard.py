@@ -42,30 +42,26 @@ from wattleflow.decorators.preset import PresetDecorator
 Repositories = List[IRepository]
 
 # --------------------------------------------------------------------------- #
-# endregion Imports                                                           #
-# --------------------------------------------------------------------------- #
-
-# --------------------------------------------------------------------------- #
 # region State                                                                #
 # --------------------------------------------------------------------------- #
 
 
 class BlackboardState(str, Enum):
-    IDLE = "idle"  # konstruirano, bez repozitorija
-    READY = "ready"  # ima repozitorije, canvas u sinku
-    DIRTY = "dirty"  # canvas ima unflushed facade
-    FAILED = "failed"  # greška
-    CLEARED = "cleared"  # clean() — terminalno
+    IDLE = "idle"  # constructed, no repositories yet
+    READY = "ready"  # repositories attached, canvas in sync
+    DIRTY = "dirty"  # canvas holds an unflushed facade
+    FAILED = "failed"
+    CLEARED = "cleared"  # terminal
 
 
 class BlackboardAction(str, Enum):
-    REGISTER = "register"  # repository pridružen
-    WRITE = "write"  # facade upisan u canvas
-    READ = "read"  # facade pročitan iz canvasa (rezervirano — nema tranziciju)
-    FLUSH = "flush"  # broadcast u repozitorije, canvas u sink
-    LOAD = "load"  # restore iz mementa
-    FAIL = "fail"  # greška
-    CLEAN = "clean"  # terminalni reset
+    REGISTER = "register"  # repository attached
+    WRITE = "write"
+    READ = "read"  # reserved — no transition
+    FLUSH = "flush"  # broadcast to repositories
+    LOAD = "load"  # restore from memento
+    FAIL = "fail"
+    CLEAN = "clean"  # terminal reset
 
 
 TRANSITIONS = {
@@ -85,7 +81,7 @@ TRANSITIONS = {
     (BlackboardState.IDLE, BlackboardAction.FAIL): BlackboardState.FAILED,
     (BlackboardState.READY, BlackboardAction.FAIL): BlackboardState.FAILED,
     (BlackboardState.DIRTY, BlackboardAction.FAIL): BlackboardState.FAILED,
-    # --- CLEAN (terminalno iz bilo kojeg stanja) ---
+    # --- CLEAN (terminal, from any state) ---
     (BlackboardState.IDLE, BlackboardAction.CLEAN): BlackboardState.CLEARED,
     (BlackboardState.READY, BlackboardAction.CLEAN): BlackboardState.CLEARED,
     (BlackboardState.DIRTY, BlackboardAction.CLEAN): BlackboardState.CLEARED,
@@ -98,7 +94,7 @@ TRANSITIONS = {
 # --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
-# region Blacboards                                                           #
+# region Blackboards                                                           #
 # --------------------------------------------------------------------------- #
 
 
@@ -124,7 +120,7 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
         handler: Optional[Handler] = kwargs.pop("handler", None)
         fmt: dict = {"fmt": kwargs.pop("fmt", {})} if kwargs.get("fmt", None) else {}
 
-        # defer_flush default je True (cache kroz cycle or flush at the end).
+        # Default to caching through the cycle and flushing at the end.
         if "defer_flush" not in kwargs:
             kwargs["defer_flush"] = True
 
@@ -227,5 +223,5 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
 
 
 # --------------------------------------------------------------------------- #
-# endregion Blacboards                                                        #
+# endregion Blackboards                                                        #
 # --------------------------------------------------------------------------- #

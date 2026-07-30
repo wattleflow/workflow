@@ -96,7 +96,6 @@ class ConnectionManager(Wattleflow, IObserver):
         try:
             success = self.operation(name, Operation.Disconnect, **kwargs)
             self.info(msg=Event.Disconnected.value, name=name, **kwargs)
-            # return self._connections[name]._connected if success else False
             return success
         except Exception as e:
             reason = "Disconnect %s error: %s" % self.__class__.__name__, str(e)
@@ -140,7 +139,6 @@ class ConnectionManager(Wattleflow, IObserver):
             return
 
         self._connections[connection_name] = connection
-        # self._connections[connection_name].update(event=ConnectionState.CREATING)
 
     def unregister_connection(self, name: str) -> None:
         if name in self._connections:

@@ -450,7 +450,6 @@ class WorkflowFactory:
                 processor.blackboard.register(
                     repository=repository_class(
                         driver=driver,
-                        # strategy_read=strategy_read(**audit),
                         strategy_write=strategy_write(**audit),
                         **audit,
                     )
@@ -466,18 +465,3 @@ class WorkflowFactory:
 
         return manager
 
-    # @classmethod
-    # def _load_strategy(cls, path: Optional[str], role: str) -> Optional[Any]:
-    #     target = path or cls._strategy_defaults.get(role)
-    #     if target:
-    #         return ClassLoader(class_path=target).instance
-    #     return None
-
-    # ------------------------------------------------------------------ #
-    # endregion Component builders
-    # ------------------------------------------------------------------ #
-
-
-# --------------------------------------------------------------------------- #
-# endregion WorkflowFactory                                                   #
-# --------------------------------------------------------------------------- #

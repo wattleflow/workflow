@@ -4,22 +4,7 @@
 # License: Apache 2 Licence
 
 
-"""
-Description: This module provides helper functions for managing and dynamically adjusting
-Python import paths within the Wattleflow framework. It enables locating,
-overriding, and displaying source paths to support flexible module resolution
-during runtime.
-
-import os
-
-# Set SOURCE_PATH to a specific path
-os.environ['SOURCE_PATH'] = '/your/path/filename.py'
-
-# After that, call the function
-override_paths()
-show_paths()
-
-"""
+"""Runtime sys.path adjustment driven by the SOURCE_PATH environment variable."""
 
 # --------------------------------------------------------------------------- #
 # region Imports                                                              #

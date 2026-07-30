@@ -188,44 +188,11 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
 
     # endregion lifecycle
 
-    # region implemention metods (override)
-    # @abstractmethod
-    # def load(self) -> None: ...
-
-    # @abstractmethod
-    # def close(self) -> None: ...
-
-    # @abstractmethod
-    # def read(self, uri: str, **kwargs) -> Any: ...
-
-    # @abstractmethod
-    # def write(self, uri: str, data, **kwargs) -> Any: ...
+    # region implementation methods
+    # Subclass hooks, intentionally not abstract: load, close, read, write.
 
     def update(self, event: Any, **kwargs) -> None:
         self.debug(msg="update", step=Event.Started.name, event=event.name, **kwargs)
-        # error = kwargs.get("error", "")
-        # state = kwargs.get("state", "")
-        # connection_name = kwargs.get("connection_name", None)
-
-        # if connection_name is None:
-        #     raise DriverException(caller=self, error="update: missing connection_name!")
-
-        # if error:
-        #     self.error(
-        #         msg="update",
-        #         connection_name=connection_name,
-        #         error=error,
-        #         state=state,
-        #         driver=self.name,
-        #     )
-        # else:
-        #     self.debug(
-        #         msg=Event.Connection.value,
-        #         connection_name=connection_name,
-        #         state=state,
-        #         driver=self.name,
-        #     )
-
         self.debug(msg="update", step=Event.Completed.name)
 
     # endregion implemention

@@ -493,20 +493,3 @@ class ConfigValidator:
 # --------------------------------------------------------------------------- #
 # region Main                                                                 #
 # --------------------------------------------------------------------------- #
-# def validate_config_file(path: Union[str, Path]) -> list:
-#     return ConfigValidator.from_file(path).validate()
-
-# if __name__ == "__main__":
-#     import sys
-
-#     if len(sys.argv) < 2:
-#         print("usage: python -m wattleflow.helpers.config_validator <config.yaml>")
-#         sys.exit(2)
-
-#     validator = ConfigValidator.from_file(sys.argv[1])
-#     validator.validate()
-#     print(validator.report())
-#     sys.exit(0 if validator.is_valid() else 1)
-# --------------------------------------------------------------------------- #
-# endregion Main                                                              #
-# --------------------------------------------------------------------------- #

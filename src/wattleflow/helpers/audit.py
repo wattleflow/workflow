@@ -5,8 +5,6 @@
 
 
 import logging
-# import asyncio
-# from logging.handlers import QueueHandler
 
 
 class AsyncAuditHandler(logging.Handler):
@@ -21,16 +19,3 @@ class AsyncAuditHandler(logging.Handler):
         except Exception:
             self.handleError(record)
 
-
-# def setup_logging():
-#     queue = asyncio.Queue()
-#     logger = logging.getLogger("GlobalLogger")
-#     logger.setLevel(logging.DEBUG)
-
-#     audit_handler = AsyncAuditHandler(queue)
-#     formatter = logging.Formatter(
-#         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-#     )
-#     audit_handler.setFormatter(formatter)
-#     logger.addHandler(audit_handler)
-#     return logger, queue

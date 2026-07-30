@@ -39,7 +39,6 @@ KEY_REPOSITORY_PATH = "repository_path"
 KEY_SERVER = "server"
 KEY_HEADERS = "headers"
 
-# KEY_SETTINGS = 'settings'
 KEY_SSH_KEY_FILENAME = "key_filename"
 KEY_SUBSYSTEM = "subsystem"
 KEY_TEMP_PATH = "temp_path"

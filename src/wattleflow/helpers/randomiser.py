@@ -4,7 +4,9 @@
 # License: Apache 2 Licence
 
 
-# region Example
+# --------------------------------------------------------------------------- #
+# region Example                                                              #
+# --------------------------------------------------------------------------- #
 """
 # Examples:
 
@@ -25,7 +27,9 @@ except Exception as e:
     print(str(e))
 
 """
-# endregion Example
+# --------------------------------------------------------------------------- #
+# endregion Example                                                           #
+# --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
 # region Imports                                                              #
@@ -68,12 +72,12 @@ class Snowflake:
         with self._lock:
             ts = self._timestamp()
             if ts < self._last_ts:
-                # clock moved backwards; u real projektu treba bolje rukovanje
+                # clock moved backwards — needs stronger handling in production
                 raise RuntimeError("Clock moved backwards")
             if ts == self._last_ts:
                 self._sequence = (self._sequence + 1) & self._max_seq
                 if self._sequence == 0:
-                    # pri velikom prometu čekaj sljedeći ms
+                    # under load, wait for the next millisecond
                     while ts <= self._last_ts:
                         ts = self._timestamp()
             else:
