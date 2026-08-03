@@ -22,11 +22,19 @@ from wattleflow.constants.enums import Event
 # §2.1 exception). Verified by the masking test: mask both packages and this must still
 # import and parse. Keep the fallback at parity — a silently divergent shim is worse
 # than an ImportError.
+# Guarded per dependency, NOT as one block: PyYAML and jsonschema are
+# independent accelerators, and coupling them meant a missing jsonschema
+# silently demoted the YAML parser to the shim as well — a far larger
+# behavioural change than losing schema validation.
 try:
     import yaml
+except Exception:
+    from wattleflow.helpers.yaml import yaml  # noqa: F401
+
+try:
     from jsonschema import validate
 except Exception:
-    from wattleflow.helpers.yaml import yaml, validate  # noqa: F401
+    from wattleflow.helpers.yaml import validate  # noqa: F401
 
 
 # --------------------------------------------------------------------------- #

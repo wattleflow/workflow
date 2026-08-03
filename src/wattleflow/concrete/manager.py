@@ -56,10 +56,7 @@ class ConnectionManager(Wattleflow, IObserver):
     __slots__ = ("_connections",)
 
     def __init__(self, **kwargs):
-        level = kwargs.get("level", 0)
-        handler = kwargs.get("handler", None)
-
-        super().__init__(level=level, handler=handler)
+        super().__init__(**kwargs)
 
         self._connections: Dict[str, IObserver] = {}
 
@@ -171,10 +168,7 @@ class DriverManager(Wattleflow, IObserver):
     __slots__ = ("_drivers",)
 
     def __init__(self, **kwargs):
-        level = kwargs.get("level", 0)
-        handler = kwargs.get("handler", None)
-
-        super().__init__(level=level, handler=handler)
+        super().__init__(**kwargs)
         self.debug(msg=Event.Constructor.name, step=Event.Started.name)
 
         self._drivers: Dict[str, IDriver] = {}
@@ -284,9 +278,7 @@ class ProcessorManager(Wattleflow, IObserver):
     __slots__ = ("_processors",)
 
     def __init__(self, **kwargs):
-        level = kwargs.get("level", 0)
-        handler = kwargs.get("handler", None)
-        super().__init__(level=level, handler=handler)
+        super().__init__(**kwargs)
         self._processors: Dict[str, IProcessor] = {}
 
     def __del__(self):

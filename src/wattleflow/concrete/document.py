@@ -58,10 +58,7 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
     )
 
     def __init__(self, content: Content, **kwargs):
-        level = kwargs.pop("level", "NOTSET")
-        handler = kwargs.pop("handler", None)
-
-        super().__init__(level=level, handler=handler)
+        super().__init__(**kwargs)
 
         self.debug(msg=Event.Constructor.value, step=Event.Started.name, kwargs=kwargs)
 
@@ -192,11 +189,18 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
 
 
 class DocumentAdapter(Wattleflow, IAdapter, Generic[Adaptee]):
-    def __init__(self, adaptee: Adaptee):
+    __slots__ = ("_adaptee",)
+
+    def __init__(self, adaptee: Adaptee, **kwargs):
         if not isinstance(adaptee, IAdaptee):
             raise TypeError("IAdaptee must be used.")
-        super().__init__()
+        super().__init__(**kwargs)
         self._adaptee = adaptee
+
+    # IAdapter contract: the adapter exposes the adaptee it wraps.
+    @property
+    def adaptee(self) -> Adaptee:
+        return self._adaptee
 
     def request(self):
         return self._adaptee.specific_request()
@@ -215,11 +219,13 @@ class DocumentAdapter(Wattleflow, IAdapter, Generic[Adaptee]):
 class DocumentFacade(Wattleflow, ITarget, Generic[Adaptee], ABC):
     __slots__ = ("_adapter",)
 
-    def __init__(self, adaptee: IAdaptee):
-        super().__init__()
+    def __init__(self, adaptee: IAdaptee, **kwargs):
+        super().__init__(**kwargs)
         if not isinstance(adaptee, IAdaptee):
             raise TypeError("IAdaptee must be used.")
-        self._adapter = DocumentAdapter(adaptee)
+        # The adapter is an implementation detail of this facade, so it audits
+        # under the same configuration rather than falling back to defaults.
+        self._adapter = DocumentAdapter(adaptee, **kwargs)
 
     def request(self) -> Adaptee:
         result = self._adapter.request()

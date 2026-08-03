@@ -142,6 +142,37 @@ class yaml:
             out.append(c)
         return "".join(out).rstrip()
 
+    def _split_flow(self, body: str) -> list:
+        """Split a flow-collection body on its top-level commas.
+
+        Nesting and quoting are honoured, so `[a, [b, c], "d,e"]` yields three
+        items rather than five.
+        """
+        items: list = []
+        buf: list = []
+        depth = 0
+        in_s = in_d = False
+        for c in body:
+            if c == "'" and not in_d:
+                in_s = not in_s
+            elif c == '"' and not in_s:
+                in_d = not in_d
+            elif not in_s and not in_d:
+                if c in "[{":
+                    depth += 1
+                elif c in "]}":
+                    depth -= 1
+                elif c == "," and depth == 0:
+                    items.append("".join(buf))
+                    buf = []
+                    continue
+            buf.append(c)
+
+        tail = "".join(buf).strip()
+        if tail:
+            items.append(tail)
+        return [item.strip() for item in items if item.strip()]
+
     def _parse_scalar(self, s: str) -> Any:
         s = s.strip()
         if s == "":
@@ -169,6 +200,23 @@ class yaml:
 
         if len(s) >= 2 and s[0] == "'" and s[-1] == "'":
             return s[1:-1].replace("''", "'")
+
+        # Flow collections — `[]`, `[a, b]`, `{}`, `{k: v}`. Without this branch
+        # the shim returned the literal text, so a config saying
+        # `repositories: []` produced the STRING "[]" and every consumer that
+        # iterated it saw two characters instead of an empty collection. Quoted
+        # forms are handled above, so `"[]"` stays a string, as in PyYAML.
+        if len(s) >= 2 and s[0] == "[" and s[-1] == "]":
+            return [self._parse_scalar(item) for item in self._split_flow(s[1:-1])]
+
+        if len(s) >= 2 and s[0] == "{" and s[-1] == "}":
+            mapping: dict = {}
+            for item in self._split_flow(s[1:-1]):
+                key, sep, value = item.partition(":")
+                mapping[self._parse_scalar(key.strip())] = (
+                    self._parse_scalar(value.strip()) if sep else None
+                )
+            return mapping
 
         low = s.lower()
         if low in ("null", "none", "~"):

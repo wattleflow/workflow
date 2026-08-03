@@ -12,6 +12,13 @@ In conjunction with classes such as Blackboard, Managers, Drivers, and Processor
 PresetDecorator keeps configurable object state explicit, bounded, and discoverable
 across the wattleflow-workflow runtime.
 
+A configured class declares its permitted keys in a class attribute named
+exactly ``ALLOWED`` (NFR-ORG-07); PresetDecorator resolves it from the parent's
+type, so no subclass has to forward `allowed=` through the constructor chain:
+
+    class DriverLocalStorage(GenericDriver):
+        ALLOWED = ["create", "read_path", "write_path"]
+
 Parent classes using PresetDecorator must delegate missing attribute lookups through
 their own __getattr__ implementation:
 
@@ -26,12 +33,23 @@ from wattleflow.core import IWattleflow
 
 
 class PresetDecorator:
+    # NFR-ORG-07: the permitted keys are declared by the configured class in a
+    # class attribute named exactly `ALLOWED`, and resolved HERE — a subclass
+    # never has to pass `allowed=` up the constructor chain. An explicit
+    # `allowed=` remains legal as a per-instance override; the class attribute
+    # is the declaration, the argument is the exception.
+    DECLARATION = "ALLOWED"
+
     __slots__ = ("_allowed", "_values", "_parent")
 
     def __init__(self, parent: IWattleflow, **kwargs):
         self._parent: IWattleflow = parent
 
-        allowed = kwargs.pop("allowed", [])
+        allowed = kwargs.pop("allowed", None)
+        if allowed is None:
+            allowed = getattr(type(parent), self.DECLARATION, [])
+        if isinstance(allowed, tuple):
+            allowed = list(allowed)
         if not isinstance(allowed, list):
             raise TypeError(f"{parent.__class__.__name__}.allowed must be a list")
 

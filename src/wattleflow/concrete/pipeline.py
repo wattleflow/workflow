@@ -47,7 +47,7 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
         handler: Optional[Handler] = None,
         **kwargs,
     ):
-        super().__init__(level=level, handler=handler)
+        super().__init__(level=level, handler=handler, **kwargs)
 
         self.debug(
             msg=Event.Constructor.name,

@@ -44,7 +44,7 @@ class StateMachine(IStateMachine, Generic[State, Action], ABC):
         name: Optional[str] = None,
     ) -> None:
         IStateMachine.__init__(self)
-        self._name: str = self.name
+        self._name: Optional[str] = name
         self._transitions = transitions
         self._state = initial
 
@@ -96,12 +96,11 @@ class GuardedStateMachine(IStateMachine, ABC):
         name: Optional[str] = None,
     ) -> None:
         IStateMachine.__init__(self)
-        self._name: str = self.name
+        # Preserve the inner FSM's name so logs stay consistent.
+        self._name: Optional[str] = name or getattr(inner, "name", None)
         self._inner = inner
         self._guard = guard
         self._consumed = False
-        # Preserve the inner FSM's label so logs stay consistent.
-        self._label: str = getattr(inner, "label", self.name)
 
     @property
     def name(self) -> str:

@@ -10,7 +10,6 @@
 
 from __future__ import annotations
 from abc import abstractmethod, ABC
-from logging import Handler
 from typing import Optional
 from wattleflow.core import IWattleflow, IStrategy, ITarget
 from wattleflow.concrete.wattleflow import Wattleflow
@@ -26,14 +25,7 @@ from wattleflow.concrete.wattleflow import Wattleflow
 
 class Strategy(Wattleflow, IStrategy, ABC):
     def __init__(self, **kwargs):
-        kwargs.pop("allowed", None)
-        level = kwargs.pop("level", 0)
-        handler: Optional[Handler] = kwargs.pop("handler", None)
-
-        formating = kwargs.pop("formating", None)
-        formating = {"formating": formating} if formating else {}
-
-        super().__init__(level=level, handler=handler, **formating)
+        super().__init__(**kwargs)
 
     @abstractmethod
     def execute(self, caller: IWattleflow, **kwargs) -> Optional[ITarget]:

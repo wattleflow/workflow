@@ -45,18 +45,15 @@ class GenericRepository(Wattleflow, IRepository, ABC):
         strategy_read: Optional[StrategyRead] = None,
         **kwargs,
     ):
-        level = kwargs.pop("level", 0)
-        handler = kwargs.pop("handler", None)
-
-        assert isinstance(strategy_write, StrategyWrite), "Expected StrategyWrite. Found %s" % type(
-            strategy_write
+        assert isinstance(strategy_write, StrategyWrite), (
+            "Expected StrategyWrite. Found %s" % type(strategy_write)
         )
         if strategy_read is not None:
             assert isinstance(strategy_read, StrategyRead), (
                 "Expected StrategyRead. Found %s" % type(strategy_read)
             )
 
-        super().__init__(level=level, handler=handler)
+        super().__init__(**kwargs)
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
         self.debug(
@@ -178,8 +175,12 @@ class GenericRepository(Wattleflow, IRepository, ABC):
                 facade=facade,
             )
 
-            assert isinstance(caller, IBlackboard), "Expected IBlackboard. Found %s" % type(caller)
-            assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(facade)
+            assert isinstance(caller, IBlackboard), (
+                "Expected IBlackboard. Found %s" % type(caller)
+            )
+            assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(
+                facade
+            )
 
             # The repository passes ITSELF as caller so the owning blackboard
             # Strategy.execute asertira (IRepository, IDriver) — upstream caller
@@ -217,7 +218,7 @@ class GenericRepository(Wattleflow, IRepository, ABC):
 
 
 class RepositoryWithDriver(GenericRepository):
-    __allowed__ = [
+    ALLOWED = [
         "driver",
     ]
 
@@ -234,7 +235,9 @@ class RepositoryWithDriver(GenericRepository):
         if driver is None:
             raise ValueError(f"{self.__class__.__name__}: Missing driver parameter!")
 
-        super().__init__(strategy_write=strategy_write, strategy_read=strategy_read, **kwargs)
+        super().__init__(
+            strategy_write=strategy_write, strategy_read=strategy_read, **kwargs
+        )
 
         self._driver: GenericDriver = (
             driver
@@ -323,8 +326,12 @@ class RepositoryWithDriver(GenericRepository):
                 facade=facade,
             )
 
-            assert isinstance(caller, IBlackboard), "Expected IBlackboard. Found %s" % type(caller)
-            assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(facade)
+            assert isinstance(caller, IBlackboard), (
+                "Expected IBlackboard. Found %s" % type(caller)
+            )
+            assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(
+                facade
+            )
 
             # The repository passes ITSELF as caller so the owning blackboard
             # Strategy.execute asertira (IRepository, IDriver).

@@ -42,8 +42,8 @@ class ThreadSafeObservable(Wattleflow, IObservableReactive):
         observers are delivery-critical need a different policy class.
     """
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
         self._observers: List[IObserverReactive] = []
         self._lock = RLock()
 

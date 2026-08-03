@@ -39,7 +39,10 @@ class GenericMemento(Wattleflow, IMemento):
     __slots__ = ("_data",)
 
     def __init__(self, **payload: Any) -> None:
-        super().__init__()
+        # Wattleflow reads the logging keywords off its own copy, so the payload
+        # this snapshot stores keeps every key the caller passed — including one
+        # that happens to be named `level` or `handler`.
+        super().__init__(**payload)
         self._data: Mapping[str, Any] = MappingProxyType(dict(payload))
 
     def __getattr__(self, key: str) -> Any:

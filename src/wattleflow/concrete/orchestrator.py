@@ -64,8 +64,9 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
         self,
         connection_manager: ConnectionManager,
         strategy_execute: Optional[IStrategy] = None,
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self._listeners: List[IEventListener] = []
         self._processors: List[IProcessor] = []
         self._running: bool = False

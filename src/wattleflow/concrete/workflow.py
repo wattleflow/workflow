@@ -12,7 +12,7 @@ from __future__ import annotations
 import difflib
 import os
 from abc import abstractmethod, ABC
-from typing import Dict, List, Type
+from typing import ClassVar, Dict, List, Type
 from logging import getLogger
 from wattleflow.core import IOriginator
 from wattleflow.constants import Event
@@ -304,6 +304,23 @@ class WorkflowFactory:
                     value=str(value),
                 )
 
+    # Keys the factory consumes itself: they identify or wire the entry and
+    # must never travel on as constructor settings.
+    STRUCTURAL: ClassVar[frozenset] = frozenset(
+        {
+            "name",
+            "type",
+            "description",
+            "configuration",
+            "strategy_create",
+            "repositories",
+            "pipelines",
+            "level",
+            "handler",
+            "formating",
+        }
+    )
+
     @classmethod
     def _audit(cls, config: dict, default: dict) -> dict:
         return {
@@ -311,6 +328,21 @@ class WorkflowFactory:
             "handler": config.get("handler", default["handler"]),
             "formating": config.get("formating", default["formating"]),
         }
+
+    @classmethod
+    def _settings(cls, config: dict) -> dict:
+        """Constructor settings for one config entry.
+
+        The documented schema lets a blackboard state its own knobs at its own
+        level (`defer_flush:` next to `type:`), with `configuration:` as the
+        optional nested form. Reading only the nested form silently dropped the
+        documented one — `defer_flush: False` never reached the blackboard, so
+        every such workflow ran with the opposite setting. The nested form wins
+        on conflict; what the whitelist does not permit PresetDecorator drops.
+        """
+        nested = config.get("configuration", {}) or {}
+        inline = {k: v for k, v in config.items() if k not in cls.STRUCTURAL}
+        return {**inline, **nested}
 
     @classmethod
     def _resolve_section(cls, section: str, item: dict, key: str = "type") -> Type:
@@ -424,7 +456,7 @@ class WorkflowFactory:
             # blackboard ------------------------------------------------------
             blackboard_class = cls._resolve_section("processors.blackboard", blackboard_config)
             logger.debug(msg="_build_processors", blackboard=blackboard_class)
-            configuration = blackboard_config.get("configuration", {})
+            configuration = cls._settings(blackboard_config)
             processor.register_blackboard(
                 blackboard=blackboard_class(
                     strategy_create=strategy_class(),

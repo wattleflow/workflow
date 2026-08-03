@@ -34,8 +34,8 @@ class LazyIterator(Wattleflow, IIterator[Element]):
     subclass would inherit `name` abstract and stay uninstantiable.
     """
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
         self._iterator: Optional[Iterator[Element]] = None
 
     def __next__(self) -> Element:
@@ -52,8 +52,8 @@ class LazyAsyncIterator(Wattleflow, IAsyncIterator[Element]):
     invoked on first __anext__ and cached (DR-COR-007).
     """
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
         self._iterator: Optional[AsyncIterator[Element]] = None
 
     async def __anext__(self) -> Element:

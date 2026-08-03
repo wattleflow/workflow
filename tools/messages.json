@@ -1,0 +1,781 @@
+{
+  "_about": [
+    "Presentation surface of wem_lint — report strings (MESSAGES) and the finding",
+    "catalogue (CATALOGUE), shared by every distribution's criterion.",
+    "Split out of dictionary.json on 2026-07-31 (analysis 2026-07-31-analysis-changes",
+    "§2.2 t.6): presentation is versioned apart from the criterion and is NOT part of",
+    "the D-10 reproducibility triple — a wording fix must not invalidate a conformance",
+    "snapshot, and copying 250 lines of prose into every distribution's criterion would",
+    "break DRY and guarantee drift. A criterion may still carry inline MESSAGES /",
+    "CATALOGUE; those win over this file (backwards compatible).",
+    "`en` is the default and the fallback and must stay complete, so a missing",
+    "translation degrades to UK English instead of printing a key."
+  ],
+  "presentation_version": "0.3.0",
+  "_CATALOGUE": [
+    "One entry per finding kind. `code` and `ref` are language-neutral;",
+    "`title`/`why`/`fix` sit under a language key. `code` identifies the KIND only —",
+    "severity is a `rules` fact of the criterion and is carried by the badge."
+  ],
+  "CATALOGUE": {
+    "import-cycle": {
+      "code": "K1",
+      "ref": "NFR-ORG-01 §3",
+      "en": {
+        "title": "import loop — two modules import each other",
+        "why": [
+          "Two modules import each other (directly or through a chain).",
+          "That is a loop: Python cannot load them cleanly, and every change",
+          "to one drags the other with it."
+        ],
+        "fix": [
+          "Fix: break the loop — move the shared piece somewhere both sides",
+          "may import (a lower layer), so the arrows point one way only."
+        ]
+      },
+      "hr": {
+        "title": "petlja uvoza — dva modula uvoze jedan drugoga",
+        "why": [
+          "Dva modula uvoze jedan drugoga (izravno ili kroz lanac). To je",
+          "petlja: Python ih ne može čisto učitati, a svaka izmjena jednoga",
+          "povlači drugi."
+        ],
+        "fix": [
+          "Popravak: prekini petlju — premjesti zajednički dio u sloj koji",
+          "obje strane smiju uvoziti, da strelice idu samo u jednom smjeru."
+        ]
+      }
+    },
+    "wrong-direction-import": {
+      "code": "K2",
+      "ref": "NFR-ORG-01 §3",
+      "en": {
+        "title": "foundation imports an upper layer (wrong direction)",
+        "why": [
+          "`helpers/` is the foundation of the building — everyone may use it.",
+          "So it must not import from upper layers (`concrete/`, …), or the",
+          "foundation ends up depending on a floor that stands on top of it:",
+          "every change up there shakes the foundation, and in the worst case",
+          "you get an import loop."
+        ],
+        "fix": [
+          "Fix: move the imported symbol down to a layer helpers may use,",
+          "or use a stdlib replacement inside helpers."
+        ]
+      },
+      "hr": {
+        "title": "temelj uvozi gornji sloj (pogrešan smjer)",
+        "why": [
+          "`helpers/` je temelj zgrade — svi ga smiju koristiti. Zato ne smije",
+          "uvoziti iz gornjih slojeva (`concrete/`, …), inače temelj ovisi o",
+          "katu koji stoji na njemu: svaka izmjena gore trese temelj, a u",
+          "najgorem slučaju nastaje petlja uvoza."
+        ],
+        "fix": [
+          "Popravak: spusti uvezeni simbol u sloj koji helpers smije koristiti,",
+          "ili upotrijebi stdlib zamjenu unutar helpersa."
+        ]
+      }
+    },
+    "misfiled-leaf": {
+      "code": "K3",
+      "ref": "NFR-ORG-01 §3",
+      "en": {
+        "title": "import target is foundation material, but labelled as a domain",
+        "why": [
+          "The imported package imports nothing from wattleflow itself — it is",
+          "a pure leaf (foundation material). The registry, however, lists it",
+          "as a domain (upper layer). The import is fine; the label is wrong."
+        ],
+        "fix": [
+          "Fix: update the registry — remove the package from `domains` so the",
+          "tool treats it as foundation."
+        ]
+      },
+      "hr": {
+        "title": "cilj uvoza je temeljni materijal, a registar ga vodi kao domenu",
+        "why": [
+          "Uvezeni paket ne uvozi ništa iz wattleflowa — čisti je list",
+          "(temeljni materijal). Registar ga ipak vodi kao domenu (gornji sloj).",
+          "Uvoz je u redu; oznaka je pogrešna."
+        ],
+        "fix": [
+          "Popravak: ažuriraj registar — makni paket iz `domains` da ga alat",
+          "tretira kao temelj."
+        ]
+      }
+    },
+    "single-consumer-helper": {
+      "code": "K4",
+      "ref": "NFR-ORG-01 §1",
+      "en": {
+        "title": "shared helper used by only one package",
+        "why": [
+          "`helpers/` is the shared shelf: it should only hold things that at",
+          "least TWO different packages use. A module with a single consumer",
+          "belongs inside the package that uses it — closer to its user and",
+          "easier to change."
+        ],
+        "fix": [
+          "Fix: move the module into its only consumer package, or leave it if",
+          "a second consumer is coming soon.",
+          "(Inherited from before — does not fail the build.)"
+        ]
+      },
+      "hr": {
+        "title": "dijeljeni helper koristi samo jedan paket",
+        "why": [
+          "`helpers/` je dijeljena polica: smije držati samo ono što koriste",
+          "barem DVA različita paketa. Modul s jednim potrošačem pripada unutar",
+          "paketa koji ga koristi — bliže korisniku i lakši za izmjenu."
+        ],
+        "fix": [
+          "Popravak: premjesti modul u njegov jedini potrošački paket, ili ga",
+          "ostavi ako drugi potrošač uskoro dolazi.",
+          "(Zatečeno stanje — ne ruši build.)"
+        ]
+      }
+    },
+    "out-of-scope-module": {
+      "code": "K5",
+      "ref": "dictionary.yaml: slijepa-pjega",
+      "en": {
+        "title": "module skipped by the ORG rules — outside the distribution tier",
+        "why": [
+          "This module imports a library outside the tier its distribution",
+          "declares, so the ORG-01/02/03 rules skipped it. Nothing here was",
+          "checked by those rules — clean is not the same as unmeasured.",
+          "Since v1.11.0 the same fact is ALSO raised as a K9 supply-chain",
+          "finding (NFR-SEC-03 criterion 1), so the skip is never silent."
+        ],
+        "fix": [
+          "Not a defect to fix here: a declared blind spot, listed so the vector",
+          "never reads as full coverage. Act on the K9 finding instead."
+        ]
+      },
+      "hr": {
+        "title": "modul preskočen u ORG pravilima — izvan tiera distribucije",
+        "why": [
+          "Modul uvozi biblioteku izvan tiera koji njegova distribucija",
+          "deklarira, pa su ga ORG-01/02/03 preskočili. Ta ga pravila nisu",
+          "provjerila — čisto nije isto što i nemjereno.",
+          "Od v1.11.0 ista se činjenica prijavljuje i kao K9 nalaz lanca",
+          "opskrbe (NFR-SEC-03 krit. 1), pa preskakanje više nije nijemo."
+        ],
+        "fix": [
+          "Nije kvar za popravak ovdje: deklarirana slijepa pjega, navedena da",
+          "vektor nikad ne čita kao puna pokrivenost. Djeluj po K9 nalazu."
+        ]
+      }
+    },
+    "declared-blind-spot": {
+      "code": "K6",
+      "ref": "dictionary.yaml: slijepa-pjega",
+      "en": {
+        "title": "registry declares this as unmeasured by construction",
+        "why": [
+          "The registry's `blind_spots` list names what the instrument cannot",
+          "see by design (not by accident). Declaring it is the requirement;",
+          "silence would be the defect."
+        ],
+        "fix": [
+          "Nothing to do — carried into every report and every snapshot."
+        ]
+      },
+      "hr": {
+        "title": "registar ovo deklarira kao nemjereno po konstrukciji",
+        "why": [
+          "`blind_spots` popis registra imenuje ono što instrument po dizajnu",
+          "ne može vidjeti (ne slučajno). Deklaracija je zahtjev; šutnja bi",
+          "bila kvar."
+        ],
+        "fix": [
+          "Nema što raditi — nosi se u svaki nalaz i svaku snimku."
+        ]
+      }
+    },
+    "unimplemented-rule": {
+      "code": "K7",
+      "ref": "POLICY §9",
+      "en": {
+        "title": "registry declares a rule this tool cannot check",
+        "why": [
+          "The criterion lists a rule with a severity and a waiver policy, but",
+          "no code path can ever raise it. The declaration promises a verdict",
+          "the instrument never gives, so a green vector overstates coverage."
+        ],
+        "fix": [
+          "Fix: implement the check, or retire the rule from the registry",
+          "through a DR — a rule is a promise, not a comment."
+        ]
+      },
+      "hr": {
+        "title": "registar deklarira pravilo koje alat ne može provjeriti",
+        "why": [
+          "Kriterij navodi pravilo sa severityjem i waiver politikom, ali ga",
+          "nijedan put u kodu ne može dići. Deklaracija obećava presudu koju",
+          "instrument nikad ne daje, pa zeleni vektor precjenjuje pokrivenost."
+        ],
+        "fix": [
+          "Popravak: implementiraj provjeru ili povuci pravilo iz registra",
+          "kroz DR — pravilo je obećanje, ne komentar."
+        ]
+      }
+    },
+    "undeclared-check": {
+      "code": "K8",
+      "ref": "POLICY §9",
+      "en": {
+        "title": "tool emits a check the registry never declared",
+        "why": [
+          "This check produces findings, yet the criterion does not list it.",
+          "Its severity and waiver therefore live in the tool instead of the",
+          "registry, outside the DR governance the criterion is meant to carry."
+        ],
+        "fix": [
+          "Fix: declare the check in the registry `rules` block through a DR,",
+          "so its severity and waiver become a criterion fact."
+        ]
+      },
+      "hr": {
+        "title": "alat emitira provjeru koju registar nikad nije deklarirao",
+        "why": [
+          "Provjera proizvodi nalaze, a kriterij je ne navodi. Njezin severity",
+          "i waiver time žive u alatu umjesto u registru, izvan DR upravljanja",
+          "koje kriterij treba nositi."
+        ],
+        "fix": [
+          "Popravak: deklariraj provjeru u `rules` bloku registra kroz DR, da",
+          "joj severity i waiver postanu činjenica kriterija."
+        ]
+      }
+    },
+    "foreign-import": {
+      "code": "K9",
+      "ref": "NFR-SEC-03 §1",
+      "en": {
+        "title": "import outside the distribution tier (supply chain)",
+        "why": [
+          "A module's home distribution is fixed by its import closure, not by",
+          "its role: importing a library outside the declared tier moves it out",
+          "of this distribution. A lazy, in-function import counts exactly like",
+          "a module-level one (DR-WFL-002 §2.1).",
+          "Until v1.11.0 this fact only removed the module from the ORG rules;",
+          "NFR-SEC-03 requires it to be REPORTED, because a shared third-party",
+          "dependency correlates breaches across every module that carries it."
+        ],
+        "fix": [
+          "Fix: move the module to the distribution that owns the dependency,",
+          "hide the library behind a core abstraction, or — if the fallback is",
+          "functionally complete — declare it in `scope.guarded_optional` with",
+          "its DR reference (DR-WFL-003; the test is masking, not code review)."
+        ]
+      },
+      "hr": {
+        "title": "uvoz izvan tiera distribucije (lanac opskrbe)",
+        "why": [
+          "Matična distribucija modula određena je njegovim import-closureom, ne",
+          "ulogom: uvoz biblioteke izvan deklariranog tiera izmješta ga iz ove",
+          "distribucije. Lijeni uvoz unutar funkcije broji se jednako kao onaj",
+          "na razini modula (DR-WFL-002 §2.1).",
+          "Do v1.11.0 ta je činjenica samo micala modul iz ORG pravila; NFR-SEC-03",
+          "traži da se PRIJAVI, jer dijeljena third-party ovisnost korelira",
+          "proboje kroz sve module koji je nose."
+        ],
+        "fix": [
+          "Popravak: premjesti modul u distribuciju koja je vlasnik ovisnosti,",
+          "sakrij biblioteku iza core apstrakcije, ili — ako je fallback",
+          "funkcionalno potpun — deklariraj ga u `scope.guarded_optional` s DR",
+          "referencom (DR-WFL-003; test je maskiranje, ne pregled koda)."
+        ]
+      }
+    },
+    "absent-domain": {
+      "code": "K10",
+      "ref": "NFR-ORG-01 · D-11",
+      "en": {
+        "title": "registry declares a domain the tree does not contain",
+        "why": [
+          "The criterion lists a top-level package that no module under --src",
+          "belongs to. Either the package moved to another distribution and the",
+          "criterion was not revised, or --src is mis-pointed. Both make the",
+          "vector overstate coverage: rules scoped to that domain measured",
+          "nothing at all, silently."
+        ],
+        "fix": [
+          "Fix: remove the domain from the criterion through a DR, or point",
+          "--src at the tree that actually owns it."
+        ]
+      },
+      "hr": {
+        "title": "registar deklarira domenu koje u stablu nema",
+        "why": [
+          "Kriterij navodi top-level paket kojem ne pripada nijedan modul pod",
+          "--src. Ili je paket preseljen u drugu distribuciju, a kriterij nije",
+          "revidiran, ili je --src krivo uperen. Oboje čini da vektor precjenjuje",
+          "pokrivenost: pravila vezana uz tu domenu nisu izmjerila ništa, nijemo."
+        ],
+        "fix": [
+          "Popravak: makni domenu iz kriterija kroz DR, ili uperi --src na stablo",
+          "koje je doista njezin vlasnik."
+        ]
+      }
+    },
+    "manifest-no-namespaces": {
+      "code": "K11",
+      "ref": "NFR-SEC-03 §3",
+      "en": {
+        "title": "packaging finds no packages — PEP 420 tree without `namespaces`",
+        "why": [
+          "The tree is a PEP 420 namespace (no `__init__.py` at the root), but",
+          "the manifest configures `[tool.setuptools.packages.find]` without",
+          "`namespaces = true`. setuptools' finder then returns NOTHING, so the",
+          "built wheel ships no modules at all — while the source tree looks",
+          "perfectly healthy."
+        ],
+        "fix": [
+          "Fix: set `namespaces = true` under [tool.setuptools.packages.find]",
+          "(proven in wattleflow-cad), then verify against the built wheel's",
+          "RECORD — the manifest is a claim until an artefact confirms it."
+        ]
+      },
+      "hr": {
+        "title": "pakiranje ne nalazi nijedan paket — PEP 420 stablo bez `namespaces`",
+        "why": [
+          "Stablo je PEP 420 namespace (nema `__init__.py` u korijenu), a manifest",
+          "konfigurira `[tool.setuptools.packages.find]` bez `namespaces = true`.",
+          "setuptools tada ne nalazi NIŠTA, pa izgrađeni wheel ne isporučuje",
+          "nijedan modul — dok izvorno stablo izgleda posve zdravo."
+        ],
+        "fix": [
+          "Popravak: postavi `namespaces = true` pod [tool.setuptools.packages.find]",
+          "(dokazano u wattleflow-cad), pa provjeri nad RECORD-om izgrađenog",
+          "wheela — manifest je tvrdnja dok je artefakt ne potvrdi."
+        ]
+      }
+    },
+    "standalone-role-noun": {
+      "code": "K13",
+      "ref": "NFR-ORG-02 §6",
+      "en": {
+        "title": "class name is a bare generic role noun",
+        "why": [
+          "`Parser`, `Manager`, `Router` on their own name a ROLE, not a thing:",
+          "the name says what the class does in the abstract and nothing about",
+          "layer, domain or responsibility. Two such classes in one system are",
+          "then indistinguishable by name, and the sign carries two meanings.",
+          "The same noun is perfectly legal once qualified."
+        ],
+        "fix": [
+          "Fix: qualify it — `DriverS3UriParser`, not `Parser`; `CuttingSheet`,",
+          "not `Sheet`. Domain first, role last."
+        ]
+      },
+      "hr": {
+        "title": "ime klase je gola generička uloga-imenica",
+        "why": [
+          "`Parser`, `Manager`, `Router` sami za sebe imenuju ULOGU, ne stvar:",
+          "ime kaže što klasa apstraktno radi, a ništa o sloju, domeni i",
+          "odgovornosti. Dvije takve klase u sustavu tada se po imenu ne",
+          "razlikuju, pa jedan znak nosi dva značenja.",
+          "Ista je imenica posve legalna čim je kvalificirana."
+        ],
+        "fix": [
+          "Popravak: kvalificiraj je — `DriverS3UriParser`, ne `Parser`;",
+          "`CuttingSheet`, ne `Sheet`. Domena naprijed, uloga natrag."
+        ]
+      }
+    },
+    "pipeline-grammar": {
+      "code": "K14",
+      "ref": "NFR-ORG-02 §1–§5",
+      "en": {
+        "title": "pipeline name does not follow the declared grammar",
+        "why": [
+          "A pipeline name is `Pipeline + <Subject> + <Operation|To<Target>> +",
+          "[Qualifier]`, and every facet comes from the criterion's controlled",
+          "vocabulary. The grammar makes the name predictable from the facets and",
+          "the facets recoverable from the name; the Subject leads because it",
+          "carries the most discriminating information and collocates a package's",
+          "classes together (NFR-ORG-02, Appendix A)."
+        ],
+        "fix": [
+          "Fix: rename to the grammar, or extend the vocabulary through a DR if",
+          "the missing token is legitimate. An unregistered token is a question",
+          "for the registry, not a licence for the name."
+        ]
+      },
+      "hr": {
+        "title": "ime pipelinea ne slijedi deklariranu gramatiku",
+        "why": [
+          "Ime pipelinea je `Pipeline + <Subject> + <Operation|To<Target>> +",
+          "[Qualifier]`, a svaki facet dolazi iz kontroliranog vokabulara",
+          "kriterija. Gramatika čini ime predvidljivim iz faceta, a facete",
+          "obnovljivima iz imena; Subject vodi jer nosi najviše diskriminirajuće",
+          "informacije i kolocira klase istog paketa (NFR-ORG-02, Dodatak A)."
+        ],
+        "fix": [
+          "Popravak: preimenuj po gramatici, ili proširi vokabular kroz DR ako je",
+          "token legitiman. Neregistrirani token je pitanje za registar, ne",
+          "dozvola imenu."
+        ]
+      }
+    },
+    "typevar-role": {
+      "code": "K15",
+      "ref": "NFR-ORG-03",
+      "en": {
+        "title": "TypeVar names a mechanism, not a role",
+        "why": [
+          "A type variable must name the ROLE the type plays in the contract",
+          "(`Key`, `Value`, `Input`, `Output`), never the mechanism. A `T` or",
+          "`Type` suffix appears on every type variable, so it discriminates",
+          "nothing — zero information, pure noise. `T` alone is reserved for one",
+          "genuinely unconstrained parameter."
+        ],
+        "fix": [
+          "Fix: rename to a role from the criterion's `type_vars.roles`; declare",
+          "variance through TypeVar(covariant=…), never through the name."
+        ]
+      },
+      "hr": {
+        "title": "TypeVar imenuje mehanizam, ne ulogu",
+        "why": [
+          "Tipska varijabla mora imenovati ULOGU koju tip igra u ugovoru (`Key`,",
+          "`Value`, `Input`, `Output`), nikad mehanizam. Sufiks `T` ili `Type`",
+          "stoji na svakoj tipskoj varijabli pa ne razlikuje ništa — nula",
+          "informacije, čisti šum. Goli `T` rezerviran je za jedan doista",
+          "neograničen parametar."
+        ],
+        "fix": [
+          "Popravak: preimenuj u ulogu iz `type_vars.roles` kriterija; varijancu",
+          "deklariraj kroz TypeVar(covariant=…), nikad imenom."
+        ]
+      }
+    },
+    "exempt-package": {
+      "code": "K17",
+      "ref": "NFR-ORG-02 · Appendix A §1",
+      "en": {
+        "title": "package exempt from the name grammar (declared, not forgotten)",
+        "why": [
+          "The criterion lists this package as exempt: its names are deferred by",
+          "decision, not conforming. It is reported anyway, because an exemption",
+          "that stops being visible stops being reviewable — and its silent",
+          "disappearance must itself be a finding (D-11)."
+        ],
+        "fix": [
+          "Nothing to do here. Retire the exemption through a DR when the",
+          "deferred question (e.g. the named-entity cluster) is decided."
+        ]
+      },
+      "hr": {
+        "title": "paket izuzet od gramatike imena (deklarirano, ne zaboravljeno)",
+        "why": [
+          "Kriterij ovaj paket vodi kao izuzet: njegova su imena odgođena",
+          "odlukom, ne usklađena. Ipak se prijavljuje, jer izuzeće koje prestane",
+          "biti vidljivo prestaje biti provjerljivo — a njegov tihi nestanak mora",
+          "i sam biti nalaz (D-11)."
+        ],
+        "fix": [
+          "Ovdje nema što raditi. Povuci izuzeće kroz DR kad odgođeno pitanje",
+          "(npr. klaster prepoznavanja entiteta) bude odlučeno."
+        ]
+      }
+    },
+    "package-alias": {
+      "code": "K18",
+      "ref": "NFR-ORG-02 §5",
+      "en": {
+        "title": "package name is an abbreviation of its canonical subject",
+        "why": [
+          "The subject facet must equal the owning package's canonical subject",
+          "(`dataframe`, not `dframe`; `text`, not `txt`), so that name and path",
+          "agree and one taxonomy serves both file navigation and reading. The",
+          "criterion maps the abbreviation for now and reports the gap."
+        ],
+        "fix": [
+          "Fix: rename the package to its canonical subject and update the",
+          "imports in the same pass (hard rename, no long-lived aliases)."
+        ]
+      },
+      "hr": {
+        "title": "ime paketa je kratica njegova kanonskog subjekta",
+        "why": [
+          "Subject facet mora biti jednak kanonskom subjektu paketa koji ga",
+          "sadrži (`dataframe`, ne `dframe`; `text`, ne `txt`), da se ime i",
+          "putanja podudaraju i da jedna taksonomija služi i navigaciji i",
+          "čitanju. Kriterij zasad mapira kraticu i prijavljuje razliku."
+        ],
+        "fix": [
+          "Popravak: preimenuj paket u kanonski subjekt i u istom prolazu",
+          "ažuriraj uvoze (hard rename, bez dugotrajnih aliasa)."
+        ]
+      }
+    },
+    "acronym-case": {
+      "code": "K16",
+      "ref": "NFR-ORG-02 §4 · DR-WFL-004",
+      "en": {
+        "title": "acronym casing differs from the registered form",
+        "why": [
+          "PEP 8 writes acronyms in full caps (`PDF`, not `Pdf`), and one",
+          "spelling per sign is what makes a name searchable. The decision",
+          "between the two conventions is open (DR-WFL-004), so this is reported",
+          "as evidence for that decision and deliberately does not fail a build:",
+          "enforcing one side of an undecided question is what the cascade forbids."
+        ],
+        "fix": [
+          "Fix: nothing yet — the finding is input to the DR. Once it is taken,",
+          "the criterion's `acronym_identifier_casing.status` puts it in force."
+        ]
+      },
+      "hr": {
+        "title": "casing akronima razlikuje se od registriranog oblika",
+        "why": [
+          "PEP 8 piše akronime velikim slovima (`PDF`, ne `Pdf`), a jedan zapis",
+          "po znaku je ono što ime čini pretraživim. Odluka između dviju",
+          "konvencija je otvorena (DR-WFL-004), pa se ovo prijavljuje kao građa",
+          "za tu odluku i namjerno ne ruši build: provođenje jedne strane",
+          "neodlučenog pitanja je ono što kaskada zabranjuje."
+        ],
+        "fix": [
+          "Popravak: zasad nikakav — nalaz je ulaz u DR. Kad odluka padne,",
+          "`acronym_identifier_casing.status` kriterija stavlja pravilo na snagu."
+        ]
+      }
+    },
+    "manifest-excluded-package": {
+      "code": "K12",
+      "ref": "NFR-SEC-03 §2",
+      "en": {
+        "title": "manifest excludes a package this distribution's code imports",
+        "why": [
+          "An `exclude` glob drops a package that modules in this very tree",
+          "import. The glob matches a NAME, not an owner, so a subtree this",
+          "distribution owns can be dropped together with the foreign subtree",
+          "the glob was written for. The wheel then imports what it does not ship."
+        ],
+        "fix": [
+          "Fix: narrow the glob to the subtrees another distribution owns, or",
+          "re-include this one; every `wattleflow.*` subtree must have exactly",
+          "one owning distribution (NFR-SEC-03 criterion 2)."
+        ]
+      },
+      "hr": {
+        "title": "manifest isključuje paket koji kod ove distribucije uvozi",
+        "why": [
+          "`exclude` glob izbacuje paket koji moduli u ovom stablu uvoze. Glob",
+          "se veže na IME, ne na vlasnika, pa se podstablo u vlasništvu ove",
+          "distribucije izbaci zajedno sa stranim podstablom zbog kojeg je glob",
+          "napisan. Wheel tada uvozi ono što ne isporučuje."
+        ],
+        "fix": [
+          "Popravak: suzi glob na podstabla koja su u vlasništvu druge",
+          "distribucije, ili ovo vrati natrag; svako `wattleflow.*` podstablo",
+          "mora imati točno jednog vlasnika (NFR-SEC-03 krit. 2)."
+        ]
+      }
+    },
+    "preset-allowed-name": {
+      "code": "K19",
+      "ref": "NFR-ORG-07 §1",
+      "en": {
+        "title": "preset whitelist declared under a non-canonical name",
+        "why": [
+          "PresetDecorator resolves the permitted configuration keys from the",
+          "class attribute `ALLOWED`. Under any other spelling — `__allowed__`,",
+          "`__ALLOWED__`, `ALLOWED_KWARGS` — the resolution finds nothing, the",
+          "whitelist reads as empty, and every key the caller configures is",
+          "dropped silently: no exception, no log line, just defaults where the",
+          "operator expected their own values.",
+          "The class still LOOKS configured, which is what makes it costly."
+        ],
+        "fix": [
+          "Fix: rename the attribute to `ALLOWED` and delete any `allowed=`",
+          "you were forwarding to super().__init__ — the base resolves it."
+        ]
+      },
+      "hr": {
+        "title": "popis dopuštenih ključeva deklariran pod nekanonskim imenom",
+        "why": [
+          "PresetDecorator razrješava dopuštene ključeve iz razrednog atributa",
+          "`ALLOWED`. Pod bilo kojim drugim imenom — `__allowed__`,",
+          "`__ALLOWED__`, `ALLOWED_KWARGS` — razrješba ne nalazi ništa, popis",
+          "ostaje prazan, a svaka predana postavka tiho se odbacuje: bez iznimke,",
+          "bez zapisa, samo zadane vrijednosti ondje gdje je pogonitelj očekivao",
+          "svoje. Razred i dalje IZGLEDA podešeno — to ga i čini skupim."
+        ],
+        "fix": [
+          "Popravak: preimenuj atribut u `ALLOWED` i ukloni `allowed=` koji si",
+          "prosljeđivao u super().__init__ — bazni razred ga sam razrješava."
+        ]
+      }
+    },
+    "preset-allowed-scope": {
+      "code": "K20",
+      "ref": "NFR-ORG-07 §2",
+      "en": {
+        "title": "preset whitelist declared at module scope",
+        "why": [
+          "A module-level `ALLOWED` is invisible to `type(parent).ALLOWED`, so it",
+          "only works while some constructor keeps hand-carrying it — the moment",
+          "that plumbing is simplified away the whitelist silently empties.",
+          "It is also unreachable for a subclass, which cannot extend a list it",
+          "does not inherit."
+        ],
+        "fix": [
+          "Fix: move the list into the class body. If two classes in the module",
+          "share it, let the second inherit or write `ALLOWED = First.ALLOWED + [...]`."
+        ]
+      },
+      "hr": {
+        "title": "popis dopuštenih ključeva deklariran na razini modula",
+        "why": [
+          "`ALLOWED` na razini modula nevidljiv je za `type(parent).ALLOWED`, pa",
+          "radi samo dok ga neki konstruktor ručno prenosi — čim se ta cijev",
+          "pojednostavni, popis se tiho isprazni. Uz to je nedohvatljiv",
+          "nasljedniku, koji ne može proširiti popis koji nije naslijedio."
+        ],
+        "fix": [
+          "Popravak: premjesti popis u tijelo razreda. Dijele li ga dva razreda",
+          "u modulu, neka drugi naslijedi ili napiše `ALLOWED = Prvi.ALLOWED + [...]`."
+        ]
+      }
+    },
+    "preset-allowed-forwarded": {
+      "code": "K21",
+      "ref": "NFR-ORG-07 §3",
+      "en": {
+        "title": "class declares ALLOWED and still forwards allowed= upward",
+        "why": [
+          "The base resolves `ALLOWED` from the class, so forwarding it again is",
+          "a second copy of the same fact. Two copies drift: the declaration gets",
+          "a new key, the forwarded expression does not, and the class permits",
+          "less than it declares."
+        ],
+        "fix": [
+          "Fix: drop the `allowed=` argument. Keep it only where the whitelist is",
+          "genuinely per-instance rather than per-class."
+        ]
+      },
+      "hr": {
+        "title": "razred deklarira ALLOWED i k tome ga prosljeđuje kroz allowed=",
+        "why": [
+          "Bazni razred razrješava `ALLOWED` iz razreda, pa je ponovno",
+          "prosljeđivanje druga preslika iste činjenice. Dvije preslike se",
+          "razilaze: deklaracija dobije novi ključ, proslijeđeni izraz ne, i",
+          "razred dopušta manje nego što deklarira."
+        ],
+        "fix": [
+          "Popravak: ukloni `allowed=`. Zadrži ga samo ondje gdje je popis",
+          "doista po primjerku, a ne po razredu."
+        ]
+      }
+    },
+    "unparsable-module": {
+      "code": "K22",
+      "ref": "D-11 · METHODOLOGY §3.1",
+      "en": {
+        "title": "module cannot be parsed — no rule could measure it",
+        "why": [
+          "Every rule reads the same AST, so a file that does not parse is",
+          "skipped by all of them at once. Worse, the tier check saw an empty",
+          "import list and read it as `imports nothing foreign` — a broken",
+          "module used to pass as in-tier and clean.",
+          "Raised outside any rule, so no --select can hide the gap."
+        ],
+        "fix": [
+          "Repair the syntax error, then re-run. Until then no statement about",
+          "this module is available — not a clean one either."
+        ]
+      },
+      "hr": {
+        "title": "modul se ne može parsirati — nijedno pravilo ga nije izmjerilo",
+        "why": [
+          "Sva pravila čitaju isti AST, pa datoteku koja se ne parsira",
+          "preskaču odjednom. Gore: provjera tiera vidjela je prazan popis",
+          "uvoza i pročitala ga kao `ne uvozi ništa strano` — slomljen je",
+          "modul prolazio kao da je u tieru i čist.",
+          "Diže se izvan pravila, pa ga nijedan --select ne može sakriti."
+        ],
+        "fix": [
+          "Popravi sintaktičku grešku pa ponovi run. Do tada o ovom modulu",
+          "nema nikakve tvrdnje — ni one da je čist."
+        ]
+      }
+    },
+    "unreadable-severity": {
+      "code": "K23",
+      "ref": "POLICY §9 · D-03",
+      "en": {
+        "title": "rule severity is a word the tool cannot read",
+        "why": [
+          "Severity belongs to the criterion, which is versioned apart from",
+          "the tool, precisely so a DR can change enforcement without touching",
+          "code. A word outside error/warning/info is silently replaced by the",
+          "tool's own default — so the level is decided by the instrument, on",
+          "exactly the rule the registry was trying to govern."
+        ],
+        "fix": [
+          "Use error, warning or info in the `rules` block — or extend the",
+          "tool's LEVELS map through a DR if a new level is really wanted."
+        ]
+      },
+      "hr": {
+        "title": "severity pravila je riječ koju alat ne zna pročitati",
+        "why": [
+          "Severity pripada kriteriju, koji se verzionira odvojeno od alata,",
+          "upravo zato da DR može promijeniti provedbu bez diranja koda.",
+          "Riječ izvan error/warning/info alat tiho zamijeni vlastitim",
+          "defaultom — pa razinu odlučuje instrument, i to na pravilu koje je",
+          "registar htio urediti."
+        ],
+        "fix": [
+          "Koristi error, warning ili info u `rules` bloku — ili proširi",
+          "LEVELS tablicu alata kroz DR ako nova razina stvarno treba."
+        ]
+      }
+    }
+  },
+  "MESSAGES": {
+    "en": {
+      "vector": "VECTOR",
+      "reproducibility": "REPRODUCIBILITY",
+      "no_findings": "(no findings)",
+      "blind_spots_label": "blind spots",
+      "other_findings": "--- other findings (no friendly entry yet) ---",
+      "summary": "wem_lint: {errors} error(s), {warns} warning(s), {infos} info",
+      "vector_note": "  note: conformance vector — no aggregate score is defined for these\n  checks; the scale is nominal, so counting is the only admissible\n  operation (METHODOLOGY §3b/§6.1). A green vector proves conformance\n  to the declared criterion, not quality (dictionary: konformnost-vs-kvaliteta).",
+      "notes": "Notes: ORG-01 fan-in counts direct `wattleflow.helpers.<mod>` imports only; aggregate `from wattleflow.helpers import X` is not resolved, so fan-in is a lower bound (advisory). ORG-01 #2/#4 not yet automated. See NFR.md.",
+      "python_pin": "  WARNING    registry pins python {pin}, running {running} — the stdlib set tested is the\n             interpreter's, so ORG-01 scope is not reproducible against the pin",
+      "graph_title": "=== NFR-ORG-01 — dependency graph (package level) ===",
+      "graph_hint": "  ▶ = imports;  a leaf tier (no outgoing edges) is the allowed foundation",
+      "graph_leaf": "leaf — imports nothing intra-project",
+      "graph_external": "external — not analysed as a source",
+      "legend": "Legend: ",
+      "tag_cycle": "mutual",
+      "tag_layering": "one-way",
+      "tag_leaf": "misfiled leaf"
+    },
+    "hr": {
+      "vector": "VEKTOR",
+      "reproducibility": "REPRODUCIBILNOST",
+      "no_findings": "(nema nalaza)",
+      "blind_spots_label": "slijepe pjege",
+      "other_findings": "--- ostali nalazi (bez unosa u katalogu) ---",
+      "summary": "wem_lint: {errors} greška/e, {warns} upozorenje/a, {infos} info",
+      "vector_note": "  napomena: vektor konformnosti — ukupna ocjena za ove provjere nije\n  definirana; skala je nominalna pa je brojanje jedina dopuštena\n  operacija (METHODOLOGY §3b/§6.1). Zeleni vektor dokazuje usklađenost\n  s deklariranim kriterijem, ne kvalitetu (rječnik: konformnost-vs-kvaliteta).",
+      "notes": "Napomene: ORG-01 fan-in broji samo izravne `wattleflow.helpers.<mod>` uvoze; agregatni `from wattleflow.helpers import X` se ne razrješava pa je fan-in donja granica (savjetodavno). ORG-01 #2/#4 nisu automatizirani. Vidi NFR.md.",
+      "python_pin": "  UPOZORENJE registar pina python {pin}, izvodi se {running} — skup stdliba\n             je interpreterov, pa opseg ORG-01 nije reproducibilan prema pinu",
+      "graph_title": "=== NFR-ORG-01 — graf ovisnosti (razina paketa) ===",
+      "graph_hint": "  ▶ = uvozi;  list bez izlaznih bridova je dopušten temelj",
+      "graph_leaf": "list — ne uvozi ništa unutar projekta",
+      "graph_external": "vanjski — ne analizira se kao izvor",
+      "legend": "Legenda: ",
+      "tag_cycle": "uzajamno",
+      "tag_layering": "jednosmjerno",
+      "tag_leaf": "pogrešno smješten list"
+    }
+  }
+}

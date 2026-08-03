@@ -1,7 +1,9 @@
 {
   "_about": [
     "Criterion dictionary for tools/wem_lint.py — the controlled vocabulary of CODE",
-    "IDENTIFIERS the NFR lint measures src/wattleflow against (NFR-ORG-01/02/03).",
+    "IDENTIFIERS the NFR lint measures src/wattleflow against (NFR-ORG-01/02/03,",
+    "NFR-SEC-03). This file is the criterion of the `wattleflow-workflow` (clean",
+    "core) distribution; `wattleflow-processors` carries its own next to its tools/.",
     "JSON, not YAML: the lint is stdlib-only by design (no PyYAML dependency) and",
     "json is the only structured format the standard library parses. Keys starting",
     "with an underscore are prose and are dropped by the loader.",
@@ -9,6 +11,10 @@
     "and translated to UK English. The Croatian dictionary.yaml stays the source of",
     "truth for the DISCOURSE vocabulary (entries + acronyms) and is no longer read",
     "by this tool.",
+    "PRESENTATION LIVES ELSEWHERE (since 2026-07-31): report strings and the finding",
+    "catalogue moved to tools/messages.json, shared by every distribution. This file",
+    "may still carry inline MESSAGES / CATALOGUE keys — they would win — but it does",
+    "not, so a wording fix never touches a criterion version.",
     "WARNING — the discourse `acronyms` table and `identifier_acronyms` below are",
     "NOT the same vocabulary and must not be merged: the former holds doctrine",
     "abbreviations (DQI, NFR, PDSA, SBVR) read by people, the latter holds tokens",
@@ -22,82 +28,197 @@
     "Governance: every extension — a new domain, base family, acronym or TypeVar",
     "role — requires a DR record, never an ad-hoc edit."
   ],
-
   "registry": "wattleflow-code-vocabulary",
-  "criterion_version": "0.3.1",
+  "distribution": "wattleflow-workflow",
+  "_criterion_version": [
+    "0.8.0 (2026-07-31) — rule semantics changed, so old and new vectors are not",
+    "comparable without a declared note (D-10). Changes, per analysis",
+    "tools/2026-07-31-analysis-changes.md §2.2: `helper_fan_in` and",
+    "`distribution_manifest` declared in `rules`; `scope.guarded_optional` added",
+    "(DR-WFL-003 waivers, without which `clean_core_imports` would turn a proven",
+    "waiver into an ERROR); absent domains `audit`, `blackboards`, `mappers`",
+    "removed (they are not in this tree — `mappers` moved to processors per",
+    "NFR-SEC-03); blind spots extended; presentation moved to messages.json.",
+    "PENDING: DR-PRC-001 must enact this revision — until then the criterion is a",
+    "draft and its findings are conformant, not descriptive (D-08)."
+  ],
+  "criterion_version": "0.8.0",
   "dictionary_version": "0.2.0",
   "dictionary_source": "documentation/dictionary.yaml#code",
-
   "_python_reference": "Defines the 'stdlib' set for ORG-01; must track requires-python in pyproject.toml.",
   "python_reference": "3.11",
-
   "_acronym_identifier_casing": [
     "Enforcement level of the acronym-casing criterion — a registry fact under DR",
     "governance rather than a constant in the tool: `adopted` makes the check an",
-    "ERROR, any other status a WARNING."
+    "ERROR, any other status falls back to the severity declared for the",
+    "`acronym_case` rule below (single resolution path since v1.11.0)."
   ],
   "acronym_identifier_casing": {
     "status": "undecided",
     "decision_pending": "DR-WFL-004",
     "note": "the lint warns (WARNING, waiver declared) instead of failing the build until the decision is taken"
   },
-
   "_blind_spots": [
     "Declared unmeasured territory (§5, column 3). Reported as INFO on every run so",
     "the vector can never read as full coverage."
   ],
   "blind_spots": [
-    "shared_namespace is exempt from the acyclicity and locality checks",
+    "imports inside the shared namespace are not modelled as edges, so cycles and layering within helpers/ are unmeasured (helpers->domain acyclicity and helper fan-in ARE measured)",
+    "the ORG-02 name grammar (Subject/Operation) is inert in this distribution: no `subjects` block and no `pipelines` domain are declared, so only criterion 6 (prohibited_standalone) is enforced here",
+    "ORG-01 measures the import graph, never the runtime one: dynamic edges (ClassLoader, YAML-declared types) are invisible to the AST, so blast radius per NFR-SEC-01 is under-counted",
     "a strategic adversary is beyond the reach of the lint"
   ],
-
   "_rules": [
     "The rule table as the NFR registry declares it: id, requirement, check,",
-    "severity and waiver policy. Declared but not yet consumed by wem_lint —",
-    "severity and waiver are still decided inside each rule class."
+    "severity and waiver policy. The tool resolves severity from here (POLICY §9),",
+    "and reports both directions of drift: a rule declared but not implemented (K7)",
+    "and a check emitted but not declared (K8)."
   ],
   "rules": [
-    {"id": "ORG-01a", "nfr": "NFR-ORG-01", "check": "clean_core_imports", "severity": "error", "waiver": "forbidden"},
-    {"id": "ORG-01b", "nfr": "NFR-ORG-01", "check": "domain_acyclicity", "severity": "error", "waiver": "dr_required"},
-    {"id": "ORG-02a", "nfr": "NFR-ORG-02", "check": "base_family_membership", "severity": "error", "waiver": "dr_required"},
-    {"id": "ORG-02b", "nfr": "NFR-ORG-02", "check": "prohibited_standalone", "severity": "error", "waiver": "forbidden"},
-    {"id": "ORG-02c", "nfr": "NFR-ORG-02", "check": "acronym_case", "severity": "warning", "waiver": "declared"},
-    {"id": "ORG-03a", "nfr": "NFR-ORG-03", "check": "typevar_role_vocabulary", "severity": "warning", "waiver": "declared"}
+    {
+      "id": "ORG-01a",
+      "nfr": "NFR-SEC-03",
+      "check": "clean_core_imports",
+      "severity": "error",
+      "waiver": "dr_required"
+    },
+    {
+      "id": "ORG-01b",
+      "nfr": "NFR-ORG-01",
+      "check": "domain_acyclicity",
+      "severity": "error",
+      "waiver": "dr_required"
+    },
+    {
+      "id": "ORG-01c",
+      "nfr": "NFR-ORG-01",
+      "check": "helper_fan_in",
+      "severity": "warning",
+      "waiver": "declared"
+    },
+    {
+      "id": "ORG-02a",
+      "nfr": "NFR-ORG-02",
+      "check": "base_family_membership",
+      "severity": "error",
+      "waiver": "dr_required"
+    },
+    {
+      "id": "ORG-02b",
+      "nfr": "NFR-ORG-02",
+      "check": "prohibited_standalone",
+      "severity": "error",
+      "waiver": "forbidden"
+    },
+    {
+      "id": "ORG-02c",
+      "nfr": "NFR-ORG-02",
+      "check": "acronym_case",
+      "severity": "warning",
+      "waiver": "declared"
+    },
+    {
+      "id": "ORG-03a",
+      "nfr": "NFR-ORG-03",
+      "check": "typevar_role_vocabulary",
+      "severity": "warning",
+      "waiver": "declared"
+    },
+    {
+      "id": "SEC-03a",
+      "nfr": "NFR-SEC-03",
+      "check": "distribution_manifest",
+      "severity": "warning",
+      "waiver": "dr_required"
+    },
+    {
+      "id": "ORG-07a",
+      "nfr": "NFR-ORG-07",
+      "check": "preset_allowed_declaration",
+      "severity": "error",
+      "waiver": "dr_required"
+    }
   ],
-
   "_domains": [
     "NFR-ORG-01 — top-level functional packages under src/wattleflow. `helpers` is",
     "the shared namespace, NOT a domain: it must not appear here, or intra-helper",
     "imports get misreported as acyclicity breaks. `constants` is likewise absent:",
     "it imports nothing intra-project, so it is foundation material every layer may",
-    "depend on (ORG-01 §3 misfiled-leaf, 2026-07-29)."
+    "depend on (ORG-01 §3 misfiled-leaf, 2026-07-29).",
+    "2026-07-31: `audit`, `blackboards` and `mappers` removed — no module under",
+    "src/wattleflow belongs to them (mappers moved to wattleflow-processors per",
+    "NFR-SEC-03). The `absent-domain` check (K10) keeps this list honest from now on."
   ],
   "domains": [
-    "audit",
-    "blackboards",
     "concrete",
     "decorators",
     "managers",
-    "mappers",
     "orchestrators",
     "schedulers"
   ],
-
   "shared_namespace": "helpers",
-
+  "_report_language": [
+    "Default report language of the lint. UK English is the default and the",
+    "fallback (POLICY §3.2); --lang overrides it per run. Presentation, not",
+    "criterion (D-13) — the strings themselves live in tools/messages.json."
+  ],
+  "report_language": "en",
   "_scope": [
-    "Clean-core filter. wattleflow-workflow is clean core: stdlib plus the libraries",
-    "listed below only (§7.1). A module importing anything outside",
-    "(stdlib ∪ wattleflow ∪ core_libraries) belongs to another distribution",
-    "(wattleflow-processors / examples) and is skipped by every rule.",
+    "Distribution tier. wattleflow-workflow is clean core: stdlib plus the libraries",
+    "listed in `core_libraries` only (§7.1). A module importing anything outside",
+    "(stdlib ∪ wattleflow ∪ core_libraries) belongs to another distribution and is",
+    "skipped by the ORG rules — and, since v1.11.0, REPORTED as a K9 supply-chain",
+    "finding (NFR-SEC-03 criterion 1), because a silent skip is what the criterion",
+    "forbids.",
+    "`guarded_optional` is the only waiver: modules whose third-party reference sits",
+    "behind a try/except branch with a FUNCTIONALLY COMPLETE fallback (DR-WFL-003).",
+    "The test is masking (mask the package — the module must still import and work),",
+    "never code review; a branch that raises, returns None or degrades is NOT guarded.",
     "`exclude_paths` opts modules out by path glob, for cases the import filter",
     "cannot catch."
   ],
   "scope": {
-    "core_libraries": ["typing_extensions"],
-    "exclude_paths": []
+    "core_libraries": [
+      "typing_extensions"
+    ],
+    "exclude_paths": [],
+    "guarded_optional": [
+      {
+        "module": "helpers/config.py",
+        "packages": [
+          "yaml",
+          "jsonschema"
+        ],
+        "dr": "DR-WFL-003",
+        "fallback": "helpers/yaml.py"
+      },
+      {
+        "module": "helpers/config_adapter.py",
+        "packages": [
+          "yaml"
+        ],
+        "dr": "DR-WFL-003",
+        "fallback": "helpers/yaml.py"
+      },
+      {
+        "module": "helpers/config_validator.py",
+        "packages": [
+          "yaml",
+          "jsonschema"
+        ],
+        "dr": "DR-WFL-003",
+        "fallback": "helpers/yaml.py"
+      }
+    ]
   },
-
+  "_distribution_manifest": [
+    "NFR-SEC-03 criteria 2/3 — the packaging manifest of this distribution, read by",
+    "the `distribution_manifest` check (stdlib tomllib). `pyproject` is relative to",
+    "the repository root (the parent of tools/)."
+  ],
+  "distribution_manifest": {
+    "pyproject": "pyproject.toml"
+  },
   "_bases": [
     "NFR-ORG-02 — the inheritance roots of the framework; every concrete name in",
     "the workflow package derives from one of these. Grouped by family: each family",
@@ -106,36 +227,118 @@
     "bases; pipeline detection reads `bases.pipeline`."
   ],
   "bases": {
-    "root": ["IWattleflow"],
-    "observer": ["IObservable", "IObserver"],
-    "blackboard": ["IBlackboard", "GenericBlackboard"],
-    "connection": ["ConnectionObserverInterface", "GenericConnection"],
-    "document": ["IAdaptee", "IAdapter", "ITarget", "Document", "DocumentAdapter", "DocumentFacade"],
-    "driver": ["IDriver", "GenericDriver", "LazyDriverProxy"],
-    "processor": ["IProcessor", "GenericProcessor"],
-    "pipeline": ["IPipeline", "GenericPipeline"],
-    "repository": ["IRepository", "GenericRepository", "RepositoryWithDriver"],
-    "strategy": ["IStrategy", "Strategy", "StrategyGenerate", "StrategyCreate", "StrategyRead", "StrategyWrite"],
-    "workflow": ["GenericWorkflow"],
-    "orchestrator": ["IEventSource", "IFacade", "Orchestrator"],
-    "scheduler": ["IScheduler", "IEventListener", "Scheduler"],
-    "manager": ["ConnectionManager", "DriverManager", "ProcessorManager"],
-    "state_machine": ["IStateMachine", "StateMachine", "GuardedStateMachine"],
-    "memento": ["IMemento", "GenericMemento"],
-    "originator": ["IOriginator"],
-    "logger": ["ILogger", "AuditLogger"],
-    "exception": ["AuditException"]
+    "root": [
+      "IWattleflow"
+    ],
+    "observer": [
+      "IObservable",
+      "IObserver"
+    ],
+    "blackboard": [
+      "IBlackboard",
+      "GenericBlackboard"
+    ],
+    "connection": [
+      "ConnectionObserverInterface",
+      "GenericConnection"
+    ],
+    "document": [
+      "IAdaptee",
+      "IAdapter",
+      "ITarget",
+      "Document",
+      "DocumentAdapter",
+      "DocumentFacade"
+    ],
+    "driver": [
+      "IDriver",
+      "GenericDriver",
+      "LazyDriverProxy"
+    ],
+    "processor": [
+      "IProcessor",
+      "GenericProcessor"
+    ],
+    "pipeline": [
+      "IPipeline",
+      "GenericPipeline"
+    ],
+    "repository": [
+      "IRepository",
+      "GenericRepository",
+      "RepositoryWithDriver"
+    ],
+    "strategy": [
+      "IStrategy",
+      "Strategy",
+      "StrategyGenerate",
+      "StrategyCreate",
+      "StrategyRead",
+      "StrategyWrite"
+    ],
+    "workflow": [
+      "GenericWorkflow"
+    ],
+    "orchestrator": [
+      "IEventSource",
+      "IFacade",
+      "Orchestrator"
+    ],
+    "scheduler": [
+      "IScheduler",
+      "IEventListener",
+      "Scheduler"
+    ],
+    "manager": [
+      "ConnectionManager",
+      "DriverManager",
+      "ProcessorManager"
+    ],
+    "state_machine": [
+      "IStateMachine",
+      "StateMachine",
+      "GuardedStateMachine"
+    ],
+    "memento": [
+      "IMemento",
+      "GenericMemento"
+    ],
+    "originator": [
+      "IOriginator"
+    ],
+    "logger": [
+      "ILogger",
+      "AuditLogger"
+    ],
+    "exception": [
+      "AuditException"
+    ]
   },
-
-  "_prohibited_standalone": "Bare generic role nouns prohibited as standalone class names (NFR-ORG-02 criterion 6).",
+  "_capabilities": [
+    "NFR-ORG-04 — recognised cross-cutting capabilities: callable helpers named by",
+    "capability, never specialisations of a domain primitive."
+  ],
+  "capabilities": [
+    "routing"
+  ],
+  "_prohibited_standalone": [
+    "Bare generic role nouns prohibited as STANDALONE class names (NFR-ORG-02",
+    "criterion 6; NFR-ORG-04 criterion 3 delegates its capability role-nouns here).",
+    "The same noun is legal as a qualified facet — `DriverS3UriParser`, not `Parser`."
+  ],
   "prohibited_standalone": [
     "Manager",
     "Helper",
     "Utility",
     "Parser",
-    "Piece"
+    "Piece",
+    "Sheet",
+    "Placement",
+    "Router",
+    "Resolver",
+    "Generator",
+    "Scanner"
   ],
-
   "_identifier_acronyms": "Acronym TOKENS as they appear in code identifiers — distinct from the discourse `acronyms` table (see the note above).",
   "identifier_acronyms": [
     "YAML",
@@ -148,7 +351,6 @@
     "SFTP",
     "OSCAL"
   ],
-
   "_type_vars": [
     "NFR-ORG-03 — a TypeVar names the SEMANTIC ROLE the type plays in the generic",
     "contract, not the mechanism (the fact that it is a type). Acronym casing is",
@@ -186,6 +388,32 @@
       "Returned": "Result",
       "Elem": "Element"
     },
-    "tolerated": ["WattleType"]
+    "tolerated": [
+      "WattleType"
+    ]
+  },
+  "_preset_allowed": [
+    "NFR-ORG-07 — Preset Whitelist Declaration. A class whose optional runtime",
+    "configuration is carried by PresetDecorator declares the permitted keys in a",
+    "class attribute named exactly `ALLOWED`.",
+    "Why a rule and not a preference: PresetDecorator resolves the whitelist from",
+    "the CLASS (`type(parent).ALLOWED`). A declaration under any other name, or at",
+    "module scope, is invisible to that resolution — the whitelist reads as empty",
+    "and every configuration key the caller passes is dropped WITHOUT ERROR. The",
+    "failure is silent by construction, which is why the severity is `error`.",
+    "The synonyms below were all in use on 2026-08-01 (27 declarations across 4",
+    "spellings) and are recorded so the check can name what it found."
+  ],
+  "preset_allowed": {
+    "declaration": "ALLOWED",
+    "scope": "class",
+    "resolved_by": "wattleflow.decorators.preset.PresetDecorator",
+    "synonyms": [
+      "__allowed__",
+      "__ALLOWED__",
+      "ALLOWED_KWARGS",
+      "allowed"
+    ],
+    "forwarding": "prohibited"
   }
 }

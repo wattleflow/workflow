@@ -9,6 +9,8 @@ Implements the machine-verifiable acceptance criteria of:
   * NFR-ORG-01 — Dependency Locality of Support Classes (import-graph checks)
   * NFR-ORG-02 — Class Nomenclature (name-grammar checks)
   * NFR-ORG-03 — TypeVar Nomenclature (generic-parameter role names)
+  * NFR-ORG-07 — Preset whitelist declaration (`ALLOWED` as a class attribute)
+  * NFR-SEC-03 — Supply-chain trust & distribution locality (tier + manifest)
 
 The checks themselves are purely AST/import-graph based — a measured module is
 never imported *to be checked*, so a syntactically broken target yields findings
@@ -17,10 +19,13 @@ the tool is built on `wattleflow.concrete`, which is itself a measured domain
 (see the self-reference below). It is runnable on demand now and, once a CI
 pipeline exists, as a quality gate. Runtime dependencies: none beyond the
 standard library and this distribution's own `wattleflow.core` +
-`wattleflow.concrete`. The criterion is read from `tools/dictionary.json` —
-JSON, not YAML, so a quality gate never depends on a third-party parser being
-installed. Severity and waiver come from that criterion's `rules` block, not
-from constants here, so the enforcement level stays under DR governance.
+`wattleflow.concrete`. The criterion is read from `tools/dictionary.json` of the
+INVOKED distribution — JSON, not YAML, so a quality gate never depends on a
+third-party parser being installed. Severity and waiver come from that
+criterion's `rules` block, not from constants here, so the enforcement level
+stays under DR governance. Report strings live in `tools/messages.json` next to
+the tool (a criterion may still carry them inline); `report_language` picks the
+default (en) and --lang overrides it per run.
 
 The tool dogfoods the framework it checks (self-reference — `dictionary.yaml:
 wem-lint`), consuming both distributions:
@@ -55,6 +60,7 @@ import os
 import platform
 import re
 import sys
+import tomllib
 
 from collections import defaultdict
 from datetime import date
@@ -62,13 +68,11 @@ from pathlib import Path
 from typing import Iterator
 
 _STDLIB = set(sys.stdlib_module_names)
-
-# The tool lives in <repo>/tools/ and consumes <repo>/src/wattleflow. Make the src
-# layout importable before the framework imports below — a module-level side effect,
-# legal here: tools are a consumer layer, not the interface layer.
-_REPO_SRC = Path(__file__).resolve().parents[1] / "src"
-if _REPO_SRC.is_dir() and str(_REPO_SRC) not in sys.path:
-    sys.path.insert(0, str(_REPO_SRC))
+_TOOL_HOME = Path(__file__).resolve().parent
+_CALL_HOME = Path(__file__).absolute().parent
+for _src_root in (_CALL_HOME.parent / "src", _TOOL_HOME.parent / "src"):
+    if _src_root.is_dir() and str(_src_root) not in sys.path:
+        sys.path.insert(0, str(_src_root))
 
 try:
     from wattleflow.core import (
@@ -98,7 +102,7 @@ _CAMEL = re.compile(r"[A-Z]+(?![a-z])|[A-Z][a-z]+|[A-Z]|\d+")
 # Criterion-versioning convention (METHODOLOGY §1 t.2): a change in rule
 # semantics or in the criterion source is a minor bump, because the same code
 # can yield a different vector afterwards.
-__version__ = "1.6.0"
+__version__ = "1.12.0"
 
 # Severity is a stdlib logging level (int); the report renders its level name.
 ERROR, WARNING, INFO = logging.ERROR, logging.WARNING, logging.INFO
@@ -133,6 +137,75 @@ class Finding:
 
 # --------------------------------------------------------------------------- #
 # endregion Findings                                                          #
+# --------------------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------------------- #
+# region Source file — one parse per module, shared by every rule             #
+# --------------------------------------------------------------------------- #
+class SourceFile:
+    """A module read and parsed once per run, then shared.
+
+    Before this cache the same file was parsed up to five times (scope filter,
+    blind-spot listing, and once per rule). Nothing was learnt on the repeats,
+    and every new rule added another full pass — so the cost of asking one more
+    question of the source grew with the number of questions already asked.
+    """
+
+    _CACHE: dict[Path, "SourceFile"] = {}
+    __slots__ = ("path", "tree", "error", "_foreign", "_imports")
+
+    def __init__(self, path: Path):
+        self.path = path
+        self.error: SyntaxError | None = None
+        self.tree: ast.Module | None = None
+        self._foreign: dict[frozenset, set[str]] = {}
+        self._imports: tuple[str, ...] | None = None
+        try:
+            self.tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError as e:
+            self.error = e
+
+    @classmethod
+    def of(cls, path: Path) -> "SourceFile":
+        cached = cls._CACHE.get(path)
+        if cached is None:
+            cached = cls._CACHE[path] = SourceFile(path)
+        return cached
+
+    def imported_modules(self) -> tuple[str, ...]:
+        """Every module name this file imports, in source order.
+
+        ast.walk (not just tree.body) is deliberate: a lazy, in-function import
+        still fixes the module's home distribution (DR-WFL-002 §2.1), so it must
+        count exactly like a module-level one.
+        """
+        if self._imports is None:
+            names: list[str] = []
+            for node in ast.walk(self.tree) if self.tree else ():
+                if isinstance(node, ast.Import):
+                    names += [a.name for a in node.names]
+                elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                    names.append(node.module)
+            self._imports = tuple(names)
+        return self._imports
+
+    def foreign_roots(self, core_libs: frozenset[str]) -> set[str]:
+        # Root packages imported from outside (stdlib ∪ wattleflow ∪ core_libs) —
+        # the third-party libraries that place a module outside this distribution.
+        cached = self._foreign.get(core_libs)
+        if cached is None:
+            allowed = _STDLIB | {"wattleflow"} | set(core_libs)
+            cached = self._foreign[core_libs] = {
+                top
+                for module in self.imported_modules()
+                if (top := module.split(".")[0]) and top not in allowed
+            }
+        return cached
+
+
+# --------------------------------------------------------------------------- #
+# endregion Source file                                                       #
 # --------------------------------------------------------------------------- #
 
 
@@ -181,30 +254,8 @@ class Naming:
         return None  # class sits directly in the domain package
 
     @staticmethod
-    def foreign_imports(path: Path, core_libs: set[str]) -> set[str]:
-        # Root packages imported from outside (stdlib ∪ wattleflow ∪ core_libs) —
-        # the third-party libraries that place a module outside clean core.
-        # ast.walk (not just tree.body) is deliberate: a lazy, in-function import
-        # still fixes the module's home distribution (DR-WFL-002 §2.1), so it must
-        # count here exactly like a module-level one.
-        try:
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-        except SyntaxError:
-            return set()
-        allowed = _STDLIB | {"wattleflow"} | core_libs
-        foreign: set[str] = set()
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Import):
-                names = [a.name for a in node.names]
-            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-                names = [node.module]
-            else:
-                continue
-            for module in names:
-                top = module.split(".")[0]
-                if top and top not in allowed:
-                    foreign.add(top)
-        return foreign
+    def foreign_imports(path: Path, core_libs: frozenset[str]) -> set[str]:
+        return SourceFile.of(path).foreign_roots(core_libs)
 
 
 class Criterion:
@@ -220,6 +271,11 @@ class Criterion:
 
     LEVELS = {"error": ERROR, "warning": WARNING, "info": INFO}
 
+    # `acronym_identifier_casing.status` values that put criterion 4 in force.
+    # The Croatian form is accepted because the discourse registry the criterion
+    # was cut from still carries its own status vocabulary.
+    ADOPTED = frozenset({"adopted", "usvojen"})
+
     # registry `check` → finding kinds emitted for it
     IMPLEMENTED = {
         "domain_acyclicity": ("import-cycle", "wrong-direction-import", "misfiled-leaf"),
@@ -228,6 +284,13 @@ class Criterion:
         "prohibited_standalone": ("standalone-role-noun",),
         "acronym_case": ("acronym-case",),
         "typevar_role_vocabulary": ("typevar-role",),
+        "clean_core_imports": ("foreign-import",),
+        "distribution_manifest": ("manifest-no-namespaces", "manifest-excluded-package"),
+        "preset_allowed_declaration": (
+            "preset-allowed-name",
+            "preset-allowed-scope",
+            "preset-allowed-forwarded",
+        ),
     }
 
     @classmethod
@@ -239,13 +302,73 @@ class Criterion:
         return default
 
     @classmethod
+    def acronym_severity(cls, reg: dict) -> int:
+        """The single resolution path for the acronym-casing level.
+
+        Two registry keys used to answer this — `acronym_identifier_casing.status`
+        (which the tool read) and the `acronym_case` rule severity (which it did
+        not) — so a DR editing the rule table would have been silently ignored on
+        precisely the rule that is under an open DR. Precedence is now declared:
+        an adopted status puts criterion 4 in force; while the decision is open
+        the rule severity applies but cannot exceed WARNING, because enforcing
+        one side of an undecided question is what METHODOLOGY §9 forbids.
+        """
+        status = str((reg.get("acronym_identifier_casing") or {}).get("status", "")).lower()
+        if status in cls.ADOPTED:
+            return ERROR
+        return min(cls.severity(reg, "acronym_case", WARNING), WARNING)
+
+    @classmethod
+    def absent_domains(cls, reg: dict, src: Path, present: set[str]) -> list[Finding]:
+        # Drift in the third direction: a domain the criterion declares but no
+        # module under --src belongs to. Rules scoped to it then measure nothing
+        # at all, and the vector reads as coverage it never had (D-11).
+        out: list[Finding] = []
+        for domain in sorted(set(reg.get("domains") or ()) - present):
+            out.append(
+                Finding(
+                    "EXC",
+                    INFO,
+                    src / domain,
+                    0,
+                    domain,
+                    "declared as a domain in the criterion, but no module under --src "
+                    "belongs to it — either it moved to another distribution and the "
+                    "criterion was not revised, or --src is mis-pointed",
+                    kind="absent-domain",
+                    detail=f"no module under {src.name}/{domain}",
+                )
+            )
+        return out
+
+    @classmethod
     def drift(cls, reg: dict, src: Path) -> list[Finding]:
-        # Two directions, both silent until now: a rule the registry declares but
-        # no code path can raise (its severity and waiver are decoration), and a
-        # check this tool emits that the registry never declared (it escapes DR
-        # governance of severity/waiver entirely).
+        # Three directions, all silent until now: a rule the registry declares but
+        # no code path can raise (its severity and waiver are decoration), a check
+        # this tool emits that the registry never declared (it escapes DR governance
+        # of severity/waiver entirely), and a severity word the tool cannot read —
+        # which fell back to a constant here, i.e. to the level the registry was
+        # supposed to be deciding.
         declared = {r.get("check"): r for r in reg.get("rules") or () if r.get("check")}
         out: list[Finding] = []
+        for check, rule in sorted(declared.items()):
+            word = str(rule.get("severity", ""))
+            if word.lower() in cls.LEVELS:
+                continue
+            out.append(
+                Finding(
+                    "EXC",
+                    INFO,
+                    src,
+                    0,
+                    f"{rule.get('id', '?')} · {check}",
+                    f"severity '{word}' is not one of {', '.join(cls.LEVELS)} — the tool "
+                    "cannot read it and falls back to its own default, so this rule's "
+                    "enforcement level is decided by the instrument, not by the criterion",
+                    kind="unreadable-severity",
+                    detail=f"{rule.get('id', '?')} · {check}: severity={word!r}",
+                )
+            )
         for check in sorted(set(declared) - set(cls.IMPLEMENTED)):
             rule = declared[check]
             out.append(
@@ -330,12 +453,18 @@ class SourceTree(Wattleflow, ISyncAggregate[Path]):
 # region NFR-ORG-02 — Class Nomenclature                                      #
 # --------------------------------------------------------------------------- #
 class NomenclatureRule(Wattleflow, IStrategy):
-    """NFR-ORG-02 — class-name grammar, scoped to the `pipelines` domain.
+    """NFR-ORG-02 — class-name grammar.
 
-    KNOWN GAP: a registry without a `pipelines` domain (the clean-core workflow
-    tree) makes this rule inert — including criterion 6, which NFR-ORG-02 scopes to
-    *every* class, and which NFR-ORG-04/05 delegate here. Widening criterion 6 to
-    all domains is a behaviour change, so it is a worklist item, not a silent fix.
+    Two scopes, deliberately different (analysis 2026-07-31, N-04):
+      * criterion 6 (no standalone generic role noun) applies to EVERY class in
+        every domain and the shared namespace, nested ones included — NFR-ORG-02
+        scopes it that way and NFR-ORG-04 §3 / NFR-ORG-05 delegate to it. Until
+        v1.11.0 the whole rule short-circuited on `domain != "pipelines"`, so in a
+        distribution without a `pipelines` domain it enforced nothing while the
+        vector still read green.
+      * the `Pipeline<Subject><Operation>` grammar applies to the `pipelines`
+        domain and needs the processors vocabulary (`subjects`); a criterion that
+        declares neither opts out of that half, and says so in `blind_spots`.
     """
 
     def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
@@ -346,7 +475,7 @@ class NomenclatureRule(Wattleflow, IStrategy):
 
     def _check_file(self, path, src, reg, findings):
         domain = Naming.file_domain(path, src, set(reg["domains"]), reg["shared_namespace"])
-        if domain != "pipelines":
+        if domain is None:
             return
 
         def add(sev, line, nm, msg, kind=None):
@@ -356,10 +485,23 @@ class NomenclatureRule(Wattleflow, IStrategy):
         grammar_sev = Criterion.severity(reg, "base_family_membership", ERROR)
         standalone_sev = Criterion.severity(reg, "prohibited_standalone", ERROR)
 
-        try:
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-        except SyntaxError as e:
-            add(ERROR, e.lineno or 0, path.name, f"syntax error: {e}")
+        tree = SourceFile.of(path).tree
+        if tree is None:
+            return  # unparsable — WemLint raises it once, for every rule at once
+
+        # Criterion 6 — every class, every domain, nested included.
+        prohibited = set(reg.get("prohibited_standalone", []))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name in prohibited:
+                add(
+                    standalone_sev,
+                    node.lineno,
+                    node.name,
+                    "standalone generic role noun — must be domain-qualified (criterion 6)",
+                    kind="standalone-role-noun",
+                )
+
+        if domain != "pipelines":
             return
 
         # `bases` is a family→[bases] map; pipeline detection reads the pipeline
@@ -384,14 +526,6 @@ class NomenclatureRule(Wattleflow, IStrategy):
                     kind="pipeline-grammar",
                 )
             if not is_pipeline:
-                if node.name in reg.get("prohibited_standalone", []):
-                    add(
-                        standalone_sev,
-                        node.lineno,
-                        node.name,
-                        "standalone generic role noun — must be domain-qualified (criterion 6)",
-                        kind="standalone-role-noun",
-                    )
                 continue
             if not has_prefix:
                 add(
@@ -407,7 +541,8 @@ class NomenclatureRule(Wattleflow, IStrategy):
                     INFO,
                     node.lineno,
                     node.name,
-                    f"package '{subpkg}' is exempt (deferred via ADR) — grammar not enforced",
+                    f"package '{subpkg}' is exempt (deferred via DR) — grammar not enforced",
+                    kind="exempt-package",
                 )
                 continue
             if subpkg in reg.get("package_aliases", {}):
@@ -416,6 +551,7 @@ class NomenclatureRule(Wattleflow, IStrategy):
                     node.lineno,
                     node.name,
                     f"package '{subpkg}' should be renamed to canonical '{canon_pkg}' (decision 2)",
+                    kind="package-alias",
                 )
 
             self._check_grammar(node, path, reg, canon_pkg, findings)
@@ -431,8 +567,8 @@ class NomenclatureRule(Wattleflow, IStrategy):
         targets, qualifiers = reg.get("targets", []), reg.get("qualifiers", [])
         acronyms, synonyms = reg.get("acronyms", []), reg.get("synonyms", {})
         # Registry-driven, like ORG-03: the enforcement level is a fact of the
-        # criterion, not a constant of the tool.
-        casing_sev = reg.get("acronym_severity", WARNING)
+        # criterion, not a constant of the tool — and it is resolved in one place.
+        casing_sev = Criterion.acronym_severity(reg)
         casing_pending = reg.get("acronym_pending", "an open DR")
         casing_note = (
             "criterion 4"
@@ -554,9 +690,8 @@ class ImportGraphBuilder(Wattleflow, IBuilder):
         dom = Naming.file_domain(path, self._src, self._domains, self._shared)
         if dom is None:
             return
-        try:
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-        except SyntaxError:
+        tree = SourceFile.of(path).tree
+        if tree is None:
             return
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module:
@@ -714,21 +849,18 @@ class TypeVarRule(Wattleflow, IStrategy):
         acronyms = reg.get("acronyms", [])
         # Acronym casing is enforced at whatever level the registry declares —
         # WARNING while the decision is open, ERROR once it is taken.
-        casing = (reg.get("acronym_severity", WARNING), reg.get("acronym_pending", "an open DR"))
+        casing = (Criterion.acronym_severity(reg), reg.get("acronym_pending", "an open DR"))
         # Every ORG-03 verdict is the same declared check, so it carries the
         # severity the registry gives that check (POLICY §9) — not a constant here.
         role_sev = Criterion.severity(reg, "typevar_role_vocabulary", ERROR)
         findings: list[Finding] = []
         for path in source.create_iterator():
-            self._check_file(
-                path, roles, synonyms, tolerated, acronyms, casing, role_sev, findings
-            )
+            self._check_file(path, roles, synonyms, tolerated, acronyms, casing, role_sev, findings)
         return findings
 
     def _check_file(self, path, roles, synonyms, tolerated, acronyms, casing, role_sev, findings):
-        try:
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-        except SyntaxError:
+        tree = SourceFile.of(path).tree
+        if tree is None:
             return
 
         def add(sev, line, name, msg, kind="typevar-role"):
@@ -741,8 +873,16 @@ class TypeVarRule(Wattleflow, IStrategy):
                 continue
             name, call = tv
             self._check_name(
-                name, call, roles, synonyms, tolerated, acronyms, casing, role_sev,
-                node.lineno, add,
+                name,
+                call,
+                roles,
+                synonyms,
+                tolerated,
+                acronyms,
+                casing,
+                role_sev,
+                node.lineno,
+                add,
             )
             if len(name) == 1 and name.isalpha() and not self._is_constrained(call):
                 single_letters.add(name)
@@ -880,30 +1020,405 @@ class TypeVarRule(Wattleflow, IStrategy):
 
 
 # --------------------------------------------------------------------------- #
+# region NFR-ORG-07 — Preset whitelist declaration                            #
+# --------------------------------------------------------------------------- #
+class PresetAllowedRule(Wattleflow, IStrategy):
+    """NFR-ORG-07 — the preset whitelist is a class attribute named `ALLOWED`.
+
+    Three criteria, one check, because they are three faces of one fact —
+    PresetDecorator resolves the whitelist from ``type(parent).ALLOWED``:
+
+    * §1 name — a synonym is never resolved, so the whitelist reads empty and
+      every configured key is dropped without a word.
+    * §2 scope — a module-level constant is equally invisible; it survives only
+      while some constructor hand-carries it, and no subclass can extend it.
+    * §3 forwarding — a class that declares ALLOWED and still passes `allowed=`
+      upward keeps a second copy of the same fact, free to drift from the first.
+    """
+
+    def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
+        cfg = reg.get("preset_allowed", {}) or {}
+        canonical = cfg.get("declaration", "ALLOWED")
+        synonyms = set(cfg.get("synonyms", []))
+        severity = Criterion.severity(reg, "preset_allowed_declaration", ERROR)
+        forwarding_declared = str(cfg.get("forwarding", "")).lower() == "prohibited"
+
+        findings: list[Finding] = []
+        for path in source.create_iterator():
+            self._check_file(path, canonical, synonyms, severity, forwarding_declared, findings)
+        return findings
+
+    def _check_file(self, path, canonical, synonyms, severity, forwarding, findings):
+        tree = SourceFile.of(path).tree
+        if tree is None:
+            return
+
+        def add(sev, line, name, msg, kind, detail=None):
+            findings.append(Finding("ORG-07", sev, path, line, name, msg, kind=kind, detail=detail))
+
+        # §2 — module scope. Both the canonical name and any synonym qualify:
+        # the point is that no class owns the declaration.
+        for node in tree.body:
+            for target in self._assigned_names(node):
+                name, line = target
+                if name != canonical and name not in synonyms:
+                    continue
+                add(
+                    severity,
+                    line,
+                    name,
+                    f"`{name}` declared at module scope — PresetDecorator resolves the "
+                    f"whitelist from `type(self).{canonical}`, so nothing here is found "
+                    "once a constructor stops hand-carrying it (criterion 2)",
+                    "preset-allowed-scope",
+                    detail=f"module-level {name}",
+                )
+
+        for cls in (n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)):
+            declares_canonical = False
+            for stmt in cls.body:
+                for name, line in self._assigned_names(stmt):
+                    if name == canonical:
+                        declares_canonical = True
+                    elif name in synonyms:
+                        # §1 — a synonym is silently unresolvable.
+                        add(
+                            severity,
+                            line,
+                            f"{cls.name}.{name}",
+                            f"preset whitelist named `{name}` — PresetDecorator only "
+                            f"resolves `{canonical}`, so this class permits nothing and "
+                            "every configured key is dropped silently (criterion 1)",
+                            "preset-allowed-name",
+                            detail=f"{cls.name}.{name} → rename to {canonical}",
+                        )
+            # §3 — declared AND forwarded is one fact stored twice.
+            if declares_canonical and forwarding:
+                for line in self._forwarded_allowed(cls):
+                    add(
+                        WARNING,
+                        line,
+                        f"{cls.name}.{canonical}",
+                        f"`{canonical}` is declared on the class and still forwarded as "
+                        "`allowed=` — the base resolves it, so the argument is a second "
+                        "copy free to drift (criterion 3)",
+                        "preset-allowed-forwarded",
+                        detail=f"{cls.name} forwards allowed=",
+                    )
+
+    @staticmethod
+    def _assigned_names(node) -> list[tuple[str, int]]:
+        """(name, line) for every plain or annotated assignment target."""
+        if isinstance(node, ast.Assign):
+            return [(t.id, node.lineno) for t in node.targets if isinstance(t, ast.Name)]
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            return [(node.target.id, node.lineno)]
+        return []
+
+    @staticmethod
+    def _forwarded_allowed(cls: ast.ClassDef) -> list[int]:
+        """Lines where this class forwards `allowed=` to a constructor.
+
+        Restricted to `__init__` calls (`super().__init__`, `Base.__init__`):
+        criterion 3 is about forwarding the whitelist UP the chain, and matching
+        any call at all flagged unrelated helpers that happen to take `allowed=`.
+        """
+        out: list[int] = []
+        for node in ast.walk(cls):
+            if not isinstance(node, ast.Call):
+                continue
+            if getattr(node.func, "attr", None) != "__init__":
+                continue
+            for kw in node.keywords:
+                if kw.arg == "allowed":
+                    out.append(node.lineno)
+        return out
+
+
+# --------------------------------------------------------------------------- #
+# endregion NFR-ORG-07 — Preset whitelist declaration                         #
+# --------------------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------------------- #
+# region NFR-SEC-03 — Supply chain & distribution manifest                    #
+# --------------------------------------------------------------------------- #
+class SupplyChainRule(Wattleflow, IStrategy):
+    """NFR-SEC-03 — the tier a module imports from, and the manifest that ships it.
+
+    Two checks, one requirement:
+
+    * `clean_core_imports` (criterion 1) — a module's home distribution is fixed
+      by its import closure. The tool already computed that fact, but spent it
+      only on EXCLUDING the module from the ORG rules; NFR-SEC-03's implementation
+      note says the same edge must be *reported*, because a shared third-party
+      dependency correlates breaches across every module that carries it (log4j).
+      A silent exclusion turns 47% of a tree into a green vector.
+    * `distribution_manifest` (criteria 2/3) — the packaging manifest is a claim
+      about ownership. Two ways it lies without anyone noticing: a `packages.find`
+      section without `namespaces` finds nothing at all in a PEP 420 tree, and an
+      `exclude` glob written for a foreign subtree can take an owned one with it,
+      leaving a wheel that imports what it does not ship.
+
+    Both are claims about a *manifest*, not about an artefact. Proof lives in the
+    built wheel's RECORD (criterion 5); these findings say where to look.
+    """
+
+    def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
+        return self._tier(caller, src, reg) + self._manifest(caller, src, reg)
+
+    # region tier
+    @staticmethod
+    def _tier(caller, src: Path, reg: dict) -> list[Finding]:
+        severity = Criterion.severity(reg, "clean_core_imports", ERROR)
+        scope = reg.get("scope") or {}
+        waivers = {
+            str(entry.get("module")): entry
+            for entry in (scope.get("guarded_optional") or ())
+            if entry.get("module")
+        }
+        out: list[Finding] = []
+        # The whole tree, not `caller.excluded`: a waived module is in scope for the
+        # ORG rules (DR-WFL-003) and therefore absent from that set, but its waiver
+        # must stay visible for as long as it is in force (D-11) — reading only the
+        # excluded set would have silenced exactly the record it depends on.
+        for path in caller.all_files():
+            foreign = sorted(SourceFile.of(path).foreign_roots(caller.core_libs))
+            if not foreign:
+                continue  # nothing outside the tier — no supply-chain fact to report
+            rel = path.relative_to(src).as_posix()
+            waiver = waivers.get(rel)
+            if waiver is not None:
+                declared = set(waiver.get("packages") or ())
+                beyond = [pkg for pkg in foreign if pkg not in declared]
+                if not beyond:
+                    # A waiver stays VISIBLE for as long as it is in force (D-11):
+                    # its silent disappearance has to be a finding, which it cannot
+                    # be if the waived state was never reported.
+                    out.append(
+                        Finding(
+                            "SEC-03",
+                            INFO,
+                            path,
+                            0,
+                            rel,
+                            f"guarded optional dependency ({', '.join(foreign)}) — waived by "
+                            f"{waiver.get('dr', 'an undeclared DR')}, fallback "
+                            f"{waiver.get('fallback', 'undeclared')}; the waiver holds only "
+                            "while the masking test passes",
+                            kind="foreign-import",
+                            detail=f"waived ({waiver.get('dr', 'no DR')}): {', '.join(foreign)}",
+                        )
+                    )
+                    continue
+                foreign = beyond
+            out.append(
+                Finding(
+                    "SEC-03",
+                    severity,
+                    path,
+                    0,
+                    rel,
+                    f"imports {', '.join(foreign)} — outside the tier this distribution "
+                    "declares (criterion 1); its home distribution is the one that owns "
+                    "the dependency",
+                    kind="foreign-import",
+                    detail=f"imports {', '.join(foreign)}",
+                )
+            )
+        return out
+
+    # endregion tier
+
+    # region manifest
+    @classmethod
+    def _manifest(cls, caller, src: Path, reg: dict) -> list[Finding]:
+        cfg = reg.get("distribution_manifest") or {}
+        declared = cfg.get("pyproject")
+        if not declared:
+            return []
+        pyproject = caller.home / declared
+        severity = Criterion.severity(reg, "distribution_manifest", WARNING)
+        if not pyproject.is_file():
+            return [
+                Finding(
+                    "SEC-03",
+                    INFO,
+                    caller.home,
+                    0,
+                    declared,
+                    "the criterion names a packaging manifest that does not exist at "
+                    "this path — manifest checks could not run",
+                    kind="declared-blind-spot",
+                    detail=f"missing manifest: {declared}",
+                )
+            ]
+        try:
+            with pyproject.open("rb") as handle:
+                data = tomllib.load(handle)
+        except (OSError, tomllib.TOMLDecodeError) as e:
+            return [
+                Finding(
+                    "SEC-03",
+                    INFO,
+                    pyproject,
+                    0,
+                    declared,
+                    f"packaging manifest unreadable ({e}) — manifest checks could not run",
+                    kind="declared-blind-spot",
+                    detail=f"unreadable manifest: {declared}",
+                )
+            ]
+
+        find = ((data.get("tool") or {}).get("setuptools") or {}).get("packages") or {}
+        find = find.get("find") if isinstance(find, dict) else None
+        if not isinstance(find, dict):
+            return []  # implicit discovery — nothing declared here to contradict the tree
+
+        out: list[Finding] = []
+        if not find.get("namespaces") and not (src / "__init__.py").is_file():
+            out.append(
+                Finding(
+                    "SEC-03",
+                    severity,
+                    pyproject,
+                    0,
+                    "[tool.setuptools.packages.find]",
+                    f"`{src.name}` is a PEP 420 namespace (no __init__.py) but the manifest "
+                    "does not set `namespaces = true` — setuptools' finder returns no "
+                    "packages, so the built wheel ships nothing (criterion 3)",
+                    kind="manifest-no-namespaces",
+                    detail="packages.find without `namespaces = true` over a PEP 420 tree",
+                )
+            )
+        globs = find.get("exclude") or []
+        out += cls._excluded_but_imported(caller, src, globs, severity, pyproject)
+        return out
+
+    @staticmethod
+    def _excluded_but_imported(caller, src: Path, globs, severity: int, pyproject: Path):
+        # Packages present in the tree, keyed by dotted name → directory.
+        packages: dict[str, Path] = {}
+        for path in caller.all_files():
+            rel = path.relative_to(src).parent
+            packages.setdefault(".".join((src.name,) + rel.parts), src / rel)
+
+        matched = {name for name in packages if any(fnmatch.fnmatch(name, glob) for glob in globs)}
+        # Report the outermost excluded package only; its sub-packages add no fact.
+        outermost = {
+            name
+            for name in matched
+            if not any(other != name and name.startswith(other + ".") for other in matched)
+        }
+
+        # Who imports into those packages, from outside them?
+        out = []
+        for name in sorted(outermost):
+            directory = packages[name]
+            importers = sorted(
+                {
+                    path
+                    for path in caller.all_files()
+                    if not path.is_relative_to(directory)
+                    for module in SourceFile.of(path).imported_modules()
+                    if module == name or module.startswith(name + ".")
+                }
+            )
+            if not importers:
+                continue  # excluded and unused here — the glob is doing its job
+            sample = ", ".join(p.relative_to(src).as_posix() for p in importers[:3])
+            more = f" (+{len(importers) - 3} more)" if len(importers) > 3 else ""
+            out.append(
+                Finding(
+                    "SEC-03",
+                    severity,
+                    pyproject,
+                    0,
+                    name,
+                    f"the manifest excludes `{name}` from packaging, yet {len(importers)} "
+                    f"module(s) of this distribution import it — a wheel that imports what "
+                    f"it does not ship (criterion 2). Importers: {sample}{more}",
+                    kind="manifest-excluded-package",
+                    detail=f"{name} excluded but imported by {len(importers)} module(s)",
+                )
+            )
+        return out
+
+    # endregion manifest
+
+
+# --------------------------------------------------------------------------- #
+# endregion NFR-SEC-03 — Supply chain & distribution manifest                 #
+# --------------------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------------------- #
 # region Linter — Strategy context (IStrategyContext)                         #
 # --------------------------------------------------------------------------- #
 class WemLint(Wattleflow, IStrategyContext):
     """Runs each NFR rule (an IStrategy) over the shared source tree."""
 
-    def __init__(self, src: Path, reg: dict):
+    def __init__(self, src: Path, reg: dict, home: Path | None = None):
         super().__init__()
         self._src = src
         self._reg = reg
+        # Root of the distribution under measurement (the parent of its tools/),
+        # so a rule can reach its packaging manifest without guessing.
+        self._home = home if home is not None else src.parent
         scope = reg.get("scope", {})
         # Local names (own domains + shared namespace) are intra-project even when
         # imported bare (a malformed `from concrete import …`), never third-party.
         local = set(reg.get("domains", [])) | {reg.get("shared_namespace", "")}
-        self._core_libs = set(scope.get("core_libraries", [])) | local
-        self.excluded = self._out_of_scope(src, scope, self._core_libs)
+        self._core_libs = frozenset(set(scope.get("core_libraries", [])) | local)
+        self._files = tuple(p for p in sorted(src.rglob("*.py")) if "__pycache__" not in p.parts)
+        self.waived = self._waived_modules(src, scope, self._files)
+        self.excluded = self._out_of_scope(src, scope, self._core_libs, self._files, self.waived)
         self._source = SourceTree(src, self.excluded)
         self._strategy: IStrategy | None = None
 
+    @property
+    def core_libs(self) -> frozenset[str]:
+        return self._core_libs
+
+    @property
+    def home(self) -> Path:
+        return self._home
+
+    def all_files(self) -> tuple[Path, ...]:
+        """Every module in the tree — including the ones the ORG rules skip.
+
+        The scope filter is a decision about which rules apply, never about which
+        files exist; a supply-chain or manifest check must see the whole tree.
+        """
+        return self._files
+
+    def present_domains(self) -> set[str]:
+        domains, shared = set(self._reg.get("domains", [])), self._reg.get("shared_namespace", "")
+        return {
+            d for d in (Naming.file_domain(p, self._src, domains, shared) for p in self._files) if d
+        }
+
     @staticmethod
-    def _out_of_scope(src: Path, scope: dict, core_libs: set[str]) -> frozenset[Path]:
+    def _waived_modules(src: Path, scope: dict, files) -> frozenset[Path]:
+        # DR-WFL-003: a guarded reference whose fallback is functionally complete
+        # does NOT displace the module from the tier. SEC-03 read that waiver, the
+        # scope filter did not, so the ORG rules skipped three in-tier modules
+        # while the same run printed "waived by DR-WFL-003" about them.
+        declared = {
+            str(entry.get("module"))
+            for entry in (scope.get("guarded_optional") or ())
+            if entry.get("module")
+        }
+        return frozenset(p for p in files if p.relative_to(src).as_posix() in declared)
+
+    @staticmethod
+    def _out_of_scope(
+        src: Path, scope: dict, core_libs: frozenset[str], files, waived: frozenset[Path]
+    ) -> frozenset[Path]:
         globs = scope.get("exclude_paths", [])
         excluded: set[Path] = set()
-        for path in src.rglob("*.py"):
-            if "__pycache__" in path.parts:
+        for path in files:
+            if path in waived:
                 continue
             rel = path.relative_to(src).as_posix()
             if any(fnmatch.fnmatch(rel, g) for g in globs) or Naming.foreign_imports(
@@ -911,6 +1426,34 @@ class WemLint(Wattleflow, IStrategyContext):
             ):
                 excluded.add(path)
         return frozenset(excluded)
+
+    def unparsable(self) -> list[Finding]:
+        """Modules that could not be parsed — a measurement that did not happen.
+
+        Every rule reads the same AST, so a file that does not parse is skipped
+        by all of them; SEC-03 additionally saw an empty import list and read it
+        as "imports nothing foreign", i.e. as in-tier. Raised here, once per run
+        and outside any rule, so no `--select` can make the gap invisible.
+        """
+        out: list[Finding] = []
+        for path in self._files:
+            error = SourceFile.of(path).error
+            if error is None:
+                continue
+            out.append(
+                Finding(
+                    "EXC",
+                    ERROR,
+                    path,
+                    error.lineno or 0,
+                    str(path.relative_to(self._src)),
+                    f"cannot be parsed ({error.msg}) — every rule skipped it and no "
+                    "verdict about it is available; unmeasured must not read as clean",
+                    kind="unparsable-module",
+                    detail=f"syntax error line {error.lineno or '?'}: {error.msg}",
+                )
+            )
+        return out
 
     def blind_spots(self) -> list[Finding]:
         """Declared unmeasured territory — dictionary.yaml: `slijepa-pjega`.
@@ -924,7 +1467,17 @@ class WemLint(Wattleflow, IStrategyContext):
         out: list[Finding] = []
         for path in sorted(self.excluded):
             foreign = ", ".join(sorted(Naming.foreign_imports(path, self._core_libs)))
+            # Only the tier reason is echoed by SEC-03; a path dropped by an
+            # exclude_paths glob raises nothing there, and claiming otherwise made
+            # this message assert a second record that was never written.
             reason = f"imports {foreign}" if foreign else "matched an exclude_paths glob"
+            echo = (
+                "the same fact is raised as a SEC-03 finding, so the skip is recorded "
+                "twice on purpose and silenced nowhere"
+                if foreign
+                else "the criterion itself put this path out of scope, so this INFO is "
+                "the only record of the skip"
+            )
             out.append(
                 Finding(
                     "EXC",
@@ -932,7 +1485,8 @@ class WemLint(Wattleflow, IStrategyContext):
                     path,
                     0,
                     str(path.relative_to(self._src)),
-                    f"outside clean-core scope ({reason}) — no rule measured this module",
+                    f"outside the declared tier ({reason}) — the ORG rules skipped this "
+                    f"module; {echo}",
                     kind="out-of-scope-module",
                     detail=reason,
                 )
@@ -992,6 +1546,8 @@ class RuleFactory(Wattleflow, IFactory):
         "ORG-01": DependencyLocalityRule,
         "ORG-02": NomenclatureRule,
         "ORG-03": TypeVarRule,
+        "ORG-07": PresetAllowedRule,
+        "SEC-03": SupplyChainRule,
     }
 
     @staticmethod
@@ -1016,6 +1572,59 @@ class RuleFactory(Wattleflow, IFactory):
 # --------------------------------------------------------------------------- #
 # region Application                                                          #
 # --------------------------------------------------------------------------- #
+class Locale:
+    """Report strings, read from the criterion registry (`MESSAGES`).
+
+    The tool holds no message text: a language is added by editing the
+    registry, not this file. `en` is the default and the fallback, so a
+    missing translation degrades to UK English instead of printing a key.
+    """
+
+    DEFAULT = "en"
+    _MESSAGES: dict[str, dict[str, str]] = {}
+    _CATALOGUE: dict[str, dict] = {}
+
+    @classmethod
+    def install(cls, reg: dict) -> None:
+        cls._MESSAGES = reg.get("MESSAGES") or {}
+        cls._CATALOGUE = reg.get("CATALOGUE") or {}
+
+    @classmethod
+    def kinds(cls) -> frozenset[str]:
+        return frozenset(cls._CATALOGUE)
+
+    @classmethod
+    def entry(cls, kind: str, lang: str) -> dict:
+        """Catalogue entry flattened for one language; `en` fills any gap."""
+        e = cls._CATALOGUE.get(kind, {})
+        base = e.get(cls.DEFAULT, {})
+        entry = {"code": e.get("code", "?"), "ref": e.get("ref", "")} | base | e.get(lang, {})
+        # A half-written catalogue entry must degrade, never crash a run: the
+        # report is presentation, and presentation cannot decide a verdict (D-13).
+        entry.setdefault("title", kind)
+        entry.setdefault("why", [])
+        entry.setdefault("fix", [])
+        return entry
+
+    @classmethod
+    def available(cls) -> tuple[str, ...]:
+        return tuple(cls._MESSAGES) or (cls.DEFAULT,)
+
+    @classmethod
+    def resolve(cls, reg: dict, override: str | None) -> str:
+        lang = override or reg.get("report_language") or cls.DEFAULT
+        return lang if lang in cls._MESSAGES else cls.DEFAULT
+
+    @classmethod
+    def text(cls, lang: str, key: str, **fmt) -> str:
+        table = cls._MESSAGES
+        msg = table.get(lang, {}).get(key) or table.get(cls.DEFAULT, {}).get(key)
+        if msg is None:
+            # Registry is incomplete: surface the key rather than crash the run.
+            return f"<{key}>"
+        return msg.format(**fmt) if fmt else msg
+
+
 class Application:
     """CLI wrapper around the lint: builds the parser and runs the selected rules."""
 
@@ -1023,131 +1632,6 @@ class Application:
     _TAG_SEVERITY = {"CYCLE": 3, "LAYERING": 2, "LEAF": 1}
     _TAG_COLOUR = {"CYCLE": "\033[31m", "LAYERING": "\033[33m", "LEAF": "\033[34m"}
     _DIM, _RESET = "\033[2m", "\033[0m"
-
-    # Friendly-report catalogue: one entry per finding kind. `code` identifies the
-    # KIND only — severity is a registry fact (POLICY §9) and is carried by the
-    # badge, so it must not be encoded in the code letter. Anatomy: what happened
-    # (title) → why it matters (why) → what to do (fix). Written for a junior reader
-    # — no jargon in the message; the NFR reference is the door to the full rule.
-    # The explanation prints ONCE per kind; instances list compactly below it.
-    _CATALOGUE = {
-        "import-cycle": {
-            "code": "K1",
-            "ref": "NFR-ORG-01 §3",
-            "title": "import loop — two modules import each other",
-            "why": (
-                "Two modules import each other (directly or through a chain).",
-                "That is a loop: Python cannot load them cleanly, and every change",
-                "to one drags the other with it.",
-            ),
-            "fix": (
-                "Fix: break the loop — move the shared piece somewhere both sides",
-                "may import (a lower layer), so the arrows point one way only.",
-            ),
-        },
-        "wrong-direction-import": {
-            "code": "K2",
-            "ref": "NFR-ORG-01 §3",
-            "title": "foundation imports an upper layer (wrong direction)",
-            "why": (
-                "`helpers/` is the foundation of the building — everyone may use it.",
-                "So it must not import from upper layers (`concrete/`, …), or the",
-                "foundation ends up depending on a floor that stands on top of it:",
-                "every change up there shakes the foundation, and in the worst case",
-                "you get an import loop.",
-            ),
-            "fix": (
-                "Fix: move the imported symbol down to a layer helpers may use,",
-                "or use a stdlib replacement inside helpers.",
-            ),
-        },
-        "misfiled-leaf": {
-            "code": "K3",
-            "ref": "NFR-ORG-01 §3",
-            "title": "import target is foundation material, but labelled as a domain",
-            "why": (
-                "The imported package imports nothing from wattleflow itself — it is",
-                "a pure leaf (foundation material). The registry, however, lists it",
-                "as a domain (upper layer). The import is fine; the label is wrong.",
-            ),
-            "fix": (
-                "Fix: update the registry — remove the package from `domains` so the",
-                "tool treats it as foundation.",
-            ),
-        },
-        "out-of-scope-module": {
-            "code": "K5",
-            "ref": "dictionary.yaml: slijepa-pjega",
-            "title": "module not measured — outside clean-core scope",
-            "why": (
-                "This module imports a third-party library, so it belongs to another",
-                "distribution (wattleflow-processors / examples) and every rule skipped",
-                "it. Nothing here was checked — clean is not the same as unmeasured.",
-                "Note: a real violation can hide behind this filter. helpers/config.py",
-                "is skipped for `yaml`, yet it also imports concrete/ — an ORG-01 breach",
-                "the instrument cannot see.",
-            ),
-            "fix": (
-                "Not a defect to fix: a declared blind spot, listed so the vector never",
-                "reads as full coverage. Measure it from the distribution that owns it.",
-            ),
-        },
-        "declared-blind-spot": {
-            "code": "K6",
-            "ref": "dictionary.yaml: slijepa-pjega",
-            "title": "registry declares this as unmeasured by construction",
-            "why": (
-                "The registry's `blind_spots` list names what the instrument cannot",
-                "see by design (not by accident). Declaring it is the requirement;",
-                "silence would be the defect.",
-            ),
-            "fix": ("Nothing to do — carried into every report and every snapshot.",),
-        },
-        "unimplemented-rule": {
-            "code": "K7",
-            "ref": "POLICY §9",
-            "title": "registry declares a rule this tool cannot check",
-            "why": (
-                "The criterion lists a rule with a severity and a waiver policy, but",
-                "no code path can ever raise it. The declaration promises a verdict",
-                "the instrument never gives, so a green vector overstates coverage.",
-            ),
-            "fix": (
-                "Fix: implement the check, or retire the rule from the registry",
-                "through a DR — a rule is a promise, not a comment.",
-            ),
-        },
-        "undeclared-check": {
-            "code": "K8",
-            "ref": "POLICY §9",
-            "title": "tool emits a check the registry never declared",
-            "why": (
-                "This check produces findings, yet the criterion does not list it.",
-                "Its severity and waiver therefore live in the tool instead of the",
-                "registry, outside the DR governance the criterion is meant to carry.",
-            ),
-            "fix": (
-                "Fix: declare the check in the registry `rules` block through a DR,",
-                "so its severity and waiver become a criterion fact.",
-            ),
-        },
-        "single-consumer-helper": {
-            "code": "K4",
-            "ref": "NFR-ORG-01 §1",
-            "title": "shared helper used by only one package",
-            "why": (
-                "`helpers/` is the shared shelf: it should only hold things that at",
-                "least TWO different packages use. A module with a single consumer",
-                "belongs inside the package that uses it — closer to its user and",
-                "easier to change.",
-            ),
-            "fix": (
-                "Fix: move the module into its only consumer package, or leave it if",
-                "a second consumer is coming soon.",
-                "(Inherited from before — does not fail the build.)",
-            ),
-        },
-    }
 
     def __init__(self, argv: list[str] | None = None):
         self.argv = argv
@@ -1161,9 +1645,19 @@ class Application:
         return self._lint(args)
 
     def _build_parser(self) -> argparse.ArgumentParser:
-        here = Path(__file__).resolve().parent
-        ap = argparse.ArgumentParser(description="Wattleflow NFR lint (ORG-01, ORG-02, ORG-03)")
+        # The INVOCATION directory, never the resolved one: a distribution may
+        # symlink this tool, and the tree it wants measured is its own (N-01).
+        here = _CALL_HOME
+        ap = argparse.ArgumentParser(
+            description="Wattleflow NFR lint (" + ", ".join(RuleFactory.available()) + ")"
+        )
         ap.add_argument("--version", action="version", version=f"wem_lint {__version__}")
+        ap.add_argument(
+            "--lang",
+            default=None,
+            help="report language; choices come from the registry `MESSAGES` table, "
+            "defaulting to its `report_language`",
+        )
         ap.add_argument("--src", type=Path, default=here.parent / "src" / "wattleflow")
         ap.add_argument(
             "--registry",
@@ -1171,6 +1665,14 @@ class Application:
             default=here / "dictionary.json",
             help="criterion dictionary: the code vocabulary in JSON "
             "(cut from the `code:` block of documentation/dictionary.yaml)",
+        )
+        ap.add_argument(
+            "--messages",
+            type=Path,
+            default=_TOOL_HOME / "messages.json",
+            help="presentation file (report strings + finding catalogue), shared by "
+            "every distribution and versioned apart from the criterion; a criterion "
+            "carrying inline MESSAGES/CATALOGUE overrides it",
         )
         ap.add_argument("--quiet", action="store_true", help="suppress INFO findings")
         ap.add_argument(
@@ -1229,21 +1731,49 @@ class Application:
             return 2
         try:
             reg = self._load_registry(args.registry)
+            self._load_presentation(reg, args.messages)
         except (OSError, json.JSONDecodeError, KeyError) as e:
-            print(f"wem_lint: cannot read registry {args.registry}: {e}", file=sys.stderr)
+            print(f"wem_lint: cannot read criterion {args.registry}: {e}", file=sys.stderr)
             return 2
 
-        selected = [s.strip() for s in args.select.split(",") if s.strip()]
+        Locale.install(reg)
+        if args.lang and args.lang not in Locale.available():
+            print(
+                f"wem_lint: unknown --lang {args.lang!r}; the registry declares "
+                f"{', '.join(Locale.available())}",
+                file=sys.stderr,
+            )
+            return 2
+        args.lang = Locale.resolve(reg, args.lang)
+        # Deduplicated: the vector is a count on a nominal scale, so a repeated id
+        # in --select silently multiplied every finding the rule raised.
+        selected = list(dict.fromkeys(s.strip() for s in args.select.split(",") if s.strip()))
+        if not selected:
+            # Same reason as the empty-tree guard above: no rule ran, so "0 errors"
+            # is a statement about nothing.
+            print(
+                "wem_lint: --select resolved to no rules — nothing was checked "
+                f"(known: {', '.join(RuleFactory.available())})",
+                file=sys.stderr,
+            )
+            return 2
         try:
             rules = [RuleFactory.create(nfr=nfr) for nfr in selected]
         except ValueError as e:
             print(f"wem_lint: {e}", file=sys.stderr)
             return 2
-        lint = WemLint(args.src, reg)
+        args.rules_run = selected
+        lint = WemLint(args.src, reg, home=self._home_for(args.src))
         self._warn_if_misrooted(args, reg, selected)
-        findings = lint.run(rules) + lint.blind_spots() + Criterion.drift(reg, args.src)
+        findings = (
+            lint.run(rules)
+            + lint.unparsable()
+            + lint.blind_spots()
+            + Criterion.drift(reg, args.src)
+            + Criterion.absent_domains(reg, args.src, lint.present_domains())
+        )
 
-        triple = self._triple(reg)
+        triple = self._triple(reg, args)
         # --quiet trims the detailed listing only. The vector and the snapshot keep
         # every INFO, because blind spots are declared, never silenced
         # (dictionary.yaml: slijepa-pjega) — a switch must not be able to turn
@@ -1252,14 +1782,29 @@ class Application:
         rc = self._report(args, selected, shown, findings, triple)
         if args.snapshot:
             self._write_snapshot(args, selected, findings, triple)
-        if args.graph:
+        # The graph is an ORG-01 artefact; drawing it for a run that did not select
+        # ORG-01 would show a view no rule of this run produced.
+        if args.graph and "ORG-01" in selected:
             self._render_graph(args, lint)
         return rc
 
-    # `acronym_identifier_casing.status` values that put criterion 4 in force.
-    # The Croatian form is accepted because the discourse registry the criterion
-    # was cut from still carries its own status vocabulary.
-    _STATUS_ADOPTED = frozenset({"adopted", "usvojen"})
+    @staticmethod
+    def _home_for(src: Path) -> Path:
+        """Root of the distribution being measured — derived from --src, not from
+        the invocation directory.
+
+        Pinning it to the invoked tools/ was right for the DEFAULTS and wrong for
+        everything else: with --src pointed elsewhere the manifest checks read the
+        invoking distribution's pyproject.toml and attributed the verdict to a tree
+        it does not describe. When --src has no enclosing manifest the answer is
+        `src.parent`, so the manifest check reports a blind spot instead of
+        borrowing another distribution's answer.
+        """
+        here = src.absolute()
+        for candidate in (here, *list(here.parents)[:3]):
+            if (candidate / "pyproject.toml").is_file():
+                return candidate
+        return here.parent
 
     @staticmethod
     def _load_registry(path: Path) -> dict:
@@ -1280,19 +1825,22 @@ class Application:
                       governance rather than a constant in this file.
         """
         doc = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(doc, dict) or "domains" not in doc:
+        if not isinstance(doc, dict) or not isinstance(doc.get("domains"), list):
             raise KeyError(
-                "no `domains` key — expected the criterion dictionary.json "
-                "(converted from dictionary.yaml#code on 2026-07-29)"
+                "no `domains` list — expected a criterion dictionary.json "
+                "(the code vocabulary of one distribution)"
             )
         # JSON carries no comments: underscore-prefixed keys are the dictionary's
         # prose and are dropped before the rules see it.
         reg = {k: v for k, v in doc.items() if not k.startswith("_")}
+        # Normalised once, here: the rules subscript these two directly, and a
+        # criterion missing `shared_namespace` used to abort the run with a
+        # traceback instead of the guarded exit the caller can act on.
+        reg.setdefault("shared_namespace", "")
         reg["acronyms"] = reg.get("identifier_acronyms", [])
         casing = reg.get("acronym_identifier_casing") or {}
-        status = casing.get("status")
-        reg["acronym_severity"] = ERROR if status in Application._STATUS_ADOPTED else WARNING
         reg["acronym_pending"] = casing.get("decision_pending", "an open DR")
+        reg["criterion_path"] = str(path)
         # The reproducibility triple names the criterion (the code vocabulary) and
         # the discourse revision it was cut from — versioned apart from each other.
         reg["registry_version"] = reg.get("criterion_version", "unversioned")
@@ -1300,19 +1848,80 @@ class Application:
         return reg
 
     @staticmethod
-    def _triple(reg: dict) -> dict[str, str]:
+    def _load_presentation(reg: dict, path: Path) -> None:
+        """Merge the report surface into the criterion.
+
+        Presentation is versioned apart and sits outside the D-10 triple, so it
+        lives in one shared file instead of being copied into every distribution's
+        criterion — a copy would drift, and a wording fix would then read as a
+        criterion change. A criterion that still carries inline MESSAGES/CATALOGUE
+        keeps them: the older single-file form stays valid.
+        """
+        inline = {key: reg.get(key) for key in ("MESSAGES", "CATALOGUE")}
+        doc: dict = {}
+        if not all(inline.values()):
+            if not path.is_file():
+                raise KeyError(
+                    f"presentation file not found: {path} — the report strings live "
+                    "outside the criterion since v1.11.0 (use --messages to point at it)"
+                )
+            doc = json.loads(path.read_text(encoding="utf-8"))
+        for key in ("MESSAGES", "CATALOGUE"):
+            table = inline[key] or doc.get(key) or {}
+            complete = (
+                table.get(Locale.DEFAULT)
+                if key == "MESSAGES"
+                else all(Locale.DEFAULT in v for v in table.values())
+            )
+            if not table or not complete:
+                raise KeyError(
+                    f"`{key}` missing or without an `{Locale.DEFAULT}` fallback — the "
+                    "registry carries the report strings; the tool holds none"
+                )
+            reg[key] = table
+        reg["presentation_version"] = (
+            reg.get("presentation_version") or doc.get("presentation_version") or "unversioned"
+        )
+        # Named per source, not per run: a criterion carrying only one of the two
+        # tables takes the other from the file, and recording a single path for
+        # both would have the triple name a source that supplied half of it.
+        sources = {key: "(inline)" if inline[key] else str(path) for key in inline}
+        reg["presentation_path"] = (
+            sources["MESSAGES"]
+            if sources["MESSAGES"] == sources["CATALOGUE"]
+            else f"MESSAGES={sources['MESSAGES']}, CATALOGUE={sources['CATALOGUE']}"
+        )
+
+    @staticmethod
+    def _triple(reg: dict, args) -> dict[str, str]:
         # Reproducibility triple — dictionary.yaml: `trojka-reproducibilnosti`.
         # A finding without it is not reproducible, so it is printed with every
         # report and stored with every snapshot.
         return {
             "tool": f"wem_lint {__version__}",
+            # Which rules actually ran. A partial --select used to print a vector
+            # shaped exactly like a full run, so "0 errors" could mean "nothing
+            # was asked" — coverage is declared, never inferred (D-11).
+            "rules": ", ".join(args.rules_run),
+            # The subject of the measurement. Without it the triple identifies the
+            # instrument but not what it was pointed at — which is how a symlinked
+            # tool reported another distribution's tree as green (N-01/N-02).
+            "source": f"{args.src} [{reg.get('distribution', 'undeclared distribution')}]",
             # The criterion is the code vocabulary, versioned apart from the
             # discourse entries; both are named so a snapshot pins the exact file.
             "criterion": (
-                f"dictionary.json {reg.get('registry_version', 'unversioned')}"
+                f"{reg.get('criterion_path', 'dictionary.json')} "
+                f"{reg.get('registry_version', 'unversioned')}"
                 f" (dictionary.yaml {reg.get('dictionary_version', 'unversioned')})"
             ),
+            "presentation": (
+                f"{reg.get('presentation_path', '(inline)')} "
+                f"{reg.get('presentation_version', 'unversioned')}"
+            ),
             "platform": f"python {platform.python_version()} ({platform.system()})",
+            # Not a triple member — presentation is versioned apart (D-13); carried
+            # so a snapshot still records which wording produced it.
+            "presentation_version": str(reg.get("presentation_version", "unversioned")),
             "python_reference": str(reg.get("python_reference", "unpinned")),
         }
 
@@ -1343,7 +1952,9 @@ class Application:
             and sys.stdout.isatty()
             and "NO_COLOR" not in os.environ
         )
-        text = self._graph_renderers[args.graph](lint.import_graph(), color=color)
+        text = self._graph_renderers[args.graph](
+            lint.import_graph(), color=color, lang=getattr(args, "lang", Locale.DEFAULT)
+        )
         if args.graph_out:
             args.graph_out.write_text(text + "\n", encoding="utf-8")
             print(f"\nwem_lint: graph written to {args.graph_out}")
@@ -1355,7 +1966,9 @@ class Application:
         # exposes the keys as --graph choices, _render_graph dispatches on them.
         return {"ascii": self._render_ascii_graph}
 
-    def _render_ascii_graph(self, builder: ImportGraphBuilder, color: bool = True) -> str:
+    def _render_ascii_graph(
+        self, builder: ImportGraphBuilder, color: bool = True, lang: str = Locale.DEFAULT
+    ) -> str:
         """Render the package-level import DAG as a Unicode tree, tagging bad edges."""
         nodes, adj, viol, scope = builder.graph()
 
@@ -1363,19 +1976,15 @@ class Application:
             return f"{code}{text}{self._RESET}" if color else text
 
         lines = [
-            "=== NFR-ORG-01 — dependency graph (package level) ===",
-            "  ▶ = imports;  a leaf tier (no outgoing edges) is the allowed foundation",
+            Locale.text(lang, "graph_title"),
+            Locale.text(lang, "graph_hint"),
             "",
         ]
         for src in sorted(nodes):
             dsts = sorted(adj.get(src, ()))
             if not dsts:
                 # In-scope & no outgoing = genuine leaf; out-of-scope = only ever a target.
-                kind = (
-                    "leaf — imports nothing intra-project"
-                    if src in scope
-                    else "external — not analysed as a source"
-                )
+                kind = Locale.text(lang, "graph_leaf" if src in scope else "graph_external")
                 lines.append(f"{src}  {paint(f'({kind})', self._DIM)}")
                 continue
             lines.append(src)
@@ -1390,9 +1999,11 @@ class Application:
                 lines.append(f"  {branch} {label}  {paint('; '.join(v['notes']), self._DIM)}")
             lines.append("")
 
-        tags = (("CYCLE", "mutual"), ("LAYERING", "one-way"), ("LEAF", "misfiled leaf"))
-        legend = "  ".join(paint(f"{t} ({d})", self._TAG_COLOUR[t]) for t, d in tags)
-        lines.append(f"Legend: {legend}")
+        tags = (("CYCLE", "tag_cycle"), ("LAYERING", "tag_layering"), ("LEAF", "tag_leaf"))
+        legend = "  ".join(
+            paint(f"{t} ({Locale.text(lang, k)})", self._TAG_COLOUR[t]) for t, k in tags
+        )
+        lines.append(Locale.text(lang, "legend") + legend)
         return "\n".join(lines)
 
     @staticmethod
@@ -1417,37 +2028,42 @@ class Application:
         else:
             self._report_friendly(args, shown)
 
-        print(f"\n== VECTOR {'=' * 60}")
+        lang = args.lang
+        print(f"\n== {Locale.text(lang, 'vector')} {'=' * 60}")
         rows = self._vector(findings)
         if not rows:
-            print("  (no findings)")
+            print(f"  {Locale.text(lang, 'no_findings')}")
         for nfr, kind, sev, n in rows:
             print(f"  {nfr:<7} {kind:<24} {sev:<7} {n}")
-        print(
-            "  note: conformance vector — no aggregate score is defined for these\n"
-            "  checks; the scale is nominal, so counting is the only admissible\n"
-            "  operation (METHODOLOGY §3b/§6.1). A green vector proves conformance\n"
-            "  to the declared criterion, not quality (dictionary: konformnost-vs-kvaliteta)."
-        )
+        print(Locale.text(lang, "vector_note"))
 
-        print(f"\n== REPRODUCIBILITY {'=' * 52}")
-        for key in ("tool", "criterion", "platform"):
-            print(f"  {key:<10} {triple[key]}")
-        if not triple["platform"].split()[1].startswith(triple["python_reference"]):
+        print(f"\n== {Locale.text(lang, 'reproducibility')} {'=' * 52}")
+        for key in ("tool", "rules", "source", "criterion", "presentation", "platform"):
+            print(f"  {key:<13} {triple[key]}")
+        if not self._pin_matches(triple["python_reference"], platform.python_version()):
             print(
-                f"  WARNING    registry pins python {triple['python_reference']}, running "
-                f"{platform.python_version()} — the stdlib set tested is the\n"
-                "             interpreter's, so ORG-01 scope is not reproducible against the pin"
+                Locale.text(
+                    lang,
+                    "python_pin",
+                    pin=triple["python_reference"],
+                    running=platform.python_version(),
+                )
             )
 
         print(f"\n{'-' * 60}")
-        print(f"wem_lint: {errors} error(s), {warns} warning(s), {infos} info")
-        print(
-            "Notes: ORG-01 fan-in counts direct `wattleflow.helpers.<mod>` imports only; "
-            "aggregate `from wattleflow.helpers import X` is not resolved, so fan-in is a "
-            "lower bound (advisory). ORG-01 #2/#4 not yet automated. See NFR.md."
-        )
+        print(Locale.text(lang, "summary", errors=errors, warns=warns, infos=infos))
+        print(Locale.text(lang, "notes"))
         return 1 if errors else 0
+
+    @staticmethod
+    def _pin_matches(pin: str, running: str) -> bool:
+        # Component-wise, not textual: `startswith` let a pin of "3.1" pass on
+        # 3.11, 3.12 and 3.13 alike, so the warning stayed silent exactly where a
+        # pin is worth having. An unpinned criterion has nothing to contradict.
+        if not pin or pin == "unpinned":
+            return True
+        wanted = pin.split(".")
+        return running.split(".")[: len(wanted)] == wanted
 
     def _write_snapshot(self, args, selected, findings, triple) -> None:
         """Write the run as a machine-readable vector.
@@ -1465,14 +2081,25 @@ class Application:
             "date": args.date,
             "source": str(args.src),
             "rules_selected": selected,
-            "reproducibility_triple": {k: triple[k] for k in ("tool", "criterion", "platform")},
+            "reproducibility_triple": {
+                k: triple[k] for k in ("tool", "source", "criterion", "platform")
+            },
+            # Outside the triple on purpose: the report surface cannot change a
+            # verdict, so it must not make two snapshots look incomparable.
+            "presentation": triple["presentation"],
+            "presentation_version": triple["presentation_version"],
             "python_reference": triple["python_reference"],
             "vector": [
                 {"nfr": nfr, "kind": k, "severity": sev, "count": n}
                 for nfr, k, sev, n in self._vector(findings)
             ],
+            # Only what is genuinely unmeasured territory. Registry drift and an
+            # unparsable module are EXC too, but they are defects to act on — filing
+            # them here would have dressed them as tolerated coverage gaps.
             "blind_spots": [
-                {"module": f.name, "reason": f.detail} for f in findings if f.nfr == "EXC"
+                {"module": f.name, "reason": f.detail}
+                for f in findings
+                if f.kind in ("out-of-scope-module", "declared-blind-spot")
             ],
             "findings": [
                 {
@@ -1484,7 +2111,7 @@ class Application:
                     "message": f.message,
                 }
                 for f in findings
-                if f.nfr != "EXC"
+                if f.kind not in ("out-of-scope-module", "declared-blind-spot")
             ],
         }
         args.snapshot.parent.mkdir(parents=True, exist_ok=True)
@@ -1503,7 +2130,11 @@ class Application:
                 continue
             # EXC is a coverage dimension, not a requirement — labelling it NFR-EXC
             # would invent a requirement that does not exist in NFR.md.
-            label = f"NFR-{nfr}" if nfr in RuleFactory.available() else f"{nfr} (blind spots)"
+            label = (
+                f"NFR-{nfr}"
+                if nfr in RuleFactory.available()
+                else f"{nfr} ({Locale.text(args.lang, 'blind_spots_label')})"
+            )
             print(f"\n=== {label} ===")
             # Highest logging level first (ERROR=40 > WARNING=30 > INFO=20).
             for f in sorted(group, key=lambda f: (-f.severity, str(f.path), f.line)):
@@ -1526,18 +2157,21 @@ class Application:
             ("\033[31m", "\033[33m", "\033[2m", "\033[0m") if color else ("", "", "", "")
         )
 
-        groups: dict[str, list[Finding]] = {}
+        # Grouped by (kind, severity), not by kind alone: one kind can be raised at
+        # two levels (a grammar breach is an ERROR, a relaxed grouping package only
+        # a WARNING), and a single badge over a mixed group would misreport the
+        # milder half as the harsher one.
+        groups: dict[tuple[str, int], list[Finding]] = {}
         rest: list[Finding] = []
         ordered = sorted(findings, key=lambda f: (-f.severity, f.kind or "", str(f.path), f.line))
         for f in ordered:
-            if f.kind in self._CATALOGUE:
-                groups.setdefault(f.kind, []).append(f)
+            if f.kind in Locale.kinds():
+                groups.setdefault((f.kind, f.severity), []).append(f)
             else:
                 rest.append(f)
 
-        for kind, items in groups.items():
-            c = self._CATALOGUE[kind]
-            sev = items[0].severity
+        for (kind, sev), items in groups.items():
+            c = Locale.entry(kind, args.lang)
             badge, col = (
                 ("✖ ERROR", red)
                 if sev >= ERROR
@@ -1555,7 +2189,7 @@ class Application:
                 print(f"    {self._location(f, args.src):<{width}}  {f.detail or f.message}")
 
         if rest:
-            print(f"\n{dim}--- other findings (no friendly entry yet) ---{reset}")
+            print(f"\n{dim}{Locale.text(args.lang, 'other_findings')}{reset}")
             for f in rest:
                 print(f.render(args.src))
 

@@ -8,7 +8,7 @@
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
 import logging
-from typing import Optional, Union
+from typing import Any, ClassVar, Dict, MutableMapping, Optional, Tuple, Union
 
 try:
     from logging import (
@@ -83,6 +83,38 @@ class AuditLogger(ILogger):
     _lock = RLock()
     _instances: set[type] = set()
 
+    # The keywords __init__ consumes. The split lives in exactly one caller —
+    # Wattleflow.__init__ — so that adding a keyword here is enough: a class
+    # that names level/handler by hand and forgets `formating` is exactly how
+    # a caller's log format silently stopped reaching the logger.
+    LOG_KEYWORDS: ClassVar[Tuple[str, ...]] = (
+        "level",
+        "logger",
+        "handler",
+        "formating",
+        "propagate",
+    )
+
+    @classmethod
+    def log_options(
+        cls,
+        kwargs: MutableMapping[str, Any],
+        **defaults: Any,
+    ) -> Dict[str, Any]:
+        """Pop every logging keyword out of *kwargs* and return them as a dict.
+
+        Mutates *kwargs* in place — what remains belongs to the caller (preset
+        configuration, strategy arguments, ...). Keyword *defaults* fill in
+        only what the caller did not supply.
+
+        Called by Wattleflow.__init__; framework classes inherit the split and
+        must not repeat it.
+        """
+        options = {k: kwargs.pop(k) for k in cls.LOG_KEYWORDS if k in kwargs}
+        for key, value in defaults.items():
+            options.setdefault(key, value)
+        return options
+
     def __init__(
         self,
         level: Union[int, str] = logging.NOTSET,
@@ -133,7 +165,11 @@ class AuditLogger(ILogger):
 
     @property
     def levelname(self) -> str:
-        name = logging.getLevelName(self._level)
+        # Report what actually filters, not what this instance asked for. The
+        # logger is configured once per class (see __init__), so a later
+        # instance's level never takes effect — reporting it would put a level
+        # into audit records that no record was ever filtered by.
+        name = logging.getLevelName(self._logger.getEffectiveLevel())
         return name if isinstance(name, str) else "NOTSET"
 
     def exception(self, msg: str, *args, **kwargs) -> None:
@@ -179,11 +215,23 @@ class AuditLogger(ILogger):
         pass
 
     def _log_msg(self, method, msg: str, *args, **kwargs) -> None:
+        def is_frame_like(obj: object) -> bool:
+            # Frame-like objects (pandas/polars) have huge reprs; show the type
+            # name instead. Detected structurally to avoid a third-party import,
+            # but the probe must never touch the INSTANCE: hasattr() on a live
+            # object runs whatever __getattr__ hook it carries — rdflib
+            # namespaces emit a UserWarning for every unknown term, and a lazy
+            # proxy would open a connection just to be logged. Scanning the
+            # class dicts along the MRO is a plain dict lookup: no descriptor
+            # is invoked and no fallback hook fires.
+            mro = getattr(type(obj), "__mro__", ())
+            return any("shape" in vars(b) for b in mro) and any(
+                "columns" in vars(b) for b in mro
+            )
+
         def safe_repr(obj: object, maxlen: int = 100) -> str:
             try:
-                # Frame-like objects (pandas/polars) have huge reprs; show the type
-                # name instead. Detected structurally to avoid a third-party import.
-                if hasattr(obj, "shape") and hasattr(obj, "columns"):
+                if is_frame_like(obj):
                     s = obj.__class__.__name__
                 else:
                     s = repr(obj)

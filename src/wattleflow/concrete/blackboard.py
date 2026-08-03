@@ -11,15 +11,12 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from enum import Enum
-from logging import Handler
 from types import MappingProxyType
 from typing import (
     Any,
     List,
     Generic,
     Mapping,
-    Optional,
-    Union,
 )
 from wattleflow.core import (
     IBlackboard,
@@ -116,9 +113,11 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
         canvas: Item,
         **kwargs,
     ):
-        level: Union[str, int] = kwargs.pop("level", "NOTSET")
-        handler: Optional[Handler] = kwargs.pop("handler", None)
-        fmt: dict = {"fmt": kwargs.pop("fmt", {})} if kwargs.get("fmt", None) else {}
+        # `fmt` was this class's own spelling of the logger's `formating`, so
+        # it never reached the logger; accepted as an alias so existing callers
+        # keep working.
+        if "fmt" in kwargs:
+            kwargs.setdefault("formating", kwargs.pop("fmt"))
 
         # Default to caching through the cycle and flushing at the end.
         if "defer_flush" not in kwargs:
@@ -128,7 +127,7 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
             "Expected StrategyCreate. Found %s" % type(strategy_create)
         )
 
-        super().__init__(level=level, handler=handler, **fmt)
+        super().__init__(**kwargs)
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
         self.debug(

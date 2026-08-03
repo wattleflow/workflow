@@ -37,9 +37,17 @@ class Wattleflow(AuditLogger, IWattleflow):
     ahead of their pattern interfaces, and never name AuditLogger themselves:
         class GenericProcessor(Wattleflow, IProcessor[Item], ABC): ...
 
-    __init__ opens the cooperative chain: keyword arguments travel down the MRO
-    to AuditLogger, so subclasses issue a single super().__init__(**kwargs)
-    instead of calling each base by hand.
+    __init__ opens the cooperative chain and is the single place that splits a
+    constructor's keywords: the logging ones go to AuditLogger, the rest stop
+    here. Subclasses therefore forward their whole **kwargs unchanged and keep
+    the remainder for their own use (PresetDecorator, strategies, ...):
+
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self._preset = PresetDecorator(self, **kwargs)
+
+    No subclass calls AuditLogger.log_options() itself — doing so duplicates
+    this split and drifts the moment a logging keyword is added.
 
     Interface:
         name -> str      (concrete type name)
@@ -50,7 +58,9 @@ class Wattleflow(AuditLogger, IWattleflow):
     __slots__ = ()
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        # log_options() mutates the mapping it is given; **kwargs is already a
+        # private copy, so the caller's dict keeps every keyword it passed.
+        super().__init__(**AuditLogger.log_options(kwargs))
 
     @property
     def name(self) -> str:

@@ -171,29 +171,24 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
     def __init__(self, **kwargs) -> None:
         connection_name = kwargs.pop("connection_name", None)
 
-        level = kwargs.pop("level", "NOTSET")
-        handler = kwargs.pop("handler", None)
-        formating = kwargs.pop("formating", None) if kwargs.get("formating") else {}
-        super().__init__(level=level, handler=handler, formating=formating)
+        # The old form passed formating={} when the caller supplied none, which
+        # only worked because Formatter falls back on a falsy fmt.
+        super().__init__(**kwargs)
 
         if connection_name is None or connection_name.strip() == "":
             error = "`connection_name` must be provided in connection kwargs!"
             raise ConnectionException(caller=self, error=error, **kwargs)
 
         # Subclasses declare configurable kwargs via the ``ALLOWED`` class
-        # attribute; auto-inject it so callers do not have to repeat it.
-        if "allowed" not in kwargs:
-            class_allowed = getattr(type(self), "ALLOWED", None)
-            if class_allowed is not None:
-                kwargs["allowed"] = list(class_allowed)
-
+        # attribute; PresetDecorator resolves it from the type (NFR-ORG-07), so
+        # this no longer needs its own copy of that resolution.
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
         self._connection_name = connection_name
         self._lazy_loading = kwargs.pop("lazy_loading", False)
         self._fsm: StateMachine = StateMachine(
             TRANSITIONS,
             ConnectionState.NEW,
-            label="ConnectionFSM",
+            name="ConnectionFSM",
         )
         self._engine: object = None
         self._connection: Connection = None

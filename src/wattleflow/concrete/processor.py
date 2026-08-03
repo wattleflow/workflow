@@ -12,7 +12,6 @@ from __future__ import annotations
 import gc
 from abc import abstractmethod, ABC
 from enum import Enum
-from logging import Handler
 from typing import Any, Generator, List, Optional
 from wattleflow.core import (
     IBlackboard,
@@ -105,8 +104,6 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         self,
         **kwargs,
     ):
-        level = kwargs.pop("level", 0)
-        handler: Optional[Handler] = kwargs.pop("handler", None)
         blackboard: Optional[IBlackboard] = kwargs.pop("blackboard", None)
         pipelines: Optional[List[IPipeline]] = kwargs.pop("pipelines", None)
         flush_per_cycle = kwargs.pop("flush_per_cycle", None)
@@ -124,14 +121,11 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         if pipelines is not None:
             assert isinstance(pipelines, list), "Expected list. Found %s" % type(pipelines)
 
-        allowed = kwargs.pop("allowed", getattr(self, "ALLOWED", []))
-        super().__init__(level=level, handler=handler)
+        super().__init__(**kwargs)
 
-        self._preset: PresetDecorator = PresetDecorator(
-            self,
-            allowed=allowed,
-            **kwargs,
-        )
+        # ALLOWED is resolved by PresetDecorator from the class (NFR-ORG-07);
+        # an explicit allowed= in kwargs still overrides it.
+        self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
         self.debug(
             msg=Event.Constructor.value,
@@ -155,7 +149,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         self._fsm: StateMachine = StateMachine(
             TRANSITIONS,
             ProcessorState.IDLE,
-            label="ProcessorFSM",
+            name="ProcessorFSM",
         )
 
         self._blackboard: Optional[IBlackboard] = blackboard
