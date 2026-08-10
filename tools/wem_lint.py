@@ -103,8 +103,6 @@ _CAMEL = re.compile(r"[A-Z]+(?![a-z])|[A-Z][a-z]+|[A-Z]|\d+")
 # semantics or in the criterion source is a minor bump, because the same code
 # can yield a different vector afterwards.
 __version__ = "1.12.0"
-
-# Severity is a stdlib logging level (int); the report renders its level name.
 ERROR, WARNING, INFO = logging.ERROR, logging.WARNING, logging.INFO
 
 
@@ -144,13 +142,7 @@ class Finding:
 # region Source file — one parse per module, shared by every rule             #
 # --------------------------------------------------------------------------- #
 class SourceFile:
-    """A module read and parsed once per run, then shared.
-
-    Before this cache the same file was parsed up to five times (scope filter,
-    blind-spot listing, and once per rule). Nothing was learnt on the repeats,
-    and every new rule added another full pass — so the cost of asking one more
-    question of the source grew with the number of questions already asked.
-    """
+    """A module read and parsed once per run, then shared."""
 
     _CACHE: dict[Path, "SourceFile"] = {}
     __slots__ = ("path", "tree", "error", "_foreign", "_imports")
