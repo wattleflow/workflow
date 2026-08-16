@@ -12,7 +12,8 @@ from __future__ import annotations
 import gc
 from abc import abstractmethod, ABC
 from enum import Enum
-from typing import Any, Generator, List, Optional
+from typing import Any
+from collections.abc import Generator
 from wattleflow.core import (
     IBlackboard,
     IOriginator,
@@ -20,7 +21,7 @@ from wattleflow.core import (
     IProcessor,
     ITarget,
 )
-from wattleflow.concrete.wattleflow import Wattleflow
+from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.memento import GenericMemento
 from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.constants.enums import Event
@@ -104,8 +105,8 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         self,
         **kwargs,
     ):
-        blackboard: Optional[IBlackboard] = kwargs.pop("blackboard", None)
-        pipelines: Optional[List[IPipeline]] = kwargs.pop("pipelines", None)
+        blackboard: IBlackboard | None = kwargs.pop("blackboard", None)
+        pipelines: list[IPipeline] | None = kwargs.pop("pipelines", None)
         flush_per_cycle = kwargs.pop("flush_per_cycle", None)
         legacy_defer = kwargs.pop("defer_flush", None)
 
@@ -152,10 +153,10 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             name="ProcessorFSM",
         )
 
-        self._blackboard: Optional[IBlackboard] = blackboard
-        self._pipelines: List[IPipeline] = pipelines if pipelines else []
-        self._generator: Optional[Generator[ITarget]] = None
-        self._current: Optional[ITarget] = None
+        self._blackboard: IBlackboard | None = blackboard
+        self._pipelines: list[IPipeline] = pipelines if pipelines else []
+        self._generator: Generator[ITarget] | None = None
+        self._current: ITarget | None = None
 
         self.debug(
             msg=Event.Constructor.value,
@@ -355,3 +356,6 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
 # ----------------------------------------------------------------------------#
 # endregion Processors                                                        #
 # ----------------------------------------------------------------------------#
+
+
+__all__ = ["GenericProcessor", "ProcessorAction", "ProcessorState"]

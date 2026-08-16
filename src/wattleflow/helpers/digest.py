@@ -19,14 +19,13 @@ from __future__ import annotations
 import hashlib
 import hmac
 from pathlib import Path
-from typing import Union
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
 
 __all__ = ["FileDigest"]
 
-Source = Union[str, Path, bytes, bytearray, memoryview]
+Source = str | Path | bytes | bytearray | memoryview
 
 # --------------------------------------------------------------------------- #
 # region FileDigest                                                           #
@@ -69,7 +68,9 @@ class FileDigest:
         return f"{algorithm}:{cls.of(source, algorithm=algorithm)}"
 
     @classmethod
-    def verify(cls, source: Source, expected: str, *, algorithm: str | None = None) -> bool:
+    def verify(
+        cls, source: Source, expected: str, *, algorithm: str | None = None
+    ) -> bool:
         """Compare ``source`` content against ``expected`` (constant-time).
 
         ``expected`` may be a bare hex digest or an ``algo:hex`` label; when

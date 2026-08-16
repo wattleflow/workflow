@@ -20,8 +20,7 @@ The Orchestrator class will:
 
 from __future__ import annotations
 import threading
-from typing import List, Optional
-from wattleflow.helpers.datetime import Now
+from wattleflow.helpers.dtime import Now
 from wattleflow.core import (
     IFacade,
     IEventSource,
@@ -34,24 +33,11 @@ from wattleflow.constants.enums import (
     Operation,
 )
 from wattleflow.concrete.manager import ConnectionManager
-from wattleflow.concrete.exception import AuditException
-from wattleflow.concrete.wattleflow import Wattleflow
+from wattleflow.concrete.exception import OrchestratorException
+from wattleflow.concrete.base import Wattleflow
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
-# --------------------------------------------------------------------------- #
-
-# --------------------------------------------------------------------------- #
-# region Exceptions                                                           #
-# --------------------------------------------------------------------------- #
-
-
-class OrchestratorException(AuditException):
-    pass
-
-
-# --------------------------------------------------------------------------- #
-# endregion Exceptions                                                        #
 # --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
@@ -63,12 +49,12 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
     def __init__(
         self,
         connection_manager: ConnectionManager,
-        strategy_execute: Optional[IStrategy] = None,
+        strategy_execute: IStrategy | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self._listeners: List[IEventListener] = []
-        self._processors: List[IProcessor] = []
+        self._listeners: list[IEventListener] = []
+        self._processors: list[IProcessor] = []
         self._running: bool = False
         self._connection_manager = connection_manager
         self._strategy_execute = strategy_execute
@@ -152,8 +138,8 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
 
         try:
             if parallel:
-                threads: List[threading.Thread] = []
-                errors: List[BaseException] = []
+                threads: list[threading.Thread] = []
+                errors: list[BaseException] = []
                 lock = threading.Lock()
 
                 def _runner(p: IProcessor) -> None:
@@ -192,3 +178,6 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
 # --------------------------------------------------------------------------- #
 # endregion Orchestrators                                                     #
 # --------------------------------------------------------------------------- #
+
+
+__all__ = ["Orchestrator"]

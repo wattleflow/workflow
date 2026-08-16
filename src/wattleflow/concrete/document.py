@@ -13,14 +13,15 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Dict, Generic, Mapping, Optional, TypeVar, Type
+from typing import Generic, TypeVar
+from collections.abc import Mapping
 from types import MappingProxyType
 from uuid import uuid4
 from wattleflow.core import IAdaptee, IAdapter, ITarget
 from wattleflow.core.transactional import Content
-from wattleflow.concrete.wattleflow import Wattleflow
+from wattleflow.concrete.base import Wattleflow
 from wattleflow.constants import Event
-from wattleflow.helpers.datetime import Now
+from wattleflow.helpers.dtime import Now
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -64,10 +65,10 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
 
         # internal interface
         self._identifier: str = str(uuid4())
-        self._content: Optional[Content] = None
-        self._metadata: Dict[str, object] = {}
+        self._content: Content | None = None
+        self._metadata: dict[str, object] = {}
         # lock after first assignment
-        self._expected_type: Optional[Type[object]] = None
+        self._expected_type: type[object] | None = None
 
         self.update_metadata(key="created_at", value=Now.utc())
         self.update_content(content=content)
@@ -102,7 +103,7 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
     def specific_request(self) -> "Document":
         return self
 
-    def update_content(self, content: Type) -> None:
+    def update_content(self, content: type) -> None:
         self.debug(
             msg=Event.Updating.value,
             fnc="update_content",
@@ -248,3 +249,6 @@ class DocumentFacade(Wattleflow, ITarget, Generic[Adaptee], ABC):
 # --------------------------------------------------------------------------- #
 # endregion Facade                                                            #
 # --------------------------------------------------------------------------- #
+
+
+__all__ = ["Document", "DocumentAdapter", "DocumentFacade"]

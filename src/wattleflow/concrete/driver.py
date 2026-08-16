@@ -12,10 +12,11 @@ import logging
 from abc import ABC
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
+from collections.abc import Callable
 from wattleflow.core.behavioural import IObserver
 from wattleflow.core.transactional import IDriver
-from wattleflow.concrete.wattleflow import Wattleflow
+from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.exception import DriverException
 from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.constants.enums import Event, Operation
@@ -37,7 +38,6 @@ __all__ = [
     "DriverState",
     "GenericDriver",
     "LazyDriverProxy",
-    "TRANSITIONS",
 ]
 
 
@@ -46,7 +46,7 @@ class DriverMetadata:
     name: str
     version: str
     protocol: str
-    capabilities: List[str]  # ["read", "write", "stream"]
+    capabilities: list[str]  # ["read", "write", "stream"]
 
 
 # --------------------------------------------------------------------------- #
@@ -82,7 +82,7 @@ class DriverState(str, Enum):
 
 
 # (current_state, action) -> next_state
-TRANSITIONS: Dict[Tuple[DriverState, DriverAction], DriverState] = {
+TRANSITIONS: dict[tuple[DriverState, DriverAction], DriverState] = {
     # --- load lifecycle ---
     (DriverState.PENDING, DriverAction.LOAD): DriverState.LOADING,
     (DriverState.UNLOADED, DriverAction.LOAD): DriverState.LOADING,
@@ -261,7 +261,7 @@ class LazyDriverProxy(Wattleflow, IDriver, IObserver):
         super().__init__(**kwargs)
 
         self._factory = factory  # callable → GenericDriver
-        self._driver: Optional[GenericDriver] = None  # stvarni driver
+        self._driver: GenericDriver | None = None  # stvarni driver
         self._conn_mgr = conn_mgr
         self._conn_name = conn_name
 
@@ -303,7 +303,7 @@ class LazyDriverProxy(Wattleflow, IDriver, IObserver):
     # region API (delegation) ---
 
     @property
-    def driver(self) -> Optional[GenericDriver]:
+    def driver(self) -> GenericDriver | None:
         """The wrapped driver, or None while still lazy. Never forces a load."""
         return self._driver
 

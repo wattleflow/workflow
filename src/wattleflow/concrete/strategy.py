@@ -10,9 +10,8 @@
 
 from __future__ import annotations
 from abc import abstractmethod, ABC
-from typing import Optional
 from wattleflow.core import IWattleflow, IStrategy, ITarget
-from wattleflow.concrete.wattleflow import Wattleflow
+from wattleflow.concrete.base import Wattleflow
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -28,17 +27,17 @@ class Strategy(Wattleflow, IStrategy, ABC):
         super().__init__(**kwargs)
 
     @abstractmethod
-    def execute(self, caller: IWattleflow, **kwargs) -> Optional[ITarget]:
+    def execute(self, caller: IWattleflow, **kwargs) -> ITarget | None:
         pass
 
 
 class StrategyGenerate(Strategy, ABC):
-    def generate(self, caller: IWattleflow, **kwargs) -> Optional[ITarget]:
+    def generate(self, caller: IWattleflow, **kwargs) -> ITarget | None:
         return self.execute(caller=caller, **kwargs)
 
 
 class StrategyCreate(Strategy, ABC):
-    def create(self, caller: IWattleflow, **kwargs) -> Optional[ITarget]:
+    def create(self, caller: IWattleflow, **kwargs) -> ITarget | None:
         return self.execute(caller=caller, **kwargs)
 
 
@@ -48,7 +47,7 @@ class StrategyRead(Strategy, ABC):
         caller: IWattleflow,
         identifier: str,
         **kwargs,
-    ) -> Optional[ITarget]:
+    ) -> ITarget | None:
         return self.execute(caller=caller, identifier=identifier, **kwargs)
 
 
@@ -60,3 +59,6 @@ class StrategyWrite(Strategy, ABC):
 # --------------------------------------------------------------------------- #
 # endregion Strategies                                                        #
 # --------------------------------------------------------------------------- #
+
+
+__all__ = ["Strategy", "StrategyCreate", "StrategyGenerate", "StrategyRead", "StrategyWrite"]

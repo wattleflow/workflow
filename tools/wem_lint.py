@@ -669,7 +669,7 @@ class ImportGraphBuilder(Wattleflow, IBuilder):
     def _module_of(self, path: Path) -> str | None:
         # Dotted module name of a file, so reverse edges key by the exact module (not just
         # the package): concrete.exception importing back into helpers is a cycle; a sibling
-        # concrete.logger that does not is only a layering breach.
+        # concrete.driver that does not is only a layering breach.
         try:
             parts = path.relative_to(self._src).with_suffix("").parts
         except ValueError:

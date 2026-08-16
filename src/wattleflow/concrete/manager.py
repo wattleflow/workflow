@@ -9,13 +9,12 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
-from typing import Dict, Union
 from wattleflow.core import (
     IObserver,
     IDriver,
     IProcessor,
 )
-from wattleflow.concrete.wattleflow import Wattleflow
+from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.exception import AuditException
 from wattleflow.concrete.connection import Connection
 from wattleflow.concrete.driver import DriverState
@@ -58,7 +57,7 @@ class ConnectionManager(Wattleflow, IObserver):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self._connections: Dict[str, IObserver] = {}
+        self._connections: dict[str, IObserver] = {}
 
     def __del__(self):
         errors = []
@@ -171,7 +170,7 @@ class DriverManager(Wattleflow, IObserver):
         super().__init__(**kwargs)
         self.debug(msg=Event.Constructor.name, step=Event.Started.name)
 
-        self._drivers: Dict[str, IDriver] = {}
+        self._drivers: dict[str, IDriver] = {}
         self.debug(msg=Event.Constructor.name, step=Event.Completed.name)
 
     def __del__(self):
@@ -224,7 +223,7 @@ class DriverManager(Wattleflow, IObserver):
         self._drivers[driver_name] = driver
         self.debug(msg="register_driver", step=Event.Completed.name, registered=driver_name)
 
-    def unregister_driver(self, driver: Union[str, IDriver]) -> None:
+    def unregister_driver(self, driver: str | IDriver) -> None:
         self.debug(msg="register_driver", step=Event.Starting.name, driver=driver)
         name = driver.name if isinstance(driver, IDriver) else driver
         if name in self._drivers:
@@ -279,7 +278,7 @@ class ProcessorManager(Wattleflow, IObserver):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._processors: Dict[str, IProcessor] = {}
+        self._processors: dict[str, IProcessor] = {}
 
     def __del__(self):
         self.debug(msg=Event.Delete.name, step=Event.Starting.name)
@@ -307,7 +306,7 @@ class ProcessorManager(Wattleflow, IObserver):
         return f"{self.name}-{hash(id(self))}:[{len(self._processors)}]"
 
     @property
-    def all(self) -> Dict[str, IProcessor]:
+    def all(self) -> dict[str, IProcessor]:
         return self._processors
 
     def load(self, name: str, **kwargs) -> IProcessor:
@@ -342,7 +341,7 @@ class ProcessorManager(Wattleflow, IObserver):
         self._processors[processor_name] = processor
         self.debug(msg=Event.Register.name, step=Event.Completed.name)
 
-    def unregister_processor(self, processor: Union[str, IProcessor]) -> None:
+    def unregister_processor(self, processor: str | IProcessor) -> None:
         self.debug(msg=Event.Unregister.name, step=Event.Starting.name, proc=processor)
         name = processor.name if isinstance(processor, IProcessor) else processor
         if name in self._processors:
@@ -380,3 +379,13 @@ class ProcessorManager(Wattleflow, IObserver):
 # --------------------------------------------------------------------------- #
 # endregion Processors                                                        #
 # --------------------------------------------------------------------------- #
+
+
+__all__ = [
+    "ConnectionManager",
+    "ConnectionManagerException",
+    "DriverManager",
+    "DriverManagerException",
+    "ProcessorManager",
+    "ProcessorManagerException",
+]

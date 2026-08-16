@@ -7,9 +7,9 @@
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
-from typing import AsyncIterator, Iterator, Optional
+from collections.abc import AsyncIterator, Iterator
 from wattleflow.core.behavioural import IIterator, IAsyncIterator, Element
-from wattleflow.concrete.wattleflow import Wattleflow
+from wattleflow.concrete.base import Wattleflow
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
@@ -36,7 +36,7 @@ class LazyIterator(Wattleflow, IIterator[Element]):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        self._iterator: Optional[Iterator[Element]] = None
+        self._iterator: Iterator[Element] | None = None
 
     def __next__(self) -> Element:
         if self._iterator is None:
@@ -54,7 +54,7 @@ class LazyAsyncIterator(Wattleflow, IAsyncIterator[Element]):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        self._iterator: Optional[AsyncIterator[Element]] = None
+        self._iterator: AsyncIterator[Element] | None = None
 
     async def __anext__(self) -> Element:
         if self._iterator is None:
@@ -65,3 +65,6 @@ class LazyAsyncIterator(Wattleflow, IAsyncIterator[Element]):
 # --------------------------------------------------------------------------- #
 # endregion Implementation                                                    #
 # --------------------------------------------------------------------------- #
+
+
+__all__ = ["LazyAsyncIterator", "LazyIterator"]

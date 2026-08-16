@@ -21,7 +21,7 @@ processing stream-based naming operations.
 
 from __future__ import annotations
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 from .macros import TextMacros
 
 # --------------------------------------------------------------------------- #
@@ -37,11 +37,11 @@ __FILE_SIZE_LIMIT__ = 50 * 1024 * 1024  # 50 MB
 
 
 class TextStream:
-    def __init__(self, text: str = "", macros: Optional[List] = None):
+    def __init__(self, text: str = "", macros: list | None = None):
         if macros is None:
             macros = []
         self._macros = TextMacros(macros)
-        self._segments: List[str] = []
+        self._segments: list[str] = []
         if text:
             self.__append__(text)
 
@@ -94,7 +94,7 @@ class TextFileStream(TextStream):
         self,
         file_path: str = "",
         encoding: str = "utf-8",
-        macros: Optional[List] = None,
+        macros: list | None = None,
     ):
 
         self.filename: Path = Path(file_path)

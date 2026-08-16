@@ -9,9 +9,8 @@
 from __future__ import annotations
 import logging
 from threading import RLock
-from typing import List
 from wattleflow.core.concurrent import IObservableReactive, IObserverReactive
-from wattleflow.concrete.wattleflow import Wattleflow
+from wattleflow.concrete.base import Wattleflow
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
@@ -44,7 +43,7 @@ class ThreadSafeObservable(Wattleflow, IObservableReactive):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        self._observers: List[IObserverReactive] = []
+        self._observers: list[IObserverReactive] = []
         self._lock = RLock()
 
     def add_observer(self, observer: IObserverReactive) -> None:
@@ -67,11 +66,12 @@ class ThreadSafeObservable(Wattleflow, IObservableReactive):
             try:
                 observer.update(self, *args, **kwargs)
             except Exception as exc:
-                logger.exception(
-                    "Observer %r raised exception during update: %s", observer, exc
-                )
+                logger.exception("Observer %r raised exception during update: %s", observer, exc)
 
 
 # --------------------------------------------------------------------------- #
 # endregion Implementation                                                    #
 # --------------------------------------------------------------------------- #
+
+
+__all__ = ["ThreadSafeObservable"]

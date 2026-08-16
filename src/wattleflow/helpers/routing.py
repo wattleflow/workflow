@@ -24,7 +24,8 @@ import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Mapping, Optional, Union
+from typing import Any
+from collections.abc import Callable, Mapping
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
@@ -56,17 +57,17 @@ class RoutingRule:
     # `pattern: "2026-06*.pdf"`) and how filing dates are usually expressed.
     def __init__(
         self,
-        fmt: Optional[str],
+        fmt: str | None,
         matchers: tuple[tuple[Callable[[str], bool], RoutingLabel], ...],
         labels: tuple[RoutingLabel, ...],
     ) -> None:
-        self.fmt: Optional[str] = fmt
+        self.fmt: str | None = fmt
         self.labels: tuple[RoutingLabel, ...] = labels
         self._matchers = matchers
 
     @staticmethod
     def _matcher(
-        name: str, glob: Optional[str], regex: Optional[str], fmt: Optional[str]
+        name: str, glob: str | None, regex: str | None, fmt: str | None
     ) -> Callable[[str], bool]:
         if regex:
             compiled = re.compile(regex)
@@ -83,7 +84,7 @@ class RoutingRule:
         return lambda candidate: fnmatch.fnmatchcase(candidate.lower(), needle)
 
     @classmethod
-    def build(cls, fmt: Optional[str], labels: Any) -> "RoutingRule":
+    def build(cls, fmt: str | None, labels: Any) -> "RoutingRule":
         fmt = fmt or None
         parsed: list[RoutingLabel] = []
         matchers: list[tuple[Callable[[str], bool], RoutingLabel]] = []
@@ -112,7 +113,7 @@ class RoutingRule:
             matchers.append((cls._matcher(name, glob, regex, fmt), label))
         return cls(fmt, tuple(matchers), tuple(parsed))
 
-    def classify(self, name: str) -> Optional[RoutingLabel]:
+    def classify(self, name: str) -> RoutingLabel | None:
         for matcher, label in self._matchers:
             if matcher(name):
                 return label
@@ -125,10 +126,10 @@ class PatternSpec:
     # Simple form  ->  pattern: "*.pdf"            (glob only, no routing)
     # Complex form ->  pattern: {glob, format, labels}  (glob + classification)
     glob: str
-    rule: Optional[RoutingRule] = None
+    rule: RoutingRule | None = None
 
     @classmethod
-    def parse(cls, pattern: Union[str, Mapping[str, Any]]) -> "PatternSpec":
+    def parse(cls, pattern: str | Mapping[str, Any]) -> "PatternSpec":
         if isinstance(pattern, str):
             return cls(glob=pattern, rule=None)
         if isinstance(pattern, Mapping):
@@ -141,13 +142,13 @@ class PatternSpec:
         )
 
 
-def route_label(metadata: Mapping[str, Any]) -> Optional[str]:
+def route_label(metadata: Mapping[str, Any]) -> str | None:
     # The classified label name (category), stamped under ROUTE_KEY.
     value = metadata.get(ROUTE_KEY)
     return str(value) if value else None
 
 
-def route_target(metadata: Mapping[str, Any]) -> Optional[str]:
+def route_target(metadata: Mapping[str, Any]) -> str | None:
     # The destination the label maps to. The processor stamps the pair
     # {label.name: label.target} plus ROUTE_KEY -> label.name, so the target is
     # one hop away: metadata[ metadata[ROUTE_KEY] ].
@@ -182,8 +183,8 @@ class LocalStorageDestinationRouter(DestinationRouter):
         route: str,
         *,
         filename: str,
-        suffix: Optional[str] = None,
-        extra: Optional[str] = None,
+        suffix: str | None = None,
+        extra: str | None = None,
         mkdir: bool = True,
         **_: Any,
     ) -> Mapping[str, Any]:

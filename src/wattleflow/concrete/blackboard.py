@@ -14,10 +14,9 @@ from enum import Enum
 from types import MappingProxyType
 from typing import (
     Any,
-    List,
     Generic,
-    Mapping,
 )
+from collections.abc import Mapping
 from wattleflow.core import (
     IBlackboard,
     IPipeline,
@@ -26,7 +25,7 @@ from wattleflow.core import (
     IWattleflow,
 )
 from wattleflow.core.transactional import Item
-from wattleflow.concrete.wattleflow import Wattleflow
+from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.strategy import StrategyCreate
 from wattleflow.constants.enums import Event
 from wattleflow.decorators.preset import PresetDecorator
@@ -36,7 +35,7 @@ from wattleflow.decorators.preset import PresetDecorator
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
 
-Repositories = List[IRepository]
+Repositories = list[IRepository]
 
 # --------------------------------------------------------------------------- #
 # region State                                                                #
@@ -224,3 +223,6 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
 # --------------------------------------------------------------------------- #
 # endregion Blackboards                                                        #
 # --------------------------------------------------------------------------- #
+
+
+__all__ = ["BlackboardAction", "BlackboardState", "GenericBlackboard"]

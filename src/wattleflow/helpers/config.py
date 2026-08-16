@@ -11,31 +11,12 @@
 from __future__ import annotations
 import logging
 from pathlib import Path
-from typing import final, Any, Optional, Union
-from wattleflow.concrete.exception import AuditException
-from wattleflow.concrete.wattleflow import Wattleflow
+from typing import final, Any
+from wattleflow.helpers.exception import AuditException
+from wattleflow.core import IWattleflow
+from wattleflow.helpers.audit import Audit
 from wattleflow.constants.enums import Event
-
-# NOTE: Guarded optional dependency (DR-WFL-003) — PyYAML/jsonschema only accelerate
-# and extend; `helpers/yaml.py` is a functionally complete stdlib fallback, so this
-# module's effective closure stays stdlib and it belongs in the clean core (DR-WFL-002
-# §2.1 exception). Verified by the masking test: mask both packages and this must still
-# import and parse. Keep the fallback at parity — a silently divergent shim is worse
-# than an ImportError.
-# Guarded per dependency, NOT as one block: PyYAML and jsonschema are
-# independent accelerators, and coupling them meant a missing jsonschema
-# silently demoted the YAML parser to the shim as well — a far larger
-# behavioural change than losing schema validation.
-try:
-    import yaml
-except Exception:
-    from wattleflow.helpers.yaml import yaml  # noqa: F401
-
-try:
-    from jsonschema import validate
-except Exception:
-    from wattleflow.helpers.yaml import validate  # noqa: F401
-
+from wattleflow.helpers.yaml import yaml, validate
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -45,16 +26,18 @@ except Exception:
 # region Config                                                               #
 # --------------------------------------------------------------------------- #
 
+# Distinguishes "no such key" from a key holding a falsy value.
+_MISSING: Any = object()
+
 
 @final
-class Config(Wattleflow):
+# Bases are composed rather than inherited from the framework root: helpers/ may
+# not import concrete/ (DR-WFL-009).
+class Config(Audit, IWattleflow):
     __slots__ = (
         "_config_file",
         "_key_filename",
         "_data",
-        # "_strategy",
-        # "_level",
-        # "_handler",
     )
 
     def __init__(
@@ -62,8 +45,8 @@ class Config(Wattleflow):
         config_file: str,
         **kwargs,
     ):
-        level: Union[str, int] = kwargs.get("level", "NOTSET")
-        handler: Optional[logging.Handler] = kwargs.get("handler", None)
+        level: str | int = kwargs.get("level", "NOTSET")
+        handler: logging.Handler | None = kwargs.get("handler", None)
 
         super().__init__(level=level, handler=handler)
 
@@ -81,7 +64,7 @@ class Config(Wattleflow):
             )
 
         self._config_file: str = config_file
-        self._key_filename: Optional[str] = None
+        self._key_filename: str | None = None
         self._data = None
         self._load_settings()
 
@@ -95,50 +78,57 @@ class Config(Wattleflow):
             for key in keys:
                 result = result[key]  # type: ignore
             return result
-        except (KeyError, TypeError) as e:
+        except (KeyError, IndexError, TypeError) as e:
             self.warning(Event.Find.value, missing=str(e))
             return None
 
-    def get(self, section: str, key: str, name=None, default=None) -> Union[dict, str, list]:
+    def get(self, section: str, key: str, name=None, default=None) -> dict | str | list:
+        # Absence is signalled by _MISSING, never by falsiness: `[]`, `{}`, `0`,
+        # `False` and `""` are values a config may legitimately hold, and testing
+        # them with `not` reported them as missing and returned the parent node.
         def find_root(branch, name):
             if branch is None:
-                return None
+                return _MISSING
 
             if name is None:
                 return branch
 
             if isinstance(branch, dict):
-                if name in branch:
-                    return branch[name]
-            elif isinstance(branch, list):
+                return branch[name] if name in branch else _MISSING
+
+            if isinstance(branch, list):
                 for item in branch:
                     if isinstance(item, dict):
                         if name in item:
                             return item[name]
-                    else:
-                        if name == item:
-                            return item
-            elif isinstance(branch, str):
-                if name in branch:
-                    return branch
-            else:
-                return None
+                    elif name == item:
+                        return item
+                return _MISSING
+
+            if isinstance(branch, str):
+                return branch if name in branch else _MISSING
+
+            return _MISSING
 
         root = find_root(self._data, section)
-        if not root:
+        if root is _MISSING:
+            if default is not None:
+                return default
             raise ValueError(f"Config:[root] not found. [{section}, {key}, {name}]")
 
         branch = find_root(root, key)
-        if not branch:
+        if branch is _MISSING:
             return root
 
-        root = find_root(branch, name)
-        if not root:
-            if name:
+        found = find_root(branch, name)
+        if found is _MISSING:
+            if name is not None:
+                if default is not None:
+                    return default
                 raise ValueError(f"Config:[name] not found. [{section}, {key}, {name}]")
             return branch
 
-        return root
+        return found
 
     def __repr__(self) -> str:
         name = getattr(self, "name", "Config")

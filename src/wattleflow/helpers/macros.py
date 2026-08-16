@@ -15,7 +15,6 @@
 from __future__ import annotations
 import logging
 import re
-from typing import List, Tuple
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -37,7 +36,7 @@ def _check_redos(pattern: str) -> None:
         )
 
 
-CompiledMacros = List[Tuple[re.Pattern, str]]
+CompiledMacros = list[tuple[re.Pattern, str]]
 
 
 class TextMacros:

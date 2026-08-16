@@ -11,9 +11,9 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from logging import Handler, NOTSET
-from typing import Any, Optional
+from typing import Any
 from wattleflow.core import IProcessor, IPipeline, ITarget
-from wattleflow.concrete.wattleflow import Wattleflow
+from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.exception import AuditException
 from wattleflow.constants import Event
 from wattleflow.decorators.preset import PresetDecorator
@@ -44,7 +44,7 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
     def __init__(
         self,
         level: int = NOTSET,
-        handler: Optional[Handler] = None,
+        handler: Handler | None = None,
         **kwargs,
     ):
         super().__init__(level=level, handler=handler, **kwargs)
@@ -133,3 +133,6 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
 # --------------------------------------------------------------------------- #
 # endregion Pipelines                                                         #
 # --------------------------------------------------------------------------- #
+
+
+__all__ = ["GenericPipeline", "PipelineError"]

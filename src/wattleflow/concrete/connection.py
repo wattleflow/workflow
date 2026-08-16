@@ -13,10 +13,11 @@ import logging
 from abc import ABC, abstractmethod
 from enum import Enum
 from contextlib import contextmanager
-from typing import Any, Dict, Generator, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
+from collections.abc import Generator
 from wattleflow.core import IObservable, IObserver
+from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.exception import ConnectionException, ManagerException
-from wattleflow.concrete.wattleflow import Wattleflow
 from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.constants import Event, Operation
 from wattleflow.decorators.preset import PresetDecorator
@@ -124,7 +125,7 @@ class ConnectionObserverInterface(Wattleflow, IObservable, ABC):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        self._observers: Dict[str, IObserver] = {}
+        self._observers: dict[str, IObserver] = {}
 
     def subscribe(self, observer: IObserver) -> None:
         if not isinstance(observer, IObserver):
@@ -279,7 +280,7 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
         return self._fsm.state is ConnectionState.CONNECTED
 
     @property
-    def connection(self) -> Optional[Connection]:
+    def connection(self) -> Connection | None:
         return self._connection if self.connected else None
 
     @property
@@ -409,3 +410,10 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
 # --------------------------------------------------------------------------- #
 # endregion Classes                                                           #
 # --------------------------------------------------------------------------- #
+
+__all__ = [
+    "ConnectionAction",
+    "ConnectionState",
+    "GenericConnection",
+    "ConnectionObserverInterface",
+]

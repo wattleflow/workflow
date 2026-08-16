@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from wattleflow.core import IWattleflow
 from wattleflow.concrete.exception import AttributeException
 
@@ -221,9 +221,9 @@ class Attribute:
         caller: IWattleflow,
         name: str,
         kwargs: dict,
-        cls: Optional[type],
+        cls: type | None,
         mandatory=True,
-    ) -> Optional[object]:
+    ) -> object | None:
         if mandatory:
             if not kwargs:
                 raise AttributeException(
@@ -271,7 +271,7 @@ class Attribute:
             ) from e
 
     @staticmethod
-    def optional(caller: object, name: str, cls: type, default: Optional[object], **kwargs):
+    def optional(caller: object, name: str, cls: type, default: object | None, **kwargs):
         if (not kwargs) and (not default):
             return
 
@@ -289,7 +289,7 @@ class Attribute:
         setattr(caller, name, instance)
 
     @staticmethod
-    def get_attr(caller: object, name: str) -> Optional[object]:
+    def get_attr(caller: object, name: str) -> object | None:
         d = getattr(caller, "__dict__", None)
         if d is not None and name in d:
             return d[name]
@@ -382,3 +382,6 @@ class NameHelper:
 # --------------------------------------------------------------------------- #
 # endregion Classes                                                         #
 # --------------------------------------------------------------------------- #
+
+
+__all__ = ["Attribute", "NameHelper"]

@@ -10,9 +10,10 @@
 
 from __future__ import annotations
 from types import MappingProxyType
-from typing import Any, Dict, Mapping
+from typing import Any
+from collections.abc import Mapping
 from wattleflow.core import IMemento
-from wattleflow.concrete.wattleflow import Wattleflow
+from wattleflow.concrete.base import Wattleflow
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -62,10 +63,13 @@ class GenericMemento(Wattleflow, IMemento):
     def get_state(self) -> Any:
         return self._data.get("state")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return dict(self._data)
 
 
 # --------------------------------------------------------------------------- #
 # endregion Classes                                                           #
 # --------------------------------------------------------------------------- #
+
+
+__all__ = ["GenericMemento"]

@@ -1,6 +1,6 @@
 [project]
 name = "wattleflow-workflow"
-version = "0.0.0.92"
+version = "0.0.0.93"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"
@@ -26,7 +26,7 @@ classifiers = [
 # pinned. An upper cap is deliberately absent — capping every 0.0.0.x bump needs
 # the version policy (DR-013) to say what a breaking core release looks like.
 dependencies = [
-    "wattleflow>=0.0.0.48",
+    "wattleflow>=0.0.0.49",
 ]
 
 [build-system]
@@ -46,7 +46,25 @@ include-package-data = false
 
 [tool.setuptools.packages.find]
 where = ["src"]
-exclude = ["wattleflow.api*", "wattleflow.core*"]
+# `wattleflow` is an implicit namespace package (no __init__.py) so that sibling
+# distributions can ship wattleflow.core, wattleflow.processors, etc. Without
+# `namespaces = true` the finder returns NOTHING over such a tree and the wheel
+# ships no modules at all, while the source tree looks healthy.
+namespaces = true
+# Allowlist, not denylist (mirrors the core distribution): what is not listed is
+# not shipped, so a new directory under src/wattleflow cannot leak into the wheel
+# by being forgotten — and non-package assets never become packages.
+# INVARIANT: every entry here must be covered by MANIFEST.in, or it installs as
+# an empty directory and the consumer's import fails at runtime, not at install.
+include = [
+    "wattleflow.concrete*",
+    "wattleflow.constants*",
+    "wattleflow.decorators*",
+    "wattleflow.helpers*",
+    "wattleflow.managers*",
+    "wattleflow.orchestrators*",
+    "wattleflow.schedulers*",
+]
 
 [tool.ruff]
 line-length = 100

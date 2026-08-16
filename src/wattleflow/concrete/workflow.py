@@ -12,12 +12,12 @@ from __future__ import annotations
 import difflib
 import os
 from abc import abstractmethod, ABC
-from typing import ClassVar, Dict, List, Type
+from typing import ClassVar
 from logging import getLogger
 from wattleflow.core import IOriginator
 from wattleflow.constants import Event
 from wattleflow.concrete.exception import AuditException
-from wattleflow.concrete.wattleflow import Wattleflow
+from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.manager import (
     ConnectionManager,
     DriverManager,
@@ -143,19 +143,19 @@ logger = WorkflowFactoryLogger(level="ERROR", logger=getLogger("WorflowFactory")
 
 
 class WorkflowFactory:
-    _registry: Dict[str, Type] = {}
-    _strategy_defaults: Dict[str, str] = {}  # role → fully-qualified class path
+    _registry: dict[str, type] = {}
+    _strategy_defaults: dict[str, str] = {}  # role → fully-qualified class path
 
     # ------------------------------------------------------------------ #
     # region Registration
     # ------------------------------------------------------------------ #
 
     @classmethod
-    def register(cls, name: str, class_name: Type) -> None:
+    def register(cls, name: str, class_name: type) -> None:
         cls._registry[name] = class_name
 
     @classmethod
-    def resolve(cls, type_name: str) -> Type:
+    def resolve(cls, type_name: str) -> type:
         if type_name is None or not isinstance(type_name, str) or not type_name.strip():
             error = (
                 f"Missing `type` in config file (got {type_name!r}). "
@@ -223,7 +223,7 @@ class WorkflowFactory:
         )
 
         # Workflow class ----------------------------------------------- #
-        workflow: List[dict] = adapter.find(
+        workflow: list[dict] = adapter.find(
             "workflows",
             name=workflow_name,
             default=None,
@@ -267,7 +267,7 @@ class WorkflowFactory:
 
     # Known runtime keys map to env-vars consumed by external libraries.
     # Anything not in this map is exported verbatim under runtime.env.
-    _RUNTIME_KEY_TO_ENV: Dict[str, str] = {
+    _RUNTIME_KEY_TO_ENV: dict[str, str] = {
         "tika_server_jar": "TIKA_SERVER_JAR",
         "tika_path": "TIKA_PATH",
         "tika_client_only": "TIKA_CLIENT_ONLY",
@@ -345,7 +345,7 @@ class WorkflowFactory:
         return {**inline, **nested}
 
     @classmethod
-    def _resolve_section(cls, section: str, item: dict, key: str = "type") -> Type:
+    def _resolve_section(cls, section: str, item: dict, key: str = "type") -> type:
         """Resolve `item[key]` into a registered class, enriching errors with the
         offending section, item name, and config snippet."""
         try:
@@ -497,3 +497,10 @@ class WorkflowFactory:
 
         return manager
 
+
+__all__ = [
+    "GenericWorkflow",
+    "WorkflowFactory",
+    "WorkflowFactoryException",
+    "WorkflowFactoryLogger",
+]

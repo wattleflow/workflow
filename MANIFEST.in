@@ -39,10 +39,8 @@ global-exclude *.yaml
 global-exclude __pycache__/*
 
 # --- Clean core packages ---
-# audit/, managers/ and orchestrators/ carry no code — they are documented
-# extension points ("build once, use often"). They ship because pyproject
-# declares them as packages; see the invariant above.
-recursive-include src/wattleflow/audit *.py
+# Every package `[tool.setuptools.packages.find]` declares must appear here;
+# see the invariant in that file.
 recursive-include src/wattleflow/concrete *.py
 recursive-include src/wattleflow/constants *.py
 recursive-include src/wattleflow/decorators *.py
@@ -50,14 +48,6 @@ recursive-include src/wattleflow/helpers *.py
 recursive-include src/wattleflow/managers *.py
 recursive-include src/wattleflow/orchestrators *.py
 recursive-include src/wattleflow/schedulers *.py
-
-# formatters/parsers: only the stdlib base.py contract ships; concrete formats and
-# the factories live in wattleflow-processors. The exclude/include pair is policy,
-# not history — it keeps a newly added concrete format out of the core by default.
-recursive-exclude src/wattleflow/helpers/formatters *.py
-recursive-exclude src/wattleflow/helpers/parsers *.py
-include src/wattleflow/helpers/formatters/base.py
-include src/wattleflow/helpers/parsers/base.py
 
 # --- Never ship the core (it ships via the separate `wattleflow` dependency) ---
 # Defensive: core/ is absent from a clean checkout but reappears as a dev symlink,
@@ -72,7 +62,6 @@ prune src/wattleflow/core
 # prune and write `recursive-include documentation *.md`: the directive takes a
 # DIRECTORY plus a PATTERN, so a glob path such as `documentation/*.md` matches
 # nothing and fails silently.
-prune docs
 prune documentation
 
 # --- NFR enforcement tooling ---
@@ -84,7 +73,8 @@ prune documentation
 # copy follows the link, so the content is embedded rather than a dangling link.
 # It superseded tools/naming_registry.yaml on 2026-07-28 — one file now carries
 # both vocabularies (discourse: entries/acronyms; code: the `code:` block).
+include tools/wem_core.py
 include tools/wem_lint.py
 include tools/dictionary.yaml
-
+include tools/messages.json
 include README.md LICENSE pyproject.toml requirements-dev.txt

@@ -11,7 +11,8 @@
 from __future__ import annotations
 from abc import ABC
 from enum import Enum
-from typing import Callable, Generic, Mapping, Optional, Tuple, TypeVar
+from typing import Generic, TypeVar
+from collections.abc import Callable, Mapping
 from wattleflow.core import IStateMachine
 
 # --------------------------------------------------------------------------- #
@@ -39,12 +40,12 @@ class StateMachine(IStateMachine, Generic[State, Action], ABC):
 
     def __init__(
         self,
-        transitions: Mapping[Tuple[State, Action], State],
+        transitions: Mapping[tuple[State, Action], State],
         initial: State,
-        name: Optional[str] = None,
+        name: str | None = None,
     ) -> None:
         IStateMachine.__init__(self)
-        self._name: Optional[str] = name
+        self._name: str | None = name
         self._transitions = transitions
         self._state = initial
 
@@ -93,11 +94,11 @@ class GuardedStateMachine(IStateMachine, ABC):
         self,
         inner: StateMachine,
         guard: Callable[[StateMachine], None],
-        name: Optional[str] = None,
+        name: str | None = None,
     ) -> None:
         IStateMachine.__init__(self)
         # Preserve the inner FSM's name so logs stay consistent.
-        self._name: Optional[str] = name or getattr(inner, "name", None)
+        self._name: str | None = name or getattr(inner, "name", None)
         self._inner = inner
         self._guard = guard
         self._consumed = False
@@ -130,3 +131,6 @@ class GuardedStateMachine(IStateMachine, ABC):
 # --------------------------------------------------------------------------- #
 # endregion GuardedStateMachine                                               #
 # --------------------------------------------------------------------------- #
+
+
+__all__ = ["GuardedStateMachine", "StateMachine"]

@@ -10,10 +10,10 @@
 
 from __future__ import annotations
 from abc import ABC
-from typing import Any, Optional
+from typing import Any
 from wattleflow.core import IBlackboard, IRepository, ITarget
 from wattleflow.constants.enums import Event
-from wattleflow.concrete.wattleflow import Wattleflow
+from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.driver import GenericDriver
 from wattleflow.concrete.exception import RepositoryException
 from wattleflow.concrete.strategy import StrategyRead, StrategyWrite
@@ -42,11 +42,11 @@ class GenericRepository(Wattleflow, IRepository, ABC):
     def __init__(
         self,
         strategy_write: StrategyWrite,
-        strategy_read: Optional[StrategyRead] = None,
+        strategy_read: StrategyRead | None = None,
         **kwargs,
     ):
-        assert isinstance(strategy_write, StrategyWrite), (
-            "Expected StrategyWrite. Found %s" % type(strategy_write)
+        assert isinstance(strategy_write, StrategyWrite), "Expected StrategyWrite. Found %s" % type(
+            strategy_write
         )
         if strategy_read is not None:
             assert isinstance(strategy_read, StrategyRead), (
@@ -66,7 +66,7 @@ class GenericRepository(Wattleflow, IRepository, ABC):
 
         self._write_counter: int = 0
         self._strategy_write: StrategyWrite = strategy_write
-        self._strategy_read: Optional[StrategyRead] = strategy_read or None
+        self._strategy_read: StrategyRead | None = strategy_read or None
 
         self.debug(msg=Event.Constructor.value, step=Event.Completed.name)
 
@@ -118,7 +118,7 @@ class GenericRepository(Wattleflow, IRepository, ABC):
         )
         self._write_counter = 0
 
-    def read(self, identifier: str, **kwargs) -> Optional[ITarget]:
+    def read(self, identifier: str, **kwargs) -> ITarget | None:
         self.debug(
             msg=Event.Read.value,
             step=Event.Started.name,
@@ -175,12 +175,8 @@ class GenericRepository(Wattleflow, IRepository, ABC):
                 facade=facade,
             )
 
-            assert isinstance(caller, IBlackboard), (
-                "Expected IBlackboard. Found %s" % type(caller)
-            )
-            assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(
-                facade
-            )
+            assert isinstance(caller, IBlackboard), "Expected IBlackboard. Found %s" % type(caller)
+            assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(facade)
 
             # The repository passes ITSELF as caller so the owning blackboard
             # Strategy.execute asertira (IRepository, IDriver) — upstream caller
@@ -227,7 +223,7 @@ class RepositoryWithDriver(GenericRepository):
     def __init__(
         self,
         strategy_write: StrategyWrite,
-        strategy_read: Optional[StrategyRead] = None,
+        strategy_read: StrategyRead | None = None,
         **kwargs,
     ):
 
@@ -235,9 +231,7 @@ class RepositoryWithDriver(GenericRepository):
         if driver is None:
             raise ValueError(f"{self.__class__.__name__}: Missing driver parameter!")
 
-        super().__init__(
-            strategy_write=strategy_write, strategy_read=strategy_read, **kwargs
-        )
+        super().__init__(strategy_write=strategy_write, strategy_read=strategy_read, **kwargs)
 
         self._driver: GenericDriver = (
             driver
@@ -286,7 +280,7 @@ class RepositoryWithDriver(GenericRepository):
         self._strategy_read = None
         self.debug(msg=Event.Clear.value, step=Event.Completed.value)
 
-    def read(self, identifier: str, **kwargs) -> Optional[ITarget]:
+    def read(self, identifier: str, **kwargs) -> ITarget | None:
         self.debug(
             msg=Event.Read.value,
             step=Event.Started.value,
@@ -326,12 +320,8 @@ class RepositoryWithDriver(GenericRepository):
                 facade=facade,
             )
 
-            assert isinstance(caller, IBlackboard), (
-                "Expected IBlackboard. Found %s" % type(caller)
-            )
-            assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(
-                facade
-            )
+            assert isinstance(caller, IBlackboard), "Expected IBlackboard. Found %s" % type(caller)
+            assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(facade)
 
             # The repository passes ITSELF as caller so the owning blackboard
             # Strategy.execute asertira (IRepository, IDriver).
@@ -384,3 +374,6 @@ class RepositoryWithDriver(GenericRepository):
 # --------------------------------------------------------------------------- #
 # endregion Repositories                                                      #
 # --------------------------------------------------------------------------- #
+
+
+__all__ = ["GenericRepository", "RepositoryWithDriver"]

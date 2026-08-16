@@ -7,8 +7,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, time, timezone
 from pathlib import Path
+from wattleflow.core.transactional import IParser
 
-__all__ = ["Now", "CreatedWithin", "CreatedVerdict"]
+
+# --------------------------------------------------------------------------- #
+# region Clasess                                                              #
+# --------------------------------------------------------------------------- #
 
 
 class Now:
@@ -29,11 +33,6 @@ class Now:
         return datetime.now(timezone.utc).timestamp()
 
 
-# --------------------------------------------------------------------------- #
-# region CreatedWithin — date-window file selection                           #
-# --------------------------------------------------------------------------- #
-
-
 @dataclass(frozen=True)
 class CreatedVerdict:
     """Outcome of one file's date-window check; the caller owns the logging."""
@@ -44,7 +43,7 @@ class CreatedVerdict:
     error: str | None = None
 
 
-class CreatedWithin:
+class CreatedWithin(IParser):
     """Selects files by their date, a concern distinct from filename matching.
 
     Looks only at the file's timestamp: the filesystem birth time when the
@@ -106,8 +105,7 @@ class CreatedWithin:
             return CreatedVerdict(False, created_at=created_at, reason="after-window")
         return CreatedVerdict(True, created_at=created_at)
 
-    @staticmethod
-    def _parse(value: str | datetime | None, *, end_of_day: bool) -> datetime | None:
+    def parse(value: str | datetime | None, *, end_of_day: bool) -> datetime | None:
         if value is None:
             return None
         if isinstance(value, datetime):
@@ -121,8 +119,7 @@ class CreatedWithin:
             dt = datetime.fromisoformat(text)
         except ValueError as e:
             raise ValueError(
-                f"Invalid date '{text}': expected ISO format "
-                "YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS"
+                f"Invalid date '{text}': expected ISO format YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS"
             ) from e
         if end_of_day:
             dt = datetime.combine(dt.date(), time(23, 59, 59, 999999))
@@ -130,5 +127,7 @@ class CreatedWithin:
 
 
 # --------------------------------------------------------------------------- #
-# endregion CreatedWithin                                                     #
+# endregion Clasess                                                           #
 # --------------------------------------------------------------------------- #
+
+__all__ = ["Now", "CreatedWithin", "CreatedVerdict"]

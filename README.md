@@ -1,5 +1,5 @@
 # WattleFlow Workflow Framework
-![WattleFlow Logo](https://github.com/wattleflow/core/raw/default/src/wattleflow/logo/wattleflow.png)
+![WattleFlow Logo](https://raw.githubusercontent.com/wattleflow/core/default/src/wattleflow/logo/wattleflow.png)
 
 [![PyPI version](https://img.shields.io/pypi/v/wattleflow-workflow.svg)](https://pypi.org/project/wattleflow-workflow/)
 [![Python versions](https://img.shields.io/pypi/pyversions/wattleflow-workflow.svg)](https://pypi.org/project/wattleflow-workflow/)

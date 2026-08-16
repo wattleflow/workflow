@@ -11,7 +11,8 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable, Optional, Union
+from typing import Any
+from collections.abc import Iterable
 
 # NOTE: Guarded optional dependency (DR-WFL-003) — `helpers/yaml.py` is a functionally
 # complete stdlib fallback, so the effective closure stays stdlib and this module keeps
@@ -80,7 +81,7 @@ class ConfigValidator:
     check_paths: bool = False
     strict_paths: bool = False
     check_types: bool = True
-    registered_types: Optional[set] = None
+    registered_types: set | None = None
     errors: list = field(default_factory=list)
     warnings: list = field(default_factory=list)
     _driver_names: set = field(default_factory=set)
@@ -88,7 +89,7 @@ class ConfigValidator:
     _types: set = field(default_factory=set)
 
     @classmethod
-    def from_file(cls, path: Union[str, Path], **kwargs) -> "ConfigValidator":
+    def from_file(cls, path: str | Path, **kwargs) -> "ConfigValidator":
         p = Path(path)
         if not p.exists():
             raise FileNotFoundError(f"Config file not found: {p}")
@@ -152,12 +153,8 @@ class ConfigValidator:
         if not self.check_types:
             self._types = set()
             return
-        try:
-            from wattleflow.concrete.workflow import WorkflowFactory
 
-            self._types = set(WorkflowFactory._registry.keys())
-        except Exception:
-            self._types = set()
+        self._types = set()
 
     def _check_type(self, type_name: Any, path: str, kind: str) -> None:
         if not self.check_types or not self._types:
@@ -269,7 +266,7 @@ class ConfigValidator:
     # endregion
 
     # region app
-    def _validate_app(self, app: Any) -> Optional[str]:
+    def _validate_app(self, app: Any) -> str | None:
         path = "$.app"
         if not isinstance(app, dict):
             self._err(path, "missing or invalid 'app' section")
@@ -286,7 +283,7 @@ class ConfigValidator:
     # endregion
 
     # region infrastructure
-    def _validate_infrastructure(self, infra: Any, env_name: Optional[str]) -> None:
+    def _validate_infrastructure(self, infra: Any, env_name: str | None) -> None:
         path = "$.infrastructure"
         if not isinstance(infra, dict):
             self._err(path, "missing or invalid 'infrastructure' section")
@@ -421,7 +418,9 @@ class ConfigValidator:
 
             cfg = proc.get("configuration")
             if isinstance(cfg, dict):
-                self._check_driver_ref(cfg.get("driver"), f"{ppath}.configuration.driver")
+                self._check_driver_ref(
+                    cfg.get("driver"), f"{ppath}.configuration.driver"
+                )
                 self._check_paths_in_cfg(cfg, f"{ppath}.configuration")
 
             self._validate_blackboard(proc.get("blackboard"), f"{ppath}.blackboard")
@@ -474,7 +473,9 @@ class ConfigValidator:
         if ref is None:
             return
         if not isinstance(ref, str):
-            self._err(path, f"driver reference must be a string, got {type(ref).__name__}")
+            self._err(
+                path, f"driver reference must be a string, got {type(ref).__name__}"
+            )
             return
         if ref not in self._driver_names:
             available = ", ".join(sorted(self._driver_names)) or "<none registered>"

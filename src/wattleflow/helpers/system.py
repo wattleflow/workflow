@@ -30,7 +30,8 @@ from logging import NOTSET, Handler, getLogger
 from os import PathLike
 from pathlib import Path
 from tempfile import gettempdir
-from typing import Sequence, Mapping, Union, final, Optional
+from typing import Any, final
+from collections.abc import Callable, Mapping, Sequence
 
 from wattleflow.core import IWattleflow
 from wattleflow.constants.enums import Event
@@ -46,8 +47,7 @@ from wattleflow.helpers.normaliser import Normaliser
 # region Types                                                                #
 # --------------------------------------------------------------------------- #
 
-Pathish = Union[str, PathLike[str], Path]
-Command = Union[str, Sequence[str]]
+Command = str | Sequence[str]
 
 # --------------------------------------------------------------------------- #
 # endregion Types                                                             #
@@ -67,12 +67,12 @@ class ClassLoader(IWattleflow):
         **kwargs,
     ):
 
-        level: Union[int, str] = kwargs.pop("level", NOTSET)
-        handler: Optional[Handler] = kwargs.pop("handler", None)
+        level: int | str = kwargs.pop("level", NOTSET)
+        handler: Handler | None = kwargs.pop("handler", None)
 
         super().__init__()
 
-        # Stdlib logger (no concrete.AuditLogger — keeps helpers below domains).
+        # Stdlib logger (no concrete.Audit — keeps helpers below domains).
         # Stdlib accepts only exc_info/extra/stack_info/stacklevel as kwargs, so
         # context goes into the message via lazy %-formatting.
         self.log = getLogger(self.__class__.__name__)
@@ -86,7 +86,9 @@ class ClassLoader(IWattleflow):
         try:
             module_path, class_name = class_path.rsplit(".", 1)
         except ValueError as e:
-            self.log.error("%s: invalid class path %r: %s", Event.Constructor.value, class_path, e)
+            self.log.error(
+                "%s: invalid class path %r: %s", Event.Constructor.value, class_path, e
+            )
             raise ValueError(f"Invalid class path: {class_path}") from e
 
         try:
@@ -95,9 +97,6 @@ class ClassLoader(IWattleflow):
             self.log.error("module not found %r: %s", module_path, e)
             raise
 
-        # FIX: previously warning fired unconditionally *before* the hasattr
-        # check, so every successful load wrongly reported the class as
-        # unverified. Validate first, then debug-log the resolution.
         if not hasattr(module, class_name):
             error = f"Class '{class_name}' not found in module '{module_path}'"
             self.log.error("%s: %s", Event.Constructor.value, error)
@@ -106,7 +105,9 @@ class ClassLoader(IWattleflow):
         cls = getattr(module, class_name)
         self.cls = cls
 
-        self.log.debug("%s: class resolved %s.%s", Event.Constructor.value, module_path, class_name)
+        self.log.debug(
+            "%s: class resolved %s.%s", Event.Constructor.value, module_path, class_name
+        )
 
         try:
             self.instance = cls(*args, **kwargs)
@@ -116,10 +117,20 @@ class ClassLoader(IWattleflow):
 
         self.log.debug("%s: class loaded %s", Event.Constructor.value, cls.__name__)
 
+    @property
+    def name(self) -> str:
+        return type(self).__name__
+
 
 @final
 class FileStorage:
-    def __init__(self, repository_path: str, filename: str, create: bool, normalised=False):
+    def __init__(
+        self,
+        repository_path: str | PathLike[str] | Path,
+        filename: str | PathLike[str] | Path,
+        create: bool,
+        normalised: bool = False,
+    ):
         self.origin = Path(filename)
         self.path = Path(repository_path)
 
@@ -132,12 +143,18 @@ class FileStorage:
             not create  # noqa: W503
             and (not os.path.isdir(self.path) or not os.access(self.path, os.R_OK))  # noqa: W503
         ):
-            raise FileNotFoundError(f"Path doesn't exist or not accessible: {str(self.path)}")
+            raise FileNotFoundError(
+                f"Path doesn't exist or not accessible: {str(self.path)}"
+            )
 
         if create and self.path.exists() is False:
             self.path.mkdir(parents=True, exist_ok=True)
 
-        name = Normaliser(self.origin.name).date().name() if normalised else self.origin.name
+        name = (
+            Normaliser(self.origin.name).date().name()
+            if normalised
+            else self.origin.name
+        )
 
         self.filename = self.path.joinpath(name).with_suffix(self.origin.suffix)
 
@@ -148,7 +165,7 @@ class FileStorage:
     def with_suffix(self, suffix: str) -> Path:
         return self.filename.with_suffix(suffix)
 
-    def with_dir(self, directory=None, mkdir=True) -> Path:
+    def with_dir(self, directory: str | Path | None = None, mkdir: bool = True) -> Path:
         target = directory if directory else self.filename.stem
         out_dir = self.path.joinpath(target)
         resolved_base = self.path.resolve()
@@ -170,14 +187,14 @@ class FileStorage:
 class Project:
     def __init__(
         self,
-        file_path: Pathish,
-        root_marker: Pathish,
+        file_path: str | PathLike[str] | Path,
+        root_marker: str | PathLike[str] | Path,
         config_name: str = KEY_CONFIG_FILE_NAME,
     ):
         p = Path(file_path).resolve()
         marker_parts = Path(root_marker).parts
 
-        found: Optional[Path] = None
+        found: Path | None = None
         for parent in [p] + list(p.parents):
             parts = parent.parts
             for i in range(0, len(parts) - len(marker_parts) + 1):
@@ -205,7 +222,12 @@ class Project:
 
 @final
 class Proxy:
-    def __init__(self, target_method, before_call=None, after_call=None):
+    def __init__(
+        self,
+        target_method: Callable[..., Any],
+        before_call: Callable[..., Any] | None = None,
+        after_call: Callable[..., Any] | None = None,
+    ):
         self.target_method = target_method
         self.before_call = before_call
         self.after_call = after_call
@@ -258,20 +280,21 @@ class ShellExecutor:
         shell_path = os.environ.get("SHELL", "bash")
         return Path(shell_path).name
 
-    def is_powershell_available(self) -> bool:
+    @staticmethod
+    def is_powershell_available() -> bool:
         return shutil.which("powershell") is not None
 
     def execute(
         self,
         command: Command,
-        shell: Optional[str] = None,
+        shell: str | None = None,
         *,
         use_shell: bool = False,
-        timeout: Optional[int] = None,
-        cwd: Optional[Pathish] = None,
-        env: Optional[Mapping[str, str]] = None,
-    ):
-        def to_s(x):
+        timeout: int | None = None,
+        cwd: str | PathLike[str] | Path | None = None,
+        env: Mapping[str, str] | None = None,
+    ) -> dict[str, str | int]:
+        def to_s(x: str | None) -> str:
             return (x or "").strip()
 
         shell = shell or self.shell
@@ -330,20 +353,29 @@ class ShellExecutor:
 
 @final
 class TempPathHelper:
-    def __init__(self, file_path: os.PathLike, create_dir=True):
-
+    def __init__(self, file_path: str | PathLike[str] | Path, create_dir: bool = True):
         path_like = str(file_path).strip()
 
         if (not file_path) or (path_like == ""):
             raise ValueError("TempPathHelper.file_path is empty!")
 
         if path_like.startswith("TEMP"):
-            path_like = gettempdir() + path_like[len("TEMP") :]
+            # Joining as paths, not strings: "TEMPdata" concatenated to
+            # "/tmpdata" — a sibling of the temp directory, not a child — and
+            # "TEMP/../etc" walked out of it entirely.
+            base = Path(gettempdir()).resolve()
+            source = (base / path_like[len("TEMP") :].lstrip("/\\")).resolve()
+            if not source.is_relative_to(base):
+                raise ValueError(
+                    f"Path escapes the temporary directory {base}: {file_path}"
+                )
+        else:
+            source = Path(path_like)
 
-        self.source_path: Path = Path(path_like)
+        self.source_path: Path = source
 
-        if not (self.source_path.exists()) and (create_dir is True):
-            self.source_path.mkdir(parents=True)
+        if create_dir and not self.source_path.exists():
+            self.source_path.mkdir(parents=True, exist_ok=True)
 
     @property
     def full_path(self) -> Path:
@@ -366,7 +398,7 @@ class TempPathHelper:
 # --------------------------------------------------------------------------- #
 
 
-def decorator(*dargs, **dkwargs):
+def decorator(*dargs: Any, **dkwargs: Any) -> Callable[..., Any]:
     if dargs and callable(dargs[0]) and not dkwargs:
         fn = dargs[0]
 
@@ -382,7 +414,9 @@ def decorator(*dargs, **dkwargs):
     def _outer(fn):
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
-            return Proxy(fn, before_call=before_call, after_call=after_call)(*args, **kwargs)
+            return Proxy(fn, before_call=before_call, after_call=after_call)(
+                *args, **kwargs
+            )
 
         return wrapper
 
@@ -392,3 +426,23 @@ def decorator(*dargs, **dkwargs):
 # --------------------------------------------------------------------------- #
 # endregion Global methods                                                    #
 # --------------------------------------------------------------------------- #
+
+
+__all__ = [
+    "ClassLoader",
+    "FileStorage",
+    "Project",
+    "Proxy",
+    "ShellExecutor",
+    "TempPathHelper",
+    "decorator",
+]
+
+
+if __name__ == "__main__":
+    try:
+        c = ClassLoader("wattleflow.core.Application").instance  # noqa: F841
+        # c = ClassLoader("wattleflow.concrete.Wattleflow").instance  # noqa: F841
+    except Exception as e:
+        print(f"Failed to load Application class: {e}")
+        raise SystemExit(1)

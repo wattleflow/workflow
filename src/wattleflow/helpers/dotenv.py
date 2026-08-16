@@ -21,7 +21,6 @@ from the YAML directory, so one `.env` may serve a whole project.
 from __future__ import annotations
 import configparser
 from pathlib import Path
-from typing import Optional
 
 from wattleflow.helpers.config_adapter import ISecretResolver
 
@@ -41,7 +40,7 @@ DEFAULT_ENV_FILENAME = ".env"
 def find_env_file(
     start: str | Path,
     filename: str = DEFAULT_ENV_FILENAME,
-) -> Optional[Path]:
+) -> Path | None:
     """Walk upward from ``start`` (file or directory) returning the first
     ``filename`` found, or ``None``. Lets one ``.env`` sit next to the YAML
     configs or higher up at the project root."""
@@ -109,13 +108,13 @@ class DotEnvResolver(ISecretResolver):
 
     __slots__ = ("_section", "_values")
 
-    def __init__(self, env_file: Optional[str | Path], section: str) -> None:
+    def __init__(self, env_file: str | Path | None, section: str) -> None:
         self._section = section
         self._values: dict[str, str] = {}
         if env_file is not None:
             self._values = DotEnvParser.parse(env_file).get(section, {})
 
-    def _fetch(self, ref: str) -> Optional[str]:
+    def _fetch(self, ref: str) -> str | None:
         return self._values.get(ref)
 
 

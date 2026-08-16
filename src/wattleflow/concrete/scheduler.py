@@ -12,9 +12,9 @@ from __future__ import annotations
 import threading
 from abc import ABC
 from logging import Handler
-from typing import Any, Optional
+from typing import Any
 from wattleflow.core import IEventListener, IScheduler
-from wattleflow.concrete.wattleflow import Wattleflow
+from wattleflow.concrete.base import Wattleflow
 from wattleflow.constants.enums import Event
 from wattleflow.decorators.preset import PresetDecorator
 
@@ -48,7 +48,7 @@ class Scheduler(Wattleflow, IScheduler, ABC):
     def count(self) -> int:
         return self._counter
 
-    def __init__(self, level: int, handler: Optional[Handler] = None, **kwargs):
+    def __init__(self, level: int, handler: Handler | None = None, **kwargs):
         super().__init__(level=level, handler=handler, **kwargs)
 
         self.debug(
@@ -109,3 +109,6 @@ class Scheduler(Wattleflow, IScheduler, ABC):
 # --------------------------------------------------------------------------- #
 # endregion Schedulers                                                        #
 # --------------------------------------------------------------------------- #
+
+
+__all__ = ["Scheduler"]

@@ -31,6 +31,8 @@
   "registry": "wattleflow-code-vocabulary",
   "distribution": "wattleflow-workflow",
   "_criterion_version": [
+    "0.8.1 (2026-08-16) — `bases` families realigned by DR-WFL-009 (witness: tag",
+    "v0.0.0.93). Names only, no rule semantics: vectors stay comparable with 0.8.0.",
     "0.8.0 (2026-07-31) — rule semantics changed, so old and new vectors are not",
     "comparable without a declared note (D-10). Changes, per analysis",
     "tools/2026-07-31-analysis-changes.md §2.2: `helper_fan_in` and",
@@ -42,7 +44,7 @@
     "PENDING: DR-PRC-001 must enact this revision — until then the criterion is a",
     "draft and its findings are conformant, not descriptive (D-08)."
   ],
-  "criterion_version": "0.8.0",
+  "criterion_version": "0.8.1",
   "dictionary_version": "0.2.0",
   "dictionary_source": "documentation/dictionary.yaml#code",
   "_python_reference": "Defines the 'stdlib' set for ORG-01; must track requires-python in pyproject.toml.",
@@ -228,7 +230,8 @@
   ],
   "bases": {
     "root": [
-      "IWattleflow"
+      "IWattleflow",
+      "Wattleflow"
     ],
     "observer": [
       "IObservable",
@@ -308,7 +311,7 @@
     ],
     "logger": [
       "ILogger",
-      "AuditLogger"
+      "Audit"
     ],
     "exception": [
       "AuditException"

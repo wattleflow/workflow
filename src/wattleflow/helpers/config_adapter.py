@@ -14,10 +14,10 @@ import re
 from abc import ABC, abstractmethod
 from logging import Handler
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-from wattleflow.core import IHandler
-from wattleflow.concrete.wattleflow import Wattleflow
+from wattleflow.core import IHandler, IWattleflow
+from wattleflow.helpers.audit import Audit
 from wattleflow.helpers.config import Config
 
 # NOTE: Guarded optional dependency (DR-WFL-003) — `helpers/yaml.py` is a functionally
@@ -46,8 +46,8 @@ def config_section(*path: str):
         original_init = cls.__init__
 
         def patched_init(self, *args, **kwargs):
-            config: Optional[Config] = kwargs.pop("config", None)
-            chain: Optional[SecretResolverChain] = kwargs.pop("resolver_chain", None)
+            config: Config | None = kwargs.pop("config", None)
+            chain: SecretResolverChain | None = kwargs.pop("resolver_chain", None)
 
             name = kwargs.get("name")
 
@@ -118,14 +118,14 @@ class ISecretResolver(ABC):
         m = _REF_PATTERN.match(value)
         return m is not None and m.group(1) == self.PREFIX
 
-    def resolve(self, value: Any, strict: bool = False) -> Optional[str]:
+    def resolve(self, value: Any, strict: bool = False) -> str | None:
         m = _REF_PATTERN.match(value)
         if m is None or m.group(1) != self.PREFIX:
             return None
         return self._fetch(m.group(2))
 
     @abstractmethod
-    def _fetch(self, ref: str) -> Optional[str]: ...
+    def _fetch(self, ref: str) -> str | None: ...
 
 
 class IConfigValidator(IHandler, ABC):
@@ -136,7 +136,7 @@ class IConfigValidator(IHandler, ABC):
     """
 
     def __init__(self) -> None:
-        self._next: Optional["IConfigValidator"] = None
+        self._next: "IConfigValidator" | None = None
 
     def set_next(self, handler: "IConfigValidator") -> "IConfigValidator":
         self._next = handler
@@ -164,7 +164,7 @@ class EnvVarResolver(ISecretResolver):
 
     PREFIX = "env"
 
-    def _fetch(self, ref: str) -> Optional[str]:
+    def _fetch(self, ref: str) -> str | None:
         return os.environ.get(ref)
 
 
@@ -184,7 +184,7 @@ class SecretResolverChain:
         self._resolvers.append(resolver)
         return self
 
-    def resolve(self, value: Any) -> Optional[str]:
+    def resolve(self, value: Any) -> str | None:
         for resolver in self._resolvers:
             if resolver.can_resolve(value):
                 try:
@@ -284,7 +284,8 @@ class NonEmptyValidator(IConfigValidator):
 # --------------------------------------------------------------------------- #
 
 
-class ConfigAdapter(Wattleflow):
+# Bases composed, not inherited from the framework root (DR-WFL-009).
+class ConfigAdapter(Audit, IWattleflow):
     def __init__(
         self,
         config_file: Path,
@@ -293,10 +294,10 @@ class ConfigAdapter(Wattleflow):
     ) -> None:
 
         level = kwargs.get("level", 0)
-        handler: Optional[Handler] = kwargs.get("handler", None)
+        handler: Handler | None = kwargs.get("handler", None)
         formater = {"formating": kwargs.get("formatter")} if kwargs.get("formating") else {}
-        validator: Optional[IConfigValidator] = kwargs.get("validator", None)
-        resolver_chain: Optional[SecretResolverChain] = kwargs.get("resolver_chain", None)
+        validator: IConfigValidator | None = kwargs.get("validator", None)
+        resolver_chain: SecretResolverChain | None = kwargs.get("resolver_chain", None)
 
         super().__init__(level=level, handler=handler, **formater)
 
