@@ -45,20 +45,21 @@ class CreatedVerdict:
 
 class CreatedWithin(IParser):
     """Selects files by their date, a concern distinct from filename matching.
-
     Looks only at the file's timestamp: the filesystem birth time when the
     platform exposes it, falling back to last-modified time when it does not
     (Linux without statx). Name/glob filtering is a separate axis and is not
     handled here.
     """
 
+    __slots__ = ("_from", "_to")
+
     def __init__(
         self,
         created_from: str | datetime | None,
         created_to: str | datetime | None,
     ) -> None:
-        self._from: datetime | None = self._parse(created_from, end_of_day=False)
-        self._to: datetime | None = self._parse(created_to, end_of_day=True)
+        self._from: datetime | None = self.parse(value=created_from, end_of_day=False)
+        self._to: datetime | None = self.parse(value=created_to, end_of_day=True)
         if self._from and self._to and self._from > self._to:
             raise ValueError(
                 f"created_from ({self._from.isoformat()}) is later than "
@@ -68,6 +69,10 @@ class CreatedWithin(IParser):
     @property
     def active(self) -> bool:
         return bool(self._from or self._to)
+
+    @property
+    def name(self) -> str:
+        return type(self).__name__
 
     @property
     def start(self) -> datetime | None:
@@ -105,7 +110,12 @@ class CreatedWithin(IParser):
             return CreatedVerdict(False, created_at=created_at, reason="after-window")
         return CreatedVerdict(True, created_at=created_at)
 
-    def parse(value: str | datetime | None, *, end_of_day: bool) -> datetime | None:
+    def parse(
+        self,
+        value: str | datetime | None,
+        *,
+        end_of_day: bool,
+    ) -> datetime | None:
         if value is None:
             return None
         if isinstance(value, datetime):
