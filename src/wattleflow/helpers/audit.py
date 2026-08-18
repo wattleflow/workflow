@@ -51,9 +51,6 @@ class AsyncHandler(Handler):
 
 
 class ContextFilter(Filter):
-    # Kept for backward compatibility with callers that pass
-    # extra={"src_filename": ..., "src_lineno": ...}.
-    # New code should rely on `stacklevel` in log methods instead.
     def filter(self, record):
         record.filename = getattr(record, "src_filename", record.filename)
         record.lineno = getattr(record, "src_lineno", record.lineno)
@@ -94,13 +91,9 @@ class Audit(ILogger, IObserver):
             if cls not in self._instances:
                 self._logger.setLevel(self._level)
 
-                # Only override propagation when the caller states it: the
-                # logger may be one the caller has configured elsewhere.
                 if propagate is not None:
                     self._logger.propagate = propagate
 
-                # A caller-supplied handler is configured by its owner; only
-                # the one built here gets this class's filter and format.
                 if self._handler is None:
                     self._handler = StreamHandler()
                     self._handler.addFilter(ContextFilter())

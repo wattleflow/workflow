@@ -9,9 +9,9 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
-import logging
+import json
 from pathlib import Path
-from typing import final, Any
+from typing import final, Any, ClassVar, TextIO
 from wattleflow.helpers.exception import AuditException
 from wattleflow.core import IWattleflow
 from wattleflow.helpers.audit import Audit
@@ -23,17 +23,28 @@ from wattleflow.helpers.yaml import yaml, validate
 # --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
-# region Config                                                               #
+# region Types                                                                #
 # --------------------------------------------------------------------------- #
+
+__all__ = ["Config", "JSONConfig"]
 
 # Distinguishes "no such key" from a key holding a falsy value.
 _MISSING: Any = object()
 
+# --------------------------------------------------------------------------- #
+# region Classes                                                              #
+# --------------------------------------------------------------------------- #
 
-@final
-# Bases are composed rather than inherited from the framework root: helpers/ may
-# not import concrete/ (DR-WFL-009).
-class Config(Audit, IWattleflow):
+
+class _ConfigBase(Audit, IWattleflow):
+    """Format-independent lookup; the serialisation format is the only variant."""
+
+    # Serialisation contract of the subclass: label used in errors, decoding of
+    # the file, and the parse failures that mean "this document is not valid".
+    FORMAT: ClassVar[str] = ""
+    ENCODING: ClassVar[str | None] = None
+    ERRORS: ClassVar[tuple[type[Exception], ...]] = ()
+
     __slots__ = (
         "_config_file",
         "_key_filename",
@@ -45,10 +56,8 @@ class Config(Audit, IWattleflow):
         config_file: str,
         **kwargs,
     ):
-        level: str | int = kwargs.get("level", "NOTSET")
-        handler: logging.Handler | None = kwargs.get("handler", None)
 
-        super().__init__(level=level, handler=handler)
+        super().__init__(**kwargs)
 
         if Path(config_file).exists() is False:
             self.error(
@@ -110,11 +119,12 @@ class Config(Audit, IWattleflow):
 
             return _MISSING
 
+        caller = type(self).__name__
         root = find_root(self._data, section)
         if root is _MISSING:
             if default is not None:
                 return default
-            raise ValueError(f"Config:[root] not found. [{section}, {key}, {name}]")
+            raise ValueError(f"{caller}:[root] not found. [{section}, {key}, {name}]")
 
         branch = find_root(root, key)
         if branch is _MISSING:
@@ -125,20 +135,24 @@ class Config(Audit, IWattleflow):
             if name is not None:
                 if default is not None:
                     return default
-                raise ValueError(f"Config:[name] not found. [{section}, {key}, {name}]")
+                raise ValueError(f"{caller}:[name] not found. [{section}, {key}, {name}]")
             return branch
 
         return found
 
     def __repr__(self) -> str:
-        name = getattr(self, "name", "Config")
+        name = getattr(self, "name", type(self).__name__)
         config_file = getattr(self, "config_file", "unknown")
         return f"{name}:{config_file}"
 
+    def _parse(self, file: TextIO) -> Any:
+        raise NotImplementedError
+
     def _load_settings(self):
+        caller = type(self).__name__
         try:
-            with open(self.config_file, "r") as file:
-                self._data = yaml.safe_load(file)  # type: ignore
+            with open(self.config_file, "r", encoding=self.ENCODING) as file:
+                self._data = self._parse(file)
 
             try:
                 schema = {
@@ -148,14 +162,14 @@ class Config(Audit, IWattleflow):
                 validate(instance=self._data, schema=schema)
             except Exception as e:
                 self.error(
-                    msg="Config._load_settings",
-                    error=f"Config.validate error: {str(e)}",
+                    msg=f"{caller}._load_settings",
+                    error=f"{caller}.validate error: {str(e)}",
                 )
 
         except FileNotFoundError as e:
             raise FileNotFoundError(f"Configuration file not found: {self.config_file}") from e
-        except yaml.YAMLError as e:
-            raise ValueError(f"Invalid YAML file: {self.config_file}. Error: {e}") from e
+        except self.ERRORS as e:
+            raise ValueError(f"Invalid {self.FORMAT} file: {self.config_file}. Error: {e}") from e
 
     @classmethod
     def flatten_config(cls, config: dict, parent_key: str = "", sep: str = "_") -> dict:
@@ -189,6 +203,30 @@ class Config(Audit, IWattleflow):
         return {}
 
 
+@final
+class Config(_ConfigBase):
+    FORMAT = "YAML"
+    ERRORS = (yaml.YAMLError,)
+
+    __slots__ = ()
+
+    def _parse(self, file: TextIO) -> Any:
+        return yaml.safe_load(file)  # type: ignore
+
+
+@final
+class JSONConfig(_ConfigBase):
+    # RFC 8259 fixes the encoding; the platform default must not decide it.
+    FORMAT = "JSON"
+    ENCODING = "utf-8"
+    ERRORS = (json.JSONDecodeError, UnicodeDecodeError)
+
+    __slots__ = ()
+
+    def _parse(self, file: TextIO) -> Any:
+        return json.load(file)
+
+
 # --------------------------------------------------------------------------- #
-# endregion Config                                                            #
+# endregion Classes                                                           #
 # --------------------------------------------------------------------------- #
