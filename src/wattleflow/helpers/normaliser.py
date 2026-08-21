@@ -21,143 +21,125 @@ from typing import Any
 
 
 # --------------------------------------------------------------------------- #
-# region Constants                                                            #
-# --------------------------------------------------------------------------- #
-
-
-WINDOWS_RESERVED = {
-    "con",
-    "prn",
-    "aux",
-    "nul",
-    *(f"com{i}" for i in range(1, 10)),
-    *(f"lpt{i}" for i in range(1, 10)),
-}
-
-_MONTHS = {
-    "jan": 1,
-    "january": 1,
-    "feb": 2,
-    "february": 2,
-    "mar": 3,
-    "march": 3,
-    "apr": 4,
-    "april": 4,
-    "may": 5,
-    "jun": 6,
-    "june": 6,
-    "jul": 7,
-    "july": 7,
-    "aug": 8,
-    "august": 8,
-    "sep": 9,
-    "sept": 9,
-    "september": 9,
-    "oct": 10,
-    "october": 10,
-    "nov": 11,
-    "november": 11,
-    "dec": 12,
-    "december": 12,
-}
-
-_TSEP = r"(?:\s+at\s+|[\sT,_-]+)"
-
-# (regex, kind)
-_PATTERNS: list[tuple[re.Pattern[str], str]] = [
-    # ISO: 2024-01-24 [T 14:30[:00]]
-    (
-        re.compile(
-            r"(?P<y>\d{4})-(?P<m>\d{1,2})-(?P<d>\d{1,2})"
-            rf"(?:{_TSEP}(?P<h>\d{{1,2}}):(?P<mn>\d{{2}})(?::\d{{2}})?)?"
-        ),
-        "numeric",
-    ),
-    # compact numeric: 20240124[T1430 | _1430]
-    (
-        re.compile(
-            r"(?<!\d)(?P<y>\d{4})(?P<m>\d{2})(?P<d>\d{2})"
-            r"(?:[T_]?(?P<h>\d{2})(?P<mn>\d{2}))?(?!\d)"
-        ),
-        "numeric",
-    ),
-    # DMY with separators: 24/01/2024 [ 14:30]
-    (
-        re.compile(
-            r"(?<!\d)(?P<d>\d{1,2})[./](?P<m>\d{1,2})[./](?P<y>\d{2,4})"
-            rf"(?:{_TSEP}(?P<h>\d{{1,2}})[:.](?P<mn>\d{{2}}))?(?!\d)"
-        ),
-        "numeric",
-    ),
-    # 24 Jan 2024 [ 14:30]
-    (
-        re.compile(
-            r"(?<!\w)(?P<d>\d{1,2})\s+(?P<mon>[A-Za-z]{3,9})\.?\s+(?P<y>\d{2,4})"
-            rf"(?:{_TSEP}(?P<h>\d{{1,2}})[:.](?P<mn>\d{{2}}))?(?!\w)"
-        ),
-        "textual",
-    ),
-    # Jan 24, 2024 [ 14:30]
-    (
-        re.compile(
-            r"(?<!\w)(?P<mon>[A-Za-z]{3,9})\.?\s+(?P<d>\d{1,2}),?\s+(?P<y>\d{2,4})"
-            rf"(?:{_TSEP}(?P<h>\d{{1,2}})[:.](?P<mn>\d{{2}}))?(?!\w)"
-        ),
-        "textual",
-    ),
-    # compact textual, no spaces: 24JAN20, 24Jan2020
-    (re.compile(r"(?<!\w)(?P<d>\d{1,2})(?P<mon>[A-Za-z]{3})(?P<y>\d{2,4})(?!\w)"), "textual"),
-]
-
-# --------------------------------------------------------------------------- #
-# endregion Constants                                                         #
-# --------------------------------------------------------------------------- #
-
-
-# --------------------------------------------------------------------------- #
-# region Global methods                                                       #
-# --------------------------------------------------------------------------- #
-
-
-def _format_match(match: re.Match[str], kind: str, pivot: int) -> str | None:
-    """Build 'YYYY-MM-DD[-HHMM]' from a match; None when components are invalid."""
-    try:
-        g = match.groupdict()
-        if kind == "textual":
-            key = g["mon"].lower().rstrip(".")
-            if key not in _MONTHS:
-                return None
-            mo = _MONTHS[key]
-        else:
-            mo = int(g["m"])
-
-        y = int(g["y"])
-        d = int(g["d"])
-        if y < 100:
-            y = 2000 + y if y < pivot else 1900 + y
-
-        has_time = g.get("h") is not None
-        h = int(g["h"]) if has_time else 0
-        mi = int(g["mn"]) if g.get("mn") else 0
-
-        dt = datetime(y, mo, d, h, mi)
-        return f"{dt:%Y-%m-%d-%H%M}" if has_time else f"{dt:%Y-%m-%d}"
-    except (ValueError, KeyError):
-        return None
-
-
-# --------------------------------------------------------------------------- #
-# endregion Global methods                                                    #
-# --------------------------------------------------------------------------- #
-
-
-# --------------------------------------------------------------------------- #
 # region Normaliser classes                                                   #
 # --------------------------------------------------------------------------- #
 
 
+# v0.0.0.97 (NFR-ORG-05): the month table, the pattern list and the match
+# formatter are members of the class that applies them.
 class Normaliser(str):
     """`str` subclass whose transformations return a new instance, so calls chain."""
+
+    RESERVED = {
+        "con",
+        "prn",
+        "aux",
+        "nul",
+        *(f"com{i}" for i in range(1, 10)),
+        *(f"lpt{i}" for i in range(1, 10)),
+    }
+
+    MONTHS = {
+        "jan": 1,
+        "january": 1,
+        "feb": 2,
+        "february": 2,
+        "mar": 3,
+        "march": 3,
+        "apr": 4,
+        "april": 4,
+        "may": 5,
+        "jun": 6,
+        "june": 6,
+        "jul": 7,
+        "july": 7,
+        "aug": 8,
+        "august": 8,
+        "sep": 9,
+        "sept": 9,
+        "september": 9,
+        "oct": 10,
+        "october": 10,
+        "nov": 11,
+        "november": 11,
+        "dec": 12,
+        "december": 12,
+    }
+
+    TSEP = r"(?:\s+at\s+|[\sT,_-]+)"
+
+    # (regex, kind)
+    PATTERNS: list[tuple[re.Pattern[str], str]] = [
+        # ISO: 2024-01-24 [T 14:30[:00]]
+        (
+            re.compile(
+                r"(?P<y>\d{4})-(?P<m>\d{1,2})-(?P<d>\d{1,2})"
+                rf"(?:{TSEP}(?P<h>\d{{1,2}}):(?P<mn>\d{{2}})(?::\d{{2}})?)?"
+            ),
+            "numeric",
+        ),
+        # compact numeric: 20240124[T1430 | _1430]
+        (
+            re.compile(
+                r"(?<!\d)(?P<y>\d{4})(?P<m>\d{2})(?P<d>\d{2})"
+                r"(?:[T_]?(?P<h>\d{2})(?P<mn>\d{2}))?(?!\d)"
+            ),
+            "numeric",
+        ),
+        # DMY with separators: 24/01/2024 [ 14:30]
+        (
+            re.compile(
+                r"(?<!\d)(?P<d>\d{1,2})[./](?P<m>\d{1,2})[./](?P<y>\d{2,4})"
+                rf"(?:{TSEP}(?P<h>\d{{1,2}})[:.](?P<mn>\d{{2}}))?(?!\d)"
+            ),
+            "numeric",
+        ),
+        # 24 Jan 2024 [ 14:30]
+        (
+            re.compile(
+                r"(?<!\w)(?P<d>\d{1,2})\s+(?P<mon>[A-Za-z]{3,9})\.?\s+(?P<y>\d{2,4})"
+                rf"(?:{TSEP}(?P<h>\d{{1,2}})[:.](?P<mn>\d{{2}}))?(?!\w)"
+            ),
+            "textual",
+        ),
+        # Jan 24, 2024 [ 14:30]
+        (
+            re.compile(
+                r"(?<!\w)(?P<mon>[A-Za-z]{3,9})\.?\s+(?P<d>\d{1,2}),?\s+(?P<y>\d{2,4})"
+                rf"(?:{TSEP}(?P<h>\d{{1,2}})[:.](?P<mn>\d{{2}}))?(?!\w)"
+            ),
+            "textual",
+        ),
+        # compact textual, no spaces: 24JAN20, 24Jan2020
+        (re.compile(r"(?<!\w)(?P<d>\d{1,2})(?P<mon>[A-Za-z]{3})(?P<y>\d{2,4})(?!\w)"), "textual"),
+    ]
+
+    @classmethod
+    def _format_match(cls, match: re.Match[str], kind: str, pivot: int) -> str | None:
+        """Build 'YYYY-MM-DD[-HHMM]' from a match; None when components are invalid."""
+        try:
+            g = match.groupdict()
+            if kind == "textual":
+                key = g["mon"].lower().rstrip(".")
+                if key not in cls.MONTHS:
+                    return None
+                mo = cls.MONTHS[key]
+            else:
+                mo = int(g["m"])
+
+            y = int(g["y"])
+            d = int(g["d"])
+            if y < 100:
+                y = 2000 + y if y < pivot else 1900 + y
+
+            has_time = g.get("h") is not None
+            h = int(g["h"]) if has_time else 0
+            mi = int(g["mn"]) if g.get("mn") else 0
+
+            dt = datetime(y, mo, d, h, mi)
+            return f"{dt:%Y-%m-%d-%H%M}" if has_time else f"{dt:%Y-%m-%d}"
+        except (ValueError, KeyError):
+            return None
 
     def __new__(cls, value: Any = "") -> "Normaliser":
         return super().__new__(cls, "" if value is None else str(value))
@@ -194,11 +176,11 @@ class Normaliser(str):
         text = str(self)
         changed = False
 
-        for rx, kind in _PATTERNS:
+        for rx, kind in self.PATTERNS:
 
             def _sub(m: re.Match[str], _kind: str = kind) -> str:
                 nonlocal changed
-                result = _format_match(m, _kind, pivot)
+                result = self._format_match(m, _kind, pivot)
                 if result is None:
                     return m.group(0)  # invalid date — leave as written
                 changed = True
@@ -236,7 +218,7 @@ class Normaliser(str):
         if not norm:
             norm = "file"
 
-        if norm in WINDOWS_RESERVED:
+        if norm in self.RESERVED:
             norm = f"{norm}_"
 
         if len(norm) > max_len:
@@ -343,7 +325,7 @@ class NormaliserFormatSpec(str):
             ),
         ]
 
-        for rx, kind in _PATTERNS:
+        for rx, kind in self.PATTERNS:
             for match in rx.finditer(self):
                 try:
                     g = match.groupdict()
@@ -401,7 +383,7 @@ class NormaliserFormatSpec(str):
             norm = "file"
 
         # 5) Reserved Windows names – add suffix
-        if norm in WINDOWS_RESERVED:
+        if norm in Normaliser.RESERVED:
             norm = f"{norm}_"
 
         # 6) Limit stem length
@@ -415,3 +397,4 @@ class NormaliserFormatSpec(str):
 # endregion Normaliser classes                                                #
 # --------------------------------------------------------------------------- #
 
+__all__ = ["Normaliser", "CaseText", "NormaliserFormatSpec"]

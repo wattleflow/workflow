@@ -31,6 +31,10 @@
   "registry": "wattleflow-code-vocabulary",
   "distribution": "wattleflow-workflow",
   "_criterion_version": [
+    "0.8.2 (2026-08-19) — `scope.guarded_optional` emptied by DR-WFL-012 (witness:",
+    "tag v0.0.0.97): the YAML config, its shim and the config adapter/validator left",
+    "for wattleflow-processors, and the JSON config that stays is stdlib-only. Waiver",
+    "list only, no rule semantics: vectors stay comparable with 0.8.1.",
     "0.8.1 (2026-08-16) — `bases` families realigned by DR-WFL-009 (witness: tag",
     "v0.0.0.93). Names only, no rule semantics: vectors stay comparable with 0.8.0.",
     "0.8.0 (2026-07-31) — rule semantics changed, so old and new vectors are not",
@@ -44,7 +48,7 @@
     "PENDING: DR-PRC-001 must enact this revision — until then the criterion is a",
     "draft and its findings are conformant, not descriptive (D-08)."
   ],
-  "criterion_version": "0.8.1",
+  "criterion_version": "0.8.2",
   "dictionary_version": "0.2.0",
   "dictionary_source": "documentation/dictionary.yaml#code",
   "_python_reference": "Defines the 'stdlib' set for ORG-01; must track requires-python in pyproject.toml.",
@@ -184,34 +188,7 @@
       "typing_extensions"
     ],
     "exclude_paths": [],
-    "guarded_optional": [
-      {
-        "module": "helpers/config.py",
-        "packages": [
-          "yaml",
-          "jsonschema"
-        ],
-        "dr": "DR-WFL-003",
-        "fallback": "helpers/yaml.py"
-      },
-      {
-        "module": "helpers/config_adapter.py",
-        "packages": [
-          "yaml"
-        ],
-        "dr": "DR-WFL-003",
-        "fallback": "helpers/yaml.py"
-      },
-      {
-        "module": "helpers/config_validator.py",
-        "packages": [
-          "yaml",
-          "jsonschema"
-        ],
-        "dr": "DR-WFL-003",
-        "fallback": "helpers/yaml.py"
-      }
-    ]
+    "guarded_optional": []
   },
   "_distribution_manifest": [
     "NFR-SEC-03 criteria 2/3 — the packaging manifest of this distribution, read by",

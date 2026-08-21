@@ -14,79 +14,88 @@ from __future__ import annotations
 import os
 import glob
 import sys
+from typing import ClassVar
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
 
+__all__ = ["SourcePath"]
+
 
 # --------------------------------------------------------------------------- #
-# region Global methods                                                       #
+# region Classes                                                              #
 # --------------------------------------------------------------------------- #
 
 
-def get_source_path(path: str):
-    source_path = os.getenv("SOURCE_PATH", path)
-    return source_path
+# v0.0.0.97 (NFR-ORG-05): the environment key, the injection guard and the
+# search live in one class — the guard is not a module-level function.
+class SourcePath:
+    """Locates a source tree and prepends it to `sys.path`."""
 
+    ENV: ClassVar[str] = "SOURCE_PATH"
 
-def _validate_source_path(path: str) -> str:
-    """Validate path before inserting into sys.path.
+    @classmethod
+    def configured(cls, path: str) -> str:
+        return os.getenv(cls.ENV, path)
 
-    Rejects relative paths and paths containing traversal sequences to
-    prevent environment-variable-based sys.path injection attacks.
-    """
-    resolved = os.path.realpath(path)
-    if not os.path.isabs(resolved):
-        raise ValueError(f"SOURCE_PATH must be absolute, got: {path!r}")
-    if not os.path.isdir(resolved):
-        raise ValueError(f"SOURCE_PATH does not exist or is not a directory: {path!r}")
-    return resolved
+    @classmethod
+    def _validate(cls, path: str) -> str:
+        """Validate path before inserting into sys.path.
 
+        Rejects relative paths and paths containing traversal sequences to
+        prevent environment-variable-based sys.path injection attacks.
+        """
+        resolved = os.path.realpath(path)
+        if not os.path.isabs(resolved):
+            raise ValueError(f"{cls.ENV} must be absolute, got: {path!r}")
+        if not os.path.isdir(resolved):
+            raise ValueError(f"{cls.ENV} does not exist or is not a directory: {path!r}")
+        return resolved
 
-def override_paths(show=False, path: str = "."):
-    search_path = get_source_path(path)
+    @classmethod
+    def override(cls, show: bool = False, path: str = ".") -> None:
+        search_path = cls.configured(path)
 
-    to_search = sys.path[:]
+        to_search = sys.path[:]
+        searched = set()
 
-    searched = set()
+        while to_search:
+            path = to_search.pop(0)
 
-    while to_search:
-        path = to_search.pop(0)
+            if path in searched:
+                continue
 
-        if path in searched:
-            continue
+            searched.add(path)
 
-        searched.add(path)
+            search_pattern = os.path.join(path, "**", search_path)
+            found_files = glob.glob(search_pattern, recursive=True)
 
-        search_pattern = os.path.join(path, "**", search_path)
-        found_files = glob.glob(search_pattern, recursive=True)
-
-        if found_files:
-            source_path = os.path.dirname(found_files[0])
-            try:
-                source_path = _validate_source_path(source_path)
-            except ValueError as e:
+            if found_files:
+                source_path = os.path.dirname(found_files[0])
+                try:
+                    source_path = cls._validate(source_path)
+                except ValueError as e:
+                    if show:
+                        print(f"[WARN] : {e}")
+                    break
+                sys.path.insert(0, source_path)
                 if show:
-                    print(f"[WARN] : {e}")
+                    print(f"[INFO] : Searched path found: {source_path}")
                 break
-            sys.path.insert(0, source_path)
-            if show:
-                print(f"[INFO] : Searched path found: {source_path}")
-            break
 
-        parent_dir = os.path.dirname(path)
-        while parent_dir and parent_dir != path:
-            to_search.append(parent_dir)
-            path = parent_dir
             parent_dir = os.path.dirname(path)
+            while parent_dir and parent_dir != path:
+                to_search.append(parent_dir)
+                path = parent_dir
+                parent_dir = os.path.dirname(path)
 
-
-def show_paths():
-    for p in sys.path:
-        print(p)
+    @staticmethod
+    def show() -> None:
+        for p in sys.path:
+            print(p)
 
 
 # --------------------------------------------------------------------------- #
-# endregion Global methods                                                    #
+# endregion Classes                                                           #
 # --------------------------------------------------------------------------- #

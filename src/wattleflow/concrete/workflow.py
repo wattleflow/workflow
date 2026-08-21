@@ -14,7 +14,7 @@ import os
 from abc import abstractmethod, ABC
 from typing import ClassVar
 from logging import getLogger
-from wattleflow.core import IOriginator
+from wattleflow.core import IConfig, IOriginator
 from wattleflow.constants import Event
 from wattleflow.concrete.exception import AuditException
 from wattleflow.concrete.base import Wattleflow
@@ -23,12 +23,6 @@ from wattleflow.concrete.manager import (
     DriverManager,
     ProcessorManager,
 )
-from wattleflow.helpers.config_adapter import (
-    ConfigAdapter,
-    EnvVarResolver,
-    SecretResolverChain,
-)
-from wattleflow.helpers.dotenv import DotEnvResolver, find_env_file
 
 
 # --------------------------------------------------------------------------- #
@@ -64,24 +58,17 @@ class GenericWorkflow(Wattleflow, IOriginator, ABC):
 
     def __init__(
         self,
-        adapter: ConfigAdapter,
+        adapter: IConfig,
         connections: ConnectionManager,
         drivers: DriverManager,
         processors: ProcessorManager,
+        **kwargs,
     ) -> None:
 
-        level = adapter.find("logging", "level", default="INFO")
-        handler = adapter.find("logging", "handler", default=None)
-        formating = adapter.find("logging", "format", default=None)
-        formating = {"formating": formating} if formating else {}
-
-        super().__init__(level=level, handler=handler, **formating)
-
+        super().__init__(**kwargs)
         self.debug(
             msg=Event.Constructor.name,
             step=Event.Started.name,
-            level=level,
-            handler=handler,
             connections=connections,
             drivers=drivers,
             processors=processors,
@@ -89,7 +76,7 @@ class GenericWorkflow(Wattleflow, IOriginator, ABC):
 
         from wattleflow.concrete.helpers import Attribute
 
-        Attribute.evaluate(self, adapter, ConfigAdapter)
+        Attribute.evaluate(self, adapter, IConfig)
         Attribute.evaluate(self, connections, ConnectionManager)
         Attribute.evaluate(self, drivers, DriverManager)
         Attribute.evaluate(self, processors, ProcessorManager)
@@ -197,40 +184,41 @@ class WorkflowFactory:
     def build(cls, **kwargs) -> GenericWorkflow:
         logger.debug(msg="WorkflowFactory.build", **kwargs)
 
-        config_path = kwargs.pop("config_path")
-        workflow_name = kwargs.pop("workflow_name")
-        sections = kwargs.pop("sections")
-        env_file = kwargs.pop("env_file", None)
+        # v0.0.0.97 (DR-WFL-012): the caller supplies the configuration source.
+        # How it is assembled — file format, secret resolution, .env discovery —
+        # belongs to the distribution that owns those parsers, not to the core.
+        adapter: IConfig = kwargs.pop("adapter", None)
+        if not isinstance(adapter, IConfig):
+            raise WorkflowFactoryException(
+                cls, f"`adapter` must implement IConfig, got {type(adapter).__name__}."
+            )
 
-        # Per-file ${dotenv:...} overrides + ${env:VAR} from os.environ.
-        # The .env section is keyed by the YAML file name; discovery walks up
-        # from the config directory so one .env may sit next to the configs or
-        # at the project root. Unresolved references fail the build (strict).
-        from pathlib import Path
+        # `sections` is the key path of the environment block inside the
+        # document (e.g. ("infrastructure", "dev")); every lookup below is
+        # resolved under it, so the adapter itself stays unscoped and simple.
+        sections = kwargs.pop("sections", None)
 
-        if env_file is None:
-            env_file = find_env_file(config_path)
-        resolver_chain = (
-            SecretResolverChain()
-            .add(DotEnvResolver(env_file, section=Path(config_path).name))
-            .add(EnvVarResolver())
-        )
-        adapter: ConfigAdapter = ConfigAdapter(
-            config_path,
-            *sections,
-            resolver_chain=resolver_chain,
-            strict=True,
-        )
+        if sections is None:
+            raise WorkflowFactoryException(
+                cls, "`yaml` must be scoped to a specific path, got None."
+            )
 
         # Workflow class ----------------------------------------------- #
-        workflow: list[dict] = adapter.find(
-            "workflows",
-            name=workflow_name,
-            default=None,
-        )
+        # Plain config keys: the adapter resolves `<sections>.workflows`, a
+        # named list; without a name its single entry is the one to build.
+        workflow_name = kwargs.pop("workflow_name", None)
+        workflow: dict = adapter.find(*sections, "workflows", default=None)
 
-        if workflow is None:
-            raise ValueError(f"{workflow_name!r} not found in config.workflows.")
+        if isinstance(workflow, list):
+            if workflow_name:
+                workflow = next((w for w in workflow if w.get("name") == workflow_name), None)
+            elif len(workflow) == 1:
+                workflow = workflow[0]
+
+        if not isinstance(workflow, dict):
+            raise WorkflowFactoryException(
+                cls, f"Workflow {workflow_name!r} not found under `workflows`."
+            )
 
         workflow_class = cls._resolve_section("workflows", workflow)
 
@@ -241,20 +229,21 @@ class WorkflowFactory:
 
         # Global audit logger settings --------------------------------- #
         global_audit = {
-            "level": adapter.find("logging", "level", default="NOTSET"),
-            "handler": adapter.find("logging", "handler", default=None),
-            "formating": adapter.find("logging", "format", default=None),
+            "level": adapter.find(*sections, "logging", "level", default="NOTSET"),
+            "handler": adapter.find(*sections, "logging", "handler", default=None),
+            "formating": adapter.find(*sections, "logging", "format", default=None),
         }
 
         # Worflow Class ------------------------------------------------ #
-        connections = cls._build_connections(adapter, **global_audit)
-        drivers = cls._build_drivers(adapter, connections, **global_audit)
+        connections = cls._build_connections(adapter, sections, **global_audit)
+        drivers = cls._build_drivers(adapter, sections, connections, **global_audit)
         processors = cls._build_processors(workflow, drivers, **global_audit)
         return workflow_class(
             adapter=adapter,
             connections=connections,
             drivers=drivers,
             processors=processors,
+            **global_audit,
         )
 
     # ------------------------------------------------------------------ #
@@ -362,9 +351,11 @@ class WorkflowFactory:
             raise WorkflowFactoryException(cls, error) from e
 
     @classmethod
-    def _build_connections(cls, adapter: ConfigAdapter, **global_audit) -> DriverManager:
+    def _build_connections(
+        cls, adapter: IConfig, sections: tuple, **global_audit
+    ) -> ConnectionManager:
         manager = ConnectionManager(**global_audit)
-        connections = adapter.find("managers", "connections", default=[]) or []
+        connections = adapter.find(*sections, "managers", "connections", default=[]) or []
         for connection in connections:
             connection_class = cls._resolve_section("managers.connections", connection)
             configuration = connection.get("configuration", {})
@@ -380,12 +371,13 @@ class WorkflowFactory:
     @classmethod
     def _build_drivers(
         cls,
-        adapter: ConfigAdapter,
+        adapter: IConfig,
+        sections: tuple,
         connections: ConnectionManager,
         **global_audit,
     ) -> DriverManager:
         manager = DriverManager(**global_audit)
-        drivers = adapter.find("managers", "drivers", default=[]) or []
+        drivers = adapter.find(*sections, "managers", "drivers", default=[]) or []
         for driver in drivers:
             driver_class = cls._resolve_section("managers.drivers", driver)
             driver_type = driver.get("type", None)
@@ -466,7 +458,7 @@ class WorkflowFactory:
             )
 
             # repositories ----------------------------------------------------
-            repositories = blackboard_config.get("repositories", {})
+            repositories = blackboard_config.get("repositories", []) or []
             for repository in repositories:
                 audit = cls._audit(repository, global_audit)
                 repository_class = cls._resolve_section("blackboard.repositories", repository)

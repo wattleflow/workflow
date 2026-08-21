@@ -1,6 +1,6 @@
 [project]
 name = "wattleflow-workflow"
-version = "0.0.0.95"
+version = "0.0.0.96"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"
@@ -26,7 +26,7 @@ classifiers = [
 # pinned. An upper cap is deliberately absent — capping every 0.0.0.x bump needs
 # the version policy (DR-013) to say what a breaking core release looks like.
 dependencies = [
-    "wattleflow>=0.0.0.49",
+    "wattleflow>=0.0.0.51",
 ]
 
 [build-system]

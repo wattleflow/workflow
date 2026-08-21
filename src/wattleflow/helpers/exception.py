@@ -123,20 +123,23 @@ class AuditException(Exception):
         return self.reason
 
     def __reduce__(self):
-        return (_rebuild_audit_exception, (type(self), self.reason))
+        return (type(self)._rebuild, (self.reason,))
 
-
-def _rebuild_audit_exception(cls, reason):
-    obj = cls.__new__(cls)
-    obj.reason = reason
-    obj.error = reason
-    obj.caller = None
-    obj.name = cls.__name__
-    obj.filename = ""
-    obj.lineno = 0
-    obj.code_line = None
-    Exception.__init__(obj, reason)
-    return obj
+    # v0.0.0.97 (NFR-ORG-05): unpickling callable is a member of the class it
+    # rebuilds; `cls` carries the concrete subclass, so no type argument is
+    # threaded through the reduce tuple.
+    @classmethod
+    def _rebuild(cls, reason):
+        obj = cls.__new__(cls)
+        obj.reason = reason
+        obj.error = reason
+        obj.caller = None
+        obj.name = cls.__name__
+        obj.filename = ""
+        obj.lineno = 0
+        obj.code_line = None
+        Exception.__init__(obj, reason)
+        return obj
 
 
 # --------------------------------------------------------------------------- #

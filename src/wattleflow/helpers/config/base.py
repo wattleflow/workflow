@@ -1,4 +1,4 @@
-# Module name: helpers/config.py
+# Module name: helpers/config/base.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -11,12 +11,13 @@
 from __future__ import annotations
 import json
 from pathlib import Path
-from typing import final, Any, ClassVar, TextIO
+from abc import abstractmethod
+from typing import final, Any, ClassVar
 from wattleflow.helpers.exception import AuditException
-from wattleflow.core import IWattleflow
-from wattleflow.helpers.audit import Audit
+from wattleflow.core import IConfig
+from wattleflow.concrete.base import Wattleflow
 from wattleflow.constants.enums import Event
-from wattleflow.helpers.yaml import yaml, validate
+from wattleflow.helpers.validation import SchemaValidator
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -26,7 +27,7 @@ from wattleflow.helpers.yaml import yaml, validate
 # region Types                                                                #
 # --------------------------------------------------------------------------- #
 
-__all__ = ["Config", "JSONConfig"]
+__all__ = ["ConfigBase", "JSONConfig"]
 
 # Distinguishes "no such key" from a key holding a falsy value.
 _MISSING: Any = object()
@@ -36,7 +37,9 @@ _MISSING: Any = object()
 # --------------------------------------------------------------------------- #
 
 
-class _ConfigBase(Audit, IWattleflow):
+# v0.0.0.97 (DR-WFL-012, DR-COR-016): the search contract is shared and public —
+# clean core carries JSON, the YAML variant lives in wattleflow-processors.
+class ConfigBase(Wattleflow, IConfig):
     """Format-independent lookup; the serialisation format is the only variant."""
 
     # Serialisation contract of the subclass: label used in errors, decoding of
@@ -53,13 +56,14 @@ class _ConfigBase(Audit, IWattleflow):
 
     def __init__(
         self,
-        config_file: str,
+        config_file: str | Path,
         **kwargs,
     ):
 
         super().__init__(**kwargs)
 
-        if Path(config_file).exists() is False:
+        path = Path(config_file)
+        if path.exists() is False:
             self.error(
                 msg=Event.Constructor.value,
                 error=f"{self}: invalid or missing `config_path` {config_file}!",
@@ -72,16 +76,16 @@ class _ConfigBase(Audit, IWattleflow):
                 config_file=config_file,
             )
 
-        self._config_file: str = config_file
+        self._config_file: Path = path
         self._key_filename: str | None = None
         self._data = None
         self._load_settings()
 
     @property
-    def config_file(self) -> str:
+    def config_file(self) -> Path:
         return self._config_file
 
-    def find(self, *keys) -> Any:
+    def find(self, *keys: str, default: Any = None) -> Any:
         result = self._data
         try:
             for key in keys:
@@ -89,7 +93,7 @@ class _ConfigBase(Audit, IWattleflow):
             return result
         except (KeyError, IndexError, TypeError) as e:
             self.warning(Event.Find.value, missing=str(e))
-            return None
+            return default
 
     def get(self, section: str, key: str, name=None, default=None) -> dict | str | list:
         # Absence is signalled by _MISSING, never by falsiness: `[]`, `{}`, `0`,
@@ -135,7 +139,9 @@ class _ConfigBase(Audit, IWattleflow):
             if name is not None:
                 if default is not None:
                     return default
-                raise ValueError(f"{caller}:[name] not found. [{section}, {key}, {name}]")
+                raise ValueError(
+                    f"{caller}:[name] not found. [{section}, {key}, {name}]"
+                )
             return branch
 
         return found
@@ -145,21 +151,20 @@ class _ConfigBase(Audit, IWattleflow):
         config_file = getattr(self, "config_file", "unknown")
         return f"{name}:{config_file}"
 
-    def _parse(self, file: TextIO) -> Any:
-        raise NotImplementedError
+    @abstractmethod
+    def _parse(self, text: str) -> Any: ...
 
     def _load_settings(self):
         caller = type(self).__name__
         try:
-            with open(self.config_file, "r", encoding=self.ENCODING) as file:
-                self._data = self._parse(file)
+            self._data = self._parse(self._config_file.read_text(encoding=self.ENCODING))
 
             try:
                 schema = {
                     "type": "object",
                     "properties": {"debug": {"type": "boolean"}},
                 }
-                validate(instance=self._data, schema=schema)
+                SchemaValidator.validate(instance=self._data, schema=schema)
             except Exception as e:
                 self.error(
                     msg=f"{caller}._load_settings",
@@ -167,9 +172,13 @@ class _ConfigBase(Audit, IWattleflow):
                 )
 
         except FileNotFoundError as e:
-            raise FileNotFoundError(f"Configuration file not found: {self.config_file}") from e
+            raise FileNotFoundError(
+                f"Configuration file not found: {self.config_file}"
+            ) from e
         except self.ERRORS as e:
-            raise ValueError(f"Invalid {self.FORMAT} file: {self.config_file}. Error: {e}") from e
+            raise ValueError(
+                f"Invalid {self.FORMAT} file: {self.config_file}. Error: {e}"
+            ) from e
 
     @classmethod
     def flatten_config(cls, config: dict, parent_key: str = "", sep: str = "_") -> dict:
@@ -204,18 +213,7 @@ class _ConfigBase(Audit, IWattleflow):
 
 
 @final
-class Config(_ConfigBase):
-    FORMAT = "YAML"
-    ERRORS = (yaml.YAMLError,)
-
-    __slots__ = ()
-
-    def _parse(self, file: TextIO) -> Any:
-        return yaml.safe_load(file)  # type: ignore
-
-
-@final
-class JSONConfig(_ConfigBase):
+class JSONConfig(ConfigBase):
     # RFC 8259 fixes the encoding; the platform default must not decide it.
     FORMAT = "JSON"
     ENCODING = "utf-8"
@@ -223,8 +221,8 @@ class JSONConfig(_ConfigBase):
 
     __slots__ = ()
 
-    def _parse(self, file: TextIO) -> Any:
-        return json.load(file)
+    def _parse(self, text: str) -> Any:
+        return json.loads(text)
 
 
 # --------------------------------------------------------------------------- #

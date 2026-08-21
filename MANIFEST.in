@@ -21,10 +21,11 @@
 # "import-clean" = importable with only stdlib + the `wattleflow` core package.
 # A third-party reference is allowed in the core ONLY as a *guarded optional
 # dependency* (DR-WFL-003): try/except with a functionally complete stdlib
-# fallback — e.g. helpers/config*.py → yaml/jsonschema, falling back to
-# helpers/yaml.py. Installing this wheel never forces a third-party dependency.
-# Measured 2026-07-28: 62 of 65 modules are stdlib-only; all 3 exceptions
-# (helpers/config.py, config_adapter.py, config_validator.py) carry the guard.
+# fallback. Installing this wheel never forces a third-party dependency.
+# The YAML-backed configuration (config_adapter/config_validator/config_yaml,
+# dotenv, the yaml shim) moved to wattleflow-processors; what stays here is the
+# format-independent base, helpers/config/base.py — one namespace portion of
+# `wattleflow.helpers.config`, whose other portion that distribution ships.
 #
 # INVARIANT: this include list must cover every package that
 # `[tool.setuptools.packages.find]` in pyproject.toml declares. A package

@@ -71,9 +71,9 @@ _AVRO_MAGIC: bytes = b"Obj\x01"
 _ORC_MAGIC: bytes = b"ORC"
 # Markdown heuristics — ATX heading, fenced code block, setext underline.
 _MD_RE: re.Pattern[str] = re.compile(
-    r"(?m)^(#{1,6}\s+\S"        # ATX heading: '# foo'
-    r"|```[\w]*$"                # fenced code block opener
-    r"|[-=]{3,}\s*$)"            # setext underline
+    r"(?m)^(#{1,6}\s+\S"  # ATX heading: '# foo'
+    r"|```[\w]*$"  # fenced code block opener
+    r"|[-=]{3,}\s*$)"  # setext underline
 )
 # Maximum bytes read from disk during content-based detection (prevents OOM)
 _DETECT_MAX_BYTES: int = 50 * 1024 * 1024  # 50 MB
@@ -83,9 +83,7 @@ _XLS_STREAM_UTF16: tuple[bytes, ...] = (
     b"B\x00o\x00o\x00k\x00",
 )
 # DOC stream name encoded as UTF-16LE
-_DOC_STREAM_UTF16: bytes = (
-    b"W\x00o\x00r\x00d\x00D\x00o\x00c\x00u\x00m\x00e\x00n\x00t\x00"
-)
+_DOC_STREAM_UTF16: bytes = b"W\x00o\x00r\x00d\x00D\x00o\x00c\x00u\x00m\x00e\x00n\x00t\x00"
 # --------------------------------------------------------------------------- #
 # endregion Constants                                                         #
 # --------------------------------------------------------------------------- #
@@ -262,9 +260,7 @@ class FileType(Enum):
         if (
             stripped[0] == "<"
             and stripped.count("<") >= 2
-            and stripped[: stripped.find("\n", 0, 512) + 1 or 512]
-            .rstrip()
-            .endswith(".")
+            and stripped[: stripped.find("\n", 0, 512) + 1 or 512].rstrip().endswith(".")
         ):
             return cls.GRAPH
 
@@ -277,43 +273,43 @@ class FileType(Enum):
             return cls.MARKDOWN
 
         # --- LOG ---
-        if _is_log(lines):
+        if cls._is_log(lines):
             return cls.LOG
 
         # --- CSV / TSV ---
         if len(lines) >= 2:
-            ft = _detect_delimited(lines)
+            ft = cls._detect_delimited(lines)
             if ft is not None:
                 return ft
 
         return cls.TXT
 
+    @classmethod
+    def _is_log(cls, lines: list[str]) -> bool:
+        """Return True if *lines* resemble structured log output.
 
-def _is_log(lines: list[str]) -> bool:
-    """Return True if *lines* resemble structured log output.
+        At least half of the sampled lines (min 2) must match a timestamp or
+        log-level pattern to avoid false positives on regular prose text.
+        """
+        sample = lines[:20]
+        if len(sample) < 2:
+            return False
+        hits = sum(1 for ln in sample if _LOG_RE.search(ln))
+        return hits >= max(2, len(sample) // 2)
 
-    At least half of the sampled lines (min 2) must match a timestamp or
-    log-level pattern to avoid false positives on regular prose text.
-    """
-    sample = lines[:20]
-    if len(sample) < 2:
-        return False
-    hits = sum(1 for ln in sample if _LOG_RE.search(ln))
-    return hits >= max(2, len(sample) // 2)
+    @classmethod
+    def _detect_delimited(cls, lines: list[str]) -> "FileType | None":
+        """Return FileType.CSV if content uses a consistent delimiter, else None.
 
-
-def _detect_delimited(lines: list[str]) -> FileType | None:
-    """Return FileType.CSV if content uses a consistent delimiter, else None.
-
-    Checks comma, semicolon, and tab in that order. A format is considered
-    consistent when all sampled rows share the same delimiter count (allowing
-    one count difference to tolerate a trailing delimiter or quoted fields).
-    """
-    for delimiter in (",", ";", "\t"):
-        counts = [ln.count(delimiter) for ln in lines[:10]]
-        if counts[0] > 0 and len(set(counts)) <= 2:
-            return FileType.CSV
-    return None
+        Checks comma, semicolon, and tab in that order. A format is considered
+        consistent when all sampled rows share the same delimiter count (allowing
+        one count difference to tolerate a trailing delimiter or quoted fields).
+        """
+        for delimiter in (",", ";", "\t"):
+            counts = [ln.count(delimiter) for ln in lines[:10]]
+            if counts[0] > 0 and len(set(counts)) <= 2:
+                return cls.CSV
+        return None
 
 
 # --------------------------------------------------------------------------- #

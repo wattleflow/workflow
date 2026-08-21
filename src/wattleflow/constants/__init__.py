@@ -20,7 +20,7 @@ from .enums import (
     PipelineType,
     ProvenanceHandler,
 )
-from .filetype import FileType, _is_log, _detect_delimited
+from .filetype import FileType
 from .mimetypes import MimeTypes
 
 __all__ = [
@@ -38,6 +38,4 @@ __all__ = [
     "ProtectiveMarkings",
     "ProvenanceHandler",
     "WattleflowOSCAL",
-    "_is_log",
-    "_detect_delimited",
 ]
