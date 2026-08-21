@@ -20,7 +20,7 @@ built to last and grow.
 | **Python Compatibility** | [![Python versions](https://img.shields.io/pypi/pyversions/wattleflow-workflow.svg)](https://pypi.org/project/wattleflow-workflow/)|
 | **Dependencies**         | [wattleflow-core](https://www.github.com/wattleflow/core.git)|
 | **Size**                 | nimble                                                                  |
-| **Documentation**        | [Wattleflow **Core** Documentation](https://github.com/wattleflow/docs.git) |
+| **Documentation**        | [Wattleflow **Core** Documentation](https://github.com/wattleflow/documentation.git) |
 
 
 
