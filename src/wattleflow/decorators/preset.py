@@ -3,30 +3,6 @@
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
-
-"""
-This module provides PresetDecorator, a lightweight attribute extension helper for
-Wattleflow components. It lets a parent object expose a controlled set of optional
-runtime attributes while preserving strict access rules for unsupported names.
-In conjunction with classes such as Blackboard, Managers, Drivers, and Processors,
-PresetDecorator keeps configurable object state explicit, bounded, and discoverable
-across the wattleflow-workflow runtime.
-
-A configured class declares its permitted keys in a class attribute named
-exactly ``ALLOWED`` (NFR-ORG-07); PresetDecorator resolves it from the parent's
-type, so no subclass has to forward `allowed=` through the constructor chain:
-
-    class DriverLocalStorage(GenericDriver):
-        ALLOWED = ["create", "read_path", "write_path"]
-
-Parent classes using PresetDecorator must delegate missing attribute lookups through
-their own __getattr__ implementation:
-
-    def __getattr__(self, name: str) -> Any:
-        preset: PresetDecorator = object.__getattribute__(self, "_preset")
-        return preset.__getattr__(name)
-"""
-
 from __future__ import annotations
 from typing import Any
 from wattleflow.core import IWattleflow

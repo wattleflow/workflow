@@ -11,7 +11,7 @@
 from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
-from enum import Enum
+from enum import auto, Enum
 from contextlib import contextmanager
 from typing import Any, Generic, TypeVar
 from collections.abc import Generator
@@ -19,7 +19,7 @@ from wattleflow.core import IObservable, IObserver
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.exception import ConnectionException, ManagerException
 from wattleflow.concrete.state_machine import StateMachine
-from wattleflow.constants import Event, Operation
+from wattleflow.enums import Event
 from wattleflow.decorators.preset import PresetDecorator
 
 # --------------------------------------------------------------------------- #
@@ -53,6 +53,13 @@ Connection = TypeVar("Connection", bound=object)
 # --------------------------------------------------------------------------- #
 # region State Machine                                                        #
 # --------------------------------------------------------------------------- #
+
+
+class Operation(Enum):
+    Start = auto()
+    Stop = auto()
+    Connect = auto()
+    Disconnect = auto()
 
 
 class ConnectionAction(str, Enum):
@@ -363,7 +370,9 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
         try:
             old_conn.request(action=Operation.Disconnect)
         except Exception as e:
-            self.warning(msg="hot_swap", error=f"Old connection was not closed properly: {e}")
+            self.warning(
+                msg="hot_swap", error=f"Old connection was not closed properly: {e}"
+            )
 
     def request(self, **kwargs: Any) -> Any:
         action = kwargs.get("action")
@@ -371,12 +380,16 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
 
         if action is Operation.Connect:
             result = self.ensure_created()
-            self.debug(msg=Event.Operation.value, step=Event.Completed.name, action=action)
+            self.debug(
+                msg=Event.Operation.value, step=Event.Completed.name, action=action
+            )
             return result
 
         if action is Operation.Disconnect:
             result = self.ensure_closed()
-            self.debug(msg=Event.Operation.value, step=Event.Completed.name, action=action)
+            self.debug(
+                msg=Event.Operation.value, step=Event.Completed.name, action=action
+            )
             return result
 
         raise RuntimeError(f"Unknown action: {action}")

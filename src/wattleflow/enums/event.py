@@ -1,4 +1,4 @@
-# Module name: constants/enum.py
+# Module name: enums/event.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -8,13 +8,13 @@
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
-from enum import auto, Enum
+from enum import Enum
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
-# region Constants                                                            #
+# region Enums                                                                #
 # --------------------------------------------------------------------------- #
 
 
@@ -215,13 +215,6 @@ class Event(Enum):
     Written = "Written"
 
 
-class Operation(Enum):
-    Start = auto()
-    Stop = auto()
-    Connect = auto()
-    Disconnect = auto()
-
-
 # --------------------------------------------------------------------------- #
-# endregion Constants                                                         #
+# endregion Enums                                                             #
 # --------------------------------------------------------------------------- #

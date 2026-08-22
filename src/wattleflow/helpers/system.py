@@ -35,13 +35,13 @@ from collections.abc import Callable, Mapping, Sequence
 
 from wattleflow.core import IWattleflow
 from wattleflow.constants.enums import Event
-from wattleflow.constants.keys import KEY_CONFIG_FILE_NAME
 from wattleflow.helpers.normaliser import Normaliser
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
 
+KEY_CONFIG_FILE_NAME = "config.json"  # noqa: F405
 
 # --------------------------------------------------------------------------- #
 # region Types                                                                #
@@ -86,9 +86,7 @@ class ClassLoader(IWattleflow):
         try:
             module_path, class_name = class_path.rsplit(".", 1)
         except ValueError as e:
-            self.log.error(
-                "%s: invalid class path %r: %s", Event.Constructor.value, class_path, e
-            )
+            self.log.error("%s: invalid class path %r: %s", Event.Constructor.value, class_path, e)
             raise ValueError(f"Invalid class path: {class_path}") from e
 
         try:
@@ -105,9 +103,7 @@ class ClassLoader(IWattleflow):
         cls = getattr(module, class_name)
         self.cls = cls
 
-        self.log.debug(
-            "%s: class resolved %s.%s", Event.Constructor.value, module_path, class_name
-        )
+        self.log.debug("%s: class resolved %s.%s", Event.Constructor.value, module_path, class_name)
 
         try:
             self.instance = cls(*args, **kwargs)
@@ -143,18 +139,12 @@ class FileStorage:
             not create  # noqa: W503
             and (not os.path.isdir(self.path) or not os.access(self.path, os.R_OK))  # noqa: W503
         ):
-            raise FileNotFoundError(
-                f"Path doesn't exist or not accessible: {str(self.path)}"
-            )
+            raise FileNotFoundError(f"Path doesn't exist or not accessible: {str(self.path)}")
 
         if create and self.path.exists() is False:
             self.path.mkdir(parents=True, exist_ok=True)
 
-        name = (
-            Normaliser(self.origin.name).date().name()
-            if normalised
-            else self.origin.name
-        )
+        name = Normaliser(self.origin.name).date().name() if normalised else self.origin.name
 
         self.filename = self.path.joinpath(name).with_suffix(self.origin.suffix)
 
@@ -366,9 +356,7 @@ class TempPathHelper:
             base = Path(gettempdir()).resolve()
             source = (base / path_like[len("TEMP") :].lstrip("/\\")).resolve()
             if not source.is_relative_to(base):
-                raise ValueError(
-                    f"Path escapes the temporary directory {base}: {file_path}"
-                )
+                raise ValueError(f"Path escapes the temporary directory {base}: {file_path}")
         else:
             source = Path(path_like)
 
@@ -414,9 +402,7 @@ def decorator(*dargs: Any, **dkwargs: Any) -> Callable[..., Any]:
     def _outer(fn):
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
-            return Proxy(fn, before_call=before_call, after_call=after_call)(
-                *args, **kwargs
-            )
+            return Proxy(fn, before_call=before_call, after_call=after_call)(*args, **kwargs)
 
         return wrapper
 
