@@ -7,14 +7,9 @@
 # lives in `wattleflow.enums` (wattleflow-processors, DR-WFL-016).
 
 from .audit import LogFormat
-from .enums import (
-    Classification,
-    Event,
-    Operation,
-)
+from .enums import Event, Operation
 
 __all__ = [
-    "Classification",
     "Event",
     "LogFormat",
     "Operation",

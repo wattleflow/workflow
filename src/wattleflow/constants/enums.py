@@ -18,16 +18,6 @@ from enum import auto, Enum
 # --------------------------------------------------------------------------- #
 
 
-# Classification
-class Classification(Enum):
-    CLASSIFIED = "Classified"
-    OFFICIAL = "OFFICIAL"
-    PROTECTED = "PROTECTED"
-    SECRET = "SECRET"
-    TOP_SECRET = "TOP SECRET"
-    UNCLASSIFIED = "UNCLASSIFIED"
-
-
 # Events
 class Event(Enum):
     Idle = "Idle"

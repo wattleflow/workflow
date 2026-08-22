@@ -4,11 +4,6 @@
 # License: Apache 2 Licence
 
 
-"""
-Description: This module initialises the scheduler package by exposing the CronJobScheduler
-class, which manages and executes scheduled tasks within the Wattleflow framework.
-"""
-
 # --------------------------------------------------------------------------- #
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
