@@ -237,12 +237,20 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
     # endregion Context handling
 
     def __del__(self):
+        # A failed __init__ still triggers __del__, and the instance may carry
+        # neither the FSM nor a logger: reporting the failure would then raise
+        # inside __del__ and bury the real exception under "Exception ignored".
+        # Same defensive shape as GenericDriver.__del__.
+        try:
+            object.__getattribute__(self, "_fsm")
+        except AttributeError:
+            return
         try:
             self.debug(msg="__del__", step=Event.Starting.value)
             self.ensure_closed()
             self.debug(msg="__del__", step=Event.Completed.name)
-        except Exception as e:
-            self.warning(msg="__del__", error=f"Caught during __del__: {e}")
+        except Exception:
+            pass
 
     def __enter__(self):
         self.debug(msg=Event.Enter.value, step=Event.Starting.value, fnc="__enter__")

@@ -13,10 +13,10 @@ import json
 from pathlib import Path
 from abc import abstractmethod
 from typing import final, Any, ClassVar
-from wattleflow.helpers.exception import AuditException
+from .audit import Audit
 from wattleflow.core import IConfig
-from wattleflow.concrete.base import Wattleflow
 from wattleflow.constants.enums import Event
+from wattleflow.helpers.exception import AuditException
 from wattleflow.helpers.validation import SchemaValidator
 
 # --------------------------------------------------------------------------- #
@@ -27,7 +27,7 @@ from wattleflow.helpers.validation import SchemaValidator
 # region Types                                                                #
 # --------------------------------------------------------------------------- #
 
-__all__ = ["ConfigBase", "JSONConfig"]
+__all__ = ["Config", "JSONConfig"]
 
 # Distinguishes "no such key" from a key holding a falsy value.
 _MISSING: Any = object()
@@ -39,7 +39,7 @@ _MISSING: Any = object()
 
 # v0.0.0.97 (DR-WFL-012, DR-COR-016): the search contract is shared and public —
 # clean core carries JSON, the YAML variant lives in wattleflow-processors.
-class ConfigBase(Wattleflow, IConfig):
+class Config(Audit, IConfig):
     """Format-independent lookup; the serialisation format is the only variant."""
 
     # Serialisation contract of the subclass: label used in errors, decoding of
@@ -139,9 +139,7 @@ class ConfigBase(Wattleflow, IConfig):
             if name is not None:
                 if default is not None:
                     return default
-                raise ValueError(
-                    f"{caller}:[name] not found. [{section}, {key}, {name}]"
-                )
+                raise ValueError(f"{caller}:[name] not found. [{section}, {key}, {name}]")
             return branch
 
         return found
@@ -172,13 +170,9 @@ class ConfigBase(Wattleflow, IConfig):
                 )
 
         except FileNotFoundError as e:
-            raise FileNotFoundError(
-                f"Configuration file not found: {self.config_file}"
-            ) from e
+            raise FileNotFoundError(f"Configuration file not found: {self.config_file}") from e
         except self.ERRORS as e:
-            raise ValueError(
-                f"Invalid {self.FORMAT} file: {self.config_file}. Error: {e}"
-            ) from e
+            raise ValueError(f"Invalid {self.FORMAT} file: {self.config_file}. Error: {e}") from e
 
     @classmethod
     def flatten_config(cls, config: dict, parent_key: str = "", sep: str = "_") -> dict:
@@ -213,7 +207,7 @@ class ConfigBase(Wattleflow, IConfig):
 
 
 @final
-class JSONConfig(ConfigBase):
+class JSONConfig(Config):
     # RFC 8259 fixes the encoding; the platform default must not decide it.
     FORMAT = "JSON"
     ENCODING = "utf-8"
