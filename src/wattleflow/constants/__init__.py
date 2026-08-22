@@ -6,11 +6,9 @@
 # What the framework itself uses; the vocabulary that only specialisations read
 # lives in `wattleflow.enums` (wattleflow-processors, DR-WFL-016).
 
-from .audit import LogFormat
 from .enums import Event, Operation
 
 __all__ = [
     "Event",
-    "LogFormat",
     "Operation",
 ]

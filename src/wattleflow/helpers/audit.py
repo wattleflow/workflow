@@ -7,6 +7,7 @@
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
+from enum import Enum
 import logging
 from logging import (
     Filter,
@@ -19,7 +20,6 @@ from logging import (
 from threading import RLock
 from typing import Any
 from wattleflow.core import ILogger, IObserver
-from wattleflow.constants import LogFormat
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
@@ -64,6 +64,16 @@ class ContextFilter(Filter):
 # --------------------------------------------------------------------------- #
 # region Classes                                                              #
 # --------------------------------------------------------------------------- #
+
+
+# Logging format
+class LogFormat(Enum):
+    DEFAULT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+    Detailed = "%(asctime)s - %(levelname)s - %(name)s - %(message)s - %(filename)s:%(lineno)d"
+    Custom = (
+        "%(asctime)s - %(levelname)s - %(name)s - %(message)s - %(src_filename)s:%(src_lineno)d"
+    )
+    JSON = '{"time": "%(asctime)s", "name": "%(name)s", "level": "%(levelname)s", "message": "%(message)s"}'
 
 
 # Terminal link of the cooperative __init__ chain: it consumes the logging
