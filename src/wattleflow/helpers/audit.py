@@ -73,7 +73,10 @@ class LogFormat(Enum):
     Custom = (
         "%(asctime)s - %(levelname)s - %(name)s - %(message)s - %(src_filename)s:%(src_lineno)d"
     )
-    JSON = '{"time": "%(asctime)s", "name": "%(name)s", "level": "%(levelname)s", "message": "%(message)s"}'
+    JSON = (
+        '{"time": "%(asctime)s", "name": "%(name)s", '
+        '"level": "%(levelname)s", "message": "%(message)s"}'
+    )
 
 
 # Terminal link of the cooperative __init__ chain: it consumes the logging

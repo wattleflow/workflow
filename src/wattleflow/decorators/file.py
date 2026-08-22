@@ -27,7 +27,7 @@ class FileClass:
 
     @property
     def mtime(self) -> datetime:
-        if self.filename.exists():
+        if not self.filename.exists():
             raise FileNotFoundError(str(self.filename))
         return datetime.fromtimestamp(self.filename.stat().st_mtime)
 
@@ -50,3 +50,8 @@ class FileClass:
     @property
     def guid(self) -> int:
         return self.filename.stat().st_gid
+
+
+__all__ = [
+    "FileClass",
+]

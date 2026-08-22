@@ -11,7 +11,7 @@
 from __future__ import annotations
 import time
 from wattleflow.concrete.scheduler import Scheduler
-from wattleflow.constants.enums import Event
+from wattleflow.enums import Event
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #

@@ -1,6 +1,6 @@
 [project]
 name = "wattleflow-workflow"
-version = "0.0.1.1"
+version = "0.0.1.2"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"
@@ -60,6 +60,7 @@ include = [
     "wattleflow.concrete*",
     "wattleflow.constants*",
     "wattleflow.decorators*",
+    "wattleflow.enums*",
     "wattleflow.helpers*",
     "wattleflow.managers*",
     "wattleflow.orchestrators*",

@@ -153,7 +153,9 @@
     "depend on (ORG-01 §3 misfiled-leaf, 2026-07-29).",
     "2026-07-31: `audit`, `blackboards` and `mappers` removed — no module under",
     "src/wattleflow belongs to them (mappers moved to wattleflow-processors per",
-    "NFR-SEC-03). The `absent-domain` check (K10) keeps this list honest from now on."
+    "NFR-SEC-03). The `absent-domain` check (K10) keeps this list honest from now on.",
+    "`enums` is absent for the same reason: it imports nothing intra-project,",
+    "so every layer may depend on it (DR-WFL-016 t.5, DR-WFL-017)."
   ],
   "domains": [
     "concrete",

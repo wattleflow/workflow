@@ -28,7 +28,7 @@ from wattleflow.core import (
     IProcessor,
     IStrategy,
 )
-from wattleflow.constants.enums import (
+from wattleflow.enums import (
     Event,
     Operation,
 )

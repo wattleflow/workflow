@@ -9,7 +9,7 @@
 # ships unless it is explicitly re-added below. Delete that line and packaging
 # silently reverts to "whatever git tracks" — the boundary stops being enforced.
 #
-# Ships: the import-clean package set — audit, concrete, constants, decorators,
+# Ships: the import-clean package set — concrete, constants, decorators, enums,
 #        helpers, managers, orchestrators, schedulers.
 #
 # Everything third-party-coupled — specialisations (connections/, drivers/,
@@ -46,6 +46,7 @@ global-exclude __pycache__/*
 recursive-include src/wattleflow/concrete *.py
 recursive-include src/wattleflow/constants *.py
 recursive-include src/wattleflow/decorators *.py
+recursive-include src/wattleflow/enums *.py
 recursive-include src/wattleflow/helpers *.py
 recursive-include src/wattleflow/managers *.py
 recursive-include src/wattleflow/orchestrators *.py

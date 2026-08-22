@@ -34,14 +34,22 @@ from typing import Any, final
 from collections.abc import Callable, Mapping, Sequence
 
 from wattleflow.core import IWattleflow
-from wattleflow.constants.enums import Event
+from wattleflow.enums import Event
 from wattleflow.helpers.normaliser import Normaliser
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
 
-KEY_CONFIG_FILE_NAME = "config.json"  # noqa: F405
+# --------------------------------------------------------------------------- #
+# region Constants                                                            #
+# --------------------------------------------------------------------------- #
+# The core is JSON-only since DR-WFL-012; the name follows the reader
+# (DR-WFL-016).
+KEY_CONFIG_FILE_NAME = "config.json"
+# --------------------------------------------------------------------------- #
+# endregion Constants                                                         #
+# --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
 # region Types                                                                #
@@ -415,6 +423,7 @@ def decorator(*dargs: Any, **dkwargs: Any) -> Callable[..., Any]:
 
 
 __all__ = [
+    "KEY_CONFIG_FILE_NAME",
     "ClassLoader",
     "FileStorage",
     "Project",
@@ -423,12 +432,3 @@ __all__ = [
     "TempPathHelper",
     "decorator",
 ]
-
-
-if __name__ == "__main__":
-    try:
-        c = ClassLoader("wattleflow.core.Application").instance  # noqa: F841
-        # c = ClassLoader("wattleflow.concrete.Wattleflow").instance  # noqa: F841
-    except Exception as e:
-        print(f"Failed to load Application class: {e}")
-        raise SystemExit(1)

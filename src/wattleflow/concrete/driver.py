@@ -19,7 +19,7 @@ from wattleflow.core.transactional import IDriver
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.exception import DriverException
 from wattleflow.concrete.state_machine import StateMachine
-from wattleflow.constants.enums import Event, Operation
+from wattleflow.enums import Event, Operation
 from wattleflow.decorators.preset import PresetDecorator
 
 

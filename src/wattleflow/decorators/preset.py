@@ -73,3 +73,8 @@ class PresetDecorator:
         size: int = len(self._values) if hasattr(self, "_values") else 0
         parent_name = getattr(self._parent, "name", type(self._parent).__name__)
         return f"{parent_name}:elements:[{size}]"
+
+
+__all__ = [
+    "PresetDecorator",
+]
