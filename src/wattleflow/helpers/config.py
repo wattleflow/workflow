@@ -15,7 +15,7 @@ from abc import abstractmethod
 from typing import final, Any, ClassVar
 from .audit import Audit
 from wattleflow.core import IConfig
-from wattleflow.enums import Event
+from wattleflow.enums.event import Event
 from wattleflow.helpers.exception import AuditException
 from wattleflow.helpers.validation import SchemaValidator
 

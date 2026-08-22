@@ -34,7 +34,7 @@ from typing import Any, final
 from collections.abc import Callable, Mapping, Sequence
 
 from wattleflow.core import IWattleflow
-from wattleflow.enums import Event
+from wattleflow.enums.event import Event
 from wattleflow.helpers.normaliser import Normaliser
 
 # --------------------------------------------------------------------------- #

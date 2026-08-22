@@ -28,10 +28,8 @@ from wattleflow.core import (
     IProcessor,
     IStrategy,
 )
-from wattleflow.enums import (
-    Event,
-    Operation,
-)
+from wattleflow.enums.event import Event
+from wattleflow.enums.operation import Operation
 from wattleflow.concrete.manager import ConnectionManager
 from wattleflow.concrete.exception import OrchestratorException
 from wattleflow.concrete.base import Wattleflow

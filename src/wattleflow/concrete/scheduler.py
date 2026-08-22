@@ -15,7 +15,7 @@ from logging import Handler
 from typing import Any
 from wattleflow.core import IEventListener, IScheduler
 from wattleflow.concrete.base import Wattleflow
-from wattleflow.enums import Event
+from wattleflow.enums.event import Event
 from wattleflow.decorators.preset import PresetDecorator
 
 # --------------------------------------------------------------------------- #

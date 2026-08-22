@@ -24,7 +24,8 @@ from wattleflow.core import (
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.memento import GenericMemento
 from wattleflow.concrete.state_machine import StateMachine
-from wattleflow.enums import Event, Operation
+from wattleflow.enums.event import Event
+from wattleflow.enums.operation import Operation
 from wattleflow.decorators.preset import PresetDecorator
 from wattleflow.concrete.exception import PipelineException, ProcessorException
 

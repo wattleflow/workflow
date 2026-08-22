@@ -20,7 +20,7 @@ from uuid import uuid4
 from wattleflow.core import IAdaptee, IAdapter, ITarget
 from wattleflow.core.transactional import Content
 from wattleflow.concrete.base import Wattleflow
-from wattleflow.enums import Event
+from wattleflow.enums.event import Event
 from wattleflow.helpers.dtime import Now
 
 # --------------------------------------------------------------------------- #

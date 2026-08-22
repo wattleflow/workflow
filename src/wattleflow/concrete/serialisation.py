@@ -17,7 +17,7 @@ from wattleflow.core.transactional import Content
 from wattleflow.concrete.exception import AuditException
 from wattleflow.concrete.helpers import Attribute
 from wattleflow.concrete.base import Wattleflow
-from wattleflow.enums import Event
+from wattleflow.enums.event import Event
 from wattleflow.decorators.preset import PresetDecorator
 
 # --------------------------------------------------------------------------- #

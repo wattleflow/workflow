@@ -15,7 +15,7 @@ from abc import abstractmethod, ABC
 from typing import ClassVar
 from logging import getLogger
 from wattleflow.core import IConfig, IOriginator
-from wattleflow.enums import Event
+from wattleflow.enums.event import Event
 from wattleflow.concrete.exception import AuditException
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.manager import (

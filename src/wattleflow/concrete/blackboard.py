@@ -27,7 +27,7 @@ from wattleflow.core import (
 from wattleflow.core.transactional import Item
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.strategy import StrategyCreate
-from wattleflow.enums import Event
+from wattleflow.enums.event import Event
 from wattleflow.decorators.preset import PresetDecorator
 
 

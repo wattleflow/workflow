@@ -1,6 +1,6 @@
 [project]
 name = "wattleflow-workflow"
-version = "0.0.1.2"
+version = "0.0.1.3"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"
@@ -19,12 +19,6 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
-# The core is a hard runtime dependency and its contracts are NOT stable across
-# patch-level releases: v0.0.0.46 turned IWattleflow into an ABC with an abstract
-# `name`, dropped ISingleton and the T/W TypeVars, and renamed behavioral.py ->
-# behavioural.py. Anything below that floor fails at import time, so the floor is
-# pinned. An upper cap is deliberately absent — capping every 0.0.0.x bump needs
-# the version policy (DR-013) to say what a breaking core release looks like.
 dependencies = [
     "wattleflow>=0.0.0.50",
 ]

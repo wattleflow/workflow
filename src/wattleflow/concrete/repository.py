@@ -12,7 +12,7 @@ from __future__ import annotations
 from abc import ABC
 from typing import Any
 from wattleflow.core import IBlackboard, IRepository, ITarget
-from wattleflow.enums import Event
+from wattleflow.enums.event import Event
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.driver import GenericDriver
 from wattleflow.concrete.exception import RepositoryException

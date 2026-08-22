@@ -18,7 +18,8 @@ from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.exception import AuditException
 from wattleflow.concrete.connection import Connection
 from wattleflow.concrete.driver import DriverState
-from wattleflow.enums import Event, Operation
+from wattleflow.enums.event import Event
+from wattleflow.enums.operation import Operation
 
 
 # --------------------------------------------------------------------------- #
