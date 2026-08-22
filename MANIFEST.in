@@ -9,23 +9,24 @@
 # ships unless it is explicitly re-added below. Delete that line and packaging
 # silently reverts to "whatever git tracks" — the boundary stops being enforced.
 #
-# Ships: the import-clean package set — audit, concrete, constants, decorators
-#        (incl. the OSCAL decorator glue), helpers, managers, orchestrators,
-#        schedulers.
+# Ships: the import-clean package set — audit, concrete, constants, decorators,
+#        helpers, managers, orchestrators, schedulers.
 #
 # Everything third-party-coupled — specialisations (connections/, drivers/,
 # processors/, pipelines/, documents/, strategies/, blackboards/, mappers/,
 # api/) and the third-party helpers — lives in the separate wattleflow
 # distributions (wattleflow-processors, wattleflow-cad) or the examples project.
+# The compliance layer (oscal/, decorators/oscal/, decorators/pspf.py) ships from
+# wattleflow-processors too: it is a specialisation, not framework mechanics
+# (DR-WFL-015).
 #
 # "import-clean" = importable with only stdlib + the `wattleflow` core package.
 # A third-party reference is allowed in the core ONLY as a *guarded optional
 # dependency* (DR-WFL-003): try/except with a functionally complete stdlib
 # fallback. Installing this wheel never forces a third-party dependency.
-# The YAML-backed configuration (config_adapter/config_validator/config_yaml,
-# dotenv, the yaml shim) moved to wattleflow-processors; what stays here is the
-# format-independent base, helpers/config/base.py — one namespace portion of
-# `wattleflow.helpers.config`, whose other portion that distribution ships.
+# The YAML-backed configuration and its helpers moved to wattleflow-processors
+# (DR-WFL-012); what stays here is helpers/config.py — one module with one owner,
+# never a namespace shared with another distribution (DR-WFL-012 t.6).
 #
 # INVARIANT: this include list must cover every package that
 # `[tool.setuptools.packages.find]` in pyproject.toml declares. A package

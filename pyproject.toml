@@ -1,6 +1,6 @@
 [project]
 name = "wattleflow-workflow"
-version = "0.0.0.98"
+version = "0.0.0.99"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"
@@ -27,10 +27,6 @@ classifiers = [
 # the version policy (DR-013) to say what a breaking core release looks like.
 dependencies = [
     "wattleflow>=0.0.0.50",
-    # decorators/oscal/policy.py imports wattleflow.oscal.policy at module level;
-    # the gate is not optional, so neither is the distribution that carries it.
-    # Clean tier: wattleflow-oscal imports only stdlib + wattleflow (NFR-SEC-03).
-    "wattleflow-oscal>=0.0.5",
 ]
 
 [build-system]
