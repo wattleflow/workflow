@@ -48,7 +48,7 @@
     "PENDING: DR-PRC-001 must enact this revision — until then the criterion is a",
     "draft and its findings are conformant, not descriptive (D-08)."
   ],
-  "criterion_version": "0.9.0",
+  "criterion_version": "0.9.1",
   "dictionary_version": "0.2.0",
   "dictionary_source": "documentation/dictionary.yaml#code",
   "_python_reference": "Defines the 'stdlib' set for ORG-01; must track requires-python in pyproject.toml.",
@@ -482,6 +482,10 @@
       "target": "the kind of object the operation acts on",
       "reason": "why the outcome is what it is — a human sentence",
       "error": "the exception text"
-    }
+    },
+    "import_guard": [
+      "ImportError",
+      "ModuleNotFoundError"
+    ]
   }
 }

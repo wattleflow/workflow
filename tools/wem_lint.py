@@ -102,7 +102,7 @@ _CAMEL = re.compile(r"[A-Z]+(?![a-z])|[A-Z][a-z]+|[A-Z]|\d+")
 # Criterion-versioning convention (METHODOLOGY §1 t.2): a change in rule
 # semantics or in the criterion source is a minor bump, because the same code
 # can yield a different vector afterwards.
-__version__ = "1.13.0"
+__version__ = "1.14.0"
 ERROR, WARNING, INFO = logging.ERROR, logging.WARNING, logging.INFO
 
 
@@ -1381,6 +1381,7 @@ class AuditRuleBase(Wattleflow, IStrategy):
         "step_class_bases": [],
         "step_class_prefixes": [],
         "info_exempt": [],
+        "import_guard": ["ImportError", "ModuleNotFoundError"],
     }
 
     @classmethod
@@ -1441,6 +1442,7 @@ class AuditLevelRule(AuditRuleBase):
         cfg = self._cfg(reg)
         escalated = set(cfg["escalated"])
         trace = cfg["trace"]
+        guards = set(cfg["import_guard"])
         sev_escalation = Criterion.severity(reg, "audit_level_vs_propagation", WARNING)
         sev_trace = Criterion.severity(reg, "audit_failure_trace", WARNING)
 
@@ -1452,8 +1454,22 @@ class AuditLevelRule(AuditRuleBase):
             # module-level handlers are out of scope: no `self` exists there
             functions = (ast.FunctionDef, ast.AsyncFunctionDef)
             for fn in (n for n in ast.walk(tree) if isinstance(n, functions)):
+                # No `self` in scope, no audit call to make: a module-level function
+                # is in the same position as a module-level `try: import`.
+                first = (fn.args.posonlyargs + fn.args.args)[:1]
+                if not first or first[0].arg != "self":
+                    continue
                 for handler in (n for n in ast.walk(fn) if isinstance(n, ast.ExceptHandler)):
                     if not any(isinstance(n, ast.Raise) for n in ast.walk(handler)):
+                        continue
+                    # Guarded optional dependency (DR-WFL-003): the branch turns a
+                    # missing package into a domain error carrying the install hint,
+                    # and the boundary logs that once. A trace here would add nothing
+                    # the exception does not already say.
+                    if handler.type is not None and (
+                        {e.strip() for e in ast.unparse(handler.type).strip("()").split(",")}
+                        & guards
+                    ):
                         continue
                     bare = (
                         len(handler.body) == 1
