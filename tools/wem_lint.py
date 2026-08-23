@@ -102,7 +102,7 @@ _CAMEL = re.compile(r"[A-Z]+(?![a-z])|[A-Z][a-z]+|[A-Z]|\d+")
 # Criterion-versioning convention (METHODOLOGY §1 t.2): a change in rule
 # semantics or in the criterion source is a minor bump, because the same code
 # can yield a different vector afterwards.
-__version__ = "1.14.0"
+__version__ = "1.16.0"
 ERROR, WARNING, INFO = logging.ERROR, logging.WARNING, logging.INFO
 
 
@@ -271,7 +271,7 @@ class Criterion:
     # registry `check` → finding kinds emitted for it
     IMPLEMENTED = {
         "domain_acyclicity": ("import-cycle", "wrong-direction-import", "misfiled-leaf"),
-        "helper_fan_in": ("single-consumer-helper",),
+        "helper_fan_in": ("unused-shared-helper", "shared-shelf-usage"),
         "base_family_membership": ("pipeline-grammar",),
         "prohibited_standalone": ("standalone-role-noun",),
         "acronym_case": ("acronym-case",),
@@ -292,6 +292,21 @@ class Criterion:
         ),
         "audit_info_placement": ("audit-info-in-step-class",),
     }
+
+    @classmethod
+    def report_mode(cls, reg: dict, check: str, default: str = "per_module") -> str:
+        """How a check states itself in this distribution — one row per subject, or one
+        statistic over all of them.
+
+        The mode is criterion data, not a switch: whether an unused shelf module is a
+        finding or a statistic depends on who owns the shelf's consumers, and that is a
+        property of the distribution (DR-WFL-019 v2).
+        """
+        for rule in reg.get("rules") or ():
+            if rule.get("check") == check:
+                declared = str(rule.get("report", "")).lower()
+                return declared if declared in {"per_module", "summary"} else default
+        return default
 
     @classmethod
     def severity(cls, reg: dict, check: str, default: int = ERROR) -> int:
@@ -608,7 +623,7 @@ class NomenclatureRule(Wattleflow, IStrategy):
             add(
                 WARNING,
                 f"package '{canon_pkg}' groups several subjects — "
-                "subject/package relaxed (pending ADR)",
+                "subject/package relaxed (pending DR)",
             )
 
         # 2) Operation or To<Target>.
@@ -643,7 +658,7 @@ class NomenclatureRule(Wattleflow, IStrategy):
                     kind="acronym-case",
                 )
             else:
-                add(WARNING, f"qualifier '{q}' not registered (extend via ADR, criterion 3)")
+                add(WARNING, f"qualifier '{q}' not registered (extend via DR, criterion 3)")
 
 
 # --------------------------------------------------------------------------- #
@@ -664,6 +679,9 @@ class ImportGraphBuilder(Wattleflow, IBuilder):
         self._domains = set(reg["domains"])
         self._shared = reg["shared_namespace"]
         self._fanin: dict[str, set[str]] = defaultdict(set)  # helper module -> {domains}
+        # helper module -> {helper modules importing it}; counted for the shelf statistic
+        # only. Layering inside the shelf stays unmeasured (declared blind spot).
+        self._shelf_use: dict[str, set[str]] = defaultdict(set)
         # Directional edge stores so violations can be classified in a post-pass:
         self._helper_to_domain: list[tuple] = []  # (path, line, target, module, names)
         self._domain_to_helper: dict[str, list[tuple]] = defaultdict(
@@ -696,6 +714,11 @@ class ImportGraphBuilder(Wattleflow, IBuilder):
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module:
                 names = [a.name for a in node.names]
+                if node.level and dom == self._shared:
+                    # `from .audit import Audit` — a shelf-internal edge the absolute
+                    # form would have shown; without it the statistic reads it as unused.
+                    self._shelf_use[node.module.split(".")[0]].add(self._module_of(path) or "?")
+                    continue
                 self._record_edge(node.module, dom, path, node.lineno, names)
             elif isinstance(node, ast.Import):
                 for alias in node.names:
@@ -704,6 +727,9 @@ class ImportGraphBuilder(Wattleflow, IBuilder):
     def build(self) -> dict[str, set[str]]:
         return self._fanin
 
+    def shelf_use(self) -> dict[str, set[str]]:
+        return self._shelf_use
+
     def _record_edge(self, module, dom, path, line, names) -> None:
         parts = module.split(".")
         if len(parts) < 2 or parts[0] != "wattleflow":
@@ -711,6 +737,8 @@ class ImportGraphBuilder(Wattleflow, IBuilder):
         target = parts[1]
         self._imports_wf.add(dom)  # this package has an intra-project dependency → not a pure leaf
         self.edges.append((dom, target, module, tuple(names), path, line))
+        if target == self._shared and len(parts) >= 3 and dom == self._shared:
+            self._shelf_use[parts[2]].add(self._module_of(path) or "?")
         if target == self._shared and len(parts) >= 3 and dom != self._shared:
             self._fanin[parts[2]].add(dom)  # domain importing a shared helper → fan-in
             src_module = self._module_of(path)  # reverse edge, keyed by the importing module
@@ -797,7 +825,34 @@ class ImportGraphBuilder(Wattleflow, IBuilder):
 
 
 class DependencyLocalityRule(Wattleflow, IStrategy):
-    """NFR-ORG-01 — shared helpers must be acyclic and broadly used (fan-in ≥ 2)."""
+    """NFR-ORG-01 — shared helpers must be acyclic and used from outside the shelf.
+
+    Criterion 1 asks for a consumer, not for a quorum (DR-WFL-019 v2): `helpers/`
+    holds what other packages use, so the module nothing outside the shelf imports
+    is the misfiled one. Whether that is a finding or a statistic depends on who
+    owns the consumers: in a distribution whose shelf serves a sibling distribution
+    the count is a lower bound and states itself as one INFO statistic
+    (`report: summary`); where the shelf and its consumers ship together, an unused
+    module is a finding in its own right (`report: per_module`, the default).
+    """
+
+    @staticmethod
+    def _shelf_modules(src, shared) -> list[str]:
+        # Top-level names on the shelf: `helpers/dtime.py` -> dtime, `helpers/formatters/`
+        # -> formatters. Enumerated from the tree, not from the import graph, so a module
+        # nobody imports is still part of the population.
+        root = src / shared
+        if not root.is_dir():
+            return []
+        names = set()
+        for entry in root.iterdir():
+            if entry.name.startswith((".", "_")):
+                continue
+            if entry.is_dir():
+                names.add(entry.name)
+            elif entry.suffix == ".py":
+                names.add(entry.stem)
+        return sorted(names)
 
     def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
         shared = reg["shared_namespace"]
@@ -805,26 +860,52 @@ class DependencyLocalityRule(Wattleflow, IStrategy):
         for path in source.create_iterator():
             builder.add(path)
         fanin = builder.build()
+        shelf_use = builder.shelf_use()
 
         findings = builder.violations()
-        # Criterion 1: every shared helper module has fan-in >= 2 distinct domains.
+        # Criterion 1: a shared helper is imported by some package outside the shelf.
         fanin_severity = Criterion.severity(reg, "helper_fan_in", WARNING)
-        for helper, doms in sorted(fanin.items()):
-            consumers = doms - {shared}
-            if len(consumers) >= 2:
-                continue
-            who = ", ".join(sorted(consumers)) or "none"
+        mode = Criterion.report_mode(reg, "helper_fan_in")
+        modules = self._shelf_modules(src, shared)
+        unused = [m for m in modules if not (fanin.get(m, set()) - {shared})]
+
+        if mode == "summary":
+            if modules:
+                shelf_only = [m for m in unused if shelf_use.get(m)]
+                nowhere = [m for m in unused if not shelf_use.get(m)]
+                findings.append(
+                    Finding(
+                        "ORG-01",
+                        fanin_severity,
+                        src / shared,
+                        0,
+                        f"{shared} (shelf)",
+                        f"{len(modules) - len(unused)}/{len(modules)} shelf modules are "
+                        f"imported by a package outside `{shared}/`; {len(shelf_only)} only "
+                        f"from within the shelf, {len(nowhere)} by nothing measured here "
+                        "(criterion 1 — a consumer in a sibling distribution is not counted)",
+                        kind="shared-shelf-usage",
+                        detail=(
+                            f"shelf-only: {', '.join(shelf_only) or 'none'} · "
+                            f"unmeasured: {', '.join(nowhere) or 'none'}"
+                        ),
+                    )
+                )
+            return findings
+
+        for helper in unused:
+            inside = ", ".join(sorted(shelf_use.get(helper, set()))) or "nothing measured"
             findings.append(
                 Finding(
                     "ORG-01",
                     fanin_severity,
                     src / shared / f"{helper}.py",
                     0,
-                    f"helpers.{helper}",
-                    f"shared helper used by {len(consumers)} domain(s) [{who}] — criterion 1 "
-                    "wants >=2 (tolerated; relocate or keep domain-local)",
-                    kind="single-consumer-helper",
-                    detail=f"used only by: {who}",
+                    f"{shared}.{helper}",
+                    f"no package outside `{shared}/` imports this shared helper "
+                    f"[measured consumers: {inside}] — criterion 1 wants one",
+                    kind="unused-shared-helper",
+                    detail=f"consumers measured: {inside}",
                 )
             )
         return findings
@@ -907,7 +988,7 @@ class TypeVarRule(Wattleflow, IStrategy):
                 WARNING,
                 line,
                 name,
-                "branded TypeVar — ADR must decide rename to canonical role vs keep (criterion 1)",
+                "branded TypeVar — a DR must decide rename to canonical role vs keep (criterion 1)",
             )
             return
         # 2/3) bare single-letter is allowed ONLY for one unconstrained parameter.
@@ -959,7 +1040,7 @@ class TypeVarRule(Wattleflow, IStrategy):
                 role_sev,
                 line,
                 name,
-                "not in the registered role vocabulary (extend via ADR, criterion 1)",
+                "not in the registered role vocabulary (extend via DR, criterion 1)",
             )
 
     @staticmethod
@@ -1951,8 +2032,8 @@ class Application:
             "--registry",
             type=Path,
             default=here / "dictionary.json",
-            help="criterion dictionary: the code vocabulary in JSON "
-            "(cut from the `code:` block of documentation/dictionary.yaml)",
+            help="criterion dictionary: the code vocabulary in JSON, one per "
+            "distribution — the sole source since DR-WFL-020",
         )
         ap.add_argument(
             "--messages",
@@ -2195,12 +2276,14 @@ class Application:
             # instrument but not what it was pointed at — which is how a symlinked
             # tool reported another distribution's tree as green (N-01/N-02).
             "source": f"{args.src} [{reg.get('distribution', 'undeclared distribution')}]",
-            # The criterion is the code vocabulary, versioned apart from the
-            # discourse entries; both are named so a snapshot pins the exact file.
+            # The criterion is the code vocabulary: one JSON per distribution,
+            # named with its version so a snapshot pins the exact file. Since
+            # DR-WFL-020 it has no second source — the discourse registry
+            # (dictionary.yaml) versions the terms people read, nothing the lint
+            # measures against.
             "criterion": (
                 f"{reg.get('criterion_path', 'dictionary.json')} "
                 f"{reg.get('registry_version', 'unversioned')}"
-                f" (dictionary.yaml {reg.get('dictionary_version', 'unversioned')})"
             ),
             "presentation": (
                 f"{reg.get('presentation_path', '(inline)')} "

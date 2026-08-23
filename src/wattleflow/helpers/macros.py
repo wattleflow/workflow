@@ -68,12 +68,21 @@ class TextMacros:
                 f"for pattern {pattern.pattern!r}"
             )
 
+        error = self._replacement_error(pattern, replacement)
+        if error:
+            raise re.error(
+                f"Invalid replacement {replacement!r} for pattern {pattern.pattern!r}: {error}"
+            )
+
+    @staticmethod
+    def _replacement_error(pattern: re.Pattern, replacement) -> str | None:
+        # A probe, not a gate: the branch reports the fault to its caller instead
+        # of wrapping and re-raising it (DR-WFL-018 t.2).
         try:
             pattern.sub(replacement, "")
         except re.error as e:
-            raise re.error(
-                f"Invalid replacement {replacement!r} for pattern {pattern.pattern!r}: {e}"
-            ) from e
+            return str(e)
+        return None
 
     @property
     def compiled(self) -> CompiledMacros:
@@ -105,10 +114,9 @@ class TextMacros:
                     raise ValueError(f"Macro must be tuple or dict, got {type(macro).__name__}")
 
                 self._check_redos(pattern)
-                try:
-                    compiled = re.compile(pattern, flags)
-                except re.error as e:
-                    raise re.error(f"Invalid pattern {pattern!r} (flags={flags}): {e}") from e
+                # re.error travels to the handler below unwrapped: it already
+                # names the pattern, and the record there carries the macro.
+                compiled = re.compile(pattern, flags)
 
                 self._compiled.append((compiled, replacement))
             except Exception as e:

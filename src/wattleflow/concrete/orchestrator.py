@@ -80,7 +80,15 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
                 duration=duration,
             )
         except Exception as e:
+            # The listener stream and the audit stream have different readers:
+            # emit_event notifies, the trace records the step (DR-WFL-018 t.2).
             self.emit_event(Event.Failed, processor=proc_name, error=str(e))
+            self.debug(
+                msg=Event.Process.name,
+                step=Event.Failed.name,
+                processor=proc_name,
+                error=str(e),
+            )
             raise OrchestratorException(
                 self,
                 f"Error processing {proc_name}: {e}",

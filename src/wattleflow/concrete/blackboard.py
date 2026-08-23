@@ -167,9 +167,9 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
         # AttributeError so callers (and Python itself) can treat the attribute
         # as missing instead of seeing a confusing internal trace.
         try:
-            preset: PresetDecorator = object.__getattribute__(self, "_preset")
+            preset: PresetDecorator | None = object.__getattribute__(self, "_preset")
         except AttributeError:
-            raise AttributeError(name) from None
+            preset = None
         if preset is None:
             raise AttributeError(name)
         return preset.__getattr__(name)

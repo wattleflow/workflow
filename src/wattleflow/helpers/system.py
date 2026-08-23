@@ -26,7 +26,7 @@ import shutil
 import subprocess
 
 from importlib import import_module
-from logging import NOTSET, Handler, getLogger
+from logging import NOTSET, Handler
 from os import PathLike
 from pathlib import Path
 from tempfile import gettempdir
@@ -35,6 +35,7 @@ from collections.abc import Callable, Mapping, Sequence
 
 from wattleflow.core import IWattleflow
 from wattleflow.enums.event import Event
+from wattleflow.helpers.audit import Audit
 from wattleflow.helpers.normaliser import Normaliser
 
 # --------------------------------------------------------------------------- #
@@ -67,7 +68,7 @@ Command = str | Sequence[str]
 # --------------------------------------------------------------------------- #
 
 
-class ClassLoader(IWattleflow):
+class ClassLoader(Audit, IWattleflow):
     def __init__(
         self,
         class_path: str,
@@ -78,48 +79,66 @@ class ClassLoader(IWattleflow):
         level: int | str = kwargs.pop("level", NOTSET)
         handler: Handler | None = kwargs.pop("handler", None)
 
-        super().__init__()
+        # v0.0.1.10 (DR-WFL-018 t.2): the audit sink lives in this same layer,
+        # so the loader records through the house vocabulary without importing a
+        # domain package. A falsy level is left unset — NOTSET here would reset
+        # a level someone else configured for this class.
+        super().__init__(**({"level": level} if level else {}), handler=handler)
 
-        # Stdlib logger (no concrete.Audit — keeps helpers below domains).
-        # Stdlib accepts only exc_info/extra/stack_info/stacklevel as kwargs, so
-        # context goes into the message via lazy %-formatting.
-        self.log = getLogger(self.__class__.__name__)
-        if level:
-            self.log.setLevel(level)
-        if handler is not None and handler not in self.log.handlers:
-            self.log.addHandler(handler)
+        self.debug(
+            msg=Event.Constructor.name,
+            step=Event.Started.name,
+            class_path=class_path,
+        )
 
-        self.log.debug("%s: class_path=%s", Event.Constructor.value, class_path)
-
-        try:
-            module_path, class_name = class_path.rsplit(".", 1)
-        except ValueError as e:
-            self.log.error("%s: invalid class path %r: %s", Event.Constructor.value, class_path, e)
-            raise ValueError(f"Invalid class path: {class_path}") from e
+        module_path, _, class_name = class_path.rpartition(".")
+        if not module_path:
+            error = f"Invalid class path: {class_path}"
+            self.debug(msg=Event.Constructor.name, step=Event.Failed.name, error=error)
+            raise ValueError(error)
 
         try:
             module = import_module(module_path)
         except ModuleNotFoundError as e:
-            self.log.error("module not found %r: %s", module_path, e)
+            self.debug(
+                msg=Event.Constructor.name,
+                step=Event.Failed.name,
+                component=module_path,
+                error=str(e),
+            )
             raise
 
         if not hasattr(module, class_name):
             error = f"Class '{class_name}' not found in module '{module_path}'"
-            self.log.error("%s: %s", Event.Constructor.value, error)
+            self.debug(msg=Event.Constructor.name, step=Event.Failed.name, error=error)
             raise AttributeError(error)
 
         cls = getattr(module, class_name)
         self.cls = cls
 
-        self.log.debug("%s: class resolved %s.%s", Event.Constructor.value, module_path, class_name)
+        self.debug(
+            msg=Event.Constructor.name,
+            step=Event.Validating.name,
+            component=module_path,
+            target=class_name,
+        )
 
         try:
             self.instance = cls(*args, **kwargs)
         except Exception as e:
-            self.log.error("class instantiation failed for %s: %s", cls, e)
+            self.debug(
+                msg=Event.Constructor.name,
+                step=Event.Failed.name,
+                target=class_name,
+                error=str(e),
+            )
             raise
 
-        self.log.debug("%s: class loaded %s", Event.Constructor.value, cls.__name__)
+        self.debug(
+            msg=Event.Constructor.name,
+            step=Event.Completed.name,
+            target=cls.__name__,
+        )
 
     @property
     def name(self) -> str:
@@ -168,12 +187,8 @@ class FileStorage:
         out_dir = self.path.joinpath(target)
         resolved_base = self.path.resolve()
         resolved_out = out_dir.resolve()
-        try:
-            resolved_out.relative_to(resolved_base)
-        except ValueError as e:
-            raise ValueError(
-                f"Directory '{directory}' escapes the repository root: {resolved_out}"
-            ) from e
+        if not resolved_out.is_relative_to(resolved_base):
+            raise ValueError(f"Directory '{directory}' escapes the repository root: {resolved_out}")
 
         if mkdir:
             out_dir.mkdir(parents=True, exist_ok=True)

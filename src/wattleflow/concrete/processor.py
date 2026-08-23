@@ -127,7 +127,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
 
         self.debug(
             msg=Event.Constructor.name,
-            step=Event.Starting.value,
+            step=Event.Starting.name,
             blackboard=blackboard,
             pipelines=pipelines,
             flush_per_cycle=flush_per_cycle,
@@ -254,10 +254,15 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                 next(self._generator)
                 skipped += 1
         except StopIteration:
-            raise ProcessorException(
-                caller=self,
-                error="Restore failed: dataset shorter than saved cycle",
-            ) from None
+            error = "Restore failed: dataset shorter than saved cycle"
+            self.debug(
+                msg=Event.Restore.name,
+                step=Event.Failed.name,
+                cycle=self._cycle,
+                skipped=skipped,
+                error=error,
+            )
+            raise ProcessorException(caller=self, error=error) from None
 
     # endregion Memento
 
@@ -317,9 +322,12 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                         self.__class__.__name__,
                         str(e),
                     )
-                    self.error(
+                    # v0.0.1.10 (DR-WFL-018 t.2): the ERROR belongs to the layer
+                    # that stops the propagation; here only the trace.
+                    self.debug(
                         msg=Event.Start.name,
-                        reason=reason,
+                        step=Event.Failed.name,
+                        error=reason,
                     )
                     raise PipelineException(
                         caller=self,
@@ -328,11 +336,17 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
 
             self._fsm.apply(ProcessorAction.RECORDS_PROCESSED)
 
-        except PipelineException as e:
-            raise e
+        except PipelineException:
+            raise
         except Exception as e:
             if self._fsm.can(ProcessorAction.FAIL):
                 self._fsm.apply(ProcessorAction.FAIL)
+            self.debug(
+                msg=Event.Start.name,
+                step=Event.Failed.name,
+                cycles=self._cycle,
+                error=str(e),
+            )
             raise ProcessorException(caller=self, error=str(e)) from e
 
         self.info(

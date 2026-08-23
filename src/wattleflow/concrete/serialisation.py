@@ -92,9 +92,11 @@ class GenericParser(Wattleflow, IParser[Content], ABC):
         # During partial construction _preset is absent: report the attribute
         # as missing rather than surface the internal lookup failure.
         try:
-            preset: PresetDecorator = object.__getattribute__(self, "_preset")
+            preset: PresetDecorator | None = object.__getattribute__(self, "_preset")
         except AttributeError:
-            raise AttributeError(name) from None
+            preset = None
+        if preset is None:
+            raise AttributeError(name)
         return preset.__getattr__(name)
 
     def __repr__(self) -> str:
@@ -114,7 +116,7 @@ class GenericParser(Wattleflow, IParser[Content], ABC):
             raise
         except Exception as e:
             error = "%s.parse error: %s" % (self.name, str(e))
-            self.error(msg=Event.Read.name, step=Event.Failed.name, reason=error)
+            self.debug(msg=Event.Read.name, step=Event.Failed.name, error=error)
             raise ParserError(caller=self, error=error) from e
 
         self.debug(
@@ -188,9 +190,11 @@ class GenericFormatter(Wattleflow, IFormatter[Content], ABC):
     # region Private
     def __getattr__(self, name: str) -> Any:
         try:
-            preset: PresetDecorator = object.__getattribute__(self, "_preset")
+            preset: PresetDecorator | None = object.__getattribute__(self, "_preset")
         except AttributeError:
-            raise AttributeError(name) from None
+            preset = None
+        if preset is None:
+            raise AttributeError(name)
         return preset.__getattr__(name)
 
     def __repr__(self) -> str:
@@ -217,7 +221,7 @@ class GenericFormatter(Wattleflow, IFormatter[Content], ABC):
             raise
         except Exception as e:
             error = "%s.render error: %s" % (self.name, str(e))
-            self.error(msg=Event.Render.name, step=Event.Failed.name, reason=error)
+            self.debug(msg=Event.Render.name, step=Event.Failed.name, error=error)
             raise FormatterError(caller=self, error=error) from e
 
         self.debug(msg=Event.Render.name, step=Event.Completed.name, size=len(payload))

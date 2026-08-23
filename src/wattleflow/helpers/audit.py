@@ -20,6 +20,7 @@ from logging import (
 from threading import RLock
 from typing import Any
 from wattleflow.core import ILogger, IObserver
+from wattleflow.enums.event import Event
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
@@ -191,10 +192,16 @@ class Audit(ILogger, IObserver):
         raise NotImplementedError(f"{self.name}.subscribe is not implemented!")
 
     def update(self, event: Any, **kwargs) -> None:
-        # IObserver end of the sink: an observed event is an audit record.
-        # One frame deeper than the level methods, hence stacklevel 4.
-        kwargs.setdefault("stacklevel", 4)
-        self.info(str(event), **kwargs)
+        # IObserver end of the sink: an observed event is an audit record. One
+        # frame deeper than the level methods, hence stacklevel 4.
+        # v0.0.1.10 (DR-WFL-018 t.3): the observed value is a named field, so a
+        # caller key can no longer land in this call's own namespace.
+        self.info(
+            msg=Event.Notify.name,
+            event=getattr(event, "name", str(event)),
+            stacklevel=kwargs.pop("stacklevel", 4),
+            kwargs=kwargs,
+        )
 
     # --------------------------------------------------------------------------- #
     # region Private Methods

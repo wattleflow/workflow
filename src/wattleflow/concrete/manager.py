@@ -86,15 +86,22 @@ class ConnectionManager(Wattleflow, IObserver):
         return len(self._connections)
 
     def connect(self, name: str, **kwargs) -> object:
-        self.debug(msg=Event.Connect.name, name=name, **kwargs)
+        self.debug(msg=Event.Connect.name, name=name, kwargs=kwargs)
         connected = self.operation(name, Operation.Connect, **kwargs)
-        self.info(msg=Event.Connect.name, status=connected)
+        # v0.0.1.10 (DR-WFL-018 t.5): opening a connection is a step in someone
+        # else's unit of work, so the owner of that unit keeps the INFO.
+        self.debug(msg=Event.Connect.name, step=Event.Completed.name, status=connected)
         return self._connections[name]
 
     def disconnect(self, name: str, **kwargs) -> bool:
         try:
             success = self.operation(name, Operation.Disconnect, **kwargs)
-            self.info(msg=Event.Disconnected.name, name=name, **kwargs)
+            self.debug(
+                msg=Event.Disconnected.name,
+                step=Event.Completed.name,
+                name=name,
+                kwargs=kwargs,
+            )
             return success
         except Exception as e:
             self.error(
@@ -118,7 +125,7 @@ class ConnectionManager(Wattleflow, IObserver):
         return self._connections[name]
 
     def register_connection(self, connection: Connection, **kwargs) -> None:
-        self.debug(msg=Event.Register.name, connection=connection, **kwargs)
+        self.debug(msg=Event.Register.name, connection=connection, kwargs=kwargs)
 
         connection_name: str = kwargs.pop("connection_name", connection.connection_name)
 
@@ -154,7 +161,7 @@ class ConnectionManager(Wattleflow, IObserver):
             )
 
     def operation(self, name: str, action: Operation, **kwargs) -> bool:
-        self.debug(msg=Event.Operation.name, step=Event.Started.name, **kwargs)
+        self.debug(msg=Event.Operation.name, step=Event.Started.name, kwargs=kwargs)
         if name not in self._connections:
             raise ConnectionManagerException(
                 caller=self,
@@ -163,14 +170,14 @@ class ConnectionManager(Wattleflow, IObserver):
                 **kwargs,
             )
 
-        self.debug(msg=Event.Operation.name, step=Event.Completing.name, **kwargs)
+        self.debug(msg=Event.Operation.name, step=Event.Completing.name, kwargs=kwargs)
         return self._connections[name].operation(action, **kwargs)
 
     def update(self, *args, **kwargs):
         self.debug(
             msg=Event.Update.name,
             step=Event.Started.name,
-            **kwargs,
+            kwargs=kwargs,
             note="Not implemented yet.",
         )
 
@@ -213,7 +220,7 @@ class DriverManager(Wattleflow, IObserver):
         return len(self._drivers)
 
     def load(self, name: str, **kwargs) -> object:
-        self.debug(msg=Event.Load.name, name=name, **kwargs)
+        self.debug(msg=Event.Load.name, name=name, kwargs=kwargs)
         loaded = self.operation(name, Operation.Connect, **kwargs)
         self.debug(msg=Event.Connect.name, added=name, status=loaded)
         return self._drivers[name]
@@ -231,7 +238,7 @@ class DriverManager(Wattleflow, IObserver):
             target="driver",
             step=Event.Starting.name,
             driver=driver,
-            **kwargs,
+            kwargs=kwargs,
         )
         driver_name = kwargs.pop("name", driver.name)
         if driver_name in self._drivers:
@@ -340,7 +347,7 @@ class ProcessorManager(Wattleflow, IObserver):
         return self._processors
 
     def load(self, name: str, **kwargs) -> IProcessor:
-        self.debug(msg=Event.Start.name, name=name, **kwargs)
+        self.debug(msg=Event.Start.name, name=name, kwargs=kwargs)
         status = self.operation(name, Operation.Start, **kwargs)
         self.info(msg=Event.Start.name, status=status)
         return self._processors[name]
@@ -357,7 +364,7 @@ class ProcessorManager(Wattleflow, IObserver):
             msg=Event.Register.name,
             step=Event.Starting.name,
             processor=processor,
-            **kwargs,
+            kwargs=kwargs,
         )
         processor_name = kwargs.get("name", processor.name)
         if processor_name in self._processors:
@@ -380,7 +387,7 @@ class ProcessorManager(Wattleflow, IObserver):
         self.debug(msg=Event.Unregister.name, step=Event.Completed.name)
 
     def operation(self, name: str, action: Operation, **kwargs) -> bool:
-        self.debug(msg=Event.Operation.name, step=Event.Started.name, **kwargs)
+        self.debug(msg=Event.Operation.name, step=Event.Started.name, kwargs=kwargs)
         if name not in self._processors:
             raise ProcessorManagerException(
                 caller=self,
@@ -397,7 +404,7 @@ class ProcessorManager(Wattleflow, IObserver):
             )
             return False
 
-        self.debug(msg=Event.Operation.name, step=Event.Completing.name, **kwargs)
+        self.debug(msg=Event.Operation.name, step=Event.Completing.name, kwargs=kwargs)
         return self._processors[name].operation(action, **kwargs)
 
     def update(self, **kwargs):

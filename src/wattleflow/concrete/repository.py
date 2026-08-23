@@ -124,14 +124,14 @@ class GenericRepository(Wattleflow, IRepository, ABC):
             msg=Event.Read.name,
             step=Event.Started.name,
             id=identifier,
-            **kwargs,
+            kwargs=kwargs,
         )
 
         if self._strategy_read is None:
             self.warning(
                 msg=Event.Read.name,
-                step=Event.Configuration.value,
-                error="Read strategy is not assigned!",
+                step=Event.Check.name,
+                reason="Read strategy is not assigned!",
             )
             return None
 
@@ -150,12 +150,13 @@ class GenericRepository(Wattleflow, IRepository, ABC):
             )
         except Exception as e:
             reason = f"[{self.name}] Read strategy failed: {e}"
-            self.error(
+            # v0.0.1.10 (DR-WFL-018 t.2): one cause, one ERROR — this layer only
+            # traces the step; the cause travels in the exception.
+            self.debug(
                 msg=Event.Read.name,
-                caller=self,
-                reason=reason,
+                step=Event.Failed.name,
                 id=identifier,
-                # trace=traceback.format_exc(),
+                error=reason,
             )
             raise RepositoryException(
                 caller=self,
@@ -202,12 +203,11 @@ class GenericRepository(Wattleflow, IRepository, ABC):
 
         except Exception as e:
             reason = "%s.write strategy failed: %s!" % (self.__class__.__name__, str(e))
-            self.error(
+            self.debug(
                 msg=Event.Write.name,
-                caller=caller,
-                reason=reason,
+                step=Event.Failed.name,
                 counter=self._write_counter,
-                # trace=traceback.format_exc(),
+                error=reason,
             )
             raise RepositoryException(caller=self, error=reason, facade=facade) from e
 
@@ -274,26 +274,26 @@ class RepositoryWithDriver(GenericRepository):
     # region Public
 
     def clear(self) -> None:
-        self.debug(msg=Event.Clear.name, step=Event.Started.value)
+        self.debug(msg=Event.Clear.name, step=Event.Started.name)
         self._write_counter = 0
         self._driver.clear()
         self._strategy_write = None
         self._strategy_read = None
-        self.debug(msg=Event.Clear.name, step=Event.Completed.value)
+        self.debug(msg=Event.Clear.name, step=Event.Completed.name)
 
     def read(self, identifier: str, **kwargs) -> ITarget | None:
         self.debug(
             msg=Event.Read.name,
-            step=Event.Started.value,
+            step=Event.Started.name,
             id=identifier,
-            **kwargs,
+            kwargs=kwargs,
         )
 
         if self._strategy_read is None:
             self.warning(
                 msg=Event.Read.name,
-                step=Event.Configuration.value,
-                error="Read strategy is not assigned!",
+                step=Event.Check.name,
+                reason="Read strategy is not assigned!",
             )
             return None
 
@@ -305,7 +305,7 @@ class RepositoryWithDriver(GenericRepository):
 
         self.debug(
             msg=Event.Read.name,
-            step=Event.Completed.value,
+            step=Event.Completed.name,
             facade=facade,
         )
 
@@ -315,7 +315,7 @@ class RepositoryWithDriver(GenericRepository):
         try:
             self.debug(
                 msg=Event.Write.name,
-                step=Event.Started.value,
+                step=Event.Started.name,
                 caller=caller.name,
                 counter=self._write_counter,
                 facade=facade,
@@ -338,7 +338,7 @@ class RepositoryWithDriver(GenericRepository):
 
             self.debug(
                 msg=Event.Write.name,
-                step=Event.Completed.value,
+                step=Event.Completed.name,
                 counter=self._write_counter,
                 facade=facade,
             )
@@ -357,16 +357,14 @@ class RepositoryWithDriver(GenericRepository):
                 f"-> {root}: {e}"
             )
 
-            self.exception(
+            self.debug(
                 msg=Event.Write.name,
-                reason=reason,
-                caller=caller,
-                error=e,
+                step=Event.Failed.name,
                 strategy=strategy_cls,
                 driver=driver_cls,
                 document=doc_id,
                 counter=self._write_counter,
-                # trace=traceback.format_exc(),
+                error=reason,
             )
             raise RepositoryException(caller=self, error=reason, facade=facade) from e
 

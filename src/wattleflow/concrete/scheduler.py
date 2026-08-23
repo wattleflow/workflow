@@ -56,7 +56,7 @@ class Scheduler(Wattleflow, IScheduler, ABC):
             name=self.name,
             level=level,
             handler=handler,
-            **kwargs,
+            kwargs=kwargs,
         )
 
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)

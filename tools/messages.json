@@ -11,7 +11,7 @@
     "`en` is the default and the fallback and must stay complete, so a missing",
     "translation degrades to UK English instead of printing a key."
   ],
-  "presentation_version": "0.4.0",
+  "presentation_version": "0.5.0",
   "_CATALOGUE": [
     "One entry per finding kind. `code` and `ref` are language-neutral;",
     "`title`/`why`/`fix` sit under a language key. `code` identifies the KIND only —",
@@ -102,37 +102,6 @@
         "fix": [
           "Popravak: ažuriraj registar — makni paket iz `domains` da ga alat",
           "tretira kao temelj."
-        ]
-      }
-    },
-    "single-consumer-helper": {
-      "code": "K4",
-      "ref": "NFR-ORG-01 §1",
-      "en": {
-        "title": "shared helper used by only one package",
-        "why": [
-          "`helpers/` is the shared shelf: it should only hold things that at",
-          "least TWO different packages use. A module with a single consumer",
-          "belongs inside the package that uses it — closer to its user and",
-          "easier to change."
-        ],
-        "fix": [
-          "Fix: move the module into its only consumer package, or leave it if",
-          "a second consumer is coming soon.",
-          "(Inherited from before — does not fail the build.)"
-        ]
-      },
-      "hr": {
-        "title": "dijeljeni helper koristi samo jedan paket",
-        "why": [
-          "`helpers/` je dijeljena polica: smije držati samo ono što koriste",
-          "barem DVA različita paketa. Modul s jednim potrošačem pripada unutar",
-          "paketa koji ga koristi — bliže korisniku i lakši za izmjenu."
-        ],
-        "fix": [
-          "Popravak: premjesti modul u njegov jedini potrošački paket, ili ga",
-          "ostavi ako drugi potrošač uskoro dolazi.",
-          "(Zatečeno stanje — ne ruši build.)"
         ]
       }
     },
@@ -914,6 +883,68 @@
           "se u registru pod audit.info_exempt."
         ]
       }
+    },
+    "unused-shared-helper": {
+      "code": "K4",
+      "ref": "NFR-ORG-01 §1",
+      "en": {
+        "title": "shared helper nothing outside the shelf uses",
+        "why": [
+          "`helpers/` is the shared shelf: it holds things that other packages use.",
+          "A module no package outside the shelf imports is not shelf material —",
+          "it belongs beside its consumer, or it is dead weight nobody carries."
+        ],
+        "fix": [
+          "Fix: move the module next to the package that uses it, or delete it if",
+          "nothing does. Check the sibling distribution first — its imports are",
+          "outside --src, so the count here is a lower bound (DR-WFL-019)."
+        ]
+      },
+      "hr": {
+        "title": "dijeljeni helper koji izvan police nitko ne koristi",
+        "why": [
+          "`helpers/` je dijeljena polica: drži ono što koriste drugi paketi.",
+          "Modul koji ne uvozi nijedan paket izvan police nije materijal za policu —",
+          "pripada uz svog potrošača ili je mrtav teret."
+        ],
+        "fix": [
+          "Popravak: premjesti modul uz paket koji ga koristi, ili ga obriši ako ga",
+          "nitko ne koristi. Prvo provjeri sestrinsku distribuciju — njezini uvozi su",
+          "izvan --src, pa je brojka ovdje donja granica (DR-WFL-019)."
+        ]
+      }
+    },
+    "shared-shelf-usage": {
+      "code": "K30",
+      "ref": "NFR-ORG-01 §1",
+      "en": {
+        "title": "shelf usage, stated as a statistic",
+        "why": [
+          "This distribution's `helpers/` serves consumers that ship elsewhere, so a",
+          "module unused here is usually used there. Counting it as a defect per module",
+          "would report the measurement scope, not the code — the criterion therefore",
+          "states one number and leaves the verdict to the distribution that owns the",
+          "consumers."
+        ],
+        "fix": [
+          "Nothing to fix from this line alone. Read it as coverage: how much of the",
+          "shelf this tree actually uses."
+        ]
+      },
+      "hr": {
+        "title": "iskorištenost police, iskazana kao statistika",
+        "why": [
+          "`helpers/` ove distribucije opslužuje potrošače koji se isporučuju drugdje,",
+          "pa je modul koji je ovdje neiskorišten obično iskorišten ondje. Brojati to",
+          "kao prekršaj po modulu značilo bi prijaviti opseg mjerenja, a ne kod — zato",
+          "kriterij iskazuje jedan broj, a presudu ostavlja distribuciji koja posjeduje",
+          "potrošače."
+        ],
+        "fix": [
+          "Iz ovog retka se ništa ne popravlja. Čitaj ga kao pokrivenost: koliko police",
+          "ovo stablo doista koristi."
+        ]
+      }
     }
   },
   "MESSAGES": {
@@ -925,7 +956,7 @@
       "other_findings": "--- other findings (no friendly entry yet) ---",
       "summary": "wem_lint: {errors} error(s), {warns} warning(s), {infos} info",
       "vector_note": "  note: conformance vector — no aggregate score is defined for these\n  checks; the scale is nominal, so counting is the only admissible\n  operation (METHODOLOGY §3b/§6.1). A green vector proves conformance\n  to the declared criterion, not quality (dictionary: konformnost-vs-kvaliteta).",
-      "notes": "Notes: ORG-01 fan-in counts direct `wattleflow.helpers.<mod>` imports only; aggregate `from wattleflow.helpers import X` is not resolved, so fan-in is a lower bound (advisory). ORG-01 #2/#4 not yet automated. See NFR.md.",
+      "notes": "Notes: ORG-01 criterion 1 counts consumers of `wattleflow.helpers.<mod>` inside this --src only; an aggregate `from wattleflow.helpers import X` and a consumer in a sibling distribution are not resolved, so the count is a lower bound. ORG-01 #2/#4 not yet automated. See NFR.md.",
       "python_pin": "  WARNING    registry pins python {pin}, running {running} — the stdlib set tested is the\n             interpreter's, so ORG-01 scope is not reproducible against the pin",
       "graph_title": "=== NFR-ORG-01 — dependency graph (package level) ===",
       "graph_hint": "  ▶ = imports;  a leaf tier (no outgoing edges) is the allowed foundation",
@@ -944,7 +975,7 @@
       "other_findings": "--- ostali nalazi (bez unosa u katalogu) ---",
       "summary": "wem_lint: {errors} greška/e, {warns} upozorenje/a, {infos} info",
       "vector_note": "  napomena: vektor konformnosti — ukupna ocjena za ove provjere nije\n  definirana; skala je nominalna pa je brojanje jedina dopuštena\n  operacija (METHODOLOGY §3b/§6.1). Zeleni vektor dokazuje usklađenost\n  s deklariranim kriterijem, ne kvalitetu (rječnik: konformnost-vs-kvaliteta).",
-      "notes": "Napomene: ORG-01 fan-in broji samo izravne `wattleflow.helpers.<mod>` uvoze; agregatni `from wattleflow.helpers import X` se ne razrješava pa je fan-in donja granica (savjetodavno). ORG-01 #2/#4 nisu automatizirani. Vidi NFR.md.",
+      "notes": "Napomene: ORG-01 kriterij 1 broji potrošače modula `wattleflow.helpers.<mod>` samo unutar ovog --src; agregatni `from wattleflow.helpers import X` i potrošač iz sestrinske distribucije se ne razrješavaju, pa je brojka donja granica. ORG-01 #2/#4 nisu automatizirani. Vidi NFR.md.",
       "python_pin": "  UPOZORENJE registar pina python {pin}, izvodi se {running} — skup stdliba\n             je interpreterov, pa opseg ORG-01 nije reproducibilan prema pinu",
       "graph_title": "=== NFR-ORG-01 — graf ovisnosti (razina paketa) ===",
       "graph_hint": "  ▶ = uvozi;  list bez izlaznih bridova je dopušten temelj",

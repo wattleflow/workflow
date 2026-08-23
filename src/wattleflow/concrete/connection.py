@@ -214,7 +214,7 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
     def _ensure_created(self) -> None:
         self.debug(
             msg=Event.Validating.name,
-            step="ensure_created",
+            step=Event.Check.name,
             state=self._fsm.state.value,
         )
         if self._fsm.state is ConnectionState.FAILED:
@@ -246,14 +246,14 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
         except AttributeError:
             return
         try:
-            self.debug(msg=Event.Destructor.name, step=Event.Starting.value)
+            self.debug(msg=Event.Destructor.name, step=Event.Starting.name)
             self.ensure_closed()
             self.debug(msg=Event.Destructor.name, step=Event.Completed.name)
         except Exception:
             pass
 
     def __enter__(self):
-        self.debug(msg=Event.Enter.name, step=Event.Starting.value, fnc="__enter__")
+        self.debug(msg=Event.Enter.name, step=Event.Starting.name, fnc="__enter__")
         self._context = self.connect()
         self.debug(msg=Event.Enter.name, step=Event.Completed.name, fnc="__enter__")
         return self._context.__enter__()
@@ -320,8 +320,9 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
         try:
             self.create_connection()
             self._fsm.apply(ConnectionAction.CREATE_OK)
-        except Exception:
+        except Exception as e:
             self._fsm.apply(ConnectionAction.CREATE_FAIL)
+            self.debug(msg=Event.Create.name, step=Event.Failed.name, error=str(e))
             raise
 
     def ensure_closed(self) -> None:
@@ -333,8 +334,9 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
         try:
             self.disconnect()
             self._fsm.apply(ConnectionAction.CLOSE_OK)
-        except Exception:
+        except Exception as e:
             self._fsm.apply(ConnectionAction.CLOSE_FAIL)
+            self.debug(msg=Event.Close.name, step=Event.Failed.name, error=str(e))
             raise
 
     def reset(self) -> None:
@@ -354,6 +356,7 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
         try:
             new_connection.request(action=Operation.Connect)
         except Exception as e:
+            self.debug(msg=Event.Swap.name, step=Event.Failed.name, error=str(e))
             raise ConnectionManagerException(
                 caller=self,
                 error=f"Hot-swap failao, stara konekcija ostaje aktivna: {e}",

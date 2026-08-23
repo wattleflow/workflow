@@ -110,6 +110,15 @@ class CreatedWithin(IParser):
             return CreatedVerdict(False, created_at=created_at, reason="after-window")
         return CreatedVerdict(True, created_at=created_at)
 
+    @staticmethod
+    def _iso(text: str) -> datetime | None:
+        # A probe, not a gate: the caller decides what an unreadable value means,
+        # so no branch here wraps and re-raises (DR-WFL-018 t.2).
+        try:
+            return datetime.fromisoformat(text)
+        except ValueError:
+            return None
+
     def parse(
         self,
         value: str | datetime | None,
@@ -123,14 +132,14 @@ class CreatedWithin(IParser):
         text = str(value).strip()
         if not text:
             return None
-        try:
-            if "T" in text or " " in text and ":" in text:
-                return datetime.fromisoformat(text.replace(" ", "T"))
-            dt = datetime.fromisoformat(text)
-        except ValueError as e:
+        with_time = "T" in text or " " in text and ":" in text
+        dt = self._iso(text.replace(" ", "T") if with_time else text)
+        if dt is None:
             raise ValueError(
                 f"Invalid date '{text}': expected ISO format YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS"
-            ) from e
+            )
+        if with_time:
+            return dt
         if end_of_day:
             dt = datetime.combine(dt.date(), time(23, 59, 59, 999999))
         return dt

@@ -47,10 +47,10 @@ class GenericMemento(Wattleflow, IMemento):
         self._data: Mapping[str, Any] = MappingProxyType(dict(payload))
 
     def __getattr__(self, key: str) -> Any:
-        try:
-            return object.__getattribute__(self, "_data")[key]
-        except KeyError:
-            raise AttributeError(key) from None
+        data: Mapping[str, Any] = object.__getattribute__(self, "_data")
+        if key not in data:
+            raise AttributeError(key)
+        return data[key]
 
     def __contains__(self, key: str) -> bool:
         return key in self._data

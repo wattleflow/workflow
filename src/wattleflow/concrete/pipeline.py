@@ -53,7 +53,7 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
             msg=Event.Constructor.name,
             level=level,
             handler=handler,
-            **kwargs,
+            kwargs=kwargs,
         )
 
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
@@ -110,11 +110,14 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
             assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(facade)
             result = self.transform(processor, facade, **kwargs)
         except AssertionError as e:
-            self.error(msg=Event.Process.name, step=Event.Failed.name, error=str(e))
+            # v0.0.1.10 (DR-WFL-018 t.2): the caller stops the propagation and owns
+            # the ERROR; this layer leaves the trace and carries the cause in the
+            # exception.
+            self.debug(msg=Event.Process.name, step=Event.Failed.name, error=str(e))
             raise PipelineError(str(e)) from e
         except Exception as e:
             error = "%s.process error: %s" % (self.__class__.__name__, str(e))
-            self.error(msg=Event.Process.name, step=Event.Failed.name, reason=error)
+            self.debug(msg=Event.Process.name, step=Event.Failed.name, error=error)
             raise PipelineError(
                 caller=self,
                 error=error,

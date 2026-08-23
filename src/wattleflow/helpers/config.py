@@ -171,8 +171,20 @@ class Config(Audit, IConfig):
                 )
 
         except FileNotFoundError as e:
+            self.debug(
+                msg=Event.Configure.name,
+                step=Event.Failed.name,
+                target="file",
+                error=str(e),
+            )
             raise FileNotFoundError(f"Configuration file not found: {self.config_file}") from e
         except self.ERRORS as e:
+            self.debug(
+                msg=Event.Configure.name,
+                step=Event.Failed.name,
+                target=self.FORMAT,
+                error=str(e),
+            )
             raise ValueError(f"Invalid {self.FORMAT} file: {self.config_file}. Error: {e}") from e
 
     @classmethod

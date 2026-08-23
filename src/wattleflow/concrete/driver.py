@@ -146,9 +146,9 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
         # construction _preset is missing: raise a plain AttributeError so
         # callers (and Python itself) treat the attribute as absent.
         try:
-            preset: PresetDecorator = object.__getattribute__(self, "_preset")
+            preset: PresetDecorator | None = object.__getattribute__(self, "_preset")
         except AttributeError:
-            raise AttributeError(name) from None
+            preset = None
         if preset is None:
             raise AttributeError(name)
         return preset.__getattr__(name)
@@ -183,7 +183,7 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
         try:
             self.load()
             self._fsm.apply(DriverAction.LOAD_OK)
-        except Exception:
+        except Exception as e:
             # Record the failure only if the machine can still take it. A
             # subclass hook that already applied LOAD_FAIL leaves the state at
             # DEGRADED, where a second apply() raises — and that ValueError
@@ -191,6 +191,7 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
             # fact the caller needs.
             if self._fsm.can(DriverAction.LOAD_FAIL):
                 self._fsm.apply(DriverAction.LOAD_FAIL)
+            self.debug(msg=Event.Load.name, step=Event.Failed.name, error=str(e))
             raise
 
     def ensure_unloaded(self) -> None:
@@ -205,10 +206,11 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
         try:
             self.close()
             self._fsm.apply(DriverAction.UNLOAD_OK)
-        except Exception:
+        except Exception as e:
             # Same guard as ensure_live: never let bookkeeping mask the error.
             if self._fsm.can(DriverAction.UNLOAD_FAIL):
                 self._fsm.apply(DriverAction.UNLOAD_FAIL)
+            self.debug(msg=Event.Close.name, step=Event.Failed.name, error=str(e))
             raise
 
     def pause(self) -> None:
@@ -225,16 +227,14 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
     # Subclass hooks, intentionally not abstract: load, close, read, write.
 
     def update(self, event: Any, **kwargs) -> None:
-        # Observables are free to notify with a plain value, not only an Enum,
-        # and kwargs may legitimately carry its own msg/step keys — so keep
-        # the audit record collision-free.
-        kwargs.pop("msg", None)
-        kwargs.pop("step", None)
+        # v0.0.1.10 (DR-WFL-018 t.3): observables notify with a plain value as
+        # readily as with an Enum, and the payload travels as one named field —
+        # a caller key can then never become a control argument.
         self.debug(
             msg=Event.Update.name,
             step=Event.Started.name,
             event=getattr(event, "name", event),
-            **kwargs,
+            kwargs=kwargs,
         )
         self.debug(msg=Event.Update.name, step=Event.Completed.name)
 
