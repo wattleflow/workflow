@@ -126,7 +126,7 @@ class WorkflowFactoryLogger(Wattleflow):
     framework object."""
 
 
-logger = WorkflowFactoryLogger(level="ERROR", logger=getLogger("WorflowFactory"))
+logger = WorkflowFactoryLogger(level="ERROR", logger=getLogger("WorkflowFactory"))
 
 
 class WorkflowFactory:
@@ -149,7 +149,7 @@ class WorkflowFactory:
                 "Each connection/driver/processor/pipeline/blackboard/repository "
                 "entry must declare a `type:` matching a registered class."
             )
-            logger.exception(msg="WorkflowFactory.resolve", name=type_name, error=error)
+            logger.exception(msg=Event.Resolve.name, name=type_name, error=error)
             raise WorkflowFactoryException(cls, error)
 
         if type_name not in cls._registry:
@@ -163,7 +163,7 @@ class WorkflowFactory:
                 f" Currently registered ({len(registered)}): [{preview}]"
             )
             logger.exception(
-                msg="WorkflowFactory.resolve",
+                msg=Event.Resolve.name,
                 name=type_name,
                 error=error,
                 suggestions=suggestions,
@@ -182,7 +182,7 @@ class WorkflowFactory:
 
     @classmethod
     def build(cls, **kwargs) -> GenericWorkflow:
-        logger.debug(msg="WorkflowFactory.build", **kwargs)
+        logger.debug(msg=Event.Build.name, **kwargs)
 
         # v0.0.0.97 (DR-WFL-012): the caller supplies the configuration source.
         # How it is assembled — file format, secret resolution, .env discovery —
@@ -231,7 +231,7 @@ class WorkflowFactory:
         global_audit = {
             "level": adapter.find(*sections, "logging", "level", default="NOTSET"),
             "handler": adapter.find(*sections, "logging", "handler", default=None),
-            "formating": adapter.find(*sections, "logging", "format", default=None),
+            "formatting": adapter.find(*sections, "logging", "format", default=None),
         }
 
         # Worflow Class ------------------------------------------------ #
@@ -276,7 +276,8 @@ class WorkflowFactory:
                 continue
             os.environ[env_name] = str(value)
             logger.debug(
-                msg="WorkflowFactory.runtime",
+                msg=Event.Configure.name,
+                stage="runtime",
                 key=key,
                 env=env_name,
                 value=str(value),
@@ -288,7 +289,8 @@ class WorkflowFactory:
                     continue
                 os.environ[str(env_name)] = str(value)
                 logger.debug(
-                    msg="WorkflowFactory.runtime",
+                    msg=Event.Configure.name,
+                    stage="runtime",
                     env=str(env_name),
                     value=str(value),
                 )
@@ -306,7 +308,8 @@ class WorkflowFactory:
             "pipelines",
             "level",
             "handler",
-            "formating",
+            "formating",  # legacy spelling, still accepted
+            "formatting",
         }
     )
 
@@ -315,7 +318,7 @@ class WorkflowFactory:
         return {
             "level": config.get("level", default["level"]),
             "handler": config.get("handler", default["handler"]),
-            "formating": config.get("formating", default["formating"]),
+            "formatting": config.get("formatting", config.get("formating", default["formatting"])),
         }
 
     @classmethod
@@ -343,7 +346,7 @@ class WorkflowFactory:
             item_name = item.get("name", "<no-name>") if isinstance(item, dict) else "<not-a-dict>"
             error = f"{section}[name={item_name!r}]: {e}"
             logger.exception(
-                msg="WorkflowFactory.resolve",
+                msg=Event.Resolve.name,
                 section=section,
                 item_name=item_name,
                 error=error,
@@ -443,11 +446,11 @@ class WorkflowFactory:
                 blackboard_config,
                 key="strategy_create",
             )
-            logger.debug(msg="_build_processors", strategy=strategy_class)
+            logger.debug(msg=Event.Build.name, target="processors", strategy=strategy_class)
 
             # blackboard ------------------------------------------------------
             blackboard_class = cls._resolve_section("processors.blackboard", blackboard_config)
-            logger.debug(msg="_build_processors", blackboard=blackboard_class)
+            logger.debug(msg=Event.Build.name, target="processors", blackboard=blackboard_class)
             configuration = cls._settings(blackboard_config)
             processor.register_blackboard(
                 blackboard=blackboard_class(

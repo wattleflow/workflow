@@ -7,10 +7,11 @@
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
-import logging
 from threading import RLock
 from wattleflow.core.concurrent import IObservableReactive, IObserverReactive
 from wattleflow.concrete.base import Wattleflow
+from wattleflow.enums.event import Event
+
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
@@ -18,8 +19,6 @@ from wattleflow.concrete.base import Wattleflow
 __author__ = "WattleFlow"
 __copyright__ = "© 2022–2026 WattleFlow. All rights reserved"
 __license__ = "Apache 2 Licence"
-
-logger = logging.getLogger(__name__)
 
 
 # --------------------------------------------------------------------------- #
@@ -47,26 +46,28 @@ class ThreadSafeObservable(Wattleflow, IObservableReactive):
         self._lock = RLock()
 
     def add_observer(self, observer: IObserverReactive) -> None:
-        """Register an observer if not already present (thread-safe)."""
         with self._lock:
             if observer not in self._observers:
                 self._observers.append(observer)
 
     def remove_observer(self, observer: IObserverReactive) -> None:
-        """Unregister an observer (thread-safe)."""
         with self._lock:
             if observer in self._observers:
                 self._observers.remove(observer)
 
     def notify_observers(self, *args, **kwargs) -> None:
-        """Notify all registered observers (snapshot; failures suppressed)."""
         with self._lock:
             observers_snapshot = list(self._observers)
         for observer in observers_snapshot:
             try:
                 observer.update(self, *args, **kwargs)
-            except Exception as exc:
-                logger.exception("Observer %r raised exception during update: %s", observer, exc)
+            except Exception as e:
+                self.exception(
+                    msg=Event.Notify.name,
+                    reason="Observer raised during update",
+                    observer=observer,
+                    error=str(e),
+                )
 
 
 # --------------------------------------------------------------------------- #

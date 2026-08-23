@@ -57,7 +57,7 @@ class GenericRepository(Wattleflow, IRepository, ABC):
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
         self.debug(
-            msg=Event.Constructor.value,
+            msg=Event.Constructor.name,
             step=Event.Started.name,
             strategy_write=strategy_write,
             strategy_read=strategy_read,
@@ -68,12 +68,12 @@ class GenericRepository(Wattleflow, IRepository, ABC):
         self._strategy_write: StrategyWrite = strategy_write
         self._strategy_read: StrategyRead | None = strategy_read or None
 
-        self.debug(msg=Event.Constructor.value, step=Event.Completed.name)
+        self.debug(msg=Event.Constructor.name, step=Event.Completed.name)
 
     def __eq__(self, other: "GenericRepository") -> bool:
         if not isinstance(other, GenericRepository):
             return NotImplemented
-        self.debug(msg=Event.Probing.value, eq=hash(self) == hash(other))
+        self.debug(msg=Event.Probing.name, eq=hash(self) == hash(other))
         return hash(self) == hash(other)
 
     def __hash__(self) -> int:
@@ -113,14 +113,14 @@ class GenericRepository(Wattleflow, IRepository, ABC):
 
     def clear(self) -> None:
         self.debug(
-            msg=Event.Clear.value,
+            msg=Event.Clear.name,
             step=Event.Started.name,
         )
         self._write_counter = 0
 
     def read(self, identifier: str, **kwargs) -> ITarget | None:
         self.debug(
-            msg=Event.Read.value,
+            msg=Event.Read.name,
             step=Event.Started.name,
             id=identifier,
             **kwargs,
@@ -128,7 +128,7 @@ class GenericRepository(Wattleflow, IRepository, ABC):
 
         if self._strategy_read is None:
             self.warning(
-                msg=Event.Read.value,
+                msg=Event.Read.name,
                 step=Event.Configuration.value,
                 error="Read strategy is not assigned!",
             )
@@ -143,7 +143,7 @@ class GenericRepository(Wattleflow, IRepository, ABC):
             )
 
             self.debug(
-                msg=Event.Read.value,
+                msg=Event.Read.name,
                 step=Event.Completed.name,
                 facade=facade,
             )
@@ -168,7 +168,7 @@ class GenericRepository(Wattleflow, IRepository, ABC):
     def write(self, caller: IBlackboard, facade: ITarget, **kwargs) -> bool:
         try:
             self.debug(
-                msg=Event.Write.value,
+                msg=Event.Write.name,
                 step=Event.Started.name,
                 caller=caller.name,
                 counter=self._write_counter,
@@ -191,7 +191,7 @@ class GenericRepository(Wattleflow, IRepository, ABC):
             self._write_counter += 1
 
             self.debug(
-                msg=Event.Write.value,
+                msg=Event.Write.name,
                 step=Event.Completed.name,
                 counter=self._write_counter,
                 facade=facade,
@@ -273,16 +273,16 @@ class RepositoryWithDriver(GenericRepository):
     # region Public
 
     def clear(self) -> None:
-        self.debug(msg=Event.Clear.value, step=Event.Started.value)
+        self.debug(msg=Event.Clear.name, step=Event.Started.value)
         self._write_counter = 0
         self._driver.clear()
         self._strategy_write = None
         self._strategy_read = None
-        self.debug(msg=Event.Clear.value, step=Event.Completed.value)
+        self.debug(msg=Event.Clear.name, step=Event.Completed.value)
 
     def read(self, identifier: str, **kwargs) -> ITarget | None:
         self.debug(
-            msg=Event.Read.value,
+            msg=Event.Read.name,
             step=Event.Started.value,
             id=identifier,
             **kwargs,
@@ -290,7 +290,7 @@ class RepositoryWithDriver(GenericRepository):
 
         if self._strategy_read is None:
             self.warning(
-                msg=Event.Read.value,
+                msg=Event.Read.name,
                 step=Event.Configuration.value,
                 error="Read strategy is not assigned!",
             )
@@ -303,7 +303,7 @@ class RepositoryWithDriver(GenericRepository):
         )
 
         self.debug(
-            msg=Event.Read.value,
+            msg=Event.Read.name,
             step=Event.Completed.value,
             facade=facade,
         )
@@ -313,7 +313,7 @@ class RepositoryWithDriver(GenericRepository):
     def write(self, caller: IBlackboard, facade: ITarget, **kwargs) -> bool:
         try:
             self.debug(
-                msg=Event.Write.value,
+                msg=Event.Write.name,
                 step=Event.Started.value,
                 caller=caller.name,
                 counter=self._write_counter,
@@ -336,7 +336,7 @@ class RepositoryWithDriver(GenericRepository):
             self._write_counter += 1
 
             self.debug(
-                msg=Event.Write.value,
+                msg=Event.Write.name,
                 step=Event.Completed.value,
                 counter=self._write_counter,
                 facade=facade,
@@ -349,7 +349,7 @@ class RepositoryWithDriver(GenericRepository):
             driver_cls = self._driver.__class__.__name__
             doc_id = getattr(facade, "identifier", None)
             root = type(e).__name__
-            error = (
+            reason = (
                 f"[{self.name}] write failed: strategy={strategy_cls} "
                 f"driver={driver_cls} document={doc_id} "
                 f"caller={getattr(caller, 'name', caller.__class__.__name__)} "
@@ -357,7 +357,8 @@ class RepositoryWithDriver(GenericRepository):
             )
 
             self.exception(
-                msg=error,
+                msg=Event.Write.name,
+                reason=reason,
                 caller=caller,
                 error=e,
                 strategy=strategy_cls,
@@ -366,7 +367,7 @@ class RepositoryWithDriver(GenericRepository):
                 counter=self._write_counter,
                 # trace=traceback.format_exc(),
             )
-            raise RepositoryException(caller=self, error=error, facade=facade) from e
+            raise RepositoryException(caller=self, error=reason, facade=facade) from e
 
     # endregion Public
 

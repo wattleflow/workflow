@@ -129,7 +129,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
         self.debug(
-            msg=Event.Constructor.value,
+            msg=Event.Constructor.name,
             step=Event.Starting.value,
             blackboard=blackboard,
             pipelines=pipelines,
@@ -139,7 +139,8 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
 
         if legacy_defer is not None:
             self.warning(
-                msg="config",
+                msg=Event.Configure.name,
+                component="config",
                 deprecated="defer_flush",
                 use="flush_per_cycle",
                 value=flush_per_cycle,
@@ -159,7 +160,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         self._current: ITarget | None = None
 
         self.debug(
-            msg=Event.Constructor.value,
+            msg=Event.Constructor.name,
             step=Event.Completed.name,
             cycle=self._cycle,
             preset=self._preset,
@@ -177,7 +178,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
 
     def __del__(self):
         try:
-            self.debug(Event.Delete.name, step=Event.Started.name)
+            self.debug(msg=Event.Delete.name, step=Event.Started.name)
 
             if self._blackboard:
                 try:
@@ -208,7 +209,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                 # trace=traceback.format_exc(),
             )
         finally:
-            self.debug(Event.Delete.name, step=Event.Completed.name)
+            self.debug(msg=Event.Delete.name, step=Event.Completed.name)
             gc.collect()
 
     # endregion Private
@@ -273,14 +274,14 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             self.start(**kwargs)
             return True
         self.warning(
-            msg="operation",
+            msg=Event.Operation.name,
             action=action.name,
             error="Action not supported by processor",
         )
         return False
 
     def start(self) -> None:
-        self.debug(msg=Event.Start.value, step=Event.Started.name)
+        self.debug(msg=Event.Start.name, step=Event.Started.name)
 
         if self._blackboard is None:
             raise ProcessorException(self, f"Missing {self.name!r} blackboard!")
@@ -332,19 +333,19 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         self.debug(msg=Event.Start.name, step=Event.Completed.name)
 
     def register_blackboard(self, blackboard: IBlackboard) -> None:
-        self.debug(Event.Register.name, step=Event.Starting.name, blackboard=self._blackboard)
+        self.debug(msg=Event.Register.name, step=Event.Starting.name, blackboard=self._blackboard)
         assert isinstance(blackboard, IBlackboard), "Expected IBlackboard. Found %s" % type(
             blackboard
         )
         self._blackboard = blackboard
-        self.debug(Event.Register.name, step=Event.Completed.name, added=self._blackboard)
+        self.debug(msg=Event.Register.name, step=Event.Completed.name, added=self._blackboard)
 
     def register_pipeline(self, pipeline: IPipeline) -> None:
-        self.debug(Event.Register.name, step=Event.Starting.name, pipeline=pipeline)
+        self.debug(msg=Event.Register.name, step=Event.Starting.name, pipeline=pipeline)
         assert isinstance(pipeline, IPipeline), "Expected IPipeline. Found %s" % type(pipeline)
         self._pipelines.append(pipeline)
         self.debug(
-            Event.Register.name,
+            msg=Event.Register.name,
             step=Event.Completed.name,
             added=pipeline,
             count=len(self._pipelines),

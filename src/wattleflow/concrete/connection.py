@@ -173,7 +173,8 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
     def __init__(self, **kwargs) -> None:
         connection_name = kwargs.pop("connection_name", None)
 
-        # The old form passed formating={} when the caller supplied none, which
+        # The old form passed `formating={}` (the legacy spelling) when the
+        # caller supplied none, which
         # only worked because Formatter falls back on a falsy fmt.
         super().__init__(**kwargs)
 
@@ -201,7 +202,7 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
             self.ensure_created()
 
         self.debug(
-            msg=Event.Constructor.value,
+            msg=Event.Constructor.name,
             step=Event.Completed.name,
             connection_name=self.connection_name,
             state=self._fsm.state.value,
@@ -212,7 +213,7 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
 
     def _ensure_created(self) -> None:
         self.debug(
-            msg=Event.Validating.value,
+            msg=Event.Validating.name,
             step="ensure_created",
             state=self._fsm.state.value,
         )
@@ -230,10 +231,10 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
 
     @contextmanager
     def context(self) -> Generator[Connection, None, None]:
-        self.debug(msg=Event.Context.value, step=Event.Started.name, fnc="context")
+        self.debug(msg=Event.Context.name, step=Event.Started.name, fnc="context")
         with self.connect() as conn:
             yield conn
-        self.debug(msg=Event.Context.value, step=Event.Completed.name, fnc="context")
+        self.debug(msg=Event.Context.name, step=Event.Completed.name, fnc="context")
 
     # endregion Context handling
 
@@ -245,20 +246,20 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
         except AttributeError:
             return
         try:
-            self.debug(msg="__del__", step=Event.Starting.value)
+            self.debug(msg=Event.Destructor.name, step=Event.Starting.value)
             self.ensure_closed()
-            self.debug(msg="__del__", step=Event.Completed.name)
+            self.debug(msg=Event.Destructor.name, step=Event.Completed.name)
         except Exception:
             pass
 
     def __enter__(self):
-        self.debug(msg=Event.Enter.value, step=Event.Starting.value, fnc="__enter__")
+        self.debug(msg=Event.Enter.name, step=Event.Starting.value, fnc="__enter__")
         self._context = self.connect()
-        self.debug(msg=Event.Enter.value, step=Event.Completed.name, fnc="__enter__")
+        self.debug(msg=Event.Enter.name, step=Event.Completed.name, fnc="__enter__")
         return self._context.__enter__()
 
     def __exit__(self, exc_type, exc, tb):
-        self.debug(msg="__exit__")
+        self.debug(msg=Event.Exit.name)
         try:
             return self._context.__exit__(exc_type, exc, tb)
         finally:
@@ -364,20 +365,20 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
         try:
             old_conn.request(action=Operation.Disconnect)
         except Exception as e:
-            self.warning(msg="hot_swap", error=f"Old connection was not closed properly: {e}")
+            self.warning(msg=Event.Swap.name, error=f"Old connection was not closed properly: {e}")
 
     def request(self, **kwargs: Any) -> Any:
         action = kwargs.get("action")
-        self.debug(msg=Event.Operation.value, step=Event.Started.name, action=action)
+        self.debug(msg=Event.Operation.name, step=Event.Started.name, action=action)
 
         if action is Operation.Connect:
             result = self.ensure_created()
-            self.debug(msg=Event.Operation.value, step=Event.Completed.name, action=action)
+            self.debug(msg=Event.Operation.name, step=Event.Completed.name, action=action)
             return result
 
         if action is Operation.Disconnect:
             result = self.ensure_closed()
-            self.debug(msg=Event.Operation.value, step=Event.Completed.name, action=action)
+            self.debug(msg=Event.Operation.name, step=Event.Completed.name, action=action)
             return result
 
         raise RuntimeError(f"Unknown action: {action}")

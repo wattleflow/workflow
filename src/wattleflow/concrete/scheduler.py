@@ -52,7 +52,7 @@ class Scheduler(Wattleflow, IScheduler, ABC):
         super().__init__(level=level, handler=handler, **kwargs)
 
         self.debug(
-            msg=Event.Constructor.value,
+            msg=Event.Constructor.name,
             name=self.name,
             level=level,
             handler=handler,
@@ -75,7 +75,7 @@ class Scheduler(Wattleflow, IScheduler, ABC):
             self.setup_orchestrator()
 
     def setup_orchestrator(self) -> None:
-        self.debug(msg=Event.Configuring.value, name=self.name)
+        self.debug(msg=Event.Configuring.name, name=self.name)
 
     def start_orchestration(self, parallel: bool = False):
         with self._lock:

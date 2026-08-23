@@ -19,7 +19,7 @@ class PresetGate:
     # Consumed by the framework itself (Audit pops these from its own copy of
     # kwargs), so they reach the preset and are never a configuration mistake.
     FRAMEWORK: ClassVar[frozenset[str]] = frozenset(
-        {"allowed", "formating", "handler", "level", "name"}
+        {"allowed", "formating", "formatting", "handler", "level", "name"}
     )
 
     @classmethod

@@ -90,7 +90,10 @@ class Audit(ILogger, IObserver):
     def __init__(self, **kwargs):
         super().__init__()
 
-        formating: str = kwargs.pop("formating", LogFormat.DEFAULT.value)
+        # `formating` is the original misspelling; still accepted so existing
+        # workflow configs and callers keep working.
+        legacy: str | None = kwargs.pop("formating", None)
+        formatting: str = kwargs.pop("formatting", None) or legacy or LogFormat.DEFAULT.value
         propagate: bool | None = kwargs.pop("propagate", None)
         logger: Logger | None = kwargs.pop("logger", None)
 
@@ -111,7 +114,7 @@ class Audit(ILogger, IObserver):
                     self._handler = StreamHandler()
                     self._handler.addFilter(ContextFilter())
                     self._handler.setLevel(self._level)
-                    self._handler.setFormatter(Formatter(formating))
+                    self._handler.setFormatter(Formatter(formatting))
 
                 if self._handler not in self._logger.handlers:
                     self._logger.addHandler(self._handler)

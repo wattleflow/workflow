@@ -61,7 +61,7 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
     def __init__(self, content: Content, **kwargs):
         super().__init__(**kwargs)
 
-        self.debug(msg=Event.Constructor.value, step=Event.Started.name, kwargs=kwargs)
+        self.debug(msg=Event.Constructor.name, step=Event.Started.name, kwargs=kwargs)
 
         # internal interface
         self._identifier: str = str(uuid4())
@@ -73,7 +73,7 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
         self.update_metadata(key="created_at", value=Now.utc())
         self.update_content(content=content)
 
-        self.debug(msg=Event.Constructor.value, step=Event.Completed.name)
+        self.debug(msg=Event.Constructor.name, step=Event.Completed.name)
 
     @property
     def content(self) -> Content:
@@ -105,7 +105,7 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
 
     def update_content(self, content: type) -> None:
         self.debug(
-            msg=Event.Updating.value,
+            msg=Event.Updating.name,
             fnc="update_content",
             content=type(content),
         )
@@ -130,7 +130,7 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
 
     def update_metadata(self, key: str, value: object) -> None:
         self.debug(
-            msg=Event.Update.value,
+            msg=Event.Update.name,
             step=Event.Started.name,
             key=key,
             value=value,
@@ -152,7 +152,7 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
         self._metadata["last_change_time"] = self.utc_time_stamp()
 
         self.debug(
-            msg=Event.Update.value,
+            msg=Event.Update.name,
             step=Event.Completed.name,
         )
 

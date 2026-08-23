@@ -112,11 +112,11 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
         canvas: Item,
         **kwargs,
     ):
-        # `fmt` was this class's own spelling of the logger's `formating`, so
+        # `fmt` was this class's own spelling of the logger's `formatting`, so
         # it never reached the logger; accepted as an alias so existing callers
         # keep working.
         if "fmt" in kwargs:
-            kwargs.setdefault("formating", kwargs.pop("fmt"))
+            kwargs.setdefault("formatting", kwargs.pop("fmt"))
 
         # Default to caching through the cycle and flushing at the end.
         if "defer_flush" not in kwargs:
@@ -130,7 +130,7 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
         self.debug(
-            msg=Event.Constructor.value,
+            msg=Event.Constructor.name,
             step=Event.Started.name,
             strategy_create=strategy_create,
             kwargs=kwargs,
@@ -140,7 +140,7 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
         self._canvas: Item = canvas
         self._repositories: Repositories = []
 
-        self.debug(msg=Event.Constructor.value, step=Event.Completed.name)
+        self.debug(msg=Event.Constructor.name, step=Event.Completed.name)
 
     def __del__(self):
         # __init__ may have raised before _preset was set — in that case any

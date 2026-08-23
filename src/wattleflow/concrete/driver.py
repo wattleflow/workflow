@@ -134,9 +134,9 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
         except AttributeError:
             return
         try:
-            self.debug(msg="__del__", step=Event.Started.name)
+            self.debug(msg=Event.Destructor.name, step=Event.Started.name)
             self.ensure_unloaded()
-            self.debug(msg="__del__", step=Event.Completed.name)
+            self.debug(msg=Event.Destructor.name, step=Event.Completed.name)
         except Exception:
             pass
 
@@ -231,14 +231,14 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
         kwargs.pop("msg", None)
         kwargs.pop("step", None)
         self.debug(
-            msg="update",
+            msg=Event.Update.name,
             step=Event.Started.name,
             event=getattr(event, "name", event),
             **kwargs,
         )
-        self.debug(msg="update", step=Event.Completed.name)
+        self.debug(msg=Event.Update.name, step=Event.Completed.name)
 
-    # endregion implemention
+    # endregion implementation
 
 
 class LazyDriverProxy(Wattleflow, IDriver, IObserver):

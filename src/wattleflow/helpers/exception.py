@@ -45,7 +45,6 @@ class AuditException(Exception):
     def __init__(self, caller: object, error: str, *args, **kwargs):
         kwargs.pop("level", None)
         kwargs.pop("handler", None)
-        kwargs.pop("hanlder", None)
 
         exc = kwargs.pop("exc", None)
         exc_info = kwargs.pop("exc_info", None)
