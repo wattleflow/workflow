@@ -112,9 +112,10 @@ class GenericRepository(Wattleflow, IRepository, ABC):
     # region Public
 
     def clear(self) -> None:
-        self.debug(
+        self.info(
             msg=Event.Clear.name,
-            step=Event.Started.name,
+            step=Event.Completed.name,
+            written=self._write_counter,
         )
         self._write_counter = 0
 
@@ -200,7 +201,7 @@ class GenericRepository(Wattleflow, IRepository, ABC):
             return result
 
         except Exception as e:
-            reason = "%s.write strategy failed:  %s!" % self.__class__.__name__, str(e)
+            reason = "%s.write strategy failed: %s!" % (self.__class__.__name__, str(e))
             self.error(
                 msg=Event.Write.name,
                 caller=caller,

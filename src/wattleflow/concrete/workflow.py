@@ -183,10 +183,6 @@ class WorkflowFactory:
     @classmethod
     def build(cls, **kwargs) -> GenericWorkflow:
         logger.debug(msg=Event.Build.name, **kwargs)
-
-        # v0.0.0.97 (DR-WFL-012): the caller supplies the configuration source.
-        # How it is assembled — file format, secret resolution, .env discovery —
-        # belongs to the distribution that owns those parsers, not to the core.
         adapter: IConfig = kwargs.pop("adapter", None)
         if not isinstance(adapter, IConfig):
             raise WorkflowFactoryException(
@@ -222,9 +218,6 @@ class WorkflowFactory:
 
         workflow_class = cls._resolve_section("workflows", workflow)
 
-        # Runtime env vars (e.g. TIKA_SERVER_JAR, JAVA_HOME) ----------- #
-        # Applied before connections/drivers/processors are built so any
-        # library that reads env at import-time (tika, pyspark) sees them.
         cls._apply_runtime_env(workflow.get("runtime"))
 
         # Global audit logger settings --------------------------------- #
@@ -238,6 +231,13 @@ class WorkflowFactory:
         connections = cls._build_connections(adapter, sections, **global_audit)
         drivers = cls._build_drivers(adapter, sections, connections, **global_audit)
         processors = cls._build_processors(workflow, drivers, **global_audit)
+        logger.info(
+            msg=Event.Build.name,
+            step=Event.Completed.name,
+            connections=len(connections),
+            drivers=len(drivers),
+            processors=len(processors),
+        )
         return workflow_class(
             adapter=adapter,
             connections=connections,
@@ -323,15 +323,6 @@ class WorkflowFactory:
 
     @classmethod
     def _settings(cls, config: dict) -> dict:
-        """Constructor settings for one config entry.
-
-        The documented schema lets a blackboard state its own knobs at its own
-        level (`defer_flush:` next to `type:`), with `configuration:` as the
-        optional nested form. Reading only the nested form silently dropped the
-        documented one — `defer_flush: False` never reached the blackboard, so
-        every such workflow ran with the opposite setting. The nested form wins
-        on conflict; what the whitelist does not permit PresetDecorator drops.
-        """
         nested = config.get("configuration", {}) or {}
         inline = {k: v for k, v in config.items() if k not in cls.STRUCTURAL}
         return {**inline, **nested}

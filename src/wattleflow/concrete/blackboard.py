@@ -112,6 +112,10 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
         canvas: Item,
         **kwargs,
     ):
+        assert isinstance(strategy_create, StrategyCreate), (
+            "Expected StrategyCreate. Found %s" % type(strategy_create)
+        )
+
         # `fmt` was this class's own spelling of the logger's `formatting`, so
         # it never reached the logger; accepted as an alias so existing callers
         # keep working.
@@ -121,10 +125,6 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
         # Default to caching through the cycle and flushing at the end.
         if "defer_flush" not in kwargs:
             kwargs["defer_flush"] = True
-
-        assert isinstance(strategy_create, StrategyCreate), (
-            "Expected StrategyCreate. Found %s" % type(strategy_create)
-        )
 
         super().__init__(**kwargs)
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
@@ -173,6 +173,9 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
         if preset is None:
             raise AttributeError(name)
         return preset.__getattr__(name)
+
+    def __len__(self) -> int:
+        return self.count
 
     def __repr__(self) -> str:
         name = self.name or self.__class__.__name__

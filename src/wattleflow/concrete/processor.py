@@ -123,9 +123,6 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             assert isinstance(pipelines, list), "Expected list. Found %s" % type(pipelines)
 
         super().__init__(**kwargs)
-
-        # ALLOWED is resolved by PresetDecorator from the class (NFR-ORG-07);
-        # an explicit allowed= in kwargs still overrides it.
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
         self.debug(
@@ -180,17 +177,17 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         try:
             self.debug(msg=Event.Delete.name, step=Event.Started.name)
 
-            if self._blackboard:
+            if self._blackboard is not None:
                 try:
                     self._blackboard.clean()
                 except Exception as e:
                     name = self.__class__.__name__
                     reason = f"{name} destructor error: {str(e)}"
                     self.error(
-                        msg=Event.Deleting.name,
+                        msg=Event.Delete.name,
+                        step=Event.Failed.name,
                         member="_blackboard",
                         reason=reason,
-                        # trace=traceback.format_exc(),
                     )
                 self._blackboard = None
 
@@ -199,14 +196,11 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             self._generator = None
             self._preset = None
         except Exception as e:
-            reason = (
-                "Destructor %s.__del__  error: %s" % self.__class__.__name__,
-                str(e),
-            )
+            reason = "%s.__del__ error: %s" % (self.__class__.__name__, str(e))
             self.error(
-                msg=Event.Deleting.name,
+                msg=Event.Delete.name,
+                step=Event.Failed.name,
                 reason=reason,
-                # trace=traceback.format_exc(),
             )
         finally:
             self.debug(msg=Event.Delete.name, step=Event.Completed.name)
@@ -289,6 +283,17 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         if len(self._pipelines) < 1:
             raise ProcessorException(self, f"Missing {self.name!r} pipelines!")
 
+        # Announced only after the guards, so the record names what will actually
+        # run: an operator reading INFO sees the processor open and close its pass.
+        self.info(
+            msg=Event.Start.name,
+            step=Event.Started.name,
+            blackboard=type(self._blackboard).__name__,
+            # a joined string, not a list: the audit renderer collapses collections
+            # to "<list: N>" at INFO, which would hide the very names this record exists for
+            pipelines=", ".join(type(p).__name__ for p in self._pipelines),
+        )
+
         try:
             if self._generator is None:
                 self._generator = self.create_generator()
@@ -330,10 +335,19 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                 self._fsm.apply(ProcessorAction.FAIL)
             raise ProcessorException(caller=self, error=str(e)) from e
 
-        self.debug(msg=Event.Start.name, step=Event.Completed.name)
+        self.info(
+            msg=Event.Start.name,
+            step=Event.Completed.name,
+            cycles=self._cycle,
+            pipelines=len(self._pipelines),
+        )
 
     def register_blackboard(self, blackboard: IBlackboard) -> None:
-        self.debug(msg=Event.Register.name, step=Event.Starting.name, blackboard=self._blackboard)
+        self.debug(
+            msg=Event.Register.name,
+            step=Event.Starting.name,
+            blackboard=self._blackboard,
+        )
         assert isinstance(blackboard, IBlackboard), "Expected IBlackboard. Found %s" % type(
             blackboard
         )

@@ -48,7 +48,7 @@ class ProcessorManagerException(AuditException):
 # --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
-# region Managers                                                             #
+# region Classes                                                              #
 # --------------------------------------------------------------------------- #
 
 
@@ -57,7 +57,6 @@ class ConnectionManager(Wattleflow, IObserver):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
         self._connections: dict[str, IObserver] = {}
 
     def __del__(self):
@@ -70,8 +69,8 @@ class ConnectionManager(Wattleflow, IObserver):
                 errors.append(f"{name}: {e}")
 
         if errors:
-            reason = ("Destructor %s errors: %s" % self.__class__.__name__, errors)
-            self.error(msg=Event.Delete.name, reason=reason)
+            reason = "%s.__del__ errors: %s" % (self.__class__.__name__, errors)
+            self.error(msg=Event.Delete.name, step=Event.Failed.name, reason=reason)
         else:
             self.debug(msg=Event.Delete.name, step=Event.Completed.name)
 
@@ -82,6 +81,9 @@ class ConnectionManager(Wattleflow, IObserver):
 
     def __repr__(self) -> str:
         return f"{self.name}-{hash(id(self))}:[{len(self._connections)}]"
+
+    def __len__(self) -> int:
+        return len(self._connections)
 
     def connect(self, name: str, **kwargs) -> object:
         self.debug(msg=Event.Connect.name, name=name, **kwargs)
@@ -193,8 +195,8 @@ class DriverManager(Wattleflow, IObserver):
                 errors.append(f"{name}: {e}")
 
         if errors:
-            reason = "Destructor %s.__del__ error: %s" % self.__class__.__name__, errors
-            self.error(msg=Event.Delete.name, reason=reason)
+            reason = "%s.__del__ error: %s" % (self.__class__.__name__, errors)
+            self.error(msg=Event.Delete.name, step=Event.Failed.name, reason=reason)
         else:
             self.debug(msg=Event.Delete.name, step=Event.Completed.name)
 
@@ -206,6 +208,9 @@ class DriverManager(Wattleflow, IObserver):
 
     def __repr__(self) -> str:
         return f"{self.name}-{hash(id(self))}:[{len(self._drivers)}]"
+
+    def __len__(self) -> int:
+        return len(self._drivers)
 
     def load(self, name: str, **kwargs) -> object:
         self.debug(msg=Event.Load.name, name=name, **kwargs)
@@ -265,7 +270,12 @@ class DriverManager(Wattleflow, IObserver):
                 name=name,
                 error="Trying to unregister a non-existent connection",
             )
-        self.debug(msg=Event.Register.name, target="driver", step=Event.Starting.name, driver=name)
+        self.debug(
+            msg=Event.Register.name,
+            target="driver",
+            step=Event.Starting.name,
+            driver=name,
+        )
 
     def operation(self, name: str, action: Operation, **kwargs) -> bool:
         self.debug(msg=Event.Operation.name, step=Event.Started.name, action=action.name)
@@ -288,15 +298,6 @@ class DriverManager(Wattleflow, IObserver):
         self.debug(msg=Event.Update.name, step=Event.Started.name)
         self.warning(msg=Event.Update.name, error="Not implemented yet.")
         self.debug(msg=Event.Update.name, step=Event.Completed.name)
-
-
-# --------------------------------------------------------------------------- #
-# endregion Managers                                                          #
-# --------------------------------------------------------------------------- #
-
-# --------------------------------------------------------------------------- #
-# region Processors                                                           #
-# --------------------------------------------------------------------------- #
 
 
 class ProcessorManager(Wattleflow, IObserver):
@@ -330,6 +331,9 @@ class ProcessorManager(Wattleflow, IObserver):
 
     def __repr__(self) -> str:
         return f"{self.name}-{hash(id(self))}:[{len(self._processors)}]"
+
+    def __len__(self) -> int:
+        return len(self._processors)
 
     @property
     def all(self) -> dict[str, IProcessor]:
@@ -403,7 +407,7 @@ class ProcessorManager(Wattleflow, IObserver):
 
 
 # --------------------------------------------------------------------------- #
-# endregion Processors                                                        #
+# endregion Classes                                                           #
 # --------------------------------------------------------------------------- #
 
 

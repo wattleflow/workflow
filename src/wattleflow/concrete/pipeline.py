@@ -60,16 +60,14 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
 
     # region Private
     def __del__(self):
-        if self._preset:
+        if self._preset is not None:
             try:
                 del self._preset
             except Exception as e:
-                reason = (
-                    "Destructor %s.__del__ error: %s" % self.__class__.__name__,
-                    str(e),
-                )
+                reason = "%s.__del__ error: %s" % (self.__class__.__name__, str(e))
                 self.error(
                     msg=Event.Delete.name,
+                    step=Event.Failed.name,
                     preset=self._preset,
                     reason=reason,
                 )
@@ -110,7 +108,7 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
                 processor
             )
             assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(facade)
-            self.transform(processor, facade, **kwargs)
+            result = self.transform(processor, facade, **kwargs)
         except AssertionError as e:
             self.error(msg=Event.Process.name, step=Event.Failed.name, error=str(e))
             raise PipelineError(str(e)) from e
@@ -123,9 +121,12 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
                 # trace=traceback.format_exc(),
             ) from e
         finally:
-            self.debug(
+            # The pipeline owns the document unit (NFR-OBS-03), so this is the one
+            # INFO an operator counts per document; every layer below it stays quiet.
+            self.info(
                 msg=Event.Process.name,
                 step=Event.Completed.name,
+                document=getattr(facade, "identifier", None),
                 result=result,
             )
 
