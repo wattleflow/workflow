@@ -11,7 +11,7 @@
     "`en` is the default and the fallback and must stay complete, so a missing",
     "translation degrades to UK English instead of printing a key."
   ],
-  "presentation_version": "0.3.0",
+  "presentation_version": "0.4.0",
   "_CATALOGUE": [
     "One entry per finding kind. `code` and `ref` are language-neutral;",
     "`title`/`why`/`fix` sit under a language key. `code` identifies the KIND only —",
@@ -734,6 +734,184 @@
         "fix": [
           "Koristi error, warning ili info u `rules` bloku — ili proširi",
           "LEVELS tablicu alata kroz DR ako nova razina stvarno treba."
+        ]
+      }
+    },
+    "audit-escalation-with-raise": {
+      "code": "K24",
+      "ref": "NFR-OBS-01 §1",
+      "en": {
+        "title": "ERROR-level record in a branch that re-raises",
+        "why": [
+          "A branch that wraps and re-raises has not handled the failure — the layer",
+          "above still has to. Logging error()/critical()/exception() there and raising",
+          "as well reports one cause twice; through strategy → repository → pipeline it",
+          "becomes three records and two tracebacks, all on the level that has to stay",
+          "quiet to remain readable."
+        ],
+        "fix": [
+          "Fix: keep the context in the exception (error=, exc=, raise … from) and leave",
+          "a self.debug(step=Event.Failed.name, error=…) trace. The ERROR belongs to the",
+          "layer that stops the propagation."
+        ]
+      },
+      "hr": {
+        "title": "zapis ERROR razine u grani koja diže iznimku dalje",
+        "why": [
+          "Grana koja omata i ponovno diže nije obradila kvar — odluku i dalje donosi",
+          "sloj iznad. Zapis error()/critical()/exception() uz raise prijavljuje isti",
+          "uzrok dvaput; kroz lanac strategija → repozitorij → pipeline to su tri zapisa",
+          "i dva tracebacka, na razini koja mora ostati tiha da bi bila čitljiva."
+        ],
+        "fix": [
+          "Popravak: kontekst nosi iznimka (error=, exc=, raise … from), a grana ostavlja",
+          "trag self.debug(step=Event.Failed.name, error=…). ERROR pripada sloju koji",
+          "zaustavlja propagaciju."
+        ]
+      }
+    },
+    "audit-missing-trace": {
+      "code": "K25",
+      "ref": "NFR-OBS-01 §2, §6",
+      "en": {
+        "title": "branch re-raises without leaving a trace",
+        "why": [
+          "The exception carries the cause upward, but nothing records that this layer",
+          "was on the path. With DEBUG on the step is still invisible — the one place",
+          "where local context (which document, which driver, which file) was free."
+        ],
+        "fix": [
+          "Fix: add self.debug(msg=<operation>, step=Event.Failed.name, error=…) before",
+          "the raise. A bare `except X: raise` is exempt — the raiser already recorded it."
+        ]
+      },
+      "hr": {
+        "title": "grana diže iznimku bez traga",
+        "why": [
+          "Iznimka nosi uzrok prema gore, ali nigdje nije zapisano da je i ovaj sloj bio",
+          "na putu. Uz uključen DEBUG korak ostaje nevidljiv — a upravo je tu lokalni",
+          "kontekst (koji dokument, koji driver, koja datoteka) bio besplatan."
+        ],
+        "fix": [
+          "Popravak: dodaj self.debug(msg=<operacija>, step=Event.Failed.name, error=…)",
+          "prije dizanja. Goli `except X: raise` je izuzet — trag je već ostavio onaj",
+          "tko je iznimku podigao."
+        ]
+      }
+    },
+    "audit-msg-not-event": {
+      "code": "K26",
+      "ref": "NFR-OBS-02 §1",
+      "en": {
+        "title": "`msg` is not an Event member",
+        "why": [
+          "A literal, an f-string or a local variable puts the event outside the",
+          "controlled vocabulary: the record can no longer be selected by facet, and the",
+          "same operation ends up spelled three ways across the framework. `.value` is",
+          "presentation and may change; `.name` is the identifier."
+        ],
+        "fix": [
+          "Fix: msg=Event.<Member>.name. If no member fits, the vocabulary is short one",
+          "— that is a DR, not a literal."
+        ]
+      },
+      "hr": {
+        "title": "`msg` nije član Event-a",
+        "why": [
+          "Literal, f-string ili lokalna varijabla izmiču događaj iz kontroliranog",
+          "vokabulara: zapis se više ne može odabrati po faseti, a ista operacija dobiva",
+          "tri različita zapisa kroz framework. `.value` je prikaz i smije se mijenjati;",
+          "`.name` je identifikator."
+        ],
+        "fix": [
+          "Popravak: msg=Event.<Član>.name. Ako nijedan član ne odgovara, rječniku",
+          "nedostaje član — to je DR, ne literal."
+        ]
+      }
+    },
+    "audit-step-not-phase": {
+      "code": "K27",
+      "ref": "NFR-OBS-02 §3",
+      "en": {
+        "title": "`step` is not a phase member",
+        "why": [
+          "The phase axis only sorts if it draws from one closed set. A free literal or a",
+          "non-phase member (Configuration, Iterating) makes 'entry vs exit vs failure'",
+          "unanswerable by a filter."
+        ],
+        "fix": [
+          "Fix: use Started, Starting, Validating, Configuring, Check, Completing,",
+          "Completed or Failed, spelled with .name."
+        ]
+      },
+      "hr": {
+        "title": "`step` nije fazni član",
+        "why": [
+          "Fazna os sortira samo ako crpi iz jednog zatvorenog skupa. Slobodni literal",
+          "ili ne-fazni član (Configuration, Iterating) čini pitanje ulaz/izlaz/kvar",
+          "neodgovorivim filtrom."
+        ],
+        "fix": [
+          "Popravak: koristi Started, Starting, Validating, Configuring, Check,",
+          "Completing, Completed ili Failed, zapisano s .name."
+        ]
+      }
+    },
+    "audit-kwargs-splat": {
+      "code": "K28",
+      "ref": "NFR-OBS-02 §5 (NFR-SEC-06 §1)",
+      "en": {
+        "title": "caller kwargs splatted into an audit call",
+        "why": [
+          "The caller's keys land in the same namespace as the audit call's own. A key",
+          "named msg raises TypeError; exc_info, extra or stacklevel silently become",
+          "control arguments — the name of a data key changes behaviour."
+        ],
+        "fix": [
+          "Fix: pass the dict as one value (kwargs=kwargs) or name the fields you mean."
+        ]
+      },
+      "hr": {
+        "title": "pozivateljev rječnik raspakiran u audit poziv",
+        "why": [
+          "Pozivateljevi ključevi ulaze u isti imenski prostor kao i argumenti samog",
+          "poziva. Ključ msg diže TypeError; exc_info, extra ili stacklevel tiho postaju",
+          "upravljački argumenti — ime podatkovnog ključa mijenja ponašanje."
+        ],
+        "fix": [
+          "Popravak: predaj rječnik kao jednu vrijednost (kwargs=kwargs) ili imenuj polja",
+          "koja stvarno misliš."
+        ]
+      }
+    },
+    "audit-info-in-step-class": {
+      "code": "K29",
+      "ref": "NFR-OBS-03 §1",
+      "en": {
+        "title": "INFO emitted by a step class",
+        "why": [
+          "A strategy, driver or connection runs inside one unit of work. An INFO per",
+          "call scales with the input, not with the job: 2000 attachments give 2000 INFO",
+          "records for one task, and the level that answers 'is the job done' stops",
+          "answering it."
+        ],
+        "fix": [
+          "Fix: drop to debug(), and let the owner of the unit (pipeline, processor,",
+          "orchestrator) emit one INFO with counters. A class that IS a unit declares",
+          "itself in the registry under audit.info_exempt."
+        ]
+      },
+      "hr": {
+        "title": "INFO iz klase koja je korak",
+        "why": [
+          "Strategija, driver ili konekcija izvode se unutar jedne jedinice posla. INFO",
+          "po pozivu skalira s ulazom, ne s poslom: 2000 privitaka daje 2000 INFO zapisa",
+          "za jedan posao, pa razina koja odgovara je li posao gotov prestaje odgovarati."
+        ],
+        "fix": [
+          "Popravak: spusti na debug(), a jedan INFO s brojačima neka emitira vlasnik",
+          "jedinice (pipeline, procesor, orkestrator). Klasa koja JEST jedinica deklarira",
+          "se u registru pod audit.info_exempt."
         ]
       }
     }

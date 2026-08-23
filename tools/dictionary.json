@@ -48,7 +48,7 @@
     "PENDING: DR-PRC-001 must enact this revision — until then the criterion is a",
     "draft and its findings are conformant, not descriptive (D-08)."
   ],
-  "criterion_version": "0.8.2",
+  "criterion_version": "0.9.0",
   "dictionary_version": "0.2.0",
   "dictionary_source": "documentation/dictionary.yaml#code",
   "_python_reference": "Defines the 'stdlib' set for ORG-01; must track requires-python in pyproject.toml.",
@@ -72,7 +72,10 @@
     "imports inside the shared namespace are not modelled as edges, so cycles and layering within helpers/ are unmeasured (helpers->domain acyclicity and helper fan-in ARE measured)",
     "the ORG-02 name grammar (Subject/Operation) is inert in this distribution: no `subjects` block and no `pipelines` domain are declared, so only criterion 6 (prohibited_standalone) is enforced here",
     "ORG-01 measures the import graph, never the runtime one: dynamic edges (ClassLoader, YAML-declared types) are invisible to the AST, so blast radius per NFR-SEC-01 is under-counted",
-    "a strategic adversary is beyond the reach of the lint"
+    "a strategic adversary is beyond the reach of the lint",
+    "NFR-OBS-01 criteria 4 and 5 (WARNING is never a failure; CRITICAL means the component cannot continue) need the semantics of the branch and are not machine-decidable — reviewed, not measured",
+    "NFR-OBS-02 criterion 2 (entry and exit of one operation share `msg` and differ only in `step`) is reviewed: pairing two calls as one operation is not decidable from the AST alone",
+    "NFR-OBS-03 criterion 2 measures records per unit of work at RUNTIME; the static lint cannot see it, so the [M] value is absent from this vector, not zero"
   ],
   "_rules": [
     "The rule table as the NFR registry declares it: id, requirement, check,",
@@ -143,6 +146,34 @@
       "check": "preset_allowed_declaration",
       "severity": "error",
       "waiver": "dr_required"
+    },
+    {
+      "id": "PRC-OBS-01a",
+      "nfr": "NFR-OBS-01",
+      "check": "audit_level_vs_propagation",
+      "severity": "warning",
+      "waiver": "declared"
+    },
+    {
+      "id": "PRC-OBS-01b",
+      "nfr": "NFR-OBS-01",
+      "check": "audit_failure_trace",
+      "severity": "warning",
+      "waiver": "declared"
+    },
+    {
+      "id": "PRC-OBS-02a",
+      "nfr": "NFR-OBS-02",
+      "check": "audit_event_vocabulary",
+      "severity": "warning",
+      "waiver": "declared"
+    },
+    {
+      "id": "PRC-OBS-03a",
+      "nfr": "NFR-OBS-03",
+      "check": "audit_info_placement",
+      "severity": "warning",
+      "waiver": "declared"
     }
   ],
   "_domains": [
@@ -397,5 +428,60 @@
       "allowed"
     ],
     "forwarding": "prohibited"
+  },
+  "_audit": "NFR-OBS-01/02/03 criterion data: which call is an audit call, which levels escalate, which Event members are phases, and which classes are steps inside a unit of work (and therefore emit no INFO). Editing this block edits the criterion -> DR (D-03).",
+  "audit": {
+    "levels": [
+      "debug",
+      "info",
+      "warning",
+      "error",
+      "critical",
+      "exception",
+      "fatal"
+    ],
+    "escalated": [
+      "error",
+      "critical",
+      "exception"
+    ],
+    "trace": "debug",
+    "event_enum": "Event",
+    "phase_steps": [
+      "Started",
+      "Starting",
+      "Validating",
+      "Configuring",
+      "Check",
+      "Completing",
+      "Completed",
+      "Failed"
+    ],
+    "step_class_bases": [
+      "StrategyCreate",
+      "StrategyRead",
+      "StrategyWrite",
+      "StrategyGenerate",
+      "BaseWriteStrategy",
+      "GenericDriver",
+      "GenericConnection"
+    ],
+    "step_class_prefixes": [
+      "Strategy",
+      "Driver",
+      "Connection"
+    ],
+    "info_exempt": [
+      "StrategyCopyHuggingfaceModels"
+    ],
+    "fields": {
+      "msg": "the operation/event — always Event.<Member>.name",
+      "step": "phase of that operation within time",
+      "scope": "which part of the same operation",
+      "component": "subsystem or external participant the operation uses",
+      "target": "the kind of object the operation acts on",
+      "reason": "why the outcome is what it is — a human sentence",
+      "error": "the exception text"
+    }
   }
 }

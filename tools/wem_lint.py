@@ -102,7 +102,7 @@ _CAMEL = re.compile(r"[A-Z]+(?![a-z])|[A-Z][a-z]+|[A-Z]|\d+")
 # Criterion-versioning convention (METHODOLOGY §1 t.2): a change in rule
 # semantics or in the criterion source is a minor bump, because the same code
 # can yield a different vector afterwards.
-__version__ = "1.12.0"
+__version__ = "1.13.0"
 ERROR, WARNING, INFO = logging.ERROR, logging.WARNING, logging.INFO
 
 
@@ -283,6 +283,14 @@ class Criterion:
             "preset-allowed-scope",
             "preset-allowed-forwarded",
         ),
+        "audit_level_vs_propagation": ("audit-escalation-with-raise",),
+        "audit_failure_trace": ("audit-missing-trace",),
+        "audit_event_vocabulary": (
+            "audit-msg-not-event",
+            "audit-step-not-phase",
+            "audit-kwargs-splat",
+        ),
+        "audit_info_placement": ("audit-info-in-step-class",),
     }
 
     @classmethod
@@ -1345,6 +1353,275 @@ class SupplyChainRule(Wattleflow, IStrategy):
 
 
 # --------------------------------------------------------------------------- #
+# region NFR-OBS-01/02/03 — Audit levels, fields and volume                    #
+# --------------------------------------------------------------------------- #
+class AuditRuleBase(Wattleflow, IStrategy):
+    """Shared reading of the registry's `audit` block and of audit call sites.
+
+    An audit call is `self.<level>(...)`; the level set, the phase vocabulary and
+    the class roles are criterion data, not constants, so a DR editing the
+    registry moves the instrument without touching this file.
+    """
+
+    DEFAULTS = {
+        "levels": ["debug", "info", "warning", "error", "critical", "exception", "fatal"],
+        "escalated": ["error", "critical", "exception"],
+        "trace": "debug",
+        "event_enum": "Event",
+        "phase_steps": [
+            "Started",
+            "Starting",
+            "Validating",
+            "Configuring",
+            "Check",
+            "Completing",
+            "Completed",
+            "Failed",
+        ],
+        "step_class_bases": [],
+        "step_class_prefixes": [],
+        "info_exempt": [],
+    }
+
+    @classmethod
+    def _cfg(cls, reg: dict) -> dict:
+        cfg = dict(cls.DEFAULTS)
+        cfg.update(reg.get("audit", {}) or {})
+        return cfg
+
+    @staticmethod
+    def _audit_calls(node: ast.AST, levels) -> "list[ast.Call]":
+        return [
+            n
+            for n in ast.walk(node)
+            if isinstance(n, ast.Call)
+            and isinstance(n.func, ast.Attribute)
+            and n.func.attr in levels
+            and isinstance(n.func.value, ast.Name)
+            and n.func.value.id == "self"
+        ]
+
+    @staticmethod
+    def _event_member(node, enum: str) -> "str | None":
+        """`Event.<Member>.name` → `<Member>`; anything else → None."""
+        if (
+            isinstance(node, ast.Attribute)
+            and node.attr == "name"
+            and isinstance(node.value, ast.Attribute)
+            and isinstance(node.value.value, ast.Name)
+            and node.value.value.id == enum
+        ):
+            return node.value.attr
+        return None
+
+    @staticmethod
+    def _is_step_class(cls_node: ast.ClassDef, cfg: dict) -> bool:
+        bases = {ast.unparse(b) for b in cls_node.bases}
+        if bases & set(cfg["step_class_bases"]):
+            return True
+        return any(cls_node.name.startswith(p) for p in cfg["step_class_prefixes"])
+
+
+class AuditLevelRule(AuditRuleBase):
+    """NFR-OBS-01 — the level answers *who reads this*, and one cause is one ERROR.
+
+    A branch that wraps and re-raises has not handled anything: the layer above
+    still has to decide. Logging ERROR there and raising as well reports the same
+    cause twice (three times through a strategy → repository → pipeline chain),
+    and it is the ERROR stream — the one that must stay quiet to be read — that
+    pays. The context belongs to the exception (`raise … from`, PEP 3134); the
+    branch leaves a DEBUG trace so the step is still visible when DEBUG is on.
+
+    Two exemptions are structural, not tolerances: a module-level `except
+    ImportError` has no `self` to log through, and a bare `except X: raise` adds
+    nothing the raiser did not already record.
+    """
+
+    def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
+        cfg = self._cfg(reg)
+        escalated = set(cfg["escalated"])
+        trace = cfg["trace"]
+        sev_escalation = Criterion.severity(reg, "audit_level_vs_propagation", WARNING)
+        sev_trace = Criterion.severity(reg, "audit_failure_trace", WARNING)
+
+        findings: list[Finding] = []
+        for path in source.create_iterator():
+            tree = SourceFile.of(path).tree
+            if tree is None:
+                continue
+            # module-level handlers are out of scope: no `self` exists there
+            functions = (ast.FunctionDef, ast.AsyncFunctionDef)
+            for fn in (n for n in ast.walk(tree) if isinstance(n, functions)):
+                for handler in (n for n in ast.walk(fn) if isinstance(n, ast.ExceptHandler)):
+                    if not any(isinstance(n, ast.Raise) for n in ast.walk(handler)):
+                        continue
+                    bare = (
+                        len(handler.body) == 1
+                        and isinstance(handler.body[0], ast.Raise)
+                        and handler.body[0].exc is None
+                    )
+                    levels = [c.func.attr for c in self._audit_calls(handler, cfg["levels"])]
+                    hit = sorted(escalated.intersection(levels))
+                    if hit:
+                        findings.append(
+                            Finding(
+                                "OBS-01",
+                                sev_escalation,
+                                path,
+                                handler.lineno,
+                                fn.name,
+                                f"`self.{hit[0]}()` in a branch that re-raises — the cause is "
+                                "reported here and again by the layer that handles it "
+                                "(criterion 1)",
+                                kind="audit-escalation-with-raise",
+                                detail=f"{fn.name}: {hit[0]}() + raise",
+                            )
+                        )
+                    if not bare and trace not in levels:
+                        findings.append(
+                            Finding(
+                                "OBS-01",
+                                sev_trace,
+                                path,
+                                handler.lineno,
+                                fn.name,
+                                f"branch re-raises without a `self.{trace}()` trace — the step "
+                                "leaves no record even when DEBUG is on (criteria 2, 6)",
+                                kind="audit-missing-trace",
+                                detail=f"{fn.name}: raise without trace",
+                            )
+                        )
+        return findings
+
+
+class AuditFieldRule(AuditRuleBase):
+    """NFR-OBS-02 — the record is a pair (event, named fields), not a sentence.
+
+    `msg` carries an `Event` member so the record is searchable by facet and the
+    vocabulary stays in one registry; `.name` and not `.value` because the member
+    name is the identifier while the value is presentation (D-13). `step` is the
+    phase axis and draws from the phase subset — a free literal reopens the
+    vocabulary the registry closed. The splat check is `NFR-SEC-06` criterion 1,
+    cited here because the same call site fails both.
+    """
+
+    def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
+        cfg = self._cfg(reg)
+        enum = cfg["event_enum"]
+        phases = set(cfg["phase_steps"])
+        severity = Criterion.severity(reg, "audit_event_vocabulary", WARNING)
+
+        findings: list[Finding] = []
+        for path in source.create_iterator():
+            tree = SourceFile.of(path).tree
+            if tree is None:
+                continue
+            for call in self._audit_calls(tree, cfg["levels"]):
+                keywords = {k.arg: k.value for k in call.keywords if k.arg}
+                name = call.func.attr
+
+                if any(k.arg is None for k in call.keywords):
+                    findings.append(
+                        Finding(
+                            "OBS-02",
+                            severity,
+                            path,
+                            call.lineno,
+                            name,
+                            "caller kwargs splatted into an audit call — a key named `msg` or "
+                            "`exc_info` becomes a control argument (criterion 5; NFR-SEC-06 k.1)",
+                            kind="audit-kwargs-splat",
+                            detail=f"self.{name}(**kwargs)",
+                        )
+                    )
+
+                msg = keywords.get("msg") or (call.args[0] if call.args else None)
+                if msg is None or self._event_member(msg, enum) is None:
+                    shown = ast.unparse(msg) if msg is not None else "<absent>"
+                    findings.append(
+                        Finding(
+                            "OBS-02",
+                            severity,
+                            path,
+                            call.lineno,
+                            name,
+                            f"`msg={shown}` is not `{enum}.<Member>.name` — the event leaves the "
+                            "controlled vocabulary and the record stops being searchable by facet "
+                            "(criterion 1)",
+                            kind="audit-msg-not-event",
+                            detail=f"msg={shown}",
+                        )
+                    )
+
+                step = keywords.get("step")
+                if step is not None:
+                    member = self._event_member(step, enum)
+                    if member not in phases:
+                        shown = ast.unparse(step)
+                        findings.append(
+                            Finding(
+                                "OBS-02",
+                                severity,
+                                path,
+                                call.lineno,
+                                name,
+                                f"`step={shown}` is not a phase member of `{enum}` — the phase "
+                                "axis only sorts if it draws from one closed set (criterion 3)",
+                                kind="audit-step-not-phase",
+                                detail=f"step={shown}",
+                            )
+                        )
+        return findings
+
+
+class AuditVolumeRule(AuditRuleBase):
+    """NFR-OBS-03 — INFO counts units of work, so a step class must not emit it.
+
+    A strategy, driver or connection runs *inside* one unit; an INFO per call
+    therefore scales with the input, not with the work, and the level that answers
+    "is the job done" stops answering it. The exemption list is criterion data: a
+    class invoked directly, outside the per-document chain, is itself a unit and
+    says so in the registry rather than in a comment.
+    """
+
+    def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
+        cfg = self._cfg(reg)
+        exempt = set(cfg["info_exempt"])
+        severity = Criterion.severity(reg, "audit_info_placement", WARNING)
+
+        findings: list[Finding] = []
+        for path in source.create_iterator():
+            tree = SourceFile.of(path).tree
+            if tree is None:
+                continue
+            for cls in (n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)):
+                if cls.name in exempt or not self._is_step_class(cls, cfg):
+                    continue
+                for call in self._audit_calls(cls, cfg["levels"]):
+                    if call.func.attr != "info":
+                        continue
+                    findings.append(
+                        Finding(
+                            "OBS-03",
+                            severity,
+                            path,
+                            call.lineno,
+                            cls.name,
+                            f"`self.info()` in `{cls.name}` — a step inside a unit of work; INFO "
+                            "here scales with the input, not with the job (criterion 1)",
+                            kind="audit-info-in-step-class",
+                            detail=f"{cls.name}.info()",
+                        )
+                    )
+        return findings
+
+
+# --------------------------------------------------------------------------- #
+# endregion NFR-OBS-01/02/03 — Audit levels, fields and volume                 #
+# --------------------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------------------- #
 # region Linter — Strategy context (IStrategyContext)                         #
 # --------------------------------------------------------------------------- #
 class WemLint(Wattleflow, IStrategyContext):
@@ -1540,6 +1817,9 @@ class RuleFactory(Wattleflow, IFactory):
         "ORG-03": TypeVarRule,
         "ORG-07": PresetAllowedRule,
         "SEC-03": SupplyChainRule,
+        "OBS-01": AuditLevelRule,
+        "OBS-02": AuditFieldRule,
+        "OBS-03": AuditVolumeRule,
     }
 
     @staticmethod
