@@ -1,6 +1,6 @@
 [project]
 name = "wattleflow-workflow"
-version = "0.0.1.5"
+version = "0.0.1.6"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"
@@ -34,8 +34,6 @@ documentation = "https://github.com/wattleflow/documentation.git"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-# File selection is MANIFEST.in's job (see its header): package-data would be a
-# second, competing source of truth for what ships.
 include-package-data = false
 
 [tool.setuptools.packages.find]
