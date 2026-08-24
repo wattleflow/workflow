@@ -116,11 +116,13 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             flush_per_cycle = True
 
         if blackboard is not None:
-            assert isinstance(blackboard, IBlackboard), "Expected IBlackboard. Found %s" % type(
-                blackboard
+            assert isinstance(blackboard, IBlackboard), (
+                "Expected IBlackboard. Found %s" % type(blackboard)
             )
         if pipelines is not None:
-            assert isinstance(pipelines, list), "Expected list. Found %s" % type(pipelines)
+            assert isinstance(pipelines, list), "Expected list. Found %s" % type(
+                pipelines
+            )
 
         super().__init__(**kwargs)
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
@@ -289,14 +291,16 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             raise ProcessorException(self, f"Missing {self.name!r} pipelines!")
 
         # Announced only after the guards, so the record names what will actually
-        # run: an operator reading INFO sees the processor open and close its pass.
+        # run. The CONFIGURATION belongs here, in the opening record — what is
+        # wired up is known before the pass, so reporting it at the end told the
+        # operator something they could no longer act on. Joined strings, not
+        # lists: the audit renderer collapses a collection to "<list: N>" at
+        # INFO, which would hide the very names this record exists for.
         self.info(
             msg=Event.Start.name,
-            step=Event.Started.name,
             blackboard=type(self._blackboard).__name__,
-            # a joined string, not a list: the audit renderer collapses collections
-            # to "<list: N>" at INFO, which would hide the very names this record exists for
             pipelines=", ".join(type(p).__name__ for p in self._pipelines),
+            repositories=self._repository_names(),
         )
 
         try:
@@ -349,12 +353,24 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             )
             raise ProcessorException(caller=self, error=str(e)) from e
 
+        # `msg` names the record; the phase is not a separate field. The opening
+        # record is `Start`, the closing one `Completed` — the same `msg` twice
+        # with only `step` telling them apart made the operator read the field to
+        # learn which of the two they were looking at. Only the OUTCOME belongs
+        # here; the wiring was already reported when the pass opened.
         self.info(
-            msg=Event.Start.name,
-            step=Event.Completed.name,
+            msg=Event.Completed.name,
             cycles=self._cycle,
-            pipelines=len(self._pipelines),
         )
+
+    def _repository_names(self) -> str:
+        """Repository types behind this processor's blackboard, joined. Never
+        raises — an unreachable blackboard must not sink the opening record."""
+        try:
+            repositories = getattr(self._blackboard, "repositories", ()) or ()
+            return ", ".join(type(r).__name__ for r in repositories) or "none"
+        except Exception:
+            return "unavailable"
 
     def register_blackboard(self, blackboard: IBlackboard) -> None:
         self.debug(
@@ -362,15 +378,19 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             step=Event.Starting.name,
             blackboard=self._blackboard,
         )
-        assert isinstance(blackboard, IBlackboard), "Expected IBlackboard. Found %s" % type(
-            blackboard
+        assert isinstance(blackboard, IBlackboard), (
+            "Expected IBlackboard. Found %s" % type(blackboard)
         )
         self._blackboard = blackboard
-        self.debug(msg=Event.Register.name, step=Event.Completed.name, added=self._blackboard)
+        self.debug(
+            msg=Event.Register.name, step=Event.Completed.name, added=self._blackboard
+        )
 
     def register_pipeline(self, pipeline: IPipeline) -> None:
         self.debug(msg=Event.Register.name, step=Event.Starting.name, pipeline=pipeline)
-        assert isinstance(pipeline, IPipeline), "Expected IPipeline. Found %s" % type(pipeline)
+        assert isinstance(pipeline, IPipeline), "Expected IPipeline. Found %s" % type(
+            pipeline
+        )
         self._pipelines.append(pipeline)
         self.debug(
             msg=Event.Register.name,

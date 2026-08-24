@@ -114,7 +114,6 @@ class GenericRepository(Wattleflow, IRepository, ABC):
     def clear(self) -> None:
         self.info(
             msg=Event.Clear.name,
-            step=Event.Completed.name,
             written=self._write_counter,
         )
         self._write_counter = 0
@@ -180,6 +179,17 @@ class GenericRepository(Wattleflow, IRepository, ABC):
             assert isinstance(caller, IBlackboard), "Expected IBlackboard. Found %s" % type(caller)
             assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(facade)
 
+            # Reported on ENTRY, before the strategy runs, so the audit stream
+            # follows the call order the activity diagram draws. Only the
+            # processor and the workflow close their unit.
+            self.info(
+                msg=Event.Write.name,
+                step=Event.Started.name,
+                strategy=type(self._strategy_write).__name__,
+                document=getattr(facade, "identifier", None),
+                written=self._write_counter,
+            )
+
             # The repository passes ITSELF as caller so the owning blackboard
             # Strategy.execute asertira (IRepository, IDriver) — upstream caller
             # does not leak into the strategy layer.
@@ -192,12 +202,9 @@ class GenericRepository(Wattleflow, IRepository, ABC):
 
             self._write_counter += 1
 
-            self.debug(
-                msg=Event.Write.name,
-                step=Event.Completed.name,
-                counter=self._write_counter,
-                facade=facade,
-            )
+            # The repository performs a key operation over the document, so it
+            # reports its OWN completion. One record, at completion only: the
+            # entry side of the same operation stays on DEBUG.
 
             return result
 
@@ -324,6 +331,17 @@ class RepositoryWithDriver(GenericRepository):
             assert isinstance(caller, IBlackboard), "Expected IBlackboard. Found %s" % type(caller)
             assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(facade)
 
+            # Reported on ENTRY, before the strategy runs, so the audit stream
+            # follows the call order the activity diagram draws. Only the
+            # processor and the workflow close their unit.
+            self.info(
+                msg=Event.Write.name,
+                step=Event.Started.name,
+                strategy=type(self._strategy_write).__name__,
+                document=getattr(facade, "identifier", None),
+                written=self._write_counter,
+            )
+
             # The repository passes ITSELF as caller so the owning blackboard
             # Strategy.execute asertira (IRepository, IDriver).
             result: bool = self._strategy_write.write(
@@ -336,12 +354,9 @@ class RepositoryWithDriver(GenericRepository):
 
             self._write_counter += 1
 
-            self.debug(
-                msg=Event.Write.name,
-                step=Event.Completed.name,
-                counter=self._write_counter,
-                facade=facade,
-            )
+            # The repository performs a key operation over the document, so it
+            # reports its OWN completion. One record, at completion only: the
+            # entry side of the same operation stays on DEBUG.
 
             return result
 

@@ -11,6 +11,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from logging import Handler, NOTSET
+from pathlib import Path
 from typing import Any
 from wattleflow.core import IProcessor, IPipeline, ITarget
 from wattleflow.concrete.base import Wattleflow
@@ -97,41 +98,66 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
         **kwargs,
     ) -> None:
         self.debug(
-            msg=Event.Process.name,
+            msg=Event.Transform.name,
             step=Event.Starting.name,
             processor=processor,
             facade=facade,
         )
-        result = None
         try:
             assert isinstance(processor, IProcessor), "Expected IProcessor. Found %s" % type(
                 processor
             )
             assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(facade)
+
+            # Reported on ENTRY, so the audit stream reads top-down in the order
+            # the activity diagram draws: pipeline -> blackboard -> repository ->
+            # strategy -> driver. A completion record can only be written after
+            # the work is done, so its order is necessarily the reverse unwind of
+            # the call stack — the two cannot both be had. Closing the unit is the
+            # job of the layers that own one: the processor and the workflow.
+            self.info(
+                msg=Event.Transform.name,
+                step=Event.Started.name,
+                source=self._source_name(facade),
+                document=getattr(facade, "identifier", None),
+            )
+
             result = self.transform(processor, facade, **kwargs)
+
+            self.debug(
+                msg=Event.Transform.name,
+                step=Event.Completed.name,
+                result=result,
+            )
         except AssertionError as e:
             # v0.0.1.10 (DR-WFL-018 t.2): the caller stops the propagation and owns
             # the ERROR; this layer leaves the trace and carries the cause in the
             # exception.
-            self.debug(msg=Event.Process.name, step=Event.Failed.name, error=str(e))
+            self.debug(msg=Event.Transform.name, step=Event.Failed.name, error=str(e))
             raise PipelineError(str(e)) from e
         except Exception as e:
             error = "%s.process error: %s" % (self.__class__.__name__, str(e))
-            self.debug(msg=Event.Process.name, step=Event.Failed.name, error=error)
+            self.debug(msg=Event.Transform.name, step=Event.Failed.name, error=error)
             raise PipelineError(
                 caller=self,
                 error=error,
                 # trace=traceback.format_exc(),
             ) from e
-        finally:
-            # The pipeline owns the document unit (NFR-OBS-03), so this is the one
-            # INFO an operator counts per document; every layer below it stays quiet.
-            self.info(
-                msg=Event.Process.name,
-                step=Event.Completed.name,
-                document=getattr(facade, "identifier", None),
-                result=result,
-            )
+
+    @staticmethod
+    def _source_name(facade: ITarget) -> str | None:
+        """Human-readable name of the unit behind ``facade``, or None.
+
+        Never raises: this runs inside the ``finally`` of ``process``, where an
+        exception would mask the failure being reported. The facade forwards
+        unknown attributes to its adaptee, so a document type without a filename
+        simply yields None.
+        """
+        try:
+            name = getattr(facade, "filename", None)
+        except Exception:
+            return None
+        return Path(str(name)).name if name else None
 
 
 # --------------------------------------------------------------------------- #

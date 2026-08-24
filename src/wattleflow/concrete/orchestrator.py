@@ -142,7 +142,6 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
         self._running = True
         self.info(
             msg=Event.OrchestrationStarted.name,
-            step=Event.Started.name,
             processors=len(self._processors),
             parallel=parallel,
         )
@@ -180,14 +179,13 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
             self._running = False
             self.info(
                 msg=Event.OrchestrationCompleted.name,
-                step=Event.Completed.name,
                 processors=len(self._processors),
             )
             self.emit_event(Event.OrchestrationCompleted)
 
     def stop(self) -> None:
         self._running = False
-        self.info(msg=Event.OrchestrationStopped.name, step=Event.Completed.name)
+        self.info(msg=Event.OrchestrationStopped.name)
         self.emit_event(Event.OrchestrationStopped)
 
     # endregion Public
