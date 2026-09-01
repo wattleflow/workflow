@@ -32,7 +32,7 @@ class Singleton(IWattleflow):
     runs __init__ once, guarded via __init_subclass__ so no metaclass is
     imposed. A subclass using __slots__ must include `_wf_initialized` or the
     init-once guard cannot store its flag. `_instances` is process-global
-    mutable state — ambient authority under zero-trust (NFR-SEC-01).
+    mutable state — ambient authority under zero-trust (NFRQ-SEC-01).
     """
 
     _instances: dict = {}

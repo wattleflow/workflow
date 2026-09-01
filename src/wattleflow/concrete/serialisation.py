@@ -68,7 +68,7 @@ class GenericParser(Wattleflow, IParser[Content], ABC):
         payload=  bytes; wrapped in an in-memory buffer
 
     ENCODING is the declared default, `encoding=` on the constructor the
-    per-instance override (NFR-ORG-07) and `encoding=` on the call the
+    per-instance override (NFRQ-ORG-07) and `encoding=` on the call the
     per-call one. A subclass that declares its own ALLOWED *replaces* this one
     — PresetDecorator resolves a single class attribute, it does not merge — so
     such a subclass must repeat every key it still needs.

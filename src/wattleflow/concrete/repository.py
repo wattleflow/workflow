@@ -18,7 +18,7 @@ from wattleflow.concrete.driver import GenericDriver
 from wattleflow.concrete.exception import RepositoryException
 from wattleflow.concrete.strategy import StrategyRead, StrategyWrite
 from wattleflow.decorators.preset import PresetDecorator
-from wattleflow.helpers.system import ClassLoader
+
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -30,6 +30,12 @@ from wattleflow.helpers.system import ClassLoader
 
 
 class GenericRepository(Wattleflow, IRepository, ABC):
+    """Read and write documents through strategies, and count what was written.
+
+    A specialisation adds what its strategies need through `_strategy_context`;
+    it does not restate `read`, `write` or the audit records they emit.
+    """
+
     __slots__ = (
         "_write_counter",
         "_preset",
@@ -45,8 +51,8 @@ class GenericRepository(Wattleflow, IRepository, ABC):
         strategy_read: StrategyRead | None = None,
         **kwargs,
     ):
-        assert isinstance(strategy_write, StrategyWrite), "Expected StrategyWrite. Found %s" % type(
-            strategy_write
+        assert isinstance(strategy_write, StrategyWrite), (
+            "Expected StrategyWrite. Found %s" % type(strategy_write)
         )
         if strategy_read is not None:
             assert isinstance(strategy_read, StrategyRead), (
@@ -81,7 +87,6 @@ class GenericRepository(Wattleflow, IRepository, ABC):
             (
                 id(self),
                 self.name,
-                self._driver,
                 self._preset,
                 self._strategy_write,
                 self._strategy_read,
@@ -94,12 +99,28 @@ class GenericRepository(Wattleflow, IRepository, ABC):
         return preset.__getattr__(name)
 
     def __repr__(self) -> str:
-        name = self.name or self.__class__.__name__
-        counter = str(self._write_counter) or "0"
-        level = self.name or "UNKNOWN"
-        return f"{name}:[{id(self)}:{counter}]:[{level}]"
+        context = "".join(
+            ":%s" % getattr(value, "name", type(value).__name__)
+            for value in self._strategy_context().values()
+        )
+        counter = self._write_counter
+        level = self.levelname or "UNKNOWN"
+        return f"{self.name}{context}:[{id(self)}:{counter}]:[{level}]"
 
     # endregion Private
+
+    # region Protected
+
+    def _strategy_context(self) -> dict[str, Any]:
+        """Keywords this repository contributes to every strategy call.
+
+        The single extension point for a specialisation: what it owns and its
+        strategies require (a driver, ...) travels from here into `read` and
+        `write`, and into their audit records.
+        """
+        return {}
+
+    # endregion Protected
 
     # region Property
 
@@ -139,6 +160,7 @@ class GenericRepository(Wattleflow, IRepository, ABC):
             facade: ITarget = self._strategy_read.read(
                 caller=self,
                 identifier=identifier,
+                **self._strategy_context(),
                 **kwargs,
             )
 
@@ -167,6 +189,8 @@ class GenericRepository(Wattleflow, IRepository, ABC):
         return facade
 
     def write(self, caller: IBlackboard, facade: ITarget, **kwargs) -> bool:
+        context: dict[str, Any] = self._strategy_context()
+
         try:
             self.debug(
                 msg=Event.Write.name,
@@ -176,45 +200,56 @@ class GenericRepository(Wattleflow, IRepository, ABC):
                 facade=facade,
             )
 
-            assert isinstance(caller, IBlackboard), "Expected IBlackboard. Found %s" % type(caller)
-            assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(facade)
-
-            # Reported on ENTRY, before the strategy runs, so the audit stream
-            # follows the call order the activity diagram draws. Only the
-            # processor and the workflow close their unit.
-            self.info(
-                msg=Event.Write.name,
-                step=Event.Started.name,
-                strategy=type(self._strategy_write).__name__,
-                document=getattr(facade, "identifier", None),
-                written=self._write_counter,
+            assert isinstance(caller, IBlackboard), (
+                "Expected IBlackboard. Found %s" % type(caller)
+            )
+            assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(
+                facade
             )
 
-            # The repository passes ITSELF as caller so the owning blackboard
-            # Strategy.execute asertira (IRepository, IDriver) — upstream caller
-            # does not leak into the strategy layer.
             result: bool = self._strategy_write.write(
                 caller=self,
                 facade=facade,
                 repository=self,
+                **context,
                 **kwargs,
             )
 
-            self._write_counter += 1
+            if result:
+                self._write_counter += 1
 
-            # The repository performs a key operation over the document, so it
-            # reports its OWN completion. One record, at completion only: the
-            # entry side of the same operation stays on DEBUG.
+            self.debug(
+                msg=Event.Write.name,
+                step=Event.Completed.name,
+                strategy=self._strategy_write.name,
+                counter=self._write_counter,
+            )
 
             return result
 
         except Exception as e:
-            reason = "%s.write strategy failed: %s!" % (self.__class__.__name__, str(e))
+            owned = {key: type(value).__name__ for key, value in context.items()}
+            parts = [f"strategy={self._strategy_write.name}"]
+            parts += [f"{key}={value}" for key, value in owned.items()]
+            parts += [
+                f"uid={facade.identifier}",
+                f"caller={caller.name}",
+            ]
+            reason = "[%s] write failed: %s -> %s: %s" % (
+                self.name,
+                " ".join(parts),
+                type(e).__name__,
+                e,
+            )
+
             self.debug(
                 msg=Event.Write.name,
                 step=Event.Failed.name,
+                strategy=self._strategy_write.name,
+                uid=facade.identifier,
                 counter=self._write_counter,
                 error=reason,
+                context=owned,
             )
             raise RepositoryException(caller=self, error=reason, facade=facade) from e
 
@@ -222,168 +257,28 @@ class GenericRepository(Wattleflow, IRepository, ABC):
 
 
 class RepositoryWithDriver(GenericRepository):
-    ALLOWED = [
-        "driver",
-    ]
+    ALLOWED = ["driver"]
 
-    # region Private
+    # region Constructor
 
     def __init__(
         self,
-        strategy_write: StrategyWrite,
-        strategy_read: StrategyRead | None = None,
         **kwargs,
     ):
-
-        driver = kwargs.pop("driver", None)
-        if driver is None:
-            raise ValueError(f"{self.__class__.__name__}: Missing driver parameter!")
-
-        super().__init__(strategy_write=strategy_write, strategy_read=strategy_read, **kwargs)
-
-        self._driver: GenericDriver = (
-            driver
-            if isinstance(driver, GenericDriver)
-            else ClassLoader(class_path=driver, **kwargs).instance
+        driver = kwargs.get("driver", None)
+        assert isinstance(driver, GenericDriver), (
+            "Expected GenericDriver. Found %s" % type(driver)
         )
+        super().__init__(**kwargs)
 
-    def __hash__(self) -> int:
-        return hash(
-            (
-                id(self),
-                self.name,
-                self._driver,
-                self._strategy_write,
-                self._strategy_read,
-            )
-        )
+    # endregion Constructor
 
-    def __repr__(self) -> str:
-        name = self.name or self.__class__.__name__
-        counter = self._write_counter
-        level = self.levelname or "UNKNOWN"
-        driver = self.driver.name
-        return f"{name}:{driver}:{counter}:[{level}]"
+    # region Protected
 
-    # endregion Private
+    def _strategy_context(self) -> dict[str, Any]:
+        return {"driver": self.driver}
 
-    # region Property
-    @property
-    def count(self) -> int:
-        return self._write_counter
-
-    @property
-    def driver(self) -> GenericDriver:
-        return self._driver
-
-    # endregion Property
-
-    # region Public
-
-    def clear(self) -> None:
-        self.debug(msg=Event.Clear.name, step=Event.Started.name)
-        self._write_counter = 0
-        self._driver.clear()
-        self._strategy_write = None
-        self._strategy_read = None
-        self.debug(msg=Event.Clear.name, step=Event.Completed.name)
-
-    def read(self, identifier: str, **kwargs) -> ITarget | None:
-        self.debug(
-            msg=Event.Read.name,
-            step=Event.Started.name,
-            id=identifier,
-            kwargs=kwargs,
-        )
-
-        if self._strategy_read is None:
-            self.warning(
-                msg=Event.Read.name,
-                step=Event.Check.name,
-                reason="Read strategy is not assigned!",
-            )
-            return None
-
-        facade: ITarget = self._strategy_read.read(  # type: ignore
-            caller=self,
-            identifier=identifier,
-            **kwargs,
-        )
-
-        self.debug(
-            msg=Event.Read.name,
-            step=Event.Completed.name,
-            facade=facade,
-        )
-
-        return facade
-
-    def write(self, caller: IBlackboard, facade: ITarget, **kwargs) -> bool:
-        try:
-            self.debug(
-                msg=Event.Write.name,
-                step=Event.Started.name,
-                caller=caller.name,
-                counter=self._write_counter,
-                facade=facade,
-            )
-
-            assert isinstance(caller, IBlackboard), "Expected IBlackboard. Found %s" % type(caller)
-            assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(facade)
-
-            # Reported on ENTRY, before the strategy runs, so the audit stream
-            # follows the call order the activity diagram draws. Only the
-            # processor and the workflow close their unit.
-            self.info(
-                msg=Event.Write.name,
-                step=Event.Started.name,
-                strategy=type(self._strategy_write).__name__,
-                document=getattr(facade, "identifier", None),
-                written=self._write_counter,
-            )
-
-            # The repository passes ITSELF as caller so the owning blackboard
-            # Strategy.execute asertira (IRepository, IDriver).
-            result: bool = self._strategy_write.write(
-                caller=self,
-                facade=facade,
-                repository=self,
-                driver=self.driver,
-                **kwargs,
-            )
-
-            self._write_counter += 1
-
-            # The repository performs a key operation over the document, so it
-            # reports its OWN completion. One record, at completion only: the
-            # entry side of the same operation stays on DEBUG.
-
-            return result
-
-        except Exception as e:
-            strategy_cls = self._strategy_write.__class__.__name__
-            driver_cls = self._driver.__class__.__name__
-            doc_id = getattr(facade, "identifier", None)
-            root = type(e).__name__
-            reason = (
-                f"[{self.name}] write failed: strategy={strategy_cls} "
-                f"driver={driver_cls} document={doc_id} "
-                f"caller={getattr(caller, 'name', caller.__class__.__name__)} "
-                f"-> {root}: {e}"
-            )
-
-            self.debug(
-                msg=Event.Write.name,
-                step=Event.Failed.name,
-                strategy=strategy_cls,
-                driver=driver_cls,
-                document=doc_id,
-                counter=self._write_counter,
-                error=reason,
-            )
-            raise RepositoryException(caller=self, error=reason, facade=facade) from e
-
-    # endregion Public
+    # endregion Protected
 
 
 # --------------------------------------------------------------------------- #

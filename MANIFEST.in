@@ -61,7 +61,7 @@ prune src/wattleflow/core
 # --- Documentation lives in its own repository ---
 # `documentation/` is a symlink to the separate wattleflow-documentation repo.
 # Pruning keeps another repository's content — and its C-snapshots — out of this
-# distribution (NFR-SEC-02, minimal surface). To ship the docs instead, drop the
+# distribution (NFRQ-SEC-02, minimal surface). To ship the docs instead, drop the
 # prune and write `recursive-include documentation *.md`: the directive takes a
 # DIRECTORY plus a PATTERN, so a glob path such as `documentation/*.md` matches
 # nothing and fails silently.

@@ -8,7 +8,7 @@
 JSON Schema subset validator, stdlib only. Stands in for `jsonschema.validate`
 (DR-WFL-003) and is the schema check every configuration format uses — it
 belongs to no single format, so it lives as a capability rather than inside a
-parser (NFR-ORG-01).
+parser (NFRQ-ORG-01).
 
 Unsupported keywords raise rather than pass quietly: a validator that cannot
 see a constraint must not report conformance to it.
@@ -44,7 +44,7 @@ class ValidationError(ValueError, TypeError):
     """
 
 
-# v0.0.0.97 (NFR-ORG-05): the keyword table and the checks that read it are one
+# v0.0.0.97 (NFRQ-ORG-05): the keyword table and the checks that read it are one
 # qualified unit — constants as class attributes, no module-level helpers.
 class SchemaValidator:
     """Validates an instance against a JSON Schema subset."""

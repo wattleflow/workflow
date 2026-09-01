@@ -1,8 +1,8 @@
 {
   "_about": [
     "Criterion dictionary for tools/wem_lint.py — the controlled vocabulary of CODE",
-    "IDENTIFIERS the NFR lint measures src/wattleflow against (NFR-ORG-01/02/03,",
-    "NFR-SEC-03). This file is the criterion of the `wattleflow-workflow` (clean",
+    "IDENTIFIERS the NFR lint measures src/wattleflow against (NFRQ-ORG-01/02/03,",
+    "NFRQ-SEC-03). This file is the criterion of the `wattleflow-workflow` (clean",
     "core) distribution; `wattleflow-processors` carries its own next to its tools/.",
     "JSON, not YAML: the lint is stdlib-only by design (no PyYAML dependency) and",
     "json is the only structured format the standard library parses. Keys starting",
@@ -62,7 +62,7 @@
     "(DR-WFL-003 waivers, without which `clean_core_imports` would turn a proven",
     "waiver into an ERROR); absent domains `audit`, `blackboards`, `mappers`",
     "removed (they are not in this tree — `mappers` moved to processors per",
-    "NFR-SEC-03); blind spots extended; presentation moved to messages.json.",
+    "NFRQ-SEC-03); blind spots extended; presentation moved to messages.json.",
     "PENDING: DR-PRC-001 must enact this revision — until then the criterion is a",
     "draft and its findings are conformant, not descriptive (D-08)."
   ],
@@ -88,11 +88,11 @@
     "imports inside the shared namespace are not modelled as edges, so cycles and layering within helpers/ are unmeasured, and a helper consumed only by another helper counts as unconsumed (helpers->domain acyclicity IS measured)",
     "helper fan-in is counted within ONE distribution: this shelf mostly serves wattleflow-processors, whose imports are outside --src, so an unused-looking module here is usually consumed there. That is why criterion 1 states itself as one INFO statistic (`report: summary`) instead of a verdict per module — the verdict-bearing measurement belongs to the distribution that ships the shelf's consumers (DR-WFL-019 v2)",
     "the ORG-02 name grammar (Subject/Operation) is inert in this distribution: no `subjects` block and no `pipelines` domain are declared, so only criterion 6 (prohibited_standalone) is enforced here",
-    "ORG-01 measures the import graph, never the runtime one: dynamic edges (ClassLoader, YAML-declared types) are invisible to the AST, so blast radius per NFR-SEC-01 is under-counted",
+    "ORG-01 measures the import graph, never the runtime one: dynamic edges (ClassLoader, YAML-declared types) are invisible to the AST, so blast radius per NFRQ-SEC-01 is under-counted",
     "a strategic adversary is beyond the reach of the lint",
-    "NFR-OBS-01 criteria 4 and 5 (WARNING is never a failure; CRITICAL means the component cannot continue) need the semantics of the branch and are not machine-decidable — reviewed, not measured",
-    "NFR-OBS-02 criterion 2 (entry and exit of one operation share `msg` and differ only in `step`) is reviewed: pairing two calls as one operation is not decidable from the AST alone",
-    "NFR-OBS-03 criterion 2 measures records per unit of work at RUNTIME; the static lint cannot see it, so the [M] value is absent from this vector, not zero"
+    "NFRQ-OBS-01 criteria 4 and 5 (WARNING is never a failure; CRITICAL means the component cannot continue) need the semantics of the branch and are not machine-decidable — reviewed, not measured",
+    "NFRQ-OBS-02 criterion 2 (entry and exit of one operation share `msg` and differ only in `step`) is reviewed: pairing two calls as one operation is not decidable from the AST alone",
+    "NFRQ-OBS-03 criterion 2 measures records per unit of work at RUNTIME; the static lint cannot see it, so the [M] value is absent from this vector, not zero"
   ],
   "_rules": [
     "The rule table as the NFR registry declares it: id, requirement, check,",
@@ -103,21 +103,21 @@
   "rules": [
     {
       "id": "ORG-01a",
-      "nfr": "NFR-SEC-03",
+      "nfr": "NFRQ-SEC-03",
       "check": "clean_core_imports",
       "severity": "error",
       "waiver": "dr_required"
     },
     {
       "id": "ORG-01b",
-      "nfr": "NFR-ORG-01",
+      "nfr": "NFRQ-ORG-01",
       "check": "domain_acyclicity",
       "severity": "error",
       "waiver": "dr_required"
     },
     {
       "id": "ORG-01c",
-      "nfr": "NFR-ORG-01",
+      "nfr": "NFRQ-ORG-01",
       "check": "helper_fan_in",
       "severity": "info",
       "waiver": "declared",
@@ -125,84 +125,84 @@
     },
     {
       "id": "ORG-02a",
-      "nfr": "NFR-ORG-02",
+      "nfr": "NFRQ-ORG-02",
       "check": "base_family_membership",
       "severity": "error",
       "waiver": "dr_required"
     },
     {
       "id": "ORG-02b",
-      "nfr": "NFR-ORG-02",
+      "nfr": "NFRQ-ORG-02",
       "check": "prohibited_standalone",
       "severity": "error",
       "waiver": "forbidden"
     },
     {
       "id": "ORG-02c",
-      "nfr": "NFR-ORG-02",
+      "nfr": "NFRQ-ORG-02",
       "check": "acronym_case",
       "severity": "warning",
       "waiver": "declared"
     },
     {
       "id": "ORG-03a",
-      "nfr": "NFR-ORG-03",
+      "nfr": "NFRQ-ORG-03",
       "check": "typevar_role_vocabulary",
       "severity": "warning",
       "waiver": "declared"
     },
     {
       "id": "SEC-03a",
-      "nfr": "NFR-SEC-03",
+      "nfr": "NFRQ-SEC-03",
       "check": "distribution_manifest",
       "severity": "warning",
       "waiver": "dr_required"
     },
     {
       "id": "ORG-07a",
-      "nfr": "NFR-ORG-07",
+      "nfr": "NFRQ-ORG-07",
       "check": "preset_allowed_declaration",
       "severity": "error",
       "waiver": "dr_required"
     },
     {
       "id": "PRC-OBS-01a",
-      "nfr": "NFR-OBS-01",
+      "nfr": "NFRQ-OBS-01",
       "check": "audit_level_vs_propagation",
       "severity": "warning",
       "waiver": "declared"
     },
     {
       "id": "PRC-OBS-01b",
-      "nfr": "NFR-OBS-01",
+      "nfr": "NFRQ-OBS-01",
       "check": "audit_failure_trace",
       "severity": "warning",
       "waiver": "declared"
     },
     {
       "id": "PRC-OBS-02a",
-      "nfr": "NFR-OBS-02",
+      "nfr": "NFRQ-OBS-02",
       "check": "audit_event_vocabulary",
       "severity": "warning",
       "waiver": "declared"
     },
     {
       "id": "PRC-OBS-03a",
-      "nfr": "NFR-OBS-03",
+      "nfr": "NFRQ-OBS-03",
       "check": "audit_info_placement",
       "severity": "warning",
       "waiver": "declared"
     }
   ],
   "_domains": [
-    "NFR-ORG-01 — top-level functional packages under src/wattleflow. `helpers` is",
+    "NFRQ-ORG-01 — top-level functional packages under src/wattleflow. `helpers` is",
     "the shared namespace, NOT a domain: it must not appear here, or intra-helper",
     "imports get misreported as acyclicity breaks. `constants` is likewise absent:",
     "it imports nothing intra-project, so it is foundation material every layer may",
     "depend on (ORG-01 §3 misfiled-leaf, 2026-07-29).",
     "2026-07-31: `audit`, `blackboards` and `mappers` removed — no module under",
     "src/wattleflow belongs to them (mappers moved to wattleflow-processors per",
-    "NFR-SEC-03). The `absent-domain` check (K10) keeps this list honest from now on.",
+    "NFRQ-SEC-03). The `absent-domain` check (K10) keeps this list honest from now on.",
     "`enums` is absent for the same reason: it imports nothing intra-project,",
     "so every layer may depend on it (DR-WFL-016 t.5, DR-WFL-017)."
   ],
@@ -225,7 +225,7 @@
     "listed in `core_libraries` only (§7.1). A module importing anything outside",
     "(stdlib ∪ wattleflow ∪ core_libraries) belongs to another distribution and is",
     "skipped by the ORG rules — and, since v1.11.0, REPORTED as a K9 supply-chain",
-    "finding (NFR-SEC-03 criterion 1), because a silent skip is what the criterion",
+    "finding (NFRQ-SEC-03 criterion 1), because a silent skip is what the criterion",
     "forbids.",
     "`guarded_optional` is the only waiver: modules whose third-party reference sits",
     "behind a try/except branch with a FUNCTIONALLY COMPLETE fallback (DR-WFL-003).",
@@ -242,7 +242,7 @@
     "guarded_optional": []
   },
   "_distribution_manifest": [
-    "NFR-SEC-03 criteria 2/3 — the packaging manifest of this distribution, read by",
+    "NFRQ-SEC-03 criteria 2/3 — the packaging manifest of this distribution, read by",
     "the `distribution_manifest` check (stdlib tomllib). `pyproject` is relative to",
     "the repository root (the parent of tools/)."
   ],
@@ -250,7 +250,7 @@
     "pyproject": "pyproject.toml"
   },
   "_bases": [
-    "NFR-ORG-02 — the inheritance roots of the framework; every concrete name in",
+    "NFRQ-ORG-02 — the inheritance roots of the framework; every concrete name in",
     "the workflow package derives from one of these. Grouped by family: each family",
     "lists its core interface(s) (I*, from wattleflow.core) and its concrete base(s)",
     "(concrete/*). A class belongs to a family if it inherits one of that family's",
@@ -346,15 +346,15 @@
     ]
   },
   "_capabilities": [
-    "NFR-ORG-04 — recognised cross-cutting capabilities: callable helpers named by",
+    "NFRQ-ORG-04 — recognised cross-cutting capabilities: callable helpers named by",
     "capability, never specialisations of a domain primitive."
   ],
   "capabilities": [
     "routing"
   ],
   "_prohibited_standalone": [
-    "Bare generic role nouns prohibited as STANDALONE class names (NFR-ORG-02",
-    "criterion 6; NFR-ORG-04 criterion 3 delegates its capability role-nouns here).",
+    "Bare generic role nouns prohibited as STANDALONE class names (NFRQ-ORG-02",
+    "criterion 6; NFRQ-ORG-04 criterion 3 delegates its capability role-nouns here).",
     "The same noun is legal as a qualified facet — `DriverS3UriParser`, not `Parser`."
   ],
   "prohibited_standalone": [
@@ -383,7 +383,7 @@
     "OSCAL"
   ],
   "_type_vars": [
-    "NFR-ORG-03 — a TypeVar names the SEMANTIC ROLE the type plays in the generic",
+    "NFRQ-ORG-03 — a TypeVar names the SEMANTIC ROLE the type plays in the generic",
     "contract, not the mechanism (the fact that it is a type). Acronym casing is",
     "checked against `identifier_acronyms`.",
     "roles     — the closed controlled vocabulary (criterion 1). `Adaptee` is the",
@@ -424,7 +424,7 @@
     ]
   },
   "_preset_allowed": [
-    "NFR-ORG-07 — Preset Whitelist Declaration. A class whose optional runtime",
+    "NFRQ-ORG-07 — Preset Whitelist Declaration. A class whose optional runtime",
     "configuration is carried by PresetDecorator declares the permitted keys in a",
     "class attribute named exactly `ALLOWED`.",
     "Why a rule and not a preference: PresetDecorator resolves the whitelist from",
@@ -447,7 +447,7 @@
     ],
     "forwarding": "prohibited"
   },
-  "_audit": "NFR-OBS-01/02/03 criterion data: which call is an audit call, which levels escalate, which Event members are phases, and which classes are steps inside a unit of work (and therefore emit no INFO). Editing this block edits the criterion -> DR (D-03).",
+  "_audit": "NFRQ-OBS-01/02/03 criterion data: which call is an audit call, which levels escalate, which Event members are phases, and which classes are steps inside a unit of work (and therefore emit no INFO). Editing this block edits the criterion -> DR (D-03).",
   "audit": {
     "levels": [
       "debug",

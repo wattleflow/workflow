@@ -20,11 +20,13 @@ import re
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
 CompiledMacros = list[tuple[re.Pattern, str]]
+# What one substitution pass replaced: {"text", "replacement", "entity"}.
+Replacements = list[dict[str, str]]
 
-__all__ = ["TextMacros", "CompiledMacros"]
+__all__ = ["TextMacros", "CompiledMacros", "Replacements"]
 
 
-# v0.0.0.97 (NFR-ORG-05): the ReDoS guard and its pattern are members of the
+# v0.0.0.97 (NFRQ-ORG-05): the ReDoS guard and its pattern are members of the
 # class that applies them, not module-level helpers.
 class TextMacros:
     __slot__ = ("_compiled", "log")
@@ -32,6 +34,10 @@ class TextMacros:
     ADD_VALUE_ERROR = (
         "Tuple macro must be: (pattern, replacement) or (pattern, replacement, flags)."
     )
+
+    # Default placeholder series for anonymise(); Croatian-facing corpora read
+    # ENTITET1, ENTITET2 … A caller that needs another series passes `prefix`.
+    PLACEHOLDER_PREFIX = "ENTITET"
 
     # Detects common catastrophic backtracking structures:
     #   (a+)+  (a*)* (a+)* (a?)+  and quantified groups followed by { repetition
@@ -136,3 +142,52 @@ class TextMacros:
         for pattern, replacement in self._compiled:
             result = pattern.sub(replacement, result)
         return result
+
+    def anonymise(
+        self,
+        text: str,
+        ignore: list[re.Pattern] | None = None,
+        prefix: str | None = None,
+    ) -> tuple[str, Replacements]:
+        """`run()` with a generated placeholder per distinct surface, and a
+        report of what was replaced.
+
+        `run()` substitutes each macro's own replacement, so two occurrences of
+        different entities collapse to the same token and nothing records what
+        stood there. Where the substitution has to stay reversible — building
+        training data, or handing redacted text to a third party — each surface
+        needs its own placeholder and a map back. That is this method.
+
+        `ignore` drops a surface a macro over-matched (an allow-list of known
+        false positives). `prefix` names the placeholder series; the macro's own
+        replacement travels in the report as `entity`, since a PII macro table
+        spells the entity kind there.
+        """
+        placeholders: dict[str, str] = {}
+        replaced: Replacements = []
+        ignored = ignore or []
+        series = prefix or self.PLACEHOLDER_PREFIX
+
+        for pattern, replacement in self._compiled:
+            for match in pattern.finditer(text):
+                surface = (match.group(0) or "").strip()
+                if not surface or surface in placeholders:
+                    continue
+                if any(rule.search(surface) for rule in ignored):
+                    continue
+                placeholder = f"{series}{len(placeholders) + 1}"
+                placeholders[surface] = placeholder
+                replaced.append(
+                    {
+                        "text": surface,
+                        "replacement": placeholder,
+                        "entity": str(replacement),
+                    }
+                )
+
+        result = text
+        # Longest surface first: a shorter form that is a substring of a longer
+        # one would otherwise consume part of it and leave a broken remainder.
+        for surface in sorted(placeholders, key=len, reverse=True):
+            result = result.replace(surface, placeholders[surface])
+        return result, replaced

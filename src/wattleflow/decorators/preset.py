@@ -8,7 +8,7 @@ from typing import Any, ClassVar, Iterable
 from wattleflow.core import IWattleflow
 
 
-# NFR-ORG-05: declaration resolution and the unknown-key report are one class
+# NFRQ-ORG-05: declaration resolution and the unknown-key report are one class
 # holding its own constants; PresetDecorator only wires them.
 class PresetGate:
     """Mechanics behind `PresetDecorator`: which keys are permitted, and what to
@@ -27,7 +27,7 @@ class PresetGate:
         """Permitted keys for a class.
 
         The class attribute is the declaration, an explicit `allowed=` is the
-        exception (NFR-ORG-07). Without an override the declaration is UNIONED
+        exception (NFRQ-ORG-07). Without an override the declaration is UNIONED
         across the MRO, so a subclass declares only what it adds and never has
         to name its parent.
         """
@@ -61,7 +61,7 @@ class PresetGate:
 
 
 class PresetDecorator:
-    # NFR-ORG-07: the permitted keys are declared by the configured class in a
+    # NFRQ-ORG-07: the permitted keys are declared by the configured class in a
     # class attribute named exactly `ALLOWED`, and resolved by PresetGate — a
     # subclass never has to pass `allowed=` up the constructor chain.
     DECLARATION = PresetGate.DECLARATION

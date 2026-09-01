@@ -124,7 +124,7 @@ class AuditException(Exception):
     def __reduce__(self):
         return (type(self)._rebuild, (self.reason,))
 
-    # v0.0.0.97 (NFR-ORG-05): unpickling callable is a member of the class it
+    # v0.0.0.97 (NFRQ-ORG-05): unpickling callable is a member of the class it
     # rebuilds; `cls` carries the concrete subclass, so no type argument is
     # threaded through the reduce tuple.
     @classmethod

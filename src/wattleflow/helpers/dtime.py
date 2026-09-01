@@ -5,7 +5,8 @@
 
 from __future__ import annotations
 from dataclasses import dataclass
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timezone, tzinfo
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from wattleflow.core.transactional import IParser
 
@@ -31,6 +32,61 @@ class Now:
     @staticmethod
     def timestamp() -> float:
         return datetime.now(timezone.utc).timestamp()
+
+
+class Zone:
+    """Moves a datetime to one reference zone before it is compared or printed.
+
+    A timestamp that carries the offset it was written with is correct and
+    useless for ordering: two records of the SAME instant, one written `+1000`
+    and one `+0000`, format as different times and sometimes different days.
+    Anything that names, sorts or buckets by time has to convert first — this is
+    where that conversion lives, so it is done one way everywhere.
+
+    Naive input is assumed to be in `default` (the machine zone unless another
+    is named) rather than in UTC: a value written without an offset was written
+    by a clock somewhere, and treating it as UTC silently shifts it. The
+    assumption cannot be avoided, only declared — which is why it is a
+    parameter."""
+
+    @staticmethod
+    def of(name: str | None = None) -> tzinfo | None:
+        """The named IANA zone. None — for no name — means the SYSTEM zone, and
+        is returned as None on purpose: the system offset must be resolved for
+        the instant being converted, not snapshotted now. Snapshotting it
+        (`datetime.now().astimezone().tzinfo`) yields today's offset and then
+        stamps every summer date with the winter offset, or the reverse."""
+        if not name:
+            return None
+        if name.upper() == "UTC":
+            return timezone.utc
+        return ZoneInfo(name)
+
+    @classmethod
+    def convert(
+        cls,
+        moment: datetime,
+        zone: str | None = None,
+        default: str | None = None,
+    ) -> datetime:
+        """`moment` seen from `zone`; a naive value is first read as `default`."""
+        if moment.tzinfo is None:
+            source = cls.of(default)
+            # `naive.astimezone()` reads the value as system local time, applying
+            # the rules in force on THAT date.
+            moment = moment.replace(tzinfo=source) if source else moment.astimezone()
+        target = cls.of(zone)
+        return moment.astimezone(target) if target else moment.astimezone()
+
+    @staticmethod
+    def label(moment: datetime, zone: str | None = None) -> str:
+        """Abbreviation the zone uses at that instant (AEST/AEDT, CET/CEST) —
+        for reporting, never for parsing: the abbreviations are not unique."""
+        return Zone.convert(moment, zone).strftime("%Z") or "?"
+
+    @classmethod
+    def utc(cls, moment: datetime, default: str | None = None) -> datetime:
+        return cls.convert(moment, "UTC", default)
 
 
 @dataclass(frozen=True)
@@ -149,4 +205,4 @@ class CreatedWithin(IParser):
 # endregion Clasess                                                           #
 # --------------------------------------------------------------------------- #
 
-__all__ = ["Now", "CreatedWithin", "CreatedVerdict"]
+__all__ = ["Now", "Zone", "CreatedWithin", "CreatedVerdict"]

@@ -210,6 +210,16 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
 
     # endregion Private
 
+    # region Protected
+    def _repository_names(self) -> str:
+        try:
+            repositories = getattr(self._blackboard, "repositories", ()) or ()
+            return ", ".join(type(r).__name__ for r in repositories) or "none"
+        except Exception:
+            return "unavailable"
+
+    # endregion Protected
+
     # region Property
 
     @property
@@ -290,12 +300,6 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         if len(self._pipelines) < 1:
             raise ProcessorException(self, f"Missing {self.name!r} pipelines!")
 
-        # Announced only after the guards, so the record names what will actually
-        # run. The CONFIGURATION belongs here, in the opening record — what is
-        # wired up is known before the pass, so reporting it at the end told the
-        # operator something they could no longer act on. Joined strings, not
-        # lists: the audit renderer collapses a collection to "<list: N>" at
-        # INFO, which would hide the very names this record exists for.
         self.info(
             msg=Event.Start.name,
             blackboard=type(self._blackboard).__name__,
@@ -326,8 +330,6 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                         self.__class__.__name__,
                         str(e),
                     )
-                    # v0.0.1.10 (DR-WFL-018 t.2): the ERROR belongs to the layer
-                    # that stops the propagation; here only the trace.
                     self.debug(
                         msg=Event.Start.name,
                         step=Event.Failed.name,
@@ -362,15 +364,6 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             msg=Event.Completed.name,
             cycles=self._cycle,
         )
-
-    def _repository_names(self) -> str:
-        """Repository types behind this processor's blackboard, joined. Never
-        raises — an unreachable blackboard must not sink the opening record."""
-        try:
-            repositories = getattr(self._blackboard, "repositories", ()) or ()
-            return ", ".join(type(r).__name__ for r in repositories) or "none"
-        except Exception:
-            return "unavailable"
 
     def register_blackboard(self, blackboard: IBlackboard) -> None:
         self.debug(

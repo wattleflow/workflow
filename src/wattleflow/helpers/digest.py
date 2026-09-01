@@ -18,6 +18,7 @@
 from __future__ import annotations
 import hashlib
 import hmac
+from collections.abc import Iterable
 from pathlib import Path
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -66,6 +67,26 @@ class FileDigest:
     def labelled(cls, source: Source, *, algorithm: str = DEFAULT_ALGORITHM) -> str:
         # e.g. "sha256:9f86d0…" — algorithm travels with the digest.
         return f"{algorithm}:{cls.of(source, algorithm=algorithm)}"
+
+    @classmethod
+    def folded(cls, digests: Iterable[str], *, algorithm: str = DEFAULT_ALGORITHM) -> str:
+        """Digest OVER component digests — a compound whose parts are already
+        fingerprinted (a message and its attachments, an archive and its
+        entries).
+
+        Each component is LENGTH-PREFIXED, so `("ab", "c")` and `("a", "bc")`
+        cannot collide and an empty component still leaves a trace. A separator
+        alone would do for fixed-width hex digests, but nothing stops a caller
+        passing a labelled digest beside a bare one, or a field of its own.
+        Order is the CALLER's: it carries meaning the fold cannot recover, so
+        this never sorts.
+        """
+        folded = hashlib.new(algorithm)
+        for part in digests:
+            data = str(part).encode("utf-8", "surrogateescape")
+            folded.update(len(data).to_bytes(8, "big"))
+            folded.update(data)
+        return f"{algorithm}:{folded.hexdigest()}"
 
     @classmethod
     def verify(

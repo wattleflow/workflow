@@ -303,10 +303,10 @@ class Rule(ABC):
     def check(self, g: DependencyGraph, registry: dict) -> list[Finding]: ...
 
     # Migration targets (behaviour preserved, now over the shared graph):
-    #   DependencyLocalityRule  → NFR-ORG-01   (helper→domain layering + fan-in)
-    #   DistributionLocalityRule→ NFR-SEC-03   (foreign import = FLAG, not exclude)
-    #   NomenclatureRule        → NFR-ORG-02   (AST name grammar; graph-independent)
-    #   TypeVarRule             → NFR-ORG-03   (AST TypeVar roles; graph-independent)
+    #   DependencyLocalityRule  → NFRQ-ORG-01   (helper→domain layering + fan-in)
+    #   DistributionLocalityRule→ NFRQ-SEC-03   (foreign import = FLAG, not exclude)
+    #   NomenclatureRule        → NFRQ-ORG-02   (AST name grammar; graph-independent)
+    #   TypeVarRule             → NFRQ-ORG-03   (AST TypeVar roles; graph-independent)
 
 
 # --------------------------------------------------------------------------- #

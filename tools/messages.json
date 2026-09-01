@@ -20,7 +20,7 @@
   "CATALOGUE": {
     "import-cycle": {
       "code": "K1",
-      "ref": "NFR-ORG-01 §3",
+      "ref": "NFRQ-ORG-01 §3",
       "en": {
         "title": "import loop — two modules import each other",
         "why": [
@@ -48,7 +48,7 @@
     },
     "wrong-direction-import": {
       "code": "K2",
-      "ref": "NFR-ORG-01 §3",
+      "ref": "NFRQ-ORG-01 §3",
       "en": {
         "title": "foundation imports an upper layer (wrong direction)",
         "why": [
@@ -79,7 +79,7 @@
     },
     "misfiled-leaf": {
       "code": "K3",
-      "ref": "NFR-ORG-01 §3",
+      "ref": "NFRQ-ORG-01 §3",
       "en": {
         "title": "import target is foundation material, but labelled as a domain",
         "why": [
@@ -115,7 +115,7 @@
           "declares, so the ORG-01/02/03 rules skipped it. Nothing here was",
           "checked by those rules — clean is not the same as unmeasured.",
           "Since v1.11.0 the same fact is ALSO raised as a K9 supply-chain",
-          "finding (NFR-SEC-03 criterion 1), so the skip is never silent."
+          "finding (NFRQ-SEC-03 criterion 1), so the skip is never silent."
         ],
         "fix": [
           "Not a defect to fix here: a declared blind spot, listed so the vector",
@@ -129,7 +129,7 @@
           "deklarira, pa su ga ORG-01/02/03 preskočili. Ta ga pravila nisu",
           "provjerila — čisto nije isto što i nemjereno.",
           "Od v1.11.0 ista se činjenica prijavljuje i kao K9 nalaz lanca",
-          "opskrbe (NFR-SEC-03 krit. 1), pa preskakanje više nije nijemo."
+          "opskrbe (NFRQ-SEC-03 krit. 1), pa preskakanje više nije nijemo."
         ],
         "fix": [
           "Nije kvar za popravak ovdje: deklarirana slijepa pjega, navedena da",
@@ -221,7 +221,7 @@
     },
     "foreign-import": {
       "code": "K9",
-      "ref": "NFR-SEC-03 §1",
+      "ref": "NFRQ-SEC-03 §1",
       "en": {
         "title": "import outside the distribution tier (supply chain)",
         "why": [
@@ -230,7 +230,7 @@
           "of this distribution. A lazy, in-function import counts exactly like",
           "a module-level one (DR-WFL-002 §2.1).",
           "Until v1.11.0 this fact only removed the module from the ORG rules;",
-          "NFR-SEC-03 requires it to be REPORTED, because a shared third-party",
+          "NFRQ-SEC-03 requires it to be REPORTED, because a shared third-party",
           "dependency correlates breaches across every module that carries it."
         ],
         "fix": [
@@ -247,7 +247,7 @@
           "ulogom: uvoz biblioteke izvan deklariranog tiera izmješta ga iz ove",
           "distribucije. Lijeni uvoz unutar funkcije broji se jednako kao onaj",
           "na razini modula (DR-WFL-002 §2.1).",
-          "Do v1.11.0 ta je činjenica samo micala modul iz ORG pravila; NFR-SEC-03",
+          "Do v1.11.0 ta je činjenica samo micala modul iz ORG pravila; NFRQ-SEC-03",
           "traži da se PRIJAVI, jer dijeljena third-party ovisnost korelira",
           "proboje kroz sve module koji je nose."
         ],
@@ -261,7 +261,7 @@
     },
     "absent-domain": {
       "code": "K10",
-      "ref": "NFR-ORG-01 · D-11",
+      "ref": "NFRQ-ORG-01 · D-11",
       "en": {
         "title": "registry declares a domain the tree does not contain",
         "why": [
@@ -292,7 +292,7 @@
     },
     "manifest-no-namespaces": {
       "code": "K11",
-      "ref": "NFR-SEC-03 §3",
+      "ref": "NFRQ-SEC-03 §3",
       "en": {
         "title": "packaging finds no packages — PEP 420 tree without `namespaces`",
         "why": [
@@ -325,7 +325,7 @@
     },
     "standalone-role-noun": {
       "code": "K13",
-      "ref": "NFR-ORG-02 §6",
+      "ref": "NFRQ-ORG-02 §6",
       "en": {
         "title": "class name is a bare generic role noun",
         "why": [
@@ -357,7 +357,7 @@
     },
     "pipeline-grammar": {
       "code": "K14",
-      "ref": "NFR-ORG-02 §1–§5",
+      "ref": "NFRQ-ORG-02 §1–§5",
       "en": {
         "title": "pipeline name does not follow the declared grammar",
         "why": [
@@ -366,7 +366,7 @@
           "vocabulary. The grammar makes the name predictable from the facets and",
           "the facets recoverable from the name; the Subject leads because it",
           "carries the most discriminating information and collocates a package's",
-          "classes together (NFR-ORG-02, Appendix A)."
+          "classes together (NFRQ-ORG-02, Appendix A)."
         ],
         "fix": [
           "Fix: rename to the grammar, or extend the vocabulary through a DR if",
@@ -381,7 +381,7 @@
           "[Qualifier]`, a svaki facet dolazi iz kontroliranog vokabulara",
           "kriterija. Gramatika čini ime predvidljivim iz faceta, a facete",
           "obnovljivima iz imena; Subject vodi jer nosi najviše diskriminirajuće",
-          "informacije i kolocira klase istog paketa (NFR-ORG-02, Dodatak A)."
+          "informacije i kolocira klase istog paketa (NFRQ-ORG-02, Dodatak A)."
         ],
         "fix": [
           "Popravak: preimenuj po gramatici, ili proširi vokabular kroz DR ako je",
@@ -392,7 +392,7 @@
     },
     "typevar-role": {
       "code": "K15",
-      "ref": "NFR-ORG-03",
+      "ref": "NFRQ-ORG-03",
       "en": {
         "title": "TypeVar names a mechanism, not a role",
         "why": [
@@ -424,7 +424,7 @@
     },
     "exempt-package": {
       "code": "K17",
-      "ref": "NFR-ORG-02 · Appendix A §1",
+      "ref": "NFRQ-ORG-02 · Appendix A §1",
       "en": {
         "title": "package exempt from the name grammar (declared, not forgotten)",
         "why": [
@@ -454,7 +454,7 @@
     },
     "package-alias": {
       "code": "K18",
-      "ref": "NFR-ORG-02 §5",
+      "ref": "NFRQ-ORG-02 §5",
       "en": {
         "title": "package name is an abbreviation of its canonical subject",
         "why": [
@@ -484,7 +484,7 @@
     },
     "acronym-case": {
       "code": "K16",
-      "ref": "NFR-ORG-02 §4 · DR-WFL-004",
+      "ref": "NFRQ-ORG-02 §4 · DR-WFL-004",
       "en": {
         "title": "acronym casing differs from the registered form",
         "why": [
@@ -516,7 +516,7 @@
     },
     "manifest-excluded-package": {
       "code": "K12",
-      "ref": "NFR-SEC-03 §2",
+      "ref": "NFRQ-SEC-03 §2",
       "en": {
         "title": "manifest excludes a package this distribution's code imports",
         "why": [
@@ -528,7 +528,7 @@
         "fix": [
           "Fix: narrow the glob to the subtrees another distribution owns, or",
           "re-include this one; every `wattleflow.*` subtree must have exactly",
-          "one owning distribution (NFR-SEC-03 criterion 2)."
+          "one owning distribution (NFRQ-SEC-03 criterion 2)."
         ]
       },
       "hr": {
@@ -542,13 +542,13 @@
         "fix": [
           "Popravak: suzi glob na podstabla koja su u vlasništvu druge",
           "distribucije, ili ovo vrati natrag; svako `wattleflow.*` podstablo",
-          "mora imati točno jednog vlasnika (NFR-SEC-03 krit. 2)."
+          "mora imati točno jednog vlasnika (NFRQ-SEC-03 krit. 2)."
         ]
       }
     },
     "preset-allowed-name": {
       "code": "K19",
-      "ref": "NFR-ORG-07 §1",
+      "ref": "NFRQ-ORG-07 §1",
       "en": {
         "title": "preset whitelist declared under a non-canonical name",
         "why": [
@@ -583,7 +583,7 @@
     },
     "preset-allowed-scope": {
       "code": "K20",
-      "ref": "NFR-ORG-07 §2",
+      "ref": "NFRQ-ORG-07 §2",
       "en": {
         "title": "preset whitelist declared at module scope",
         "why": [
@@ -614,7 +614,7 @@
     },
     "preset-allowed-forwarded": {
       "code": "K21",
-      "ref": "NFR-ORG-07 §3",
+      "ref": "NFRQ-ORG-07 §3",
       "en": {
         "title": "class declares ALLOWED and still forwards allowed= upward",
         "why": [
@@ -708,7 +708,7 @@
     },
     "audit-escalation-with-raise": {
       "code": "K24",
-      "ref": "NFR-OBS-01 §1",
+      "ref": "NFRQ-OBS-01 §1",
       "en": {
         "title": "ERROR-level record in a branch that re-raises",
         "why": [
@@ -741,7 +741,7 @@
     },
     "audit-missing-trace": {
       "code": "K25",
-      "ref": "NFR-OBS-01 §2, §6",
+      "ref": "NFRQ-OBS-01 §2, §6",
       "en": {
         "title": "branch re-raises without leaving a trace",
         "why": [
@@ -770,7 +770,7 @@
     },
     "audit-msg-not-event": {
       "code": "K26",
-      "ref": "NFR-OBS-02 §1",
+      "ref": "NFRQ-OBS-02 §1",
       "en": {
         "title": "`msg` is not an Event member",
         "why": [
@@ -800,7 +800,7 @@
     },
     "audit-step-not-phase": {
       "code": "K27",
-      "ref": "NFR-OBS-02 §3",
+      "ref": "NFRQ-OBS-02 §3",
       "en": {
         "title": "`step` is not a phase member",
         "why": [
@@ -828,7 +828,7 @@
     },
     "audit-kwargs-splat": {
       "code": "K28",
-      "ref": "NFR-OBS-02 §5 (NFR-SEC-06 §1)",
+      "ref": "NFRQ-OBS-02 §5 (NFRQ-SEC-06 §1)",
       "en": {
         "title": "caller kwargs splatted into an audit call",
         "why": [
@@ -855,7 +855,7 @@
     },
     "audit-info-in-step-class": {
       "code": "K29",
-      "ref": "NFR-OBS-03 §1",
+      "ref": "NFRQ-OBS-03 §1",
       "en": {
         "title": "INFO emitted by a step class",
         "why": [
@@ -886,7 +886,7 @@
     },
     "unused-shared-helper": {
       "code": "K4",
-      "ref": "NFR-ORG-01 §1",
+      "ref": "NFRQ-ORG-01 §1",
       "en": {
         "title": "shared helper nothing outside the shelf uses",
         "why": [
@@ -916,7 +916,7 @@
     },
     "shared-shelf-usage": {
       "code": "K30",
-      "ref": "NFR-ORG-01 §1",
+      "ref": "NFRQ-ORG-01 §1",
       "en": {
         "title": "shelf usage, stated as a statistic",
         "why": [
@@ -956,9 +956,9 @@
       "other_findings": "--- other findings (no friendly entry yet) ---",
       "summary": "wem_lint: {errors} error(s), {warns} warning(s), {infos} info",
       "vector_note": "  note: conformance vector — no aggregate score is defined for these\n  checks; the scale is nominal, so counting is the only admissible\n  operation (METHODOLOGY §3b/§6.1). A green vector proves conformance\n  to the declared criterion, not quality (dictionary: konformnost-vs-kvaliteta).",
-      "notes": "Notes: ORG-01 criterion 1 counts consumers of `wattleflow.helpers.<mod>` inside this --src only; an aggregate `from wattleflow.helpers import X` and a consumer in a sibling distribution are not resolved, so the count is a lower bound. ORG-01 #2/#4 not yet automated. See NFR.md.",
+      "notes": "Notes: ORG-01 criterion 1 counts consumers of `wattleflow.helpers.<mod>` inside this --src only; an aggregate `from wattleflow.helpers import X` and a consumer in a sibling distribution are not resolved, so the count is a lower bound. ORG-01 #2/#4 not yet automated. See NFRQ.md.",
       "python_pin": "  WARNING    registry pins python {pin}, running {running} — the stdlib set tested is the\n             interpreter's, so ORG-01 scope is not reproducible against the pin",
-      "graph_title": "=== NFR-ORG-01 — dependency graph (package level) ===",
+      "graph_title": "=== NFRQ-ORG-01 — dependency graph (package level) ===",
       "graph_hint": "  ▶ = imports;  a leaf tier (no outgoing edges) is the allowed foundation",
       "graph_leaf": "leaf — imports nothing intra-project",
       "graph_external": "external — not analysed as a source",
@@ -975,9 +975,9 @@
       "other_findings": "--- ostali nalazi (bez unosa u katalogu) ---",
       "summary": "wem_lint: {errors} greška/e, {warns} upozorenje/a, {infos} info",
       "vector_note": "  napomena: vektor konformnosti — ukupna ocjena za ove provjere nije\n  definirana; skala je nominalna pa je brojanje jedina dopuštena\n  operacija (METHODOLOGY §3b/§6.1). Zeleni vektor dokazuje usklađenost\n  s deklariranim kriterijem, ne kvalitetu (rječnik: konformnost-vs-kvaliteta).",
-      "notes": "Napomene: ORG-01 kriterij 1 broji potrošače modula `wattleflow.helpers.<mod>` samo unutar ovog --src; agregatni `from wattleflow.helpers import X` i potrošač iz sestrinske distribucije se ne razrješavaju, pa je brojka donja granica. ORG-01 #2/#4 nisu automatizirani. Vidi NFR.md.",
+      "notes": "Napomene: ORG-01 kriterij 1 broji potrošače modula `wattleflow.helpers.<mod>` samo unutar ovog --src; agregatni `from wattleflow.helpers import X` i potrošač iz sestrinske distribucije se ne razrješavaju, pa je brojka donja granica. ORG-01 #2/#4 nisu automatizirani. Vidi NFRQ.md.",
       "python_pin": "  UPOZORENJE registar pina python {pin}, izvodi se {running} — skup stdliba\n             je interpreterov, pa opseg ORG-01 nije reproducibilan prema pinu",
-      "graph_title": "=== NFR-ORG-01 — graf ovisnosti (razina paketa) ===",
+      "graph_title": "=== NFRQ-ORG-01 — graf ovisnosti (razina paketa) ===",
       "graph_hint": "  ▶ = uvozi;  list bez izlaznih bridova je dopušten temelj",
       "graph_leaf": "list — ne uvozi ništa unutar projekta",
       "graph_external": "vanjski — ne analizira se kao izvor",

@@ -27,7 +27,7 @@ __all__ = ["ObjectName", "SqlName"]
 # --------------------------------------------------------------------------- #
 
 
-# v0.0.0.97 (NFR-ORG-05): the naming primitives and the type list they screen
+# v0.0.0.97 (NFRQ-ORG-05): the naming primitives and the type list they screen
 # against belong to the class, not to the module namespace.
 # NOTE: concrete/helpers.py carries `NameHelper`, a domain-local copy of the
 # same trio; the duplication is deliberate — concrete/ must not import back

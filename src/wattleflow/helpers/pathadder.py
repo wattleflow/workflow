@@ -28,7 +28,7 @@ __all__ = ["SourcePath"]
 # --------------------------------------------------------------------------- #
 
 
-# v0.0.0.97 (NFR-ORG-05): the environment key, the injection guard and the
+# v0.0.0.97 (NFRQ-ORG-05): the environment key, the injection guard and the
 # search live in one class — the guard is not a module-level function.
 class SourcePath:
     """Locates a source tree and prepends it to `sys.path`."""

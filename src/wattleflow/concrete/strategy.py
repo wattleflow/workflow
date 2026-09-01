@@ -53,7 +53,7 @@ class StrategyRead(Strategy, ABC):
 
 class StrategyWrite(Strategy, ABC):
     def write(self, caller: IWattleflow, facade: ITarget, **kwargs) -> bool:
-        return self.execute(caller=caller, facade=facade, **kwargs) is not None
+        return bool(self.execute(caller=caller, facade=facade, **kwargs))
 
 
 # --------------------------------------------------------------------------- #
@@ -61,4 +61,10 @@ class StrategyWrite(Strategy, ABC):
 # --------------------------------------------------------------------------- #
 
 
-__all__ = ["Strategy", "StrategyCreate", "StrategyGenerate", "StrategyRead", "StrategyWrite"]
+__all__ = [
+    "Strategy",
+    "StrategyCreate",
+    "StrategyGenerate",
+    "StrategyRead",
+    "StrategyWrite",
+]

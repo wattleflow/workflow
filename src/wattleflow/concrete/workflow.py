@@ -12,7 +12,7 @@ from __future__ import annotations
 import difflib
 import os
 from abc import abstractmethod, ABC
-from typing import ClassVar
+from typing import ClassVar, NoReturn
 from logging import getLogger
 from wattleflow.core import IConfig, IOriginator
 from wattleflow.enums.event import Event
@@ -21,8 +21,10 @@ from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.manager import (
     ConnectionManager,
     DriverManager,
+    DriverManagerException,
     ProcessorManager,
 )
+from wattleflow.decorators.preset import PresetGate
 
 
 # --------------------------------------------------------------------------- #
@@ -328,21 +330,61 @@ class WorkflowFactory:
         return {**inline, **nested}
 
     @classmethod
+    def _fail(
+        cls, section: str, item: dict, error: str, cause: Exception | None = None
+    ) -> NoReturn:
+        """Report a configuration failure with the offending section and item name."""
+        item_name = item.get("name", "<no-name>") if isinstance(item, dict) else "<not-a-dict>"
+        reason = f"{section}[name={item_name!r}]: {error}"
+
+        # `exception()` forces exc_info; without a cause it would log "NoneType: None".
+        report = logger.exception if cause is not None else logger.error
+        report(
+            msg=Event.Resolve.name,
+            section=section,
+            item_name=item_name,
+            error=reason,
+        )
+        raise WorkflowFactoryException(cls, reason) from cause
+
+    @classmethod
     def _resolve_section(cls, section: str, item: dict, key: str = "type") -> type:
-        """Resolve `item[key]` into a registered class, enriching errors with the
-        offending section, item name, and config snippet."""
+        """Resolve `item[key]` into a registered class."""
         try:
             return cls.resolve(item.get(key, None) if isinstance(item, dict) else None)
         except WorkflowFactoryException as e:
-            item_name = item.get("name", "<no-name>") if isinstance(item, dict) else "<not-a-dict>"
-            error = f"{section}[name={item_name!r}]: {e}"
-            logger.exception(
-                msg=Event.Resolve.name,
-                section=section,
-                item_name=item_name,
-                error=error,
+            cls._fail(section, item, str(e), cause=e)
+
+    @classmethod
+    def _driver_context(
+        cls,
+        section: str,
+        item: dict,
+        target: type,
+        configuration: dict,
+        drivers: DriverManager,
+    ) -> dict:
+        """Keywords carrying the driver a component declared that it takes.
+
+        The requirement is read from the class's own preset declaration, so the
+        factory stays agnostic of concrete component types.
+        """
+        if "driver" not in PresetGate.resolve(target):
+            return {}
+
+        name = configuration.get("driver", None)
+        if not name:
+            cls._fail(section, item, f"configuration.driver is mandatory for {target.__name__}")
+
+        try:
+            return {"driver": drivers.get_driver(name)}
+        except DriverManagerException as e:
+            cls._fail(
+                section,
+                item,
+                f"driver {name!r} is not registered under managers.drivers",
+                cause=e,
             )
-            raise WorkflowFactoryException(cls, error) from e
 
     @classmethod
     def _build_connections(
@@ -462,12 +504,17 @@ class WorkflowFactory:
                     configuration,
                     key="strategy_write",
                 )
-                driver_name = configuration.get("driver", None)
-                driver = drivers.get_driver(driver_name) if driver_name else None
+                driver = cls._driver_context(
+                    "blackboard.repositories",
+                    repository,
+                    repository_class,
+                    configuration,
+                    drivers,
+                )
 
                 processor.blackboard.register(
                     repository=repository_class(
-                        driver=driver,
+                        **driver,
                         strategy_write=strategy_write(**audit),
                         **audit,
                     )

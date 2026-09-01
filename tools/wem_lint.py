@@ -6,11 +6,11 @@
 """wem_lint — static enforcement of the Wattleflow NFR registry.
 
 Implements the machine-verifiable acceptance criteria of:
-  * NFR-ORG-01 — Dependency Locality of Support Classes (import-graph checks)
-  * NFR-ORG-02 — Class Nomenclature (name-grammar checks)
-  * NFR-ORG-03 — TypeVar Nomenclature (generic-parameter role names)
-  * NFR-ORG-07 — Preset whitelist declaration (`ALLOWED` as a class attribute)
-  * NFR-SEC-03 — Supply-chain trust & distribution locality (tier + manifest)
+  * NFRQ-ORG-01 — Dependency Locality of Support Classes (import-graph checks)
+  * NFRQ-ORG-02 — Class Nomenclature (name-grammar checks)
+  * NFRQ-ORG-03 — TypeVar Nomenclature (generic-parameter role names)
+  * NFRQ-ORG-07 — Preset whitelist declaration (`ALLOWED` as a class attribute)
+  * NFRQ-SEC-03 — Supply-chain trust & distribution locality (tier + manifest)
 
 The checks themselves are purely AST/import-graph based — a measured module is
 never imported *to be checked*, so a syntactically broken target yields findings
@@ -47,7 +47,7 @@ Usage:
     # from code: raise SystemExit(Application(argv).run())
 
 Exit code is non-zero if any ERROR-level violation is found (WARNING/INFO do not
-fail the build — tolerated legacy is reported, not blocked; see NFR.md).
+fail the build — tolerated legacy is reported, not blocked; see NFRQ.md).
 """
 
 from __future__ import annotations
@@ -102,7 +102,7 @@ _CAMEL = re.compile(r"[A-Z]+(?![a-z])|[A-Z][a-z]+|[A-Z]|\d+")
 # Criterion-versioning convention (METHODOLOGY §1 t.2): a change in rule
 # semantics or in the criterion source is a minor bump, because the same code
 # can yield a different vector afterwards.
-__version__ = "1.16.0"
+__version__ = "1.17.0"
 ERROR, WARNING, INFO = logging.ERROR, logging.WARNING, logging.INFO
 
 
@@ -207,9 +207,22 @@ class SourceFile:
 class Naming:
     """Stateless primitives for analysing class names and module layout.
 
-    A bare `Helper`/`Utility` name is intentionally avoided: NFR-ORG-02 — the very
+    A bare `Helper`/`Utility` name is intentionally avoided: NFRQ-ORG-02 — the very
     rule this tool enforces — prohibits standalone generic role nouns.
     """
+
+    @staticmethod
+    def base_names(node: ast.ClassDef) -> set[str]:
+        """Direct base names of a class, however the bases are written.
+
+        `GenericPipeline`, `concrete.GenericPipeline` and `GenericPipeline[Doc]`
+        all name the same base; reading only bare `ast.Name` saw the first and
+        silently missed the other two.
+        """
+        return {
+            ast.unparse(base).split("[", 1)[0].rsplit(".", 1)[-1].strip()
+            for base in node.bases
+        }
 
     @staticmethod
     def tokenize(name: str) -> list[str]:
@@ -465,15 +478,15 @@ class SourceTree(Wattleflow, ISyncAggregate[Path]):
 
 
 # --------------------------------------------------------------------------- #
-# region NFR-ORG-02 — Class Nomenclature                                      #
+# region NFRQ-ORG-02 — Class Nomenclature                                      #
 # --------------------------------------------------------------------------- #
 class NomenclatureRule(Wattleflow, IStrategy):
-    """NFR-ORG-02 — class-name grammar.
+    """NFRQ-ORG-02 — class-name grammar.
 
     Two scopes, deliberately different (analysis 2026-07-31, N-04):
       * criterion 6 (no standalone generic role noun) applies to EVERY class in
-        every domain and the shared namespace, nested ones included — NFR-ORG-02
-        scopes it that way and NFR-ORG-04 §3 / NFR-ORG-05 delegate to it. Until
+        every domain and the shared namespace, nested ones included — NFRQ-ORG-02
+        scopes it that way and NFRQ-ORG-04 §3 / NFRQ-ORG-05 delegate to it. Until
         v1.11.0 the whole rule short-circuited on `domain != "pipelines"`, so in a
         distribution without a `pipelines` domain it enforced nothing while the
         vector still read green.
@@ -484,11 +497,43 @@ class NomenclatureRule(Wattleflow, IStrategy):
 
     def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
         findings: list[Finding] = []
+        family = self._family(reg, source)
         for path in source.create_iterator():
-            self._check_file(path, src, reg, findings)
+            self._check_file(path, src, reg, family, findings)
         return findings
 
-    def _check_file(self, path, src, reg, findings):
+    @staticmethod
+    def _family(reg, source) -> set[str]:
+        """Every class descending from a declared pipeline root, transitively.
+
+        The registry declares the ROOTS of the family (`bases.pipeline`); who
+        inherits from them is a fact of the code, so it is read from the tree.
+        Matching against the declared list alone made every intermediate base a
+        registry entry, and an unregistered one turned its subclasses into
+        `Pipeline`-prefixed non-pipelines — criterion 2 reported against classes
+        that do implement the contract (v1.17.0).
+        """
+        family = set(reg.get("bases", {}).get("pipeline") or reg.get("pipeline_bases", []))
+        parents: dict[str, set[str]] = {}
+        for path in source.create_iterator():
+            tree = SourceFile.of(path).tree
+            if tree is None:
+                continue
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ClassDef):
+                    parents.setdefault(node.name, set()).update(Naming.base_names(node))
+
+        # Fixpoint: a class joins the family as soon as one of its bases is in it.
+        grew = True
+        while grew:
+            grew = False
+            for name, bases in parents.items():
+                if name not in family and bases & family:
+                    family.add(name)
+                    grew = True
+        return family
+
+    def _check_file(self, path, src, reg, family, findings):
         domain = Naming.file_domain(path, src, set(reg["domains"]), reg["shared_namespace"])
         if domain is None:
             return
@@ -519,17 +564,13 @@ class NomenclatureRule(Wattleflow, IStrategy):
         if domain != "pipelines":
             return
 
-        # `bases` is a family→[bases] map; pipeline detection reads the pipeline
-        # family (older registries used a flat `pipeline_bases` list).
-        pipeline_bases = reg.get("bases", {}).get("pipeline") or reg.get("pipeline_bases", [])
-        bases = set(pipeline_bases)
         subpkg = Naming.class_subpackage(path, src, "pipelines")
         canon_pkg = reg.get("package_aliases", {}).get(subpkg, subpkg)
 
         for node in tree.body:
             if not isinstance(node, ast.ClassDef):
                 continue
-            is_pipeline = bool({b.id for b in node.bases if isinstance(b, ast.Name)} & bases)
+            is_pipeline = bool(Naming.base_names(node) & family)
             has_prefix = node.name.startswith("Pipeline")
 
             if has_prefix and not is_pipeline:
@@ -662,12 +703,12 @@ class NomenclatureRule(Wattleflow, IStrategy):
 
 
 # --------------------------------------------------------------------------- #
-# endregion NFR-ORG-02 — Class Nomenclature                                   #
+# endregion NFRQ-ORG-02 — Class Nomenclature                                   #
 # --------------------------------------------------------------------------- #
 
 
 # --------------------------------------------------------------------------- #
-# region NFR-ORG-01 — Dependency Locality                                     #
+# region NFRQ-ORG-01 — Dependency Locality                                     #
 # --------------------------------------------------------------------------- #
 class ImportGraphBuilder(Wattleflow, IBuilder):
     """Builds the shared-helper fan-in graph and collects acyclicity violations."""
@@ -825,7 +866,7 @@ class ImportGraphBuilder(Wattleflow, IBuilder):
 
 
 class DependencyLocalityRule(Wattleflow, IStrategy):
-    """NFR-ORG-01 — shared helpers must be acyclic and used from outside the shelf.
+    """NFRQ-ORG-01 — shared helpers must be acyclic and used from outside the shelf.
 
     Criterion 1 asks for a consumer, not for a quorum (DR-WFL-019 v2): `helpers/`
     holds what other packages use, so the module nothing outside the shelf imports
@@ -912,15 +953,15 @@ class DependencyLocalityRule(Wattleflow, IStrategy):
 
 
 # --------------------------------------------------------------------------- #
-# endregion NFR-ORG-01 — Dependency Locality                                  #
+# endregion NFRQ-ORG-01 — Dependency Locality                                  #
 # --------------------------------------------------------------------------- #
 
 
 # --------------------------------------------------------------------------- #
-# region NFR-ORG-03 — TypeVar Nomenclature                                    #
+# region NFRQ-ORG-03 — TypeVar Nomenclature                                    #
 # --------------------------------------------------------------------------- #
 class TypeVarRule(Wattleflow, IStrategy):
-    """NFR-ORG-03 — a TypeVar name must name a semantic role, not a mechanism."""
+    """NFRQ-ORG-03 — a TypeVar name must name a semantic role, not a mechanism."""
 
     def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
         cfg = reg.get("type_vars", {})
@@ -1096,15 +1137,15 @@ class TypeVarRule(Wattleflow, IStrategy):
 
 
 # --------------------------------------------------------------------------- #
-# endregion NFR-ORG-03 — TypeVar Nomenclature                                 #
+# endregion NFRQ-ORG-03 — TypeVar Nomenclature                                 #
 # --------------------------------------------------------------------------- #
 
 
 # --------------------------------------------------------------------------- #
-# region NFR-ORG-07 — Preset whitelist declaration                            #
+# region NFRQ-ORG-07 — Preset whitelist declaration                            #
 # --------------------------------------------------------------------------- #
 class PresetAllowedRule(Wattleflow, IStrategy):
-    """NFR-ORG-07 — the preset whitelist is a class attribute named `ALLOWED`.
+    """NFRQ-ORG-07 — the preset whitelist is a class attribute named `ALLOWED`.
 
     Three criteria, one check, because they are three faces of one fact —
     PresetDecorator resolves the whitelist from ``type(parent).ALLOWED``:
@@ -1217,21 +1258,21 @@ class PresetAllowedRule(Wattleflow, IStrategy):
 
 
 # --------------------------------------------------------------------------- #
-# endregion NFR-ORG-07 — Preset whitelist declaration                         #
+# endregion NFRQ-ORG-07 — Preset whitelist declaration                         #
 # --------------------------------------------------------------------------- #
 
 
 # --------------------------------------------------------------------------- #
-# region NFR-SEC-03 — Supply chain & distribution manifest                    #
+# region NFRQ-SEC-03 — Supply chain & distribution manifest                    #
 # --------------------------------------------------------------------------- #
 class SupplyChainRule(Wattleflow, IStrategy):
-    """NFR-SEC-03 — the tier a module imports from, and the manifest that ships it.
+    """NFRQ-SEC-03 — the tier a module imports from, and the manifest that ships it.
 
     Two checks, one requirement:
 
     * `clean_core_imports` (criterion 1) — a module's home distribution is fixed
       by its import closure. The tool already computed that fact, but spent it
-      only on EXCLUDING the module from the ORG rules; NFR-SEC-03's implementation
+      only on EXCLUDING the module from the ORG rules; NFRQ-SEC-03's implementation
       note says the same edge must be *reported*, because a shared third-party
       dependency correlates breaches across every module that carries it (log4j).
       A silent exclusion turns 47% of a tree into a green vector.
@@ -1429,12 +1470,12 @@ class SupplyChainRule(Wattleflow, IStrategy):
 
 
 # --------------------------------------------------------------------------- #
-# endregion NFR-SEC-03 — Supply chain & distribution manifest                 #
+# endregion NFRQ-SEC-03 — Supply chain & distribution manifest                 #
 # --------------------------------------------------------------------------- #
 
 
 # --------------------------------------------------------------------------- #
-# region NFR-OBS-01/02/03 — Audit levels, fields and volume                    #
+# region NFRQ-OBS-01/02/03 — Audit levels, fields and volume                    #
 # --------------------------------------------------------------------------- #
 class AuditRuleBase(Wattleflow, IStrategy):
     """Shared reading of the registry's `audit` block and of audit call sites.
@@ -1505,7 +1546,7 @@ class AuditRuleBase(Wattleflow, IStrategy):
 
 
 class AuditLevelRule(AuditRuleBase):
-    """NFR-OBS-01 — the level answers *who reads this*, and one cause is one ERROR.
+    """NFRQ-OBS-01 — the level answers *who reads this*, and one cause is one ERROR.
 
     A branch that wraps and re-raises has not handled anything: the layer above
     still has to decide. Logging ERROR there and raising as well reports the same
@@ -1592,13 +1633,13 @@ class AuditLevelRule(AuditRuleBase):
 
 
 class AuditFieldRule(AuditRuleBase):
-    """NFR-OBS-02 — the record is a pair (event, named fields), not a sentence.
+    """NFRQ-OBS-02 — the record is a pair (event, named fields), not a sentence.
 
     `msg` carries an `Event` member so the record is searchable by facet and the
     vocabulary stays in one registry; `.name` and not `.value` because the member
     name is the identifier while the value is presentation (D-13). `step` is the
     phase axis and draws from the phase subset — a free literal reopens the
-    vocabulary the registry closed. The splat check is `NFR-SEC-06` criterion 1,
+    vocabulary the registry closed. The splat check is `NFRQ-SEC-06` criterion 1,
     cited here because the same call site fails both.
     """
 
@@ -1626,7 +1667,7 @@ class AuditFieldRule(AuditRuleBase):
                             call.lineno,
                             name,
                             "caller kwargs splatted into an audit call — a key named `msg` or "
-                            "`exc_info` becomes a control argument (criterion 5; NFR-SEC-06 k.1)",
+                            "`exc_info` becomes a control argument (criterion 5; NFRQ-SEC-06 k.1)",
                             kind="audit-kwargs-splat",
                             detail=f"self.{name}(**kwargs)",
                         )
@@ -1672,7 +1713,7 @@ class AuditFieldRule(AuditRuleBase):
 
 
 class AuditVolumeRule(AuditRuleBase):
-    """NFR-OBS-03 — INFO counts units of work, so a step class must not emit it.
+    """NFRQ-OBS-03 — INFO counts units of work, so a step class must not emit it.
 
     A strategy, driver or connection runs *inside* one unit; an INFO per call
     therefore scales with the input, not with the work, and the level that answers
@@ -1714,7 +1755,7 @@ class AuditVolumeRule(AuditRuleBase):
 
 
 # --------------------------------------------------------------------------- #
-# endregion NFR-OBS-01/02/03 — Audit levels, fields and volume                 #
+# endregion NFRQ-OBS-01/02/03 — Audit levels, fields and volume                 #
 # --------------------------------------------------------------------------- #
 
 
@@ -2499,10 +2540,10 @@ class Application:
             group = [f for f in findings if f.nfr == nfr]
             if not group:
                 continue
-            # EXC is a coverage dimension, not a requirement — labelling it NFR-EXC
-            # would invent a requirement that does not exist in NFR.md.
+            # EXC is a coverage dimension, not a requirement — labelling it NFRQ-EXC
+            # would invent a requirement that does not exist in NFRQ.md.
             label = (
-                f"NFR-{nfr}"
+                f"NFRQ-{nfr}"
                 if nfr in RuleFactory.available()
                 else f"{nfr} ({Locale.text(args.lang, 'blind_spots_label')})"
             )

@@ -183,7 +183,7 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
             raise ConnectionException(caller=self, error=error, **kwargs)
 
         # Subclasses declare configurable kwargs via the ``ALLOWED`` class
-        # attribute; PresetDecorator resolves it from the type (NFR-ORG-07), so
+        # attribute; PresetDecorator resolves it from the type (NFRQ-ORG-07), so
         # this no longer needs its own copy of that resolution.
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
         self._connection_name = connection_name
