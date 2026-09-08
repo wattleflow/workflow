@@ -241,7 +241,7 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
     # endregion implementation
 
 
-class LazyDriverProxy(Wattleflow, IDriver, IObserver):
+class LazyDriverProxy(Wattleflow, IDriver, IObserver, ABC):
     """Defer driver construction (and the connection behind it) until first use.
 
     Every IDriver member is implemented as delegation: nothing is built before

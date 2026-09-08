@@ -17,6 +17,7 @@ from logging import getLogger
 from wattleflow.core import IConfig, IOriginator
 from wattleflow.enums.event import Event
 from wattleflow.concrete.exception import AuditException
+from wattleflow.helpers.audit import Audit
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.manager import (
     ConnectionManager,
@@ -110,6 +111,31 @@ class GenericWorkflow(Wattleflow, IOriginator, ABC):
     def processors(self) -> ProcessorManager:
         return self._processors
 
+    def audit_drivers(self) -> None:
+        """Ask every driver to report what it did.
+
+        The workflow decides WHEN — it is the unit that ended — and each driver
+        says WHAT, in its own voice and under its own logger, so an operator
+        filtering on `DriverLocalStorage` sees it. Per-operation records stay at
+        DEBUG; only the tally is INFO.
+
+        Call it at the end of `execute()`; it is not called for you, because
+        `execute` is yours to write.
+        """
+        for name, driver in self.drivers.all.items():
+            report = getattr(driver, "report", None)
+            if callable(report):
+                report()
+                continue
+
+            self.info(
+                msg=Event.Completed.name,
+                target="driver",
+                name=name,
+                type=type(driver).__name__,
+                reported=False,
+            )
+
     @abstractmethod
     def execute(self) -> None: ...
 
@@ -128,6 +154,9 @@ class WorkflowFactoryLogger(Wattleflow):
     framework object."""
 
 
+# ERROR until a workflow is built: before the YAML is read there is no declared
+# level to honour, and a library that talks on import is a nuisance. `build()`
+# raises it to the workflow's own level as soon as it knows one.
 logger = WorkflowFactoryLogger(level="ERROR", logger=getLogger("WorkflowFactory"))
 
 
@@ -156,9 +185,13 @@ class WorkflowFactory:
 
         if type_name not in cls._registry:
             registered = sorted(cls._registry.keys())
-            suggestions = difflib.get_close_matches(type_name, registered, n=3, cutoff=0.6)
+            suggestions = difflib.get_close_matches(
+                type_name, registered, n=3, cutoff=0.6
+            )
             hint = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
-            preview = ", ".join(registered[:20]) + (" ..." if len(registered) > 20 else "")
+            preview = ", ".join(registered[:20]) + (
+                " ..." if len(registered) > 20 else ""
+            )
             error = (
                 f"Unknown or unregistered type {type_name!r} in config file!"
                 f"{hint} Register it via WorkflowFactory.register({type_name!r}, <class>)."
@@ -209,7 +242,9 @@ class WorkflowFactory:
 
         if isinstance(workflow, list):
             if workflow_name:
-                workflow = next((w for w in workflow if w.get("name") == workflow_name), None)
+                workflow = next(
+                    (w for w in workflow if w.get("name") == workflow_name), None
+                )
             elif len(workflow) == 1:
                 workflow = workflow[0]
 
@@ -223,8 +258,23 @@ class WorkflowFactory:
         cls._apply_runtime_env(workflow.get("runtime"))
 
         # Global audit logger settings --------------------------------- #
+        # The declared level is the DEFAULT for the whole workflow, so it is set
+        # once on the root logger and inherited by every class logger that asks
+        # for nothing. It must not travel to each component as an explicit
+        # `level=`: one logger is shared per CLASS, so a second entry of the
+        # same class carrying the default would silently undo the level a first
+        # entry asked for (measured: `level: DEBUG` on one blackboard was wiped
+        # by a sibling blackboard that declared nothing).
+        declared_level = adapter.find(*sections, "logging", "level", default=None)
+        if declared_level is not None:
+            resolved = Audit.resolve_level(declared_level)
+            getLogger().setLevel(resolved)
+            # The factory reports what it built — which driver writes where —
+            # and that is the operator's first audit record. Pinned to ERROR it
+            # could never be read.
+            logger.set_level(resolved)
+
         global_audit = {
-            "level": adapter.find(*sections, "logging", "level", default="NOTSET"),
             "handler": adapter.find(*sections, "logging", "handler", default=None),
             "formatting": adapter.find(*sections, "logging", "format", default=None),
         }
@@ -245,7 +295,9 @@ class WorkflowFactory:
             connections=connections,
             drivers=drivers,
             processors=processors,
-            **global_audit,
+            # The workflow entry is a YAML entry like any other and may carry its
+            # own `level:`; without this it was the one class that could not.
+            **cls._audit(workflow, global_audit),
         )
 
     # ------------------------------------------------------------------ #
@@ -315,17 +367,55 @@ class WorkflowFactory:
         }
     )
 
+    # Settings the audit layer consumes. They are resolved by `_audit` and must
+    # not travel a second time inside a component's `configuration`, or the
+    # constructor is called with the same keyword twice.
+    AUDIT_KEYS: ClassVar[frozenset] = frozenset(
+        {"level", "handler", "formatting", "formating"}
+    )
+
     @classmethod
     def _audit(cls, config: dict, default: dict) -> dict:
+        """Audit settings for one YAML entry: its own, else the workflow's.
+
+        `level` is deliberately absent unless THIS entry declares one — the
+        workflow default lives on the root logger and is inherited. Any entry
+        (driver, processor, pipeline, blackboard, repository) may declare
+        `level:` beside its `name`/`type` OR inside its `configuration:`; both
+        read the same, because both are how the setting is written in practice.
+        It applies to the entry's CLASS, which is the granularity a per-class
+        logger can carry.
+        """
+        nested = config.get("configuration") or {}
+        audit = {
+            "handler": config.get("handler", nested.get("handler", default["handler"])),
+            "formatting": config.get(
+                "formatting",
+                config.get(
+                    "formating",
+                    nested.get(
+                        "formatting", nested.get("formating", default["formatting"])
+                    ),
+                ),
+            ),
+        }
+        level = config.get("level", nested.get("level"))
+        if level is not None:
+            audit["level"] = level
+        return audit
+
+    @classmethod
+    def _configuration(cls, config: dict) -> dict:
+        """An entry's constructor settings, with the audit keys removed."""
         return {
-            "level": config.get("level", default["level"]),
-            "handler": config.get("handler", default["handler"]),
-            "formatting": config.get("formatting", config.get("formating", default["formatting"])),
+            key: value
+            for key, value in (config.get("configuration") or {}).items()
+            if key not in cls.AUDIT_KEYS
         }
 
     @classmethod
     def _settings(cls, config: dict) -> dict:
-        nested = config.get("configuration", {}) or {}
+        nested = cls._configuration(config)
         inline = {k: v for k, v in config.items() if k not in cls.STRUCTURAL}
         return {**inline, **nested}
 
@@ -334,7 +424,9 @@ class WorkflowFactory:
         cls, section: str, item: dict, error: str, cause: Exception | None = None
     ) -> NoReturn:
         """Report a configuration failure with the offending section and item name."""
-        item_name = item.get("name", "<no-name>") if isinstance(item, dict) else "<not-a-dict>"
+        item_name = (
+            item.get("name", "<no-name>") if isinstance(item, dict) else "<not-a-dict>"
+        )
         reason = f"{section}[name={item_name!r}]: {error}"
 
         # `exception()` forces exc_info; without a cause it would log "NoneType: None".
@@ -374,7 +466,11 @@ class WorkflowFactory:
 
         name = configuration.get("driver", None)
         if not name:
-            cls._fail(section, item, f"configuration.driver is mandatory for {target.__name__}")
+            cls._fail(
+                section,
+                item,
+                f"configuration.driver is mandatory for {target.__name__}",
+            )
 
         try:
             return {"driver": drivers.get_driver(name)}
@@ -391,10 +487,12 @@ class WorkflowFactory:
         cls, adapter: IConfig, sections: tuple, **global_audit
     ) -> ConnectionManager:
         manager = ConnectionManager(**global_audit)
-        connections = adapter.find(*sections, "managers", "connections", default=[]) or []
+        connections = (
+            adapter.find(*sections, "managers", "connections", default=[]) or []
+        )
         for connection in connections:
             connection_class = cls._resolve_section("managers.connections", connection)
-            configuration = connection.get("configuration", {})
+            configuration = cls._configuration(connection)
             manager.register_connection(
                 connection=connection_class(
                     **cls._audit(connection, global_audit),
@@ -419,7 +517,7 @@ class WorkflowFactory:
             driver_type = driver.get("type", None)
             driver_name = driver.get("name", driver_type)
             driver_audit = cls._audit(driver, global_audit)
-            configuration = dict(driver.get("configuration", {}) or {})
+            configuration = cls._configuration(driver)
 
             # Inject ConnectionManager when driver declares a connection_name
             # so connection-backed drivers (Elasticsearch, Postgres, Kafka, ...)
@@ -448,15 +546,19 @@ class WorkflowFactory:
 
         for config in processors:
             if not config or isinstance(config, dict) is False:
-                raise WorkflowFactoryException(cls, "Configuration is missing for processors")
+                raise WorkflowFactoryException(
+                    cls, "Configuration is missing for processors"
+                )
             # processor class ----------------------------------------------- #
             processor_class = cls._resolve_section("workflows.processors", config)
             proc_audit = cls._audit(config, global_audit)
-            configuration = dict(config.get("configuration", {}) or {})
+            configuration = cls._configuration(config)
 
             # Driver may be declared either at processor top-level or inside
             # configuration. Resolve to a registered instance before passing on.
-            driver_name = configuration.pop("driver", None) or config.get("driver", None)
+            driver_name = configuration.pop("driver", None) or config.get(
+                "driver", None
+            )
             if driver_name:
                 configuration["driver"] = drivers.get_driver(driver_name)
 
@@ -467,7 +569,7 @@ class WorkflowFactory:
             for pipeline in pipelines_config:
                 pipeline_class = cls._resolve_section("processors.pipelines", pipeline)
                 pipeline_audit = cls._audit(pipeline, global_audit)
-                pipeline_configuration = dict(pipeline.get("configuration", {}) or {})
+                pipeline_configuration = cls._configuration(pipeline)
                 processor.register_pipeline(
                     pipeline=pipeline_class(**pipeline_audit, **pipeline_configuration)
                 )
@@ -479,16 +581,27 @@ class WorkflowFactory:
                 blackboard_config,
                 key="strategy_create",
             )
-            logger.debug(msg=Event.Build.name, target="processors", strategy=strategy_class)
+            logger.debug(
+                msg=Event.Build.name, target="processors", strategy=strategy_class
+            )
 
             # blackboard ------------------------------------------------------
-            blackboard_class = cls._resolve_section("processors.blackboard", blackboard_config)
-            logger.debug(msg=Event.Build.name, target="processors", blackboard=blackboard_class)
+            blackboard_class = cls._resolve_section(
+                "processors.blackboard", blackboard_config
+            )
+            logger.debug(
+                msg=Event.Build.name, target="processors", blackboard=blackboard_class
+            )
             configuration = cls._settings(blackboard_config)
+            blackboard_audit = cls._audit(blackboard_config, global_audit)
             processor.register_blackboard(
                 blackboard=blackboard_class(
-                    strategy_create=strategy_class(),
-                    **cls._audit(blackboard_config, global_audit),
+                    # The create strategy has no entry of its own in the YAML —
+                    # it is named as a string on the blackboard — so the
+                    # blackboard's audit settings are the ones it can inherit.
+                    # Built bare, it could not be configured at all.
+                    strategy_create=strategy_class(**blackboard_audit),
+                    **blackboard_audit,
                     **configuration,
                 )
             )
@@ -497,13 +610,23 @@ class WorkflowFactory:
             repositories = blackboard_config.get("repositories", []) or []
             for repository in repositories:
                 audit = cls._audit(repository, global_audit)
-                repository_class = cls._resolve_section("blackboard.repositories", repository)
+                repository_class = cls._resolve_section(
+                    "blackboard.repositories", repository
+                )
                 configuration = repository.get("configuration", {}) or {}
                 strategy_write = cls._resolve_section(
                     "blackboard.repositories.strategy_write",
                     configuration,
                     key="strategy_write",
                 )
+                # Optional: a repository that is only written to declares none.
+                strategy_read = None
+                if configuration.get("strategy_read"):
+                    strategy_read = cls._resolve_section(
+                        "blackboard.repositories.strategy_read",
+                        configuration,
+                        key="strategy_read",
+                    )(**audit)
                 driver = cls._driver_context(
                     "blackboard.repositories",
                     repository,
@@ -516,11 +639,12 @@ class WorkflowFactory:
                     repository=repository_class(
                         **driver,
                         strategy_write=strategy_write(**audit),
+                        strategy_read=strategy_read,
                         **audit,
                     )
                 )
 
-            configuration = config.get("configuration", {})
+            configuration = cls._configuration(config)
             manager.register_processor(
                 processor=processor,
                 name=config.get("name", processor.name),

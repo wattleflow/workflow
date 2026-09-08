@@ -112,12 +112,7 @@ class GenericRepository(Wattleflow, IRepository, ABC):
     # region Protected
 
     def _strategy_context(self) -> dict[str, Any]:
-        """Keywords this repository contributes to every strategy call.
-
-        The single extension point for a specialisation: what it owns and its
-        strategies require (a driver, ...) travels from here into `read` and
-        `write`, and into their audit records.
-        """
+        """Keywords this repository contributes to every strategy call."""
         return {}
 
     # endregion Protected

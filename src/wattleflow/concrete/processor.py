@@ -234,6 +234,19 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
     def flush_per_cycle(self) -> bool:
         return self._flush_per_cycle
 
+    @property
+    def write_context(self) -> dict[str, Any]:
+        """Configuration this processor publishes to the write strategies.
+
+        A processor owns the batch and therefore the policy for it (which
+        attachments count, what happens to a source once archived), but the
+        strategy is what applies that policy. The blackboard already forwards
+        `flush` kwargs to every repository, so a subclass overriding this is
+        the whole path from configuration to strategy. Empty by default: a
+        processor that declares nothing changes no call.
+        """
+        return {}
+
     # endregion Property
 
     @abstractmethod
@@ -324,7 +337,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                     self._cycle += 1
                     self._fsm.apply(ProcessorAction.CYCLE_COMPLETED)
                     if self._flush_per_cycle:
-                        self.blackboard.flush(caller=self)
+                        self.blackboard.flush(caller=self, **self.write_context)
                 except Exception as e:
                     reason = "%s.start error: Pipeline processing failed: %s" % (
                         self.__class__.__name__,

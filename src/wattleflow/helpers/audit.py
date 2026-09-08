@@ -117,7 +117,7 @@ class Audit(ILogger, IObserver):
             # Last explicit writer wins; that is a property of sharing one logger
             # per class, not a defect of the caller.
             if requested is not None:
-                self._logger.setLevel(self._level)
+                self._apply_level(self._level)
 
             if propagate is not None:
                 self._logger.propagate = propagate
@@ -206,6 +206,38 @@ class Audit(ILogger, IObserver):
     # --------------------------------------------------------------------------- #
     # region Private Methods
     # --------------------------------------------------------------------------- #
+
+    def _apply_level(self, level: int) -> None:
+        """Put `level` on the logger AND on the handlers already attached to it.
+
+        A handler is built once per class, with the level of the FIRST instance,
+        and a handler filters independently of its logger. Setting only the
+        logger therefore left the first instance's threshold in force, so a
+        later `level=` (or a level raised after construction) silently changed
+        nothing.
+        """
+        self._logger.setLevel(level)
+        for handler in self._logger.handlers:
+            handler.setLevel(level)
+
+    def set_level(self, level: int | str) -> None:
+        """Change this component's level after construction.
+
+        Used by a caller that learns the level later than the object — the
+        factory reads it from the YAML after its own logger already exists.
+        """
+        self._level = self._resolve_level(level)
+        with self._lock:
+            self._apply_level(self._level)
+
+    @classmethod
+    def resolve_level(cls, level: int | str) -> int:
+        """The level lookup, for a caller configuring a logger it does not own.
+
+        The factory sets the workflow default on the root logger and needs the
+        same mapping the constructor applies to `level=`.
+        """
+        return cls._resolve_level(level)
 
     @staticmethod
     def _resolve_level(level: int | str) -> int:

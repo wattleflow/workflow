@@ -219,6 +219,12 @@ class DriverManager(Wattleflow, IObserver):
     def __len__(self) -> int:
         return len(self._drivers)
 
+    @property
+    def all(self) -> dict[str, IDriver]:
+        """Every registered driver by name — as `ProcessorManager.all` does, so
+        a caller that reports over managers does not need a special case."""
+        return self._drivers
+
     def load(self, name: str, **kwargs) -> object:
         self.debug(msg=Event.Load.name, name=name, kwargs=kwargs)
         loaded = self.operation(name, Operation.Connect, **kwargs)
