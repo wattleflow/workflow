@@ -69,9 +69,8 @@ class GenericParser(Wattleflow, IParser[Content], ABC):
 
     ENCODING is the declared default, `encoding=` on the constructor the
     per-instance override (NFRQ-ORG-07) and `encoding=` on the call the
-    per-call one. A subclass that declares its own ALLOWED *replaces* this one
-    — PresetDecorator resolves a single class attribute, it does not merge — so
-    such a subclass must repeat every key it still needs.
+    per-call one. A subclass's ALLOWED is merged with this one across the MRO
+    (v0.0.1.4, PresetGate).
     """
 
     ALLOWED = ["encoding"]
@@ -84,7 +83,7 @@ class GenericParser(Wattleflow, IParser[Content], ABC):
         # Wattleflow is the single place that splits logging keywords off; a
         # subclass forwards its whole **kwargs unchanged and names none of them.
         super().__init__(**kwargs)
-        self.debug(msg=Event.Constructor.name)
+        self.debug(msg=Event.Constructor)
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
     # region Private
@@ -108,7 +107,7 @@ class GenericParser(Wattleflow, IParser[Content], ABC):
     def deserialise(self, reader: BinaryIO, **kwargs) -> Content: ...
 
     def parse(self, **kwargs) -> Content:
-        self.debug(msg=Event.Read.name, step=Event.Starting.name)
+        self.debug(msg=Event.Read, step=Event.Starting)
         try:
             with self.reader(kwargs) as stream:
                 content = self.deserialise(stream, **kwargs)
@@ -116,12 +115,12 @@ class GenericParser(Wattleflow, IParser[Content], ABC):
             raise
         except Exception as e:
             error = "%s.parse error: %s" % (self.name, str(e))
-            self.debug(msg=Event.Read.name, step=Event.Failed.name, error=error)
+            self.debug(msg=Event.Read, step=Event.Failed, error=error)
             raise ParserError(caller=self, error=error) from e
 
         self.debug(
-            msg=Event.Read.name,
-            step=Event.Completed.name,
+            msg=Event.Read,
+            step=Event.Completed,
             content=Attribute.type_name(content),
         )
         return content
@@ -184,7 +183,7 @@ class GenericFormatter(Wattleflow, IFormatter[Content], ABC):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.debug(msg=Event.Constructor.name)
+        self.debug(msg=Event.Constructor)
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
     # region Private
@@ -206,7 +205,7 @@ class GenericFormatter(Wattleflow, IFormatter[Content], ABC):
     def serialise(self, content: Content, **kwargs) -> bytes | str: ...
 
     def render(self, **kwargs) -> bytes | str:
-        self.debug(msg=Event.Render.name, step=Event.Starting.name)
+        self.debug(msg=Event.Render, step=Event.Starting)
         if "content" not in kwargs:
             raise FormatterError(caller=self, error="mandatory 'content' not found in kwargs")
 
@@ -221,10 +220,10 @@ class GenericFormatter(Wattleflow, IFormatter[Content], ABC):
             raise
         except Exception as e:
             error = "%s.render error: %s" % (self.name, str(e))
-            self.debug(msg=Event.Render.name, step=Event.Failed.name, error=error)
+            self.debug(msg=Event.Render, step=Event.Failed, error=error)
             raise FormatterError(caller=self, error=error) from e
 
-        self.debug(msg=Event.Render.name, step=Event.Completed.name, size=len(payload))
+        self.debug(msg=Event.Render, step=Event.Completed, size=len(payload))
         return payload
 
     def stream(self, handle: BinaryIO, content: Content, **kwargs) -> None:

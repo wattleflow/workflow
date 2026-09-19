@@ -84,8 +84,8 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
             # emit_event notifies, the trace records the step (DR-WFL-018 t.2).
             self.emit_event(Event.Failed, processor=proc_name, error=str(e))
             self.debug(
-                msg=Event.Process.name,
-                step=Event.Failed.name,
+                msg=Event.Process,
+                step=Event.Failed,
                 processor=proc_name,
                 error=str(e),
             )
@@ -141,7 +141,7 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
             return
         self._running = True
         self.info(
-            msg=Event.OrchestrationStarted.name,
+            msg=Event.OrchestrationStarted,
             processors=len(self._processors),
             parallel=parallel,
         )
@@ -178,14 +178,14 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
         finally:
             self._running = False
             self.info(
-                msg=Event.OrchestrationCompleted.name,
+                msg=Event.OrchestrationCompleted,
                 processors=len(self._processors),
             )
             self.emit_event(Event.OrchestrationCompleted)
 
     def stop(self) -> None:
         self._running = False
-        self.info(msg=Event.OrchestrationStopped.name)
+        self.info(msg=Event.OrchestrationStopped)
         self.emit_event(Event.OrchestrationStopped)
 
     # endregion Public

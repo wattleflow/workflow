@@ -11,13 +11,14 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from logging import Handler, NOTSET
-from pathlib import Path
 from typing import Any
 from wattleflow.core import IProcessor, IPipeline, ITarget
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.exception import AuditException
+from wattleflow.concrete.helpers import NameHelper
 from wattleflow.enums.event import Event
 from wattleflow.decorators.preset import PresetDecorator
+# from wattleflow.decorators.measure import measured  # retired, DR-WFL-031 v3
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -41,6 +42,8 @@ class PipelineError(AuditException):
 # --------------------------------------------------------------------------- #
 
 
+# v0.0.1.14 (DR-WFL-031 v3): retired — measurement now observes audit records; kept for the record.
+# @measured()
 class GenericPipeline(Wattleflow, IPipeline, ABC):
     def __init__(
         self,
@@ -51,7 +54,7 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
         super().__init__(level=level, handler=handler, **kwargs)
 
         self.debug(
-            msg=Event.Constructor.name,
+            msg=Event.Constructor,
             level=level,
             handler=handler,
             kwargs=kwargs,
@@ -67,8 +70,8 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
             except Exception as e:
                 reason = "%s.__del__ error: %s" % (self.__class__.__name__, str(e))
                 self.error(
-                    msg=Event.Delete.name,
-                    step=Event.Failed.name,
+                    msg=Event.Delete,
+                    step=Event.Failed,
                     preset=self._preset,
                     reason=reason,
                 )
@@ -97,9 +100,10 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
         facade: ITarget,
         **kwargs,
     ) -> None:
+        # v0.0.1.14 (DR-WFL-031 v3): no `step` — the operation opens once, below,
+        # after the arguments are known to be what they claim.
         self.debug(
-            msg=Event.Transform.name,
-            step=Event.Starting.name,
+            msg=Event.Transform,
             processor=processor,
             facade=facade,
         )
@@ -111,53 +115,41 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
 
             # Reported on ENTRY, so the audit stream reads top-down in the order
             # the activity diagram draws: pipeline -> blackboard -> repository ->
-            # strategy -> driver. A completion record can only be written after
-            # the work is done, so its order is necessarily the reverse unwind of
-            # the call stack — the two cannot both be had. Closing the unit is the
-            # job of the layers that own one: the processor and the workflow.
-            self.info(
-                msg=Event.Transform.name,
-                step=Event.Started.name,
-                source=self._source_name(facade),
+            # strategy -> driver. DEBUG, not INFO: processing a document is the
+            # processor's unit of work, so the one INFO record that stands for a
+            # document belongs to GenericProcessor.start — a pipeline is a step
+            # inside that unit, and reporting it at INFO multiplies the stream by
+            # the number of pipelines the processor drives.
+            self.debug(
+                msg=Event.Transform,
+                step=Event.Started,
+                source=NameHelper.source_name(facade),
                 document=getattr(facade, "identifier", None),
             )
 
             result = self.transform(processor, facade, **kwargs)
 
             self.debug(
-                msg=Event.Transform.name,
-                step=Event.Completed.name,
+                msg=Event.Transform,
+                step=Event.Completed,
                 result=result,
             )
         except AssertionError as e:
             # v0.0.1.10 (DR-WFL-018 t.2): the caller stops the propagation and owns
             # the ERROR; this layer leaves the trace and carries the cause in the
             # exception.
-            self.debug(msg=Event.Transform.name, step=Event.Failed.name, error=str(e))
-            raise PipelineError(str(e)) from e
+            self.debug(msg=Event.Transform, step=Event.Failed, error=str(e))
+            # v0.0.1.14: `PipelineError` takes (caller, error); the positional form raised
+            # TypeError instead, so a failed input check never surfaced as a pipeline error.
+            raise PipelineError(caller=self, error=str(e)) from e
         except Exception as e:
             error = "%s.process error: %s" % (self.__class__.__name__, str(e))
-            self.debug(msg=Event.Transform.name, step=Event.Failed.name, error=error)
+            self.debug(msg=Event.Transform, step=Event.Failed, error=error)
             raise PipelineError(
                 caller=self,
                 error=error,
                 # trace=traceback.format_exc(),
             ) from e
-
-    @staticmethod
-    def _source_name(facade: ITarget) -> str | None:
-        """Human-readable name of the unit behind ``facade``, or None.
-
-        Never raises: this runs inside the ``finally`` of ``process``, where an
-        exception would mask the failure being reported. The facade forwards
-        unknown attributes to its adaptee, so a document type without a filename
-        simply yields None.
-        """
-        try:
-            name = getattr(facade, "filename", None)
-        except Exception:
-            return None
-        return Path(str(name)).name if name else None
 
 
 # --------------------------------------------------------------------------- #

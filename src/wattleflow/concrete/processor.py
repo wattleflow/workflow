@@ -22,11 +22,13 @@ from wattleflow.core import (
     ITarget,
 )
 from wattleflow.concrete.base import Wattleflow
+from wattleflow.concrete.helpers import NameHelper
 from wattleflow.concrete.memento import GenericMemento
 from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.enums.event import Event
 from wattleflow.enums.operation import Operation
 from wattleflow.decorators.preset import PresetDecorator
+# from wattleflow.decorators.measure import measured  # retired, DR-WFL-031 v3
 from wattleflow.concrete.exception import PipelineException, ProcessorException
 
 # --------------------------------------------------------------------------- #
@@ -87,6 +89,8 @@ TRANSITIONS = {
 # ----------------------------------------------------------------------------#
 
 
+# v0.0.1.14 (DR-WFL-031 v3): retired — measurement now observes audit records; kept for the record.
+# @measured()
 class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
     __slots__ = (
         "_blackboard",
@@ -128,8 +132,8 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
         self.debug(
-            msg=Event.Constructor.name,
-            step=Event.Starting.name,
+            msg=Event.Constructor,
+            step=Event.Starting,
             blackboard=blackboard,
             pipelines=pipelines,
             flush_per_cycle=flush_per_cycle,
@@ -138,7 +142,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
 
         if legacy_defer is not None:
             self.warning(
-                msg=Event.Configure.name,
+                msg=Event.Configure,
                 component="config",
                 deprecated="defer_flush",
                 use="flush_per_cycle",
@@ -159,8 +163,8 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         self._current: ITarget | None = None
 
         self.debug(
-            msg=Event.Constructor.name,
-            step=Event.Completed.name,
+            msg=Event.Constructor,
+            step=Event.Completed,
             cycle=self._cycle,
             preset=self._preset,
         )
@@ -177,7 +181,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
 
     def __del__(self):
         try:
-            self.debug(msg=Event.Delete.name, step=Event.Started.name)
+            self.debug(msg=Event.Delete, step=Event.Started)
 
             if self._blackboard is not None:
                 try:
@@ -186,8 +190,8 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                     name = self.__class__.__name__
                     reason = f"{name} destructor error: {str(e)}"
                     self.error(
-                        msg=Event.Delete.name,
-                        step=Event.Failed.name,
+                        msg=Event.Delete,
+                        step=Event.Failed,
                         member="_blackboard",
                         reason=reason,
                     )
@@ -200,12 +204,12 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         except Exception as e:
             reason = "%s.__del__ error: %s" % (self.__class__.__name__, str(e))
             self.error(
-                msg=Event.Delete.name,
-                step=Event.Failed.name,
+                msg=Event.Delete,
+                step=Event.Failed,
                 reason=reason,
             )
         finally:
-            self.debug(msg=Event.Delete.name, step=Event.Completed.name)
+            self.debug(msg=Event.Delete, step=Event.Completed)
             gc.collect()
 
     # endregion Private
@@ -281,8 +285,8 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         except StopIteration:
             error = "Restore failed: dataset shorter than saved cycle"
             self.debug(
-                msg=Event.Restore.name,
-                step=Event.Failed.name,
+                msg=Event.Restore,
+                step=Event.Failed,
                 cycle=self._cycle,
                 skipped=skipped,
                 error=error,
@@ -298,14 +302,14 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             self.start(**kwargs)
             return True
         self.warning(
-            msg=Event.Operation.name,
+            msg=Event.Operation,
             action=action.name,
             error="Action not supported by processor",
         )
         return False
 
     def start(self) -> None:
-        self.debug(msg=Event.Start.name, step=Event.Started.name)
+        self.debug(msg=Event.Start, step=Event.Started)
 
         if self._blackboard is None:
             raise ProcessorException(self, f"Missing {self.name!r} blackboard!")
@@ -314,7 +318,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             raise ProcessorException(self, f"Missing {self.name!r} pipelines!")
 
         self.info(
-            msg=Event.Start.name,
+            msg=Event.Start,
             blackboard=type(self._blackboard).__name__,
             pipelines=", ".join(type(p).__name__ for p in self._pipelines),
             repositories=self._repository_names(),
@@ -338,14 +342,32 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                     self._fsm.apply(ProcessorAction.CYCLE_COMPLETED)
                     if self._flush_per_cycle:
                         self.blackboard.flush(caller=self, **self.write_context)
+                    # v0.0.1.14 (FRQ-PTN-18.1 EV03): the `Processed` record below closes
+                    # the unit of work; the monitor observes it (DR-WFL-031 v3).
+                    # self.measure_units(documents=1)
+                    # self.measure_boundary("cycle")
+
+                    # The processor owns the document as a unit of work — it is
+                    # what drives the pipelines over it — so the single INFO
+                    # record that stands for a document is written here, once the
+                    # pipelines and the flush for it are done. The pipelines carry
+                    # the same identity at DEBUG (GenericPipeline.process), which
+                    # keeps the INFO stream proportional to the input rather than
+                    # to the number of pipelines configured.
+                    self.info(
+                        msg=Event.Processed,
+                        cycle=self._cycle,
+                        source=NameHelper.source_name(facade),
+                        document=getattr(facade, "identifier", None),
+                    )
                 except Exception as e:
                     reason = "%s.start error: Pipeline processing failed: %s" % (
                         self.__class__.__name__,
                         str(e),
                     )
                     self.debug(
-                        msg=Event.Start.name,
-                        step=Event.Failed.name,
+                        msg=Event.Start,
+                        step=Event.Failed,
                         error=reason,
                     )
                     raise PipelineException(
@@ -361,27 +383,29 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             if self._fsm.can(ProcessorAction.FAIL):
                 self._fsm.apply(ProcessorAction.FAIL)
             self.debug(
-                msg=Event.Start.name,
-                step=Event.Failed.name,
+                msg=Event.Start,
+                step=Event.Failed,
                 cycles=self._cycle,
                 error=str(e),
             )
             raise ProcessorException(caller=self, error=str(e)) from e
 
+        # v0.0.1.14 (DR-WFL-031 v3): closes the `Start` pair the monitor measures.
+        self.debug(msg=Event.Start, step=Event.Completed, cycles=self._cycle)
         # `msg` names the record; the phase is not a separate field. The opening
         # record is `Start`, the closing one `Completed` — the same `msg` twice
         # with only `step` telling them apart made the operator read the field to
         # learn which of the two they were looking at. Only the OUTCOME belongs
         # here; the wiring was already reported when the pass opened.
         self.info(
-            msg=Event.Completed.name,
+            msg=Event.Completed,
             cycles=self._cycle,
         )
 
     def register_blackboard(self, blackboard: IBlackboard) -> None:
         self.debug(
-            msg=Event.Register.name,
-            step=Event.Starting.name,
+            msg=Event.Register,
+            step=Event.Starting,
             blackboard=self._blackboard,
         )
         assert isinstance(blackboard, IBlackboard), (
@@ -389,18 +413,18 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         )
         self._blackboard = blackboard
         self.debug(
-            msg=Event.Register.name, step=Event.Completed.name, added=self._blackboard
+            msg=Event.Register, step=Event.Completed, added=self._blackboard
         )
 
     def register_pipeline(self, pipeline: IPipeline) -> None:
-        self.debug(msg=Event.Register.name, step=Event.Starting.name, pipeline=pipeline)
+        self.debug(msg=Event.Register, step=Event.Starting, pipeline=pipeline)
         assert isinstance(pipeline, IPipeline), "Expected IPipeline. Found %s" % type(
             pipeline
         )
         self._pipelines.append(pipeline)
         self.debug(
-            msg=Event.Register.name,
-            step=Event.Completed.name,
+            msg=Event.Register,
+            step=Event.Completed,
             added=pipeline,
             count=len(self._pipelines),
         )

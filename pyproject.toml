@@ -27,6 +27,12 @@ dependencies = [
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
+#[project.optional-dependencies]
+#dev = [
+#    "ruff",
+#    "twine>=6.1",   # older twine rejects Metadata-Version 2.4
+#]
+
 [project.urls]
 homepage = "https://github.com/wattleflow/workflow.git"
 repository = "https://github.com/wattleflow/workflow.git"
@@ -43,6 +49,7 @@ where = ["src"]
 # `namespaces = true` the finder returns NOTHING over such a tree and the wheel
 # ships no modules at all, while the source tree looks healthy.
 namespaces = true
+
 # Allowlist, not denylist (mirrors the core distribution): what is not listed is
 # not shipped, so a new directory under src/wattleflow cannot leak into the wheel
 # by being forgotten — and non-package assets never become packages.

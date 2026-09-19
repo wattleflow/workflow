@@ -22,6 +22,7 @@ from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.enums.event import Event
 from wattleflow.enums.operation import Operation
 from wattleflow.decorators.preset import PresetDecorator
+# from wattleflow.decorators.measure import measured  # retired, DR-WFL-031 v3
 
 
 # --------------------------------------------------------------------------- #
@@ -113,6 +114,8 @@ TRANSITIONS: dict[tuple[DriverState, DriverAction], DriverState] = {
 # --------------------------------------------------------------------------- #
 
 
+# v0.0.1.14 (DR-WFL-031 v3): retired — measurement now observes audit records; kept for the record.
+# @measured()
 class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
     __slots__ = ("_fsm", "_preset")
 
@@ -134,9 +137,9 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
         except AttributeError:
             return
         try:
-            self.debug(msg=Event.Destructor.name, step=Event.Started.name)
+            self.debug(msg=Event.Destructor, step=Event.Started)
             self.ensure_unloaded()
-            self.debug(msg=Event.Destructor.name, step=Event.Completed.name)
+            self.debug(msg=Event.Destructor, step=Event.Completed)
         except Exception:
             pass
 
@@ -191,7 +194,7 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
             # fact the caller needs.
             if self._fsm.can(DriverAction.LOAD_FAIL):
                 self._fsm.apply(DriverAction.LOAD_FAIL)
-            self.debug(msg=Event.Load.name, step=Event.Failed.name, error=str(e))
+            self.debug(msg=Event.Load, step=Event.Failed, error=str(e))
             raise
 
     def ensure_unloaded(self) -> None:
@@ -210,7 +213,7 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
             # Same guard as ensure_live: never let bookkeeping mask the error.
             if self._fsm.can(DriverAction.UNLOAD_FAIL):
                 self._fsm.apply(DriverAction.UNLOAD_FAIL)
-            self.debug(msg=Event.Close.name, step=Event.Failed.name, error=str(e))
+            self.debug(msg=Event.Close, step=Event.Failed, error=str(e))
             raise
 
     def pause(self) -> None:
@@ -231,12 +234,12 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
         # readily as with an Enum, and the payload travels as one named field —
         # a caller key can then never become a control argument.
         self.debug(
-            msg=Event.Update.name,
-            step=Event.Started.name,
+            msg=Event.Update,
+            step=Event.Started,
             event=getattr(event, "name", event),
             kwargs=kwargs,
         )
-        self.debug(msg=Event.Update.name, step=Event.Completed.name)
+        self.debug(msg=Event.Update, step=Event.Completed)
 
     # endregion implementation
 

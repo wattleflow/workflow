@@ -65,7 +65,7 @@ class Config(Audit, IConfig):
         path = Path(config_file)
         if path.exists() is False:
             self.error(
-                msg=Event.Constructor.name,
+                msg=Event.Constructor,
                 error=f"{self}: invalid or missing `config_path` {config_file}!",
                 config_file=config_file,
             )
@@ -92,7 +92,7 @@ class Config(Audit, IConfig):
                 result = result[key]  # type: ignore
             return result
         except (KeyError, IndexError, TypeError) as e:
-            self.warning(msg=Event.Find.name, missing=str(e))
+            self.warning(msg=Event.Find, missing=str(e))
             return default
 
     def get(self, section: str, key: str, name=None, default=None) -> dict | str | list:
@@ -165,23 +165,23 @@ class Config(Audit, IConfig):
                 SchemaValidator.validate(instance=self._data, schema=schema)
             except Exception as e:
                 self.error(
-                    msg=Event.Configure.name,
+                    msg=Event.Configure,
                     reason=f"{caller}._load_settings",
                     error=f"{caller}.validate error: {str(e)}",
                 )
 
         except FileNotFoundError as e:
             self.debug(
-                msg=Event.Configure.name,
-                step=Event.Failed.name,
+                msg=Event.Configure,
+                step=Event.Failed,
                 target="file",
                 error=str(e),
             )
             raise FileNotFoundError(f"Configuration file not found: {self.config_file}") from e
         except self.ERRORS as e:
             self.debug(
-                msg=Event.Configure.name,
-                step=Event.Failed.name,
+                msg=Event.Configure,
+                step=Event.Failed,
                 target=self.FORMAT,
                 error=str(e),
             )

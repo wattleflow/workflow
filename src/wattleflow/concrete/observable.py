@@ -63,7 +63,7 @@ class ThreadSafeObservable(Wattleflow, IObservableReactive):
                 observer.update(self, *args, **kwargs)
             except Exception as e:
                 self.exception(
-                    msg=Event.Notify.name,
+                    msg=Event.Notify,
                     reason="Observer raised during update",
                     observer=observer,
                     error=str(e),

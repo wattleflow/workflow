@@ -12,6 +12,7 @@ from __future__ import annotations
 from abc import abstractmethod, ABC
 from wattleflow.core import IWattleflow, IStrategy, ITarget
 from wattleflow.concrete.base import Wattleflow
+# from wattleflow.decorators.measure import measured  # retired, DR-WFL-031 v3
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -22,6 +23,8 @@ from wattleflow.concrete.base import Wattleflow
 # --------------------------------------------------------------------------- #
 
 
+# v0.0.1.14 (DR-WFL-031 v3): retired — measurement now observes audit records; kept for the record.
+# @measured()
 class Strategy(Wattleflow, IStrategy, ABC):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

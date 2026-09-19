@@ -12,13 +12,15 @@ from __future__ import annotations
 import difflib
 import os
 from abc import abstractmethod, ABC
-from typing import ClassVar, NoReturn
+from typing import Any, ClassVar, NoReturn
 from logging import getLogger
 from wattleflow.core import IConfig, IOriginator
 from wattleflow.enums.event import Event
 from wattleflow.concrete.exception import AuditException
 from wattleflow.helpers.audit import Audit
+from wattleflow.helpers.monitor import Monitor, MonitorLevel
 from wattleflow.concrete.base import Wattleflow
+from wattleflow.concrete.driver import LazyDriverProxy
 from wattleflow.concrete.manager import (
     ConnectionManager,
     DriverManager,
@@ -26,6 +28,7 @@ from wattleflow.concrete.manager import (
     ProcessorManager,
 )
 from wattleflow.decorators.preset import PresetGate
+# from wattleflow.decorators.measure import measured  # retired, DR-WFL-031 v3
 
 
 # --------------------------------------------------------------------------- #
@@ -50,6 +53,8 @@ class WorkflowFactoryException(AuditException):
 # --------------------------------------------------------------------------- #
 
 
+# v0.0.1.14 (DR-WFL-031 v3): retired — measurement now observes audit records; kept for the record.
+# @measured(passes=("execute",))
 class GenericWorkflow(Wattleflow, IOriginator, ABC):
     __slots__ = (
         "_connections",
@@ -57,6 +62,7 @@ class GenericWorkflow(Wattleflow, IOriginator, ABC):
         "_processors",
         "_level",
         "_handler",
+        "_monitor",
     )
 
     def __init__(
@@ -70,8 +76,8 @@ class GenericWorkflow(Wattleflow, IOriginator, ABC):
 
         super().__init__(**kwargs)
         self.debug(
-            msg=Event.Constructor.name,
-            step=Event.Started.name,
+            msg=Event.Constructor,
+            step=Event.Started,
             connections=connections,
             drivers=drivers,
             processors=processors,
@@ -87,10 +93,11 @@ class GenericWorkflow(Wattleflow, IOriginator, ABC):
         self._connections: ConnectionManager = connections
         self._drivers: DriverManager = drivers
         self._processors: ProcessorManager = processors
+        self._monitor: Monitor | None = None
 
         self.debug(
-            msg=Event.Constructor.name,
-            step=Event.Completed.name,
+            msg=Event.Constructor,
+            step=Event.Completed,
             connections=self._connections,
             drivers=self._drivers,
             processor=self._processors,
@@ -111,6 +118,41 @@ class GenericWorkflow(Wattleflow, IOriginator, ABC):
     def processors(self) -> ProcessorManager:
         return self._processors
 
+    @property
+    def monitor(self) -> Monitor | None:
+        return self._monitor
+
+    def attach_monitor(self, monitor: Monitor | None) -> None:
+        """The factory hands over the monitor the configuration asked for (`monitoring:`)."""
+        self._monitor = monitor
+
+    def run(self, **kwargs: Any) -> Any:
+        """One measured pass: the monitor observes every audit record while `execute` runs
+        and reports once at the end. Without a monitor this is `execute` itself."""
+        monitor = self._monitor
+        if monitor is None:
+            return self.execute(**kwargs)
+        monitor.begin(self.measured_paths())
+        previous = Audit.observe(monitor.hook)
+        try:
+            return self.execute(**kwargs)
+        finally:
+            Audit.observe(previous)
+            monitor.end()
+
+    def measured_paths(self) -> list[str]:
+        """Write paths of the drivers already built; a lazy driver is not woken."""
+        paths: list[str] = []
+        for driver in self.drivers.all.values():
+            target = driver.driver if isinstance(driver, LazyDriverProxy) else driver
+            try:
+                path = getattr(target, "write_path", None) if target is not None else None
+            except Exception:
+                path = None
+            if path:
+                paths.append(str(path))
+        return paths
+
     def audit_drivers(self) -> None:
         """Ask every driver to report what it did.
 
@@ -129,7 +171,7 @@ class GenericWorkflow(Wattleflow, IOriginator, ABC):
                 continue
 
             self.info(
-                msg=Event.Completed.name,
+                msg=Event.Completed,
                 target="driver",
                 name=name,
                 type=type(driver).__name__,
@@ -180,7 +222,7 @@ class WorkflowFactory:
                 "Each connection/driver/processor/pipeline/blackboard/repository "
                 "entry must declare a `type:` matching a registered class."
             )
-            logger.exception(msg=Event.Resolve.name, name=type_name, error=error)
+            logger.exception(msg=Event.Resolve, name=type_name, error=error)
             raise WorkflowFactoryException(cls, error)
 
         if type_name not in cls._registry:
@@ -198,7 +240,7 @@ class WorkflowFactory:
                 f" Currently registered ({len(registered)}): [{preview}]"
             )
             logger.exception(
-                msg=Event.Resolve.name,
+                msg=Event.Resolve,
                 name=type_name,
                 error=error,
                 suggestions=suggestions,
@@ -217,7 +259,7 @@ class WorkflowFactory:
 
     @classmethod
     def build(cls, **kwargs) -> GenericWorkflow:
-        logger.debug(msg=Event.Build.name, **kwargs)
+        logger.debug(msg=Event.Build, **kwargs)
         adapter: IConfig = kwargs.pop("adapter", None)
         if not isinstance(adapter, IConfig):
             raise WorkflowFactoryException(
@@ -284,13 +326,13 @@ class WorkflowFactory:
         drivers = cls._build_drivers(adapter, sections, connections, **global_audit)
         processors = cls._build_processors(workflow, drivers, **global_audit)
         logger.info(
-            msg=Event.Build.name,
-            step=Event.Completed.name,
+            msg=Event.Build,
+            step=Event.Completed,
             connections=len(connections),
             drivers=len(drivers),
             processors=len(processors),
         )
-        return workflow_class(
+        built = workflow_class(
             adapter=adapter,
             connections=connections,
             drivers=drivers,
@@ -299,6 +341,63 @@ class WorkflowFactory:
             # own `level:`; without this it was the one class that could not.
             **cls._audit(workflow, global_audit),
         )
+        cls._configure_monitor(adapter, sections, built, workflow)
+        return built
+
+    @classmethod
+    def _build_exporters(
+        cls, exporters: Any, built: GenericWorkflow, workflow_name: str | None = None
+    ) -> list:
+        """`monitoring: exporters:` — `sink:` a registered sink class, `driver:` a driver
+        under `managers.drivers`; the rest are the sink's own keywords. An exporter that
+        names no `instance` is grouped under the workflow's name."""
+        sinks = []
+        for entry in exporters or ():
+            if not isinstance(entry, dict) or "sink" not in entry:
+                cls._fail("monitoring.exporters", entry, "each exporter needs `sink:`")
+            options = dict(entry)
+            if workflow_name and "instance" not in options:
+                options["instance"] = workflow_name
+            sink_class = cls.resolve(options.pop("sink"))
+            driver_name = options.pop("driver", None)
+            driver = built.drivers.get_driver(driver_name) if driver_name else None
+            sinks.append(sink_class(driver=driver, **options))
+        return sinks
+
+    @classmethod
+    def _configure_monitor(
+        cls,
+        adapter: IConfig,
+        sections: tuple,
+        built: GenericWorkflow,
+        workflow: dict | None = None,
+    ) -> None:
+        """v0.0.1.14 (FRQ-PTN-18.1 EV01): level, thresholds, extensions and limits at build.
+        Without a `monitoring:` section, or with `level: OFF`, no monitor exists at all."""
+        monitoring = adapter.find(*sections, "monitoring", default=None) or {}
+        if not isinstance(monitoring, dict):
+            cls._fail("monitoring", monitoring, "must be a mapping")
+        unknown = sorted(set(monitoring) - cls._MONITORING_KEYS)
+        if unknown:
+            logger.warning(msg=Event.Configure, target="monitoring", discarded=unknown)
+        level = MonitorLevel.resolve(monitoring.get("level", "OFF"))
+        if level == MonitorLevel.OFF:
+            return
+        # The series carry which workflow they belong to (DR-WFL-033 t.5): the YAML
+        # entry's `name:` and the document's `app.name`.
+        workflow_name = (workflow or {}).get("name")
+        monitor = Monitor()
+        monitor.configure(
+            level=level,
+            roles=monitoring.get("roles"),
+            thresholds=monitoring.get("thresholds"),
+            extensions=[cls.resolve(name)() for name in monitoring.get("extensions") or ()],
+            interval=monitoring.get("interval"),
+            sinks=cls._build_exporters(monitoring.get("exporters"), built, workflow_name),
+            labels={"workflow": workflow_name, "app": adapter.find("app", "name", default=None)},
+        )
+        monitor.announce(built.measured_paths())
+        built.attach_monitor(monitor)
 
     # ------------------------------------------------------------------ #
     # endregion build
@@ -310,6 +409,10 @@ class WorkflowFactory:
 
     # Known runtime keys map to env-vars consumed by external libraries.
     # Anything not in this map is exported verbatim under runtime.env.
+    _MONITORING_KEYS: frozenset[str] = frozenset(
+        {"level", "roles", "thresholds", "extensions", "interval", "exporters"}
+    )
+
     _RUNTIME_KEY_TO_ENV: dict[str, str] = {
         "tika_server_jar": "TIKA_SERVER_JAR",
         "tika_path": "TIKA_PATH",
@@ -330,7 +433,7 @@ class WorkflowFactory:
                 continue
             os.environ[env_name] = str(value)
             logger.debug(
-                msg=Event.Configure.name,
+                msg=Event.Configure,
                 stage="runtime",
                 key=key,
                 env=env_name,
@@ -343,7 +446,7 @@ class WorkflowFactory:
                     continue
                 os.environ[str(env_name)] = str(value)
                 logger.debug(
-                    msg=Event.Configure.name,
+                    msg=Event.Configure,
                     stage="runtime",
                     env=str(env_name),
                     value=str(value),
@@ -432,7 +535,7 @@ class WorkflowFactory:
         # `exception()` forces exc_info; without a cause it would log "NoneType: None".
         report = logger.exception if cause is not None else logger.error
         report(
-            msg=Event.Resolve.name,
+            msg=Event.Resolve,
             section=section,
             item_name=item_name,
             error=reason,
@@ -582,7 +685,7 @@ class WorkflowFactory:
                 key="strategy_create",
             )
             logger.debug(
-                msg=Event.Build.name, target="processors", strategy=strategy_class
+                msg=Event.Build, target="processors", strategy=strategy_class
             )
 
             # blackboard ------------------------------------------------------
@@ -590,7 +693,7 @@ class WorkflowFactory:
                 "processors.blackboard", blackboard_config
             )
             logger.debug(
-                msg=Event.Build.name, target="processors", blackboard=blackboard_class
+                msg=Event.Build, target="processors", blackboard=blackboard_class
             )
             configuration = cls._settings(blackboard_config)
             blackboard_audit = cls._audit(blackboard_config, global_audit)

@@ -22,6 +22,7 @@ from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.enums.event import Event
 from wattleflow.enums.operation import Operation
 from wattleflow.decorators.preset import PresetDecorator
+# from wattleflow.decorators.measure import measured  # retired, DR-WFL-031 v3
 
 # --------------------------------------------------------------------------- #
 # endregion imports                                                           #
@@ -158,6 +159,8 @@ class ConnectionObserverInterface(Wattleflow, IObservable, ABC):
 # --------------------------------------------------------------------------- #
 
 
+# v0.0.1.14 (DR-WFL-031 v3): retired — measurement now observes audit records; kept for the record.
+# @measured("create_connection")
 class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
     __slots__ = (
         "_connection_name",
@@ -202,8 +205,8 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
             self.ensure_created()
 
         self.debug(
-            msg=Event.Constructor.name,
-            step=Event.Completed.name,
+            msg=Event.Constructor,
+            step=Event.Completed,
             connection_name=self.connection_name,
             state=self._fsm.state.value,
             preset=repr(self._preset),
@@ -213,8 +216,8 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
 
     def _ensure_created(self) -> None:
         self.debug(
-            msg=Event.Validating.name,
-            step=Event.Check.name,
+            msg=Event.Validating,
+            step=Event.Check,
             state=self._fsm.state.value,
         )
         if self._fsm.state is ConnectionState.FAILED:
@@ -231,10 +234,10 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
 
     @contextmanager
     def context(self) -> Generator[Connection, None, None]:
-        self.debug(msg=Event.Context.name, step=Event.Started.name, fnc="context")
+        self.debug(msg=Event.Context, step=Event.Started, fnc="context")
         with self.connect() as conn:
             yield conn
-        self.debug(msg=Event.Context.name, step=Event.Completed.name, fnc="context")
+        self.debug(msg=Event.Context, step=Event.Completed, fnc="context")
 
     # endregion Context handling
 
@@ -246,20 +249,20 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
         except AttributeError:
             return
         try:
-            self.debug(msg=Event.Destructor.name, step=Event.Starting.name)
+            self.debug(msg=Event.Destructor, step=Event.Starting)
             self.ensure_closed()
-            self.debug(msg=Event.Destructor.name, step=Event.Completed.name)
+            self.debug(msg=Event.Destructor, step=Event.Completed)
         except Exception:
             pass
 
     def __enter__(self):
-        self.debug(msg=Event.Enter.name, step=Event.Starting.name, fnc="__enter__")
+        self.debug(msg=Event.Enter, step=Event.Starting, fnc="__enter__")
         self._context = self.connect()
-        self.debug(msg=Event.Enter.name, step=Event.Completed.name, fnc="__enter__")
+        self.debug(msg=Event.Enter, step=Event.Completed, fnc="__enter__")
         return self._context.__enter__()
 
     def __exit__(self, exc_type, exc, tb):
-        self.debug(msg=Event.Exit.name)
+        self.debug(msg=Event.Exit)
         try:
             return self._context.__exit__(exc_type, exc, tb)
         finally:
@@ -322,7 +325,7 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
             self._fsm.apply(ConnectionAction.CREATE_OK)
         except Exception as e:
             self._fsm.apply(ConnectionAction.CREATE_FAIL)
-            self.debug(msg=Event.Create.name, step=Event.Failed.name, error=str(e))
+            self.debug(msg=Event.Create, step=Event.Failed, error=str(e))
             raise
 
     def ensure_closed(self) -> None:
@@ -336,7 +339,7 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
             self._fsm.apply(ConnectionAction.CLOSE_OK)
         except Exception as e:
             self._fsm.apply(ConnectionAction.CLOSE_FAIL)
-            self.debug(msg=Event.Close.name, step=Event.Failed.name, error=str(e))
+            self.debug(msg=Event.Close, step=Event.Failed, error=str(e))
             raise
 
     def reset(self) -> None:
@@ -356,7 +359,7 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
         try:
             new_connection.request(action=Operation.Connect)
         except Exception as e:
-            self.debug(msg=Event.Swap.name, step=Event.Failed.name, error=str(e))
+            self.debug(msg=Event.Swap, step=Event.Failed, error=str(e))
             raise ConnectionManagerException(
                 caller=self,
                 error=f"Hot-swap failao, stara konekcija ostaje aktivna: {e}",
@@ -368,20 +371,20 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
         try:
             old_conn.request(action=Operation.Disconnect)
         except Exception as e:
-            self.warning(msg=Event.Swap.name, error=f"Old connection was not closed properly: {e}")
+            self.warning(msg=Event.Swap, error=f"Old connection was not closed properly: {e}")
 
     def request(self, **kwargs: Any) -> Any:
         action = kwargs.get("action")
-        self.debug(msg=Event.Operation.name, step=Event.Started.name, action=action)
+        self.debug(msg=Event.Operation, step=Event.Started, action=action)
 
         if action is Operation.Connect:
             result = self.ensure_created()
-            self.debug(msg=Event.Operation.name, step=Event.Completed.name, action=action)
+            self.debug(msg=Event.Operation, step=Event.Completed, action=action)
             return result
 
         if action is Operation.Disconnect:
             result = self.ensure_closed()
-            self.debug(msg=Event.Operation.name, step=Event.Completed.name, action=action)
+            self.debug(msg=Event.Operation, step=Event.Completed, action=action)
             return result
 
         raise RuntimeError(f"Unknown action: {action}")

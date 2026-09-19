@@ -18,6 +18,7 @@ from wattleflow.concrete.driver import GenericDriver
 from wattleflow.concrete.exception import RepositoryException
 from wattleflow.concrete.strategy import StrategyRead, StrategyWrite
 from wattleflow.decorators.preset import PresetDecorator
+# from wattleflow.decorators.measure import measured  # retired, DR-WFL-031 v3
 
 
 # --------------------------------------------------------------------------- #
@@ -29,6 +30,8 @@ from wattleflow.decorators.preset import PresetDecorator
 # --------------------------------------------------------------------------- #
 
 
+# v0.0.1.14 (DR-WFL-031 v3): retired — measurement now observes audit records; kept for the record.
+# @measured()
 class GenericRepository(Wattleflow, IRepository, ABC):
     """Read and write documents through strategies, and count what was written.
 
@@ -63,8 +66,8 @@ class GenericRepository(Wattleflow, IRepository, ABC):
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
         self.debug(
-            msg=Event.Constructor.name,
-            step=Event.Started.name,
+            msg=Event.Constructor,
+            step=Event.Started,
             strategy_write=strategy_write,
             strategy_read=strategy_read,
             kwargs=kwargs,
@@ -74,12 +77,12 @@ class GenericRepository(Wattleflow, IRepository, ABC):
         self._strategy_write: StrategyWrite = strategy_write
         self._strategy_read: StrategyRead | None = strategy_read or None
 
-        self.debug(msg=Event.Constructor.name, step=Event.Completed.name)
+        self.debug(msg=Event.Constructor, step=Event.Completed)
 
     def __eq__(self, other: "GenericRepository") -> bool:
         if not isinstance(other, GenericRepository):
             return NotImplemented
-        self.debug(msg=Event.Probing.name, eq=hash(self) == hash(other))
+        self.debug(msg=Event.Probing, eq=hash(self) == hash(other))
         return hash(self) == hash(other)
 
     def __hash__(self) -> int:
@@ -129,29 +132,29 @@ class GenericRepository(Wattleflow, IRepository, ABC):
 
     def clear(self) -> None:
         self.info(
-            msg=Event.Clear.name,
+            msg=Event.Clear,
             written=self._write_counter,
         )
         self._write_counter = 0
 
     def read(self, identifier: str, **kwargs) -> ITarget | None:
         self.debug(
-            msg=Event.Read.name,
-            step=Event.Started.name,
+            msg=Event.Read,
+            step=Event.Started,
             id=identifier,
             kwargs=kwargs,
         )
 
         if self._strategy_read is None:
             self.warning(
-                msg=Event.Read.name,
-                step=Event.Check.name,
+                msg=Event.Read,
+                step=Event.Check,
                 reason="Read strategy is not assigned!",
             )
             return None
 
         try:
-            # caller=self -> Strategy.execute asertira IRepository.
+            # caller=self: the strategy asserts an IRepository.
             facade: ITarget = self._strategy_read.read(
                 caller=self,
                 identifier=identifier,
@@ -160,8 +163,8 @@ class GenericRepository(Wattleflow, IRepository, ABC):
             )
 
             self.debug(
-                msg=Event.Read.name,
-                step=Event.Completed.name,
+                msg=Event.Read,
+                step=Event.Completed,
                 facade=facade,
             )
         except Exception as e:
@@ -169,8 +172,8 @@ class GenericRepository(Wattleflow, IRepository, ABC):
             # v0.0.1.10 (DR-WFL-018 t.2): one cause, one ERROR — this layer only
             # traces the step; the cause travels in the exception.
             self.debug(
-                msg=Event.Read.name,
-                step=Event.Failed.name,
+                msg=Event.Read,
+                step=Event.Failed,
                 id=identifier,
                 error=reason,
             )
@@ -188,8 +191,8 @@ class GenericRepository(Wattleflow, IRepository, ABC):
 
         try:
             self.debug(
-                msg=Event.Write.name,
-                step=Event.Started.name,
+                msg=Event.Write,
+                step=Event.Started,
                 caller=caller.name,
                 counter=self._write_counter,
                 facade=facade,
@@ -214,8 +217,8 @@ class GenericRepository(Wattleflow, IRepository, ABC):
                 self._write_counter += 1
 
             self.debug(
-                msg=Event.Write.name,
-                step=Event.Completed.name,
+                msg=Event.Write,
+                step=Event.Completed,
                 strategy=self._strategy_write.name,
                 counter=self._write_counter,
             )
@@ -238,8 +241,8 @@ class GenericRepository(Wattleflow, IRepository, ABC):
             )
 
             self.debug(
-                msg=Event.Write.name,
-                step=Event.Failed.name,
+                msg=Event.Write,
+                step=Event.Failed,
                 strategy=self._strategy_write.name,
                 uid=facade.identifier,
                 counter=self._write_counter,
@@ -252,6 +255,7 @@ class GenericRepository(Wattleflow, IRepository, ABC):
 
 
 class RepositoryWithDriver(GenericRepository):
+    # v0.0.1.12: read and write live in GenericRepository; only the strategy context differs.
     ALLOWED = ["driver"]
 
     # region Constructor

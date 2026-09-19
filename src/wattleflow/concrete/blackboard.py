@@ -29,6 +29,7 @@ from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.strategy import StrategyCreate
 from wattleflow.enums.event import Event
 from wattleflow.decorators.preset import PresetDecorator
+# from wattleflow.decorators.measure import measured  # retired, DR-WFL-031 v3
 
 
 # --------------------------------------------------------------------------- #
@@ -97,6 +98,8 @@ TRANSITIONS = {
 # Wattleflow precedes Generic[Item] so IWattleflow lands before Generic in the MRO,
 # matching IOriginator's ordering; otherwise LargeBlackboard (GenericBlackboard +
 # IOriginator) cannot linearise a consistent MRO.
+# v0.0.1.14 (DR-WFL-031 v3): retired — measurement now observes audit records; kept for the record.
+# @measured()
 class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
     __slots__ = (
         "_canvas",
@@ -130,8 +133,8 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
         self.debug(
-            msg=Event.Constructor.name,
-            step=Event.Started.name,
+            msg=Event.Constructor,
+            step=Event.Started,
             strategy_create=strategy_create,
             kwargs=kwargs,
         )
@@ -140,7 +143,7 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
         self._canvas: Item = canvas
         self._repositories: Repositories = []
 
-        self.debug(msg=Event.Constructor.name, step=Event.Completed.name)
+        self.debug(msg=Event.Constructor, step=Event.Completed)
 
     def __del__(self):
         # __init__ may have raised before _preset was set — in that case any
@@ -150,15 +153,15 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
         except AttributeError:
             return
         try:
-            self.debug(msg=Event.Delete.name, step=Event.Started.name)
+            self.debug(msg=Event.Delete, step=Event.Started)
             self.clean()
             self._strategy_create = None
             self._preset = None
-            self.debug(msg=Event.Delete.name, step=Event.Completed.name)
+            self.debug(msg=Event.Delete, step=Event.Completed)
         except Exception as e:
             reason = "Destructor %s error: %s" % (self.__class__.__name__, str(e))
             try:
-                self.error(msg=Event.Delete.name, reason=reason)
+                self.error(msg=Event.Delete, reason=reason)
             except Exception:
                 pass
 

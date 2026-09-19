@@ -61,7 +61,7 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
     def __init__(self, content: Content, **kwargs):
         super().__init__(**kwargs)
 
-        self.debug(msg=Event.Constructor.name, step=Event.Started.name, kwargs=kwargs)
+        self.debug(msg=Event.Constructor, step=Event.Started, kwargs=kwargs)
 
         # internal interface
         self._identifier: str = str(uuid4())
@@ -73,7 +73,7 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
         self.update_metadata(key="created_at", value=Now.utc())
         self.update_content(content=content)
 
-        self.debug(msg=Event.Constructor.name, step=Event.Completed.name)
+        self.debug(msg=Event.Constructor, step=Event.Completed)
 
     @property
     def content(self) -> Content:
@@ -95,17 +95,17 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
     def size(self) -> int: ...  # noqa: E704
 
     def clean(self) -> None:
-        self.debug(msg=Event.Clean.name, step=Event.Starting.name)
+        self.debug(msg=Event.Clean, step=Event.Starting)
         self._content = None
         self._metadata.clear()
-        self.debug(msg=Event.Clean.name, step=Event.Completed.name)
+        self.debug(msg=Event.Clean, step=Event.Completed)
 
     def specific_request(self) -> "Document":
         return self
 
     def update_content(self, content: type) -> None:
         self.debug(
-            msg=Event.Updating.name,
+            msg=Event.Updating,
             fnc="update_content",
             content=type(content),
         )
@@ -129,13 +129,8 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
         self._metadata["last_change_time"] = self.utc_time_stamp()
 
     def update_metadata(self, key: str, value: object) -> None:
-        self.debug(
-            msg=Event.Update.name,
-            step=Event.Started.name,
-            key=key,
-            value=value,
-        )
-
+        # v0.0.1.14 (DR-WFL-032): no audit record per key — a key is not a unit of
+        # work (NFRQ-OBS-03); the change itself is evidenced by the metadata below.
         if not key or not key.strip():
             raise ValueError(f"{self.name}.update_metadata: key must be non-empty")
 
@@ -150,11 +145,6 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
         self._metadata[key] = value
         self._metadata["last_change_key"] = key
         self._metadata["last_change_time"] = self.utc_time_stamp()
-
-        self.debug(
-            msg=Event.Update.name,
-            step=Event.Completed.name,
-        )
 
     def utc_time_stamp(self) -> datetime:
         return Now.utc()

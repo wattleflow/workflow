@@ -86,23 +86,23 @@ class ClassLoader(Audit, IWattleflow):
         super().__init__(**({"level": level} if level else {}), handler=handler)
 
         self.debug(
-            msg=Event.Constructor.name,
-            step=Event.Started.name,
+            msg=Event.Constructor,
+            step=Event.Started,
             class_path=class_path,
         )
 
         module_path, _, class_name = class_path.rpartition(".")
         if not module_path:
             error = f"Invalid class path: {class_path}"
-            self.debug(msg=Event.Constructor.name, step=Event.Failed.name, error=error)
+            self.debug(msg=Event.Constructor, step=Event.Failed, error=error)
             raise ValueError(error)
 
         try:
             module = import_module(module_path)
         except ModuleNotFoundError as e:
             self.debug(
-                msg=Event.Constructor.name,
-                step=Event.Failed.name,
+                msg=Event.Constructor,
+                step=Event.Failed,
                 component=module_path,
                 error=str(e),
             )
@@ -110,15 +110,15 @@ class ClassLoader(Audit, IWattleflow):
 
         if not hasattr(module, class_name):
             error = f"Class '{class_name}' not found in module '{module_path}'"
-            self.debug(msg=Event.Constructor.name, step=Event.Failed.name, error=error)
+            self.debug(msg=Event.Constructor, step=Event.Failed, error=error)
             raise AttributeError(error)
 
         cls = getattr(module, class_name)
         self.cls = cls
 
         self.debug(
-            msg=Event.Constructor.name,
-            step=Event.Validating.name,
+            msg=Event.Constructor,
+            step=Event.Validating,
             component=module_path,
             target=class_name,
         )
@@ -127,16 +127,16 @@ class ClassLoader(Audit, IWattleflow):
             self.instance = cls(*args, **kwargs)
         except Exception as e:
             self.debug(
-                msg=Event.Constructor.name,
-                step=Event.Failed.name,
+                msg=Event.Constructor,
+                step=Event.Failed,
                 target=class_name,
                 error=str(e),
             )
             raise
 
         self.debug(
-            msg=Event.Constructor.name,
-            step=Event.Completed.name,
+            msg=Event.Constructor,
+            step=Event.Completed,
             target=cls.__name__,
         )
 

@@ -70,9 +70,9 @@ class ConnectionManager(Wattleflow, IObserver):
 
         if errors:
             reason = "%s.__del__ errors: %s" % (self.__class__.__name__, errors)
-            self.error(msg=Event.Delete.name, step=Event.Failed.name, reason=reason)
+            self.error(msg=Event.Delete, step=Event.Failed, reason=reason)
         else:
-            self.debug(msg=Event.Delete.name, step=Event.Completed.name)
+            self.debug(msg=Event.Delete, step=Event.Completed)
 
         self._connections.clear()
 
@@ -86,26 +86,26 @@ class ConnectionManager(Wattleflow, IObserver):
         return len(self._connections)
 
     def connect(self, name: str, **kwargs) -> object:
-        self.debug(msg=Event.Connect.name, name=name, kwargs=kwargs)
+        self.debug(msg=Event.Connect, name=name, kwargs=kwargs)
         connected = self.operation(name, Operation.Connect, **kwargs)
         # v0.0.1.10 (DR-WFL-018 t.5): opening a connection is a step in someone
         # else's unit of work, so the owner of that unit keeps the INFO.
-        self.debug(msg=Event.Connect.name, step=Event.Completed.name, status=connected)
+        self.debug(msg=Event.Connect, step=Event.Completed, status=connected)
         return self._connections[name]
 
     def disconnect(self, name: str, **kwargs) -> bool:
         try:
             success = self.operation(name, Operation.Disconnect, **kwargs)
             self.debug(
-                msg=Event.Disconnected.name,
-                step=Event.Completed.name,
+                msg=Event.Disconnected,
+                step=Event.Completed,
                 name=name,
                 kwargs=kwargs,
             )
             return success
         except Exception as e:
             self.error(
-                msg=Event.Disconnect.name,
+                msg=Event.Disconnect,
                 reason="Failed to disconnect!",
                 name=name,
                 error=str(e),
@@ -125,7 +125,7 @@ class ConnectionManager(Wattleflow, IObserver):
         return self._connections[name]
 
     def register_connection(self, connection: Connection, **kwargs) -> None:
-        self.debug(msg=Event.Register.name, connection=connection, kwargs=kwargs)
+        self.debug(msg=Event.Register, connection=connection, kwargs=kwargs)
 
         connection_name: str = kwargs.pop("connection_name", connection.connection_name)
 
@@ -142,7 +142,7 @@ class ConnectionManager(Wattleflow, IObserver):
 
         if connection_name in self._connections:
             self.warning(
-                msg=Event.Register.name,
+                msg=Event.Register,
                 connection_name=connection_name,
                 error="Connection is already registered!",
             )
@@ -155,13 +155,13 @@ class ConnectionManager(Wattleflow, IObserver):
             del self._connections[name]
         else:
             self.warning(
-                msg=Event.Update.name,
+                msg=Event.Update,
                 name=name,
                 error="Trying to unregister a non-existent connection",
             )
 
     def operation(self, name: str, action: Operation, **kwargs) -> bool:
-        self.debug(msg=Event.Operation.name, step=Event.Started.name, kwargs=kwargs)
+        self.debug(msg=Event.Operation, step=Event.Started, kwargs=kwargs)
         if name not in self._connections:
             raise ConnectionManagerException(
                 caller=self,
@@ -170,13 +170,13 @@ class ConnectionManager(Wattleflow, IObserver):
                 **kwargs,
             )
 
-        self.debug(msg=Event.Operation.name, step=Event.Completing.name, kwargs=kwargs)
+        self.debug(msg=Event.Operation, step=Event.Completing, kwargs=kwargs)
         return self._connections[name].operation(action, **kwargs)
 
     def update(self, *args, **kwargs):
         self.debug(
-            msg=Event.Update.name,
-            step=Event.Started.name,
+            msg=Event.Update,
+            step=Event.Started,
             kwargs=kwargs,
             note="Not implemented yet.",
         )
@@ -187,13 +187,13 @@ class DriverManager(Wattleflow, IObserver):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.debug(msg=Event.Constructor.name, step=Event.Started.name)
+        self.debug(msg=Event.Constructor, step=Event.Started)
 
         self._drivers: dict[str, IDriver] = {}
-        self.debug(msg=Event.Constructor.name, step=Event.Completed.name)
+        self.debug(msg=Event.Constructor, step=Event.Completed)
 
     def __del__(self):
-        self.debug(msg=Event.Destructor.name, step=Event.Started.name)
+        self.debug(msg=Event.Destructor, step=Event.Started)
         errors = []
         for name, driver in list(self._drivers.items()):
             try:
@@ -203,12 +203,12 @@ class DriverManager(Wattleflow, IObserver):
 
         if errors:
             reason = "%s.__del__ error: %s" % (self.__class__.__name__, errors)
-            self.error(msg=Event.Delete.name, step=Event.Failed.name, reason=reason)
+            self.error(msg=Event.Delete, step=Event.Failed, reason=reason)
         else:
-            self.debug(msg=Event.Delete.name, step=Event.Completed.name)
+            self.debug(msg=Event.Delete, step=Event.Completed)
 
         self._drivers.clear()
-        self.debug(msg=Event.Delete.name, step=Event.Completed.name)
+        self.debug(msg=Event.Delete, step=Event.Completed)
 
     def __hash__(self) -> str:
         return abs(hash(id(self)))
@@ -226,47 +226,47 @@ class DriverManager(Wattleflow, IObserver):
         return self._drivers
 
     def load(self, name: str, **kwargs) -> object:
-        self.debug(msg=Event.Load.name, name=name, kwargs=kwargs)
+        self.debug(msg=Event.Load, name=name, kwargs=kwargs)
         loaded = self.operation(name, Operation.Connect, **kwargs)
-        self.debug(msg=Event.Connect.name, added=name, status=loaded)
+        self.debug(msg=Event.Connect, added=name, status=loaded)
         return self._drivers[name]
 
     def get_driver(self, name: str) -> IDriver:
-        self.debug(msg=Event.Get.name, target="driver", step=Event.Starting.name)
+        self.debug(msg=Event.Get, target="driver", step=Event.Starting)
         if name not in self._drivers:
             raise DriverManagerException(caller=self, error=f"Driver {name!r} is not found!")
-        self.debug(msg=Event.Get.name, target="driver", step=Event.Completed.name)
+        self.debug(msg=Event.Get, target="driver", step=Event.Completed)
         return self._drivers.get(name)
 
     def register_driver(self, driver: IDriver, **kwargs) -> None:
         self.debug(
-            msg=Event.Register.name,
+            msg=Event.Register,
             target="driver",
-            step=Event.Starting.name,
+            step=Event.Starting,
             driver=driver,
             kwargs=kwargs,
         )
         driver_name = kwargs.pop("name", driver.name)
         if driver_name in self._drivers:
             self.warning(
-                msg=Event.Register.name,
+                msg=Event.Register,
                 name=driver_name,
                 error="Driver is already registered!",
             )
             return
         self._drivers[driver_name] = driver
         self.debug(
-            msg=Event.Register.name,
+            msg=Event.Register,
             target="driver",
-            step=Event.Completed.name,
+            step=Event.Completed,
             registered=driver_name,
         )
 
     def unregister_driver(self, driver: str | IDriver) -> None:
         self.debug(
-            msg=Event.Register.name,
+            msg=Event.Register,
             target="driver",
-            step=Event.Starting.name,
+            step=Event.Starting,
             driver=driver,
         )
         name = driver.name if isinstance(driver, IDriver) else driver
@@ -279,19 +279,19 @@ class DriverManager(Wattleflow, IObserver):
             self._drivers[name].update(event=DriverState.UNLOADING)
         else:
             self.warning(
-                msg=Event.Update.name,
+                msg=Event.Update,
                 name=name,
                 error="Trying to unregister a non-existent connection",
             )
         self.debug(
-            msg=Event.Register.name,
+            msg=Event.Register,
             target="driver",
-            step=Event.Starting.name,
+            step=Event.Starting,
             driver=name,
         )
 
     def operation(self, name: str, action: Operation, **kwargs) -> bool:
-        self.debug(msg=Event.Operation.name, step=Event.Started.name, action=action.name)
+        self.debug(msg=Event.Operation, step=Event.Started, action=action.name)
         if name not in self._drivers:
             raise DriverManagerException(
                 caller=self,
@@ -300,17 +300,17 @@ class DriverManager(Wattleflow, IObserver):
             )
         result = self._drivers[name].operation(action, **kwargs)
         self.debug(
-            msg=Event.Operation.name,
-            step=Event.Completed.name,
+            msg=Event.Operation,
+            step=Event.Completed,
             action=action.name,
             result=result,
         )
         return result
 
     def update(self, *args, **kwargs):
-        self.debug(msg=Event.Update.name, step=Event.Started.name)
-        self.warning(msg=Event.Update.name, error="Not implemented yet.")
-        self.debug(msg=Event.Update.name, step=Event.Completed.name)
+        self.debug(msg=Event.Update, step=Event.Started)
+        self.warning(msg=Event.Update, error="Not implemented yet.")
+        self.debug(msg=Event.Update, step=Event.Completed)
 
 
 class ProcessorManager(Wattleflow, IObserver):
@@ -321,7 +321,7 @@ class ProcessorManager(Wattleflow, IObserver):
         self._processors: dict[str, IProcessor] = {}
 
     def __del__(self):
-        self.debug(msg=Event.Delete.name, step=Event.Starting.name)
+        self.debug(msg=Event.Delete, step=Event.Starting)
         errors = []
         while self._processors:
             name = next(iter(self._processors))
@@ -332,12 +332,12 @@ class ProcessorManager(Wattleflow, IObserver):
                 continue
 
         if errors:
-            self.error(msg=Event.Destructor.name, error=f"Errors during cleanup: {errors}")
+            self.error(msg=Event.Destructor, error=f"Errors during cleanup: {errors}")
         else:
-            self.debug(msg=Event.Destructor.name, step=Event.Completed.name)
+            self.debug(msg=Event.Destructor, step=Event.Completed)
 
         self._processors.clear()
-        self.debug(msg=Event.Delete.name, step=Event.Completed.name)
+        self.debug(msg=Event.Delete, step=Event.Completed)
 
     def __hash__(self) -> str:
         return abs(hash(id(self)))
@@ -353,47 +353,47 @@ class ProcessorManager(Wattleflow, IObserver):
         return self._processors
 
     def load(self, name: str, **kwargs) -> IProcessor:
-        self.debug(msg=Event.Start.name, name=name, kwargs=kwargs)
+        self.debug(msg=Event.Start, name=name, kwargs=kwargs)
         status = self.operation(name, Operation.Start, **kwargs)
-        self.info(msg=Event.Start.name, status=status)
+        self.info(msg=Event.Start, status=status)
         return self._processors[name]
 
     def get_processor(self, name: str) -> IProcessor:
-        self.debug(msg=Event.Get.name, target="processor", step=Event.Starting.name)
+        self.debug(msg=Event.Get, target="processor", step=Event.Starting)
         if name not in self._processors:
             raise ProcessorManagerException(caller=self, error=f"Processor {name!r} is not found!")
-        self.debug(msg=Event.Get.name, target="processor", step=Event.Completed.name)
+        self.debug(msg=Event.Get, target="processor", step=Event.Completed)
         return self._processors.get(name)
 
     def register_processor(self, processor: IProcessor, **kwargs) -> None:
         self.debug(
-            msg=Event.Register.name,
-            step=Event.Starting.name,
+            msg=Event.Register,
+            step=Event.Starting,
             processor=processor,
             kwargs=kwargs,
         )
         processor_name = kwargs.get("name", processor.name)
         if processor_name in self._processors:
             self.warning(
-                msg=Event.Register.name,
+                msg=Event.Register,
                 name=processor_name,
                 class_name=processor.__class__.__name__,
                 error="Processor is already registered!",
             )
             return
         self._processors[processor_name] = processor
-        self.debug(msg=Event.Register.name, step=Event.Completed.name)
+        self.debug(msg=Event.Register, step=Event.Completed)
 
     def unregister_processor(self, processor: str | IProcessor) -> None:
-        self.debug(msg=Event.Unregister.name, step=Event.Starting.name, proc=processor)
+        self.debug(msg=Event.Unregister, step=Event.Starting, proc=processor)
         name = processor.name if isinstance(processor, IProcessor) else processor
         if name in self._processors:
             p = self._processors.pop(name)
             del p
-        self.debug(msg=Event.Unregister.name, step=Event.Completed.name)
+        self.debug(msg=Event.Unregister, step=Event.Completed)
 
     def operation(self, name: str, action: Operation, **kwargs) -> bool:
-        self.debug(msg=Event.Operation.name, step=Event.Started.name, kwargs=kwargs)
+        self.debug(msg=Event.Operation, step=Event.Started, kwargs=kwargs)
         if name not in self._processors:
             raise ProcessorManagerException(
                 caller=self,
@@ -404,19 +404,19 @@ class ProcessorManager(Wattleflow, IObserver):
 
         if not action == Operation.Start:
             self.warning(
-                msg=Event.Operation.name,
+                msg=Event.Operation,
                 error="Action is not allowed!",
                 action=action,
             )
             return False
 
-        self.debug(msg=Event.Operation.name, step=Event.Completing.name, kwargs=kwargs)
+        self.debug(msg=Event.Operation, step=Event.Completing, kwargs=kwargs)
         return self._processors[name].operation(action, **kwargs)
 
     def update(self, **kwargs):
-        self.debug(msg=Event.Update.name, step=Event.Starting.name)
-        self.warning(msg=Event.Update.name, error="NOT IMPLEMENTED")
-        self.debug(msg=Event.Update.name, step=Event.Completed.name)
+        self.debug(msg=Event.Update, step=Event.Starting)
+        self.warning(msg=Event.Update, error="NOT IMPLEMENTED")
+        self.debug(msg=Event.Update, step=Event.Completed)
 
 
 # --------------------------------------------------------------------------- #

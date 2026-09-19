@@ -102,7 +102,7 @@ _CAMEL = re.compile(r"[A-Z]+(?![a-z])|[A-Z][a-z]+|[A-Z]|\d+")
 # Criterion-versioning convention (METHODOLOGY §1 t.2): a change in rule
 # semantics or in the criterion source is a minor bump, because the same code
 # can yield a different vector afterwards.
-__version__ = "1.17.0"
+__version__ = "1.18.0"
 ERROR, WARNING, INFO = logging.ERROR, logging.WARNING, logging.INFO
 
 
@@ -1526,15 +1526,19 @@ class AuditRuleBase(Wattleflow, IStrategy):
 
     @staticmethod
     def _event_member(node, enum: str) -> "str | None":
-        """`Event.<Member>.name` → `<Member>`; anything else → None."""
+        """`Event.<Member>` or `Event.<Member>.name` → `<Member>`; anything else → None.
+
+        v1.18.0 (DR-WFL-032): the enum is a `StrEnum`, so the member itself is the
+        record's text; `.name` stays accepted for code that has not moved.
+        """
+        if isinstance(node, ast.Attribute) and node.attr == "name":
+            node = node.value
         if (
             isinstance(node, ast.Attribute)
-            and node.attr == "name"
-            and isinstance(node.value, ast.Attribute)
-            and isinstance(node.value.value, ast.Name)
-            and node.value.value.id == enum
+            and isinstance(node.value, ast.Name)
+            and node.value.id == enum
         ):
-            return node.value.attr
+            return node.attr
         return None
 
     @staticmethod

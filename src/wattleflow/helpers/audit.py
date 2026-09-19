@@ -67,6 +67,10 @@ class ContextFilter(Filter):
 # --------------------------------------------------------------------------- #
 
 
+# The record a processor writes once per finished unit of work (DR-WFL-028).
+_UNIT_CLOSED: str = Event.Processed
+
+
 # Logging format
 class LogFormat(Enum):
     DEFAULT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
@@ -87,6 +91,11 @@ class Audit(ILogger, IObserver):
 
     _lock = RLock()
     _instances: set[type] = set()
+    # v0.0.1.14 (DR-WFL-031): the audit record is the measurement event. One
+    # observer per process, installed for the duration of a workflow pass;
+    # it receives records that carry a `step` (or close a unit of work)
+    # BEFORE the level gate, so measurement does not depend on DEBUG.
+    _observer: Any = None
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -155,31 +164,38 @@ class Audit(ILogger, IObserver):
     def exception(self, msg: str, *args, **kwargs) -> None:
         kwargs.setdefault("exc_info", True)
         kwargs.setdefault("stacklevel", 3)
-        self._log_msg(self._logger.error, msg, *args, **kwargs)
+        self._log_msg(logging.ERROR, msg, *args, **kwargs)
 
     def critical(self, msg: str, *args, **kwargs) -> None:
         kwargs.setdefault("stacklevel", 3)
-        self._log_msg(self._logger.critical, msg, *args, **kwargs)
+        self._log_msg(logging.CRITICAL, msg, *args, **kwargs)
 
     def debug(self, msg: str, *args, **kwargs) -> None:
         kwargs.setdefault("stacklevel", 3)
-        self._log_msg(self._logger.debug, msg, *args, **kwargs)
+        self._log_msg(logging.DEBUG, msg, *args, **kwargs)
 
     def error(self, msg: str, *args, **kwargs) -> None:
         kwargs.setdefault("stacklevel", 3)
-        self._log_msg(self._logger.error, msg, *args, **kwargs)
+        self._log_msg(logging.ERROR, msg, *args, **kwargs)
 
     def fatal(self, msg: str, *args, **kwargs) -> None:
         kwargs.setdefault("stacklevel", 3)
-        self._log_msg(self._logger.fatal, msg, *args, **kwargs)
+        self._log_msg(logging.CRITICAL, msg, *args, **kwargs)
 
     def info(self, msg: str, *args, **kwargs) -> None:
         kwargs.setdefault("stacklevel", 3)
-        self._log_msg(self._logger.info, msg, *args, **kwargs)
+        self._log_msg(logging.INFO, msg, *args, **kwargs)
 
     def warning(self, msg: str, *args, **kwargs) -> None:
         kwargs.setdefault("stacklevel", 3)
-        self._log_msg(self._logger.warning, msg, *args, **kwargs)
+        self._log_msg(logging.WARNING, msg, *args, **kwargs)
+
+    @classmethod
+    def observe(cls, observer: Any) -> Any:
+        """Install (or remove with None) the process-wide record observer — a callable
+        `(owner, msg, step, fields)`; returns the previous one."""
+        previous, cls._observer = cls._observer, observer
+        return previous
 
     def subscribe_handler(self, subscriber: Handler) -> None:
         if not isinstance(subscriber, Handler):
@@ -197,7 +213,7 @@ class Audit(ILogger, IObserver):
         # v0.0.1.10 (DR-WFL-018 t.3): the observed value is a named field, so a
         # caller key can no longer land in this call's own namespace.
         self.info(
-            msg=Event.Notify.name,
+            msg=Event.Notify,
             event=getattr(event, "name", str(event)),
             stacklevel=kwargs.pop("stacklevel", 4),
             kwargs=kwargs,
@@ -254,7 +270,19 @@ class Audit(ILogger, IObserver):
     def _configure_once(self) -> None:
         pass
 
-    def _log_msg(self, method, msg: str, *args, **kwargs) -> None:
+    # Positional-only: a caller's `level=` or `msg=` field must stay a field.
+    def _log_msg(self, level: int, msg: str, /, *args, **kwargs) -> None:
+        observer = Audit._observer
+        if observer is not None:
+            step = kwargs.get("step")
+            if step is not None or msg == _UNIT_CLOSED:
+                observer(self, msg, step, kwargs)
+        # v0.0.1.14: the level gate comes before the formatting. Formatting the
+        # fields for a record nobody will see cost ~4 µs per call (measured
+        # 2026-09-17), more than the work some callers do between two records.
+        if not self._logger.isEnabledFor(level):
+            return
+
         def is_frame_like(obj: object) -> bool:
             # Frame-like objects (pandas/polars) have huge reprs; show the type
             # name instead. Detected structurally to avoid a third-party import,
@@ -288,9 +316,7 @@ class Audit(ILogger, IObserver):
             for k, v in data.items():
                 if v is None or isinstance(v, (bool, int, float, str)):
                     parts.append(f"{k}={v}")
-                elif isinstance(v, (list, tuple, set, dict)) and (
-                    method == self._logger.info
-                ):
+                elif isinstance(v, (list, tuple, set, dict)) and level == logging.INFO:
                     try:
                         n = len(v)
                     except Exception:
@@ -300,7 +326,7 @@ class Audit(ILogger, IObserver):
                     parts.append(f"{k}={safe_repr(v)}")
             msg = f"{msg} {parts}"
 
-        method(msg, *args, **pass_through)
+        self._logger.log(level, msg, *args, **pass_through)
 
     # --------------------------------------------------------------------------- #
     # endregion Private Methods

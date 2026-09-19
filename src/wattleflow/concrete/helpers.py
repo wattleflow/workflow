@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 from enum import Enum
+from pathlib import Path
 from typing import Any
 from wattleflow.core import IWattleflow
 from wattleflow.concrete.exception import AttributeException
@@ -331,6 +332,20 @@ class NameHelper:
     def typ_name(o) -> str:
         """type(o).__name__ — always a string."""
         return type(o).__name__
+
+    @staticmethod
+    def source_name(o) -> str | None:
+        """Human-readable name of the unit behind a facade, or None.
+
+        Never raises: it runs inside audit records, where an exception would mask
+        the event being reported. A facade forwards unknown attributes to its
+        adaptee, so a document type without a filename simply yields None.
+        """
+        try:
+            name = getattr(o, "filename", None)
+        except Exception:
+            return None
+        return Path(str(name)).name if name else None
 
     @staticmethod
     def print_all(o):

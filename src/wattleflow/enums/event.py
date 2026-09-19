@@ -8,7 +8,7 @@
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
-from enum import Enum
+from enum import StrEnum
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
@@ -19,7 +19,10 @@ from enum import Enum
 
 
 # Events
-class Event(Enum):
+# v0.0.1.14 (DR-WFL-032): a member IS its name — `msg=Event.Write` costs 57 ns where
+# `Event.Write` cost 144 ns (an `enum.property` per access, twice per record).
+# Every value equals its name so `.name`, `.value` and the member read the same.
+class Event(StrEnum):
     Idle = "Idle"
     Accessing = "Accessing"
     Added = "Added"
@@ -65,9 +68,9 @@ class Event(Enum):
     Create = "Create"
     Creating = "Creating"
     Created = "Created"
-    CriticalError = "Critical error"
+    CriticalError = "CriticalError"
     CronJobSchedulerError = "CronJobSchedulerError"
-    DebugLog = "Debug log"
+    DebugLog = "DebugLog"
     Debug = "Debug"
     Debugging = "Debugging"
     Delete = "Delete"
@@ -104,11 +107,11 @@ class Event(Enum):
     Exited = "Exited"
     Exiting = "Exiting"
     Error = "Error"
-    ErrorSource = "Error source"
+    ErrorSource = "ErrorSource"
     Extract = "Extract"
     Extracted = "Extracted"
     Extracting = "Extracting"
-    ErrorDetails = "Error details"
+    ErrorDetails = "ErrorDetails"
     Failed = "Failed"
     Finish = "Finish"
     Finished = "Finished"
@@ -150,17 +153,17 @@ class Event(Enum):
     Operated = "Operated"
     Operation = "Operation"
     Operating = "Operating"
-    OrchestrationCompleted = "Orchestration completed"
-    OrchestrationStarted = "Orchestration started"
-    OrchestrationStopped = "Orchestration stopped"
-    PipelineProcess = "Pipeline process"
+    OrchestrationCompleted = "OrchestrationCompleted"
+    OrchestrationStarted = "OrchestrationStarted"
+    OrchestrationStopped = "OrchestrationStopped"
+    PipelineProcess = "PipelineProcess"
     Probe = "Probe"
     Probing = "Probing"
     Probed = "Probed"
     Process = "Process"
     Processed = "Processed"
     Processing = "Processing"
-    ProcessingTask = "Processing task"
+    ProcessingTask = "ProcessingTask"
     Property = "Property"
     Push = "Push"
     Pushed = "Pushed"
@@ -203,7 +206,7 @@ class Event(Enum):
     Transform = "Transform"
     Transformed = "Transformed"
     Transforming = "Transforming"
-    TaskCompleted = "Task completed"
+    TaskCompleted = "TaskCompleted"
     Unregister = "Unregister"
     Unregistering = "Unregistering"
     Unregistered = "Unregistered"
