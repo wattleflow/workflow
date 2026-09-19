@@ -49,6 +49,14 @@ class Scheduler(Wattleflow, IScheduler, ABC):
         return self._counter
 
     def __init__(self, level: int, handler: Handler | None = None, **kwargs):
+        # The base constructor audits under `self._lock`, and `__slots__` above
+        # shadows the class-level lock it would otherwise inherit from Audit, so
+        # the instance lock has to exist before the base runs. Reentrant because
+        # start_orchestration/stop_orchestration hold it and then call emit_event,
+        # which takes it again.
+        if not hasattr(self, "_lock"):
+            self._lock = threading.RLock()
+
         super().__init__(level=level, handler=handler, **kwargs)
 
         self.debug(
@@ -62,15 +70,12 @@ class Scheduler(Wattleflow, IScheduler, ABC):
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
         if not hasattr(self, "_initialised"):
-            self._lock = threading.Lock()
             self._initialised = True
             self._running = False
             self._counter = 0
             self._listeners = []
             self._tasks = []
             self._orchestrator = None
-
-            self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
             self.setup_orchestrator()
 
@@ -101,9 +106,18 @@ class Scheduler(Wattleflow, IScheduler, ABC):
             for listener in self._listeners:
                 listener.on_event(event, **kwargs)
 
-    # Must be implemented if using PresetDecorator
+    # Must be implemented if using PresetDecorator.
+    # The guards matter during construction: the base constructor touches
+    # attributes before `_preset` exists, and an unguarded lookup re-enters this
+    # hook looking for `_preset` itself, which recurses until the stack ends.
     def __getattr__(self, name: str) -> Any:
-        return getattr(self._preset, name)
+        if name.startswith("_"):
+            raise AttributeError(name)
+        try:
+            preset = object.__getattribute__(self, "_preset")
+        except AttributeError:
+            raise AttributeError(name) from None
+        return getattr(preset, name)
 
 
 # --------------------------------------------------------------------------- #

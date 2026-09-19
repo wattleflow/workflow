@@ -1,59 +1,52 @@
-# WattleFlow Workflow Framework
+# WattleFlow Workflow
 ![WattleFlow Logo](https://raw.githubusercontent.com/wattleflow/core/default/src/wattleflow/logo/wattleflow.png)
 
 [![PyPI version](https://img.shields.io/pypi/v/wattleflow-workflow.svg)](https://pypi.org/project/wattleflow-workflow/)
 [![Python versions](https://img.shields.io/pypi/pyversions/wattleflow-workflow.svg)](https://pypi.org/project/wattleflow-workflow/)
-[![License](https://img.shields.io/pypi/l/wattleflow-workflow.svg)](https://github.com/wattleflow-workflow/core/blob/default/LICENSE)
+[![License](https://img.shields.io/pypi/l/wattleflow-workflow.svg)](https://github.com/wattleflow/workflow/blob/default/LICENSE)
 
 ---
-**WattleFlow** — graceful flow,
-modular, scaled with purpose,
-patterns guide the stream,
-extensible, clear design,
-built to last and grow.
+
+*WattleFlow — graceful flow,*
+*modular, scaled with purpose,*
+*patterns guide the stream,*
+*extensible, clear design,*
+*built to last and grow.*
+
 ---
 
-| Characteristic           | Value                                                                   |
-| ------------------------ | ----------------------------------------------------------------------- |
-| **Version**              | [![PyPI version](https://img.shields.io/pypi/v/wattleflow-workflow.svg)](https://pypi.org/project/wattleflow-workflow/) (latest release) |
-| **License**              | [![License](https://img.shields.io/pypi/l/wattleflow-workflow.svg)](https://github.com/wattleflow-workflow/core/blob/default/LICENSE) |
-| **Python Compatibility** | [![Python versions](https://img.shields.io/pypi/pyversions/wattleflow-workflow.svg)](https://pypi.org/project/wattleflow-workflow/)|
-| **Dependencies**         | [wattleflow-core](https://www.github.com/wattleflow/core.git)|
-| **Size**                 | nimble                                                                  |
-| **Documentation**        | [Wattleflow **Core** Documentation](https://github.com/wattleflow/documentation.git) |
+| Characteristic | Value |
+| --- | --- |
+| **Version** | [![PyPI version](https://img.shields.io/pypi/v/wattleflow-workflow.svg)](https://pypi.org/project/wattleflow-workflow/) |
+| **Licence** | Apache-2.0 |
+| **Python** | 3.11 – 3.13 |
+| **Maturity** | Production/Stable |
+| **Dependencies** | [wattleflow](https://github.com/wattleflow/core) only; nothing outside the standard library |
+| **Documentation** | [wattleflow/documentation](https://github.com/wattleflow/documentation) |
 
+# What it is
 
+`wattleflow-workflow` is the data-engineering framework of WattleFlow: over the interfaces in
+`wattleflow` it builds the generic implementations from which pipelines are composed —
+workflow → pipeline → processor → strategy — for acquiring, transforming and storing data.
 
-# WattleFlow Workflow
-WattleFlow `Workflow` is a data engineering framework for flow-based programming, built on well-defined design patterns.
-It offers a modular and scalable architecture for integrating diverse subsystems, enabling flexible and efficient workflow orchestration.
+| Package | Carries |
+| --- | --- |
+| `concrete` | generic implementations of every core interface: workflow, pipeline, processor, driver, repository, blackboard, strategy, connection, document |
+| `helpers` | audit records, the run monitor (operations, resources, thresholds, report), configuration, routing |
+| `managers`, `orchestrators`, `schedulers` | composition and execution of workflows |
+| `enums`, `constants`, `decorators` | the controlled vocabularies the framework uses |
+
+The import closure is the standard library plus `wattleflow`; that is what makes the
+distribution zero-trust. Every third-party integration lives in
+[blackwattle](https://github.com/wattleflow/blackwattle).
 
 # Installation
+
 ```bash
-
 pip install wattleflow-workflow
-
 ```
 
+# Licence
 
-# Key Features
-
----
-
-| Key Features         | Characteristic                                                             |
-| ---------------------| -------------------------------------------------------------------------- |
-| Modular Architecture | Designed for extensibility and maintainability.                            |
-| Code Reusability     | Facilitates development by encouraging the reuse of framework components.  |
-| Secure by Design     | Developed with a focus on simplicity and no unnecessary security exposure. |
-| Scalable and Clear   | Suitable for both small and enterprise-level workflow orchestration.       |
-
-
-# Documentation
-Comprehensive documentation will be available at the [Git Hub](https://github.com/wattleflow/documentation.git).
-
-# Contributing
-We welcome contributions! Please check our GitHub repository for guidelines.
-
-# License
-WattleFlow Core is licensed under the Apache 2.0 License. 
-See the LICENSE file for more details.
+Apache-2.0 — see [LICENSE](LICENSE).

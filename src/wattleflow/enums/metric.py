@@ -53,7 +53,10 @@ class Measure(str, Enum):
     Bytes = ("bytes", "bytes", "wf_bytes_total")
     Size = ("size", "bytes", "wf_bytes_total")  # what the file drivers already write
     Documents = ("documents", "documents", "wf_documents_total")
-    Cycles = ("cycles", "documents", "wf_documents_total")  # the processor's own word
+    # Emitted by the processor. Its own series and unit: a cycle is an iteration
+    # of the generator, not a document, and folding it into the document counter
+    # made both unreadable.
+    Cycles = ("cycles", "cycles", "wf_cycles_total")
     Characters = ("chars", "characters", "wf_characters_total")
     Pages = ("pages", "pages", "wf_pages_total")
     Records = ("records", "records", "wf_records_total")

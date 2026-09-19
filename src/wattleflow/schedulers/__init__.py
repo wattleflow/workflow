@@ -12,8 +12,8 @@ reusability across workflows.
 """
 
 
-from .cron_job import CronJobScheduler
+from .cron_job import SchedulerCronJob
 
 __all__ = [
-    "CronJobScheduler",
+    "SchedulerCronJob",
 ]
