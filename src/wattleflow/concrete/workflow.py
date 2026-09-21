@@ -717,6 +717,16 @@ class WorkflowFactory:
                     "blackboard.repositories", repository
                 )
                 configuration = repository.get("configuration", {}) or {}
+                # What is left once the repository has taken its own keys is the
+                # strategy's configuration. Without this a strategy can be named
+                # in the YAML but never configured from it — it would receive the
+                # audit settings and nothing else, which is why behaviour had
+                # nowhere to live except the logging level.
+                options = {
+                    key: value
+                    for key, value in configuration.items()
+                    if key not in ("driver", "strategy_read", "strategy_write")
+                }
                 strategy_write = cls._resolve_section(
                     "blackboard.repositories.strategy_write",
                     configuration,
@@ -729,7 +739,7 @@ class WorkflowFactory:
                         "blackboard.repositories.strategy_read",
                         configuration,
                         key="strategy_read",
-                    )(**audit)
+                    )(**audit, **options)
                 driver = cls._driver_context(
                     "blackboard.repositories",
                     repository,
@@ -741,7 +751,7 @@ class WorkflowFactory:
                 processor.blackboard.register(
                     repository=repository_class(
                         **driver,
-                        strategy_write=strategy_write(**audit),
+                        strategy_write=strategy_write(**audit, **options),
                         strategy_read=strategy_read,
                         **audit,
                     )

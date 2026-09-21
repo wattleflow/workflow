@@ -224,17 +224,25 @@ class Audit(ILogger, IObserver):
     # --------------------------------------------------------------------------- #
 
     def _apply_level(self, level: int) -> None:
-        """Put `level` on the logger AND on the handlers already attached to it.
+        """Put `level` on the logger and on the handler this class owns.
 
         A handler is built once per class, with the level of the FIRST instance,
         and a handler filters independently of its logger. Setting only the
         logger therefore left the first instance's threshold in force, so a
         later `level=` (or a level raised after construction) silently changed
         nothing.
+
+        A SUBSCRIBED handler is left alone. It arrived through
+        `subscribe_handler` carrying the level its subscriber chose, and that
+        choice is the reason for a second destination: it is what lets a console
+        stay at INFO while a forwarder takes DEBUG. Setting every attached
+        handler overwrote that, so the two destinations could never differ.
+        Note the logger still gates first — a forwarder cannot see DEBUG unless
+        the logger is at DEBUG and the console handler is the one raised.
         """
         self._logger.setLevel(level)
-        for handler in self._logger.handlers:
-            handler.setLevel(level)
+        if self._handler is not None:
+            self._handler.setLevel(level)
 
     def set_level(self, level: int | str) -> None:
         """Change this component's level after construction.

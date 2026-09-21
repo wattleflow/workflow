@@ -42,6 +42,7 @@ from wattleflow.enums.event import Event
 from wattleflow.enums.metric import Measure, MetricKind
 from wattleflow.helpers.audit import Audit
 from wattleflow.helpers.metrics import MetricSample
+from wattleflow.helpers.resources import Resource, ResourceManager, ResourceSnapshot
 
 try:
     import resource
@@ -51,135 +52,7 @@ except ImportError:  # Windows: the peak RSS is then reported as unmeasured
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
 
-__all__ = ["Monitor", "MonitorLevel", "ResourceExtension", "ResourceProbe", "ResourceSnapshot"]
-
-# --------------------------------------------------------------------------- #
-# region Resources                                                            #
-# --------------------------------------------------------------------------- #
-
-
-@dataclass(frozen=True, slots=True)
-class ResourceSnapshot:
-    """Process resources at one instant; `None` means unmeasured, never zero."""
-
-    at: float
-    cpu_user: float
-    cpu_system: float
-    rss: int | None
-    peak_rss: int | None
-    throttled: int | None
-
-    @property
-    def cpu(self) -> float:
-        return self.cpu_user + self.cpu_system
-
-
-class ResourceProbe:
-    """Reads limits and usage from the narrowest source the platform offers."""
-
-    CGROUP: ClassVar[Path] = Path("/sys/fs/cgroup")
-    STATM: ClassVar[Path] = Path("/proc/self/statm")
-
-    @staticmethod
-    def _read(path: Path) -> str | None:
-        try:
-            return path.read_text().strip()
-        except OSError:
-            return None
-
-    @classmethod
-    def rss(cls) -> int | None:
-        text = cls._read(cls.STATM)
-        if not text:
-            return None
-        return int(text.split()[1]) * os.sysconf("SC_PAGE_SIZE")
-
-    @staticmethod
-    def peak_rss() -> int | None:
-        if resource is None:
-            return None
-        peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        # Linux reports KiB, macOS bytes.
-        return peak if sys.platform == "darwin" else peak * 1024
-
-    @classmethod
-    def throttled(cls) -> int | None:
-        text = cls._read(cls.CGROUP / "cpu.stat")
-        for line in (text or "").splitlines():
-            key, _, value = line.partition(" ")
-            if key == "nr_throttled":
-                return int(value)
-        return None
-
-    @classmethod
-    def memory_limit(cls) -> tuple[int | None, str]:
-        text = cls._read(cls.CGROUP / "memory.max")
-        if text and text != "max":
-            return int(text), "cgroup memory.max"
-        try:
-            return os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE"), "host"
-        except (ValueError, OSError, AttributeError):
-            return None, "unknown"
-
-    @classmethod
-    def cpu_limit(cls) -> tuple[float | None, str]:
-        text = cls._read(cls.CGROUP / "cpu.max")
-        if text:
-            quota, _, period = text.partition(" ")
-            if quota != "max" and period:
-                return int(quota) / int(period), "cgroup cpu.max"
-        if hasattr(os, "sched_getaffinity"):
-            return float(len(os.sched_getaffinity(0))), "affinity"
-        count = os.cpu_count()
-        return (float(count), "host") if count else (None, "unknown")
-
-    @staticmethod
-    def storage(path: str) -> tuple[int, int] | None:
-        """(free, total) bytes on the file system holding `path`."""
-        probe = Path(path)
-        while not probe.exists() and probe != probe.parent:
-            probe = probe.parent
-        try:
-            usage = shutil.disk_usage(probe)
-        except OSError:
-            return None
-        return usage.free, usage.total
-
-    @classmethod
-    def snapshot(cls) -> ResourceSnapshot:
-        times = os.times()
-        return ResourceSnapshot(
-            at=time.perf_counter(),
-            cpu_user=times.user,
-            cpu_system=times.system,
-            rss=cls.rss(),
-            peak_rss=cls.peak_rss(),
-            throttled=cls.throttled(),
-        )
-
-
-class ResourceExtension(ABC):
-    """A resource the standard library cannot see (`HLRQ-18` BR-08), e.g. a GPU.
-
-    Lives in the distribution that may import the library; `available` is False
-    when that library is absent, and the resource is then reported unmeasured.
-    """
-
-    RESOURCE: ClassVar[str] = "gpu"
-
-    @abstractmethod
-    def available(self) -> bool: ...
-
-    @abstractmethod
-    def limit(self) -> tuple[int | None, str]: ...
-
-    @abstractmethod
-    def used(self) -> int | None: ...
-
-
-# --------------------------------------------------------------------------- #
-# endregion Resources                                                         #
-# --------------------------------------------------------------------------- #
+__all__ = ["Monitor", "MonitorLevel"]
 
 # --------------------------------------------------------------------------- #
 # region Monitor                                                              #
@@ -241,8 +114,9 @@ class Monitor(Audit):
         self._level: int = MonitorLevel.SUMMARY
         self._roles: dict[str, int] = {}
         self._thresholds: dict[str, float] = {}
-        self._extensions: list[ResourceExtension] = []
-        self._limits: dict[str, tuple[Any, str]] = {}
+        # Limits belong to the manager; this side only watches against them. A
+        # default stands in until `configure` is handed the one the factory built.
+        self._manager = ResourceManager()
         self._interval: float = self.DEFAULT_INTERVAL
         self._sinks: list[Any] = []
         self._labels: dict[str, str] = {}
@@ -255,10 +129,11 @@ class Monitor(Audit):
         level: Any = None,
         roles: Mapping[str, Any] | None = None,
         thresholds: Mapping[str, Any] | None = None,
-        extensions: Iterable[ResourceExtension] = (),
+        extensions: Iterable[Resource] = (),
         interval: Any = None,
         sinks: Iterable[Any] = (),
         labels: Mapping[str, Any] | None = None,
+        limits: ResourceManager | None = None,
     ) -> None:
         """Declared levels, thresholds, extensions and sinks; an undeclared key is reported."""
         if level is not None:
@@ -288,8 +163,11 @@ class Monitor(Audit):
                 )
                 continue
             self._thresholds[resource_name] = share
-        self._extensions = list(extensions)
-        self._limits = {}
+        # The manager the factory built, or one made from what was declared here.
+        # Either way a single authority, so no limit is resolved twice.
+        self._manager = limits or ResourceManager(
+            thresholds=self._thresholds, extensions=extensions
+        )
         if interval is not None:
             self._interval = max(float(interval), 0.0)
         # A sink formats for one destination and a driver ships it (FRQ-MET-01 A5);
@@ -319,55 +197,13 @@ class Monitor(Audit):
         return self._roles.get(role, self._level), role
 
     def _limit(self, resource_name: str) -> tuple[Any, str]:
-        if resource_name not in self._limits:
-            if resource_name == "memory":
-                self._limits[resource_name] = ResourceProbe.memory_limit()
-            elif resource_name == "cpu":
-                self._limits[resource_name] = ResourceProbe.cpu_limit()
-            else:
-                extension = self._extension(resource_name)
-                measured = extension is not None and extension.available()
-                self._limits[resource_name] = (
-                    extension.limit() if measured else (None, "unmeasured")
-                )
-        return self._limits[resource_name]
-
-    def _extension(self, resource_name: str) -> ResourceExtension | None:
-        return next((e for e in self._extensions if e.RESOURCE == resource_name), None)
+        # Asked, not discovered. Resolution — declared, container, host — is the
+        # manager's, so a limit cannot come out differently on the two sides.
+        return self._manager.limit(resource_name)
 
     def announce(self, paths: Iterable[str] = ()) -> None:
-        """EV01: each limit and its source, once, when the workflow is built (BR-01)."""
-        try:
-            for resource_name in ("memory", "cpu", "gpu"):
-                limit, source = self._limit(resource_name)
-                self.debug(
-                    msg=Event.Configure,
-                    target="limit",
-                    resource=resource_name,
-                    limit=limit,
-                    limit_source=source,
-                    threshold=self._thresholds.get(resource_name),
-                )
-                if limit is None and resource_name in self._thresholds:
-                    self.warning(
-                        msg=Event.Configure,
-                        target="limit",
-                        resource=resource_name,
-                        reason="limit unknown; the relative threshold is not applied",
-                    )
-            for path in sorted({str(p) for p in paths if p}):
-                usage = ResourceProbe.storage(path)
-                self.debug(
-                    msg=Event.Configure,
-                    target="limit",
-                    resource="storage",
-                    path=path,
-                    limit=usage[1] if usage else None,
-                    limit_source="file system" if usage else "unknown",
-                    threshold=self._thresholds.get("storage"),
-                )
-        except Exception:
-            self._faults += 1
+        """EV01 belongs to whoever settled the limits, which is the manager (BR-01)."""
+        self._manager.announce(paths)
 
     # endregion Configuration
 
@@ -532,7 +368,7 @@ class Monitor(Audit):
         if limit and current.rss is not None:
             self._cross("memory", current.rss / limit, boundary, current.rss, limit, source)
         for path in self._storage:
-            usage = ResourceProbe.storage(path)
+            usage = self._manager.storage(path).usage()
             if usage:
                 free, total = usage
                 self._cross(
@@ -574,11 +410,11 @@ class Monitor(Audit):
     def begin(self, paths: Iterable[str] = ()) -> None:
         self.reset()
         try:
-            self._baseline = self._last = ResourceProbe.snapshot()
+            self._baseline = self._last = self._manager.snapshot()
             self._sampled_at = time.perf_counter()
             self._peak_rss = self._baseline.rss
             for path in {str(p) for p in paths if p}:
-                usage = ResourceProbe.storage(path)
+                usage = self._manager.storage(path).usage()
                 if usage is not None:
                     self._storage[path] = usage
         except Exception:
@@ -591,7 +427,7 @@ class Monitor(Audit):
 
     def _sample(self, boundary: str) -> None:
         try:
-            previous, self._last = self._last, ResourceProbe.snapshot()
+            previous, self._last = self._last, self._manager.snapshot()
             self._sampled_at = self._last.at
             self._samples += 1
             if self._last.rss is not None:
@@ -740,7 +576,7 @@ class Monitor(Audit):
         )
 
         for path, (free_start, total) in sorted(self._storage.items()):
-            now = ResourceProbe.storage(path)
+            now = self._manager.storage(path).usage()
             self.info(
                 msg=Event.Completed,
                 target="resource",
@@ -844,6 +680,13 @@ class Monitor(Audit):
     def samples(self) -> list[MetricSample]:
         """Series for a sink: operations, units and the resource gauges of the pass."""
         out: list[MetricSample] = []
+        # Accumulated across the whole loop, not per row. A quantity is labelled
+        # by component alone while rows are keyed by component AND operation, and
+        # aliases of one quantity share a series (Bytes/Size, Records/Rows) — so
+        # emitting inside the loop gives one component the same series twice. A
+        # Pushgateway rejects the WHOLE push for a repeated series, which made a
+        # pass publish nothing at all.
+        quantities: dict[tuple[str, str, str], float] = {}
         for (component, operation), row in sorted(self.rows().items()):
             labels = {"component": component, "operation": operation}
             counter = MetricKind.COUNTER
@@ -877,10 +720,14 @@ class Monitor(Audit):
                     )
                 )
             for measure, amount in row[_UNITS].items():
-                out.append(
-                    MetricSample(measure.series, MetricKind.COUNTER, {"component": component},
-                                 float(amount), unit=measure.unit)
-                )
+                key = (component, measure.series, measure.unit)
+                quantities[key] = quantities.get(key, 0.0) + float(amount)
+
+        for (component, series, unit), amount in sorted(quantities.items()):
+            out.append(
+                MetricSample(series, MetricKind.COUNTER, {"component": component},
+                             amount, unit=unit)
+            )
         # The pass total is a gauge of the run; `wf_documents_total{component}` stays the
         # per-component counter read off the closing records.
         out.append(
@@ -942,7 +789,7 @@ class Monitor(Audit):
             add("wf_cycle_seconds", self._percentile(cycles, 0.95), "seconds", stat="p95")
             add("wf_cycle_seconds", max(cycles), "seconds", stat="max")
         for path, (_, total) in sorted(self._storage.items()):
-            now = ResourceProbe.storage(path)
+            now = self._manager.storage(path).usage()
             if now:
                 add("wf_storage_free_bytes", now[0], "bytes", path=path)
                 add("wf_storage_total_bytes", total, "bytes", path=path)

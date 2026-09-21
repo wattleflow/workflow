@@ -6,8 +6,10 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, time, timezone, tzinfo
+from email.utils import parsedate_to_datetime
 from zoneinfo import ZoneInfo
 from pathlib import Path
+from typing import Any, ClassVar, Iterable
 from wattleflow.core.transactional import IParser
 
 
@@ -201,8 +203,74 @@ class CreatedWithin(IParser):
         return dt
 
 
+class Stamp:
+    """One reading of a moment as a file-name stamp, so every name agrees.
+
+    Naming, sorting and bucketing by time need the same three answers — which
+    value states the time, on which clock it is read, and how it is written —
+    and a second copy of them produces a second name for one document. The
+    clock policy is `Zone`'s: a value without an offset is read on the machine's
+    own clock, never as UTC.
+
+    `parse` is the seam a vocabulary with its own date grammar overrides (RFC
+    5322 headers, for one); FORMAT and the zone reading stay fixed underneath,
+    so an override changes what can be read and never what a stamp means.
+    """
+
+    #: `2026-09-16-101500` — sorts as text in the order it sorts in time.
+    FORMAT: ClassVar[str] = "%Y-%m-%d-%H%M%S"
+    #: Zone a value without an offset is read as; None is the machine's own.
+    ASSUME: ClassVar[str | None] = None
+
+    @classmethod
+    def parse(cls, value: Any) -> datetime | None:
+        """`value` as a moment, or None when it states none.
+
+        ISO first, then RFC 5322 — a probe, not a gate: an unreadable value is
+        the caller's to interpret, so neither branch raises (DR-WFL-018 t.2).
+        """
+        if isinstance(value, datetime):
+            return value
+        text = str(value or "").strip()
+        if not text:
+            return None
+        try:
+            return datetime.fromisoformat(text)
+        except ValueError:
+            pass
+        try:
+            return parsedate_to_datetime(text)
+        except (TypeError, ValueError):
+            return None
+
+    @classmethod
+    def of(cls, value: Any, zone: str | None = None) -> str:
+        """`value` as a stamp read from `zone`, or "" when it states no time."""
+        moment = cls.parse(value)
+        if moment is None:
+            return ""
+        return Zone.convert(moment, zone, default=cls.ASSUME).strftime(cls.FORMAT)
+
+    @classmethod
+    def first(cls, values: Iterable[Any], zone: str | None = None) -> str:
+        """The first candidate that states a time; "" when none does."""
+        for value in values:
+            stamp = cls.of(value, zone)
+            if stamp:
+                return stamp
+        return ""
+
+    @classmethod
+    def of_file(cls, path: Path, zone: str | None = None) -> str:
+        """When the file came into being here, as a stamp (`CreatedWithin.created_at`)."""
+        try:
+            return cls.of(CreatedWithin.created_at(path), zone)
+        except OSError:
+            return ""
+
+
 # --------------------------------------------------------------------------- #
 # endregion Clasess                                                           #
 # --------------------------------------------------------------------------- #
 
-__all__ = ["Now", "Zone", "CreatedWithin", "CreatedVerdict"]
+__all__ = ["Now", "Zone", "Stamp", "CreatedWithin", "CreatedVerdict"]

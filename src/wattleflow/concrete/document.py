@@ -241,4 +241,46 @@ class DocumentFacade(Wattleflow, ITarget, Generic[Adaptee], ABC):
 # --------------------------------------------------------------------------- #
 
 
-__all__ = ["Document", "DocumentAdapter", "DocumentFacade"]
+# --------------------------------------------------------------------------- #
+# region Placeholder                                                          #
+# --------------------------------------------------------------------------- #
+
+
+class DummyReadDocument(Document[dict]):
+    """What a read that nobody wrote returns, saying so about itself.
+
+    A pipeline can then be exercised end to end without an unwritten read
+    stopping it. It is honest only because it declares itself: `implemented` is
+    False in the metadata and the content repeats the notice, so neither a
+    reader nor a dashboard takes it for a record.
+    """
+
+    NOTICE = "read strategy not implemented"
+
+    def __init__(self, identifier: str = "", expected: str = "", **kwargs):
+        super().__init__(
+            content={
+                "notice": self.NOTICE,
+                "identifier": identifier,
+                "expected_type": expected,
+            },
+            **kwargs,
+        )
+        # Stated as data, not only as prose, so a consumer and a lint can both
+        # tell this apart from a record without parsing the notice.
+        self.update_metadata("implemented", False)
+        self.update_metadata("placeholder", self.NOTICE)
+        self.update_metadata("expected_type", expected)
+        self.update_metadata("identifier", identifier)
+
+    @property
+    def size(self) -> int:
+        return len(self.content) if self.content else 0
+
+
+# --------------------------------------------------------------------------- #
+# endregion Placeholder                                                       #
+# --------------------------------------------------------------------------- #
+
+
+__all__ = ["Document", "DocumentAdapter", "DocumentFacade", "DummyReadDocument"]

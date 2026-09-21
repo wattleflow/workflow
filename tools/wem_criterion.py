@@ -154,20 +154,24 @@ class Registers:
 
     def __init__(self, root: Path) -> None:
         self.root = root
+        # The registers moved under `requirements/` on 2026-09-19; a tree that
+        # still carries them at the documentation root keeps being read.
+        nested = root / "requirements"
+        self.base = nested if nested.is_dir() else root
 
     def files(self) -> Iterator[Path]:
-        yield from sorted(self.root.glob("0[123]-*/*.md"))
+        yield from sorted(self.base.glob("0[123]-*/*.md"))
 
     def nfr_ids(self) -> set[str]:
         found = set()
-        for path in self.root.glob("03-NFRQ/NFRQ-*.md"):
+        for path in self.base.glob("03-NFRQ/NFRQ-*.md"):
             match = re.match(r"(NFRQ-[A-Z]+-\d+)", path.name)
             if match:
                 found.add(match.group(1))
         return found
 
     def dr_status(self, dr: str) -> str | None:
-        records = sorted(self.root.glob(f"04-DR/{dr}-*.md"))
+        records = sorted(self.base.glob(f"04-DR/{dr}-*.md"))
         if not records:
             return None
         match = self.STATUS.search(records[0].read_text(encoding="utf-8"))
