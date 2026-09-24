@@ -25,29 +25,20 @@ reaches the work being measured (`HLRQ-18` BR-07).
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
-import os
-import shutil
-import sys
 import threading
 import time
-from abc import ABC, abstractmethod
 from collections import defaultdict, deque
-from dataclasses import dataclass
-from pathlib import Path
 from threading import get_ident
 from time import perf_counter_ns
 from typing import Any, ClassVar, Iterable, Mapping
 from wattleflow.core import IBlackboard, IDriver, IPipeline, IProcessor, IRepository, IStrategy
 from wattleflow.enums.event import Event
-from wattleflow.enums.metric import Measure, MetricKind
+from wattleflow.enums.metric import Measure, MetricKind, MetricTarget
 from wattleflow.helpers.audit import Audit
 from wattleflow.helpers.metrics import MetricSample
 from wattleflow.helpers.resources import Resource, ResourceManager, ResourceSnapshot
-
-try:
-    import resource
-except ImportError:  # Windows: the peak RSS is then reported as unmeasured
-    resource = None  # type: ignore[assignment]
+# The guarded `resource` import left with the probing it served: the peak RSS is
+# now ResourceMemory's, and the Windows fallback with it.
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
@@ -143,7 +134,7 @@ class Monitor(Audit):
         for role, value in dict(roles or {}).items():
             if role not in known:
                 self.warning(
-                    msg=Event.Configure, target="role", role=str(role), reason="unknown"
+                    msg=Event.Configure, target=MetricTarget.Role, role=str(role), reason="unknown"
                 )
                 continue
             self._roles[role] = MonitorLevel.resolve(value)
@@ -156,7 +147,7 @@ class Monitor(Audit):
             if resource_name not in self.THRESHOLDS or not 0 < share <= 1:
                 self.warning(
                     msg=Event.Configure,
-                    target="threshold",
+                    target=MetricTarget.Threshold,
                     resource=str(resource_name),
                     value=str(value),
                     reason="not a declared resource or not a share in (0, 1]",
@@ -345,7 +336,7 @@ class Monitor(Audit):
             self._alerts += 1
             self.warning(
                 msg=Event.Check,
-                target="resource",
+                target=MetricTarget.Resource,
                 share=round(share, 4),
                 threshold=threshold,
                 boundary=boundary,
@@ -375,7 +366,7 @@ class Monitor(Audit):
                     f"storage:{path}", (total - free) / total, boundary,
                     total - free, total, "file system", path=path,
                 )
-        extension = self._extension("gpu")
+        extension = self._manager.resource("gpu")
         if extension and extension.available():
             used = extension.used()
             gpu_limit, gpu_source = self._limit("gpu")
@@ -391,7 +382,7 @@ class Monitor(Audit):
             self._alerts += 1
             self.warning(
                 msg=Event.Check,
-                target="resource",
+                target=MetricTarget.Resource,
                 resource="cpu",
                 throttled=current.throttled - previous.throttled,
                 boundary=boundary,
@@ -446,7 +437,7 @@ class Monitor(Audit):
             self._report(self._baseline, self._last)
             self._publish()
         except Exception as e:
-            self.warning(msg=Event.Completed, target="measure", error=str(e))
+            self.warning(msg=Event.Completed, target=MetricTarget.Measure, error=str(e))
 
     def _publish(self) -> None:
         """Every sink is visited; a failing destination is reported, never raised (BR-07)."""
@@ -458,10 +449,17 @@ class Monitor(Audit):
             try:
                 published = bool(sink.publish(samples))
             except Exception as e:
-                self.warning(msg=Event.Completed, target="export", sink=name, error=str(e))
+                self.warning(
+                    msg=Event.Completed, target=MetricTarget.Export, sink=name, error=str(e)
+                )
                 continue
-            self.info(msg=Event.Completed, target="export", sink=name, published=published,
-                      samples=len(samples))
+            self.info(
+                msg=Event.Completed,
+                target=MetricTarget.Export,
+                sink=name,
+                published=published,
+                samples=len(samples),
+            )
 
     def reset(self) -> None:
         self._levels: dict[type, tuple[int, str]] = {}
@@ -527,7 +525,7 @@ class Monitor(Audit):
         cycles = self._cycles
         self.info(
             msg=Event.Completed,
-            target="run",
+            target=MetricTarget.Run,
             wall_seconds=round(wall, 3),
             documents=documents,
             documents_per_minute=round(documents / wall * 60, 2) if wall > 0 else None,
@@ -540,7 +538,7 @@ class Monitor(Audit):
         memory_limit, memory_source = self._limit("memory")
         self.info(
             msg=Event.Completed,
-            target="resource",
+            target=MetricTarget.Resource,
             resource="memory",
             rss_start=start.rss,
             rss_end=end.rss,
@@ -564,7 +562,7 @@ class Monitor(Audit):
         )
         self.info(
             msg=Event.Completed,
-            target="resource",
+            target=MetricTarget.Resource,
             resource="cpu",
             user_seconds=round(end.cpu_user - start.cpu_user, 3),
             system_seconds=round(end.cpu_system - start.cpu_system, 3),
@@ -579,7 +577,7 @@ class Monitor(Audit):
             now = self._manager.storage(path).usage()
             self.info(
                 msg=Event.Completed,
-                target="resource",
+                target=MetricTarget.Resource,
                 resource="storage",
                 path=path,
                 free_start=free_start,
@@ -589,12 +587,12 @@ class Monitor(Audit):
                 total=total,
             )
 
-        extension = self._extension("gpu")
+        extension = self._manager.resource("gpu")
         if extension is not None and extension.available():
             gpu_limit, gpu_source = self._limit("gpu")
             self.info(
                 msg=Event.Completed,
-                target="resource",
+                target=MetricTarget.Resource,
                 resource="gpu",
                 measured=True,
                 used=extension.used(),
@@ -603,7 +601,9 @@ class Monitor(Audit):
             )
         else:
             # BR-08: without an extension nothing in the standard library sees a GPU.
-            self.info(msg=Event.Completed, target="resource", resource="gpu", measured=False)
+            self.info(
+                msg=Event.Completed, target=MetricTarget.Resource, resource="gpu", measured=False
+            )
 
         rows = self.rows()
         if rows:
@@ -614,7 +614,7 @@ class Monitor(Audit):
             # Named, never splatted (NFRQ-SEC-06 k.5): the units are the `Measure` vocabulary.
             self.info(
                 msg=Event.Completed,
-                target="volume",
+                target=MetricTarget.Volume,
                 documents=totals.get("documents"),
                 files=totals.get("files"),
                 bytes=totals.get("bytes"),
@@ -627,7 +627,7 @@ class Monitor(Audit):
             for rank, ((component, operation), row) in enumerate(ranked[: self.HOTSPOTS], 1):
                 self.info(
                     msg=Event.Completed,
-                    target="hotspot",
+                    target=MetricTarget.Hotspot,
                     rank=rank,
                     component=component,
                     operation=operation,
@@ -640,7 +640,7 @@ class Monitor(Audit):
             for (component, operation), row in sorted(rows.items()):
                 self.debug(
                     msg=Event.Completed,
-                    target="operation",
+                    target=MetricTarget.Operation,
                     component=component,
                     operation=operation,
                     calls=row[_CALLS],
@@ -658,7 +658,7 @@ class Monitor(Audit):
             # FRQ-MET-01 §12 t.1: an incomplete pair is a finding against the code (D-11).
             self.warning(
                 msg=Event.Check,
-                target="pair",
+                target=MetricTarget.Pair,
                 component=component,
                 operation=operation,
                 defect=defect,
@@ -666,7 +666,7 @@ class Monitor(Audit):
             )
         self.info(
             msg=Event.Completed,
-            target="measure",
+            target=MetricTarget.Measure,
             level=self._level,
             operations=len(rows),
             samples=self._samples,

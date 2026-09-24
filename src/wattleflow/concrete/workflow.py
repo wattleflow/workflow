@@ -19,6 +19,7 @@ from wattleflow.enums.event import Event
 from wattleflow.concrete.exception import AuditException
 from wattleflow.helpers.audit import Audit
 from wattleflow.helpers.monitor import Monitor, MonitorLevel
+from wattleflow.helpers.resources import ResourceManager
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.driver import LazyDriverProxy
 from wattleflow.concrete.manager import (
@@ -386,17 +387,29 @@ class WorkflowFactory:
         # The series carry which workflow they belong to (DR-WFL-033 t.5): the YAML
         # entry's `name:` and the document's `app.name`.
         workflow_name = (workflow or {}).get("name")
+
+        # The manager settles the limits at build; the monitor watches against
+        # them. `limits:` lets a run DECLARE a ceiling the platform cannot see —
+        # a quota enforced elsewhere, say — which the probing it replaces could
+        # never accept (FRQ-PTN-18.1 §11 t.3).
+        manager = ResourceManager(
+            limits=monitoring.get("limits"),
+            thresholds=monitoring.get("thresholds"),
+            extensions=[cls.resolve(name)() for name in monitoring.get("extensions") or ()],
+        )
         monitor = Monitor()
         monitor.configure(
             level=level,
             roles=monitoring.get("roles"),
             thresholds=monitoring.get("thresholds"),
-            extensions=[cls.resolve(name)() for name in monitoring.get("extensions") or ()],
             interval=monitoring.get("interval"),
             sinks=cls._build_exporters(monitoring.get("exporters"), built, workflow_name),
             labels={"workflow": workflow_name, "app": adapter.find("app", "name", default=None)},
+            limits=manager,
         )
-        monitor.announce(built.measured_paths())
+        # EV01 is the manager's: it announces what it settled, not what someone
+        # else happened to probe.
+        manager.announce(built.measured_paths())
         built.attach_monitor(monitor)
 
     # ------------------------------------------------------------------ #
@@ -410,7 +423,7 @@ class WorkflowFactory:
     # Known runtime keys map to env-vars consumed by external libraries.
     # Anything not in this map is exported verbatim under runtime.env.
     _MONITORING_KEYS: frozenset[str] = frozenset(
-        {"level", "roles", "thresholds", "extensions", "interval", "exporters"}
+        {"level", "roles", "thresholds", "extensions", "interval", "exporters", "limits"}
     )
 
     _RUNTIME_KEY_TO_ENV: dict[str, str] = {

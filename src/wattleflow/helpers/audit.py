@@ -21,6 +21,7 @@ from threading import RLock
 from typing import Any
 from wattleflow.core import ILogger, IObserver
 from wattleflow.enums.event import Event
+from wattleflow.enums.metric import MetricTarget
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
@@ -28,6 +29,8 @@ from wattleflow.enums.event import Event
 # --------------------------------------------------------------------------- #
 # region Handlers                                                             #
 # --------------------------------------------------------------------------- #
+
+TARGET_ATTRIBUTE = "wf_target"
 
 
 class AsyncHandler(Handler):
@@ -58,6 +61,15 @@ class ContextFilter(Filter):
         return True
 
 
+class MeasurementFilter(Filter):
+    """Pass only records that carry a measured result (`MetricTarget`)."""
+
+    TARGETS = MetricTarget.measurements()
+
+    def filter(self, record):
+        return getattr(record, TARGET_ATTRIBUTE, None) in self.TARGETS
+
+
 # --------------------------------------------------------------------------- #
 # endregion Filters                                                           #
 # --------------------------------------------------------------------------- #
@@ -74,10 +86,10 @@ _UNIT_CLOSED: str = Event.Processed
 # Logging format
 class LogFormat(Enum):
     DEFAULT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
-    Detailed = (
-        "%(asctime)s - %(levelname)s - %(name)s - %(message)s - %(filename)s:%(lineno)d"
+    Detailed = "%(asctime)s - %(levelname)s - %(name)s - %(message)s - %(filename)s:%(lineno)d"
+    Custom = (
+        "%(asctime)s - %(levelname)s - %(name)s - %(message)s - %(src_filename)s:%(src_lineno)d"
     )
-    Custom = "%(asctime)s - %(levelname)s - %(name)s - %(message)s - %(src_filename)s:%(src_lineno)d"
     JSON = (
         '{"time": "%(asctime)s", "name": "%(name)s", '
         '"level": "%(levelname)s", "message": "%(message)s"}'
@@ -301,9 +313,7 @@ class Audit(ILogger, IObserver):
             # class dicts along the MRO is a plain dict lookup: no descriptor
             # is invoked and no fallback hook fires.
             mro = getattr(type(obj), "__mro__", ())
-            return any("shape" in vars(b) for b in mro) and any(
-                "columns" in vars(b) for b in mro
-            )
+            return any("shape" in vars(b) for b in mro) and any("columns" in vars(b) for b in mro)
 
         def safe_repr(obj: object, maxlen: int = 100) -> str:
             try:
@@ -318,6 +328,14 @@ class Audit(ILogger, IObserver):
         LOG_KW = {"exc_info", "stack_info", "stacklevel", "extra"}
         pass_through = {k: kwargs[k] for k in LOG_KW if k in kwargs}
         data = {k: v for k, v in kwargs.items() if k not in LOG_KW}
+
+        # The target also travels as an attribute, so a handler can select
+        # records by kind without parsing the message text.
+        target = data.get("target")
+        if target is not None:
+            extra = dict(pass_through.get("extra") or {})
+            extra.setdefault(TARGET_ATTRIBUTE, str(target))
+            pass_through["extra"] = extra
 
         if data:
             parts = []
@@ -346,4 +364,4 @@ class Audit(ILogger, IObserver):
 # --------------------------------------------------------------------------- #
 
 
-__all__ = ["AsyncHandler", "Audit", "ContextFilter"]
+__all__ = ["AsyncHandler", "Audit", "ContextFilter", "MeasurementFilter"]

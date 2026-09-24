@@ -22,6 +22,7 @@ import time
 from typing import Any, Iterable, Mapping
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.enums.event import Event
+from wattleflow.enums.metric import MetricTarget
 from wattleflow.helpers.resources.base import Resource, ResourceSnapshot
 from wattleflow.helpers.resources.cpu import ResourceCpu
 from wattleflow.helpers.resources.memory import ResourceMemory
@@ -65,6 +66,10 @@ class ResourceManager(Wattleflow):
     def resources(self) -> tuple[str, ...]:
         return tuple(self._resources)
 
+    def resource(self, name: str) -> Resource | None:
+        """The resource itself, for a caller that needs `available()` or `used()`."""
+        return self._resources.get(name)
+
     def limit(self, name: str) -> tuple[Any, str]:
         """(value, source) for one resource, resolved once and remembered."""
         if name not in self._resolved:
@@ -106,7 +111,7 @@ class ResourceManager(Wattleflow):
                 limit, source = self.limit(name)
                 self.debug(
                     msg=Event.Configure,
-                    target="limit",
+                    target=MetricTarget.Limit,
                     resource=name,
                     limit=limit,
                     limit_source=source,
@@ -115,7 +120,7 @@ class ResourceManager(Wattleflow):
                 if limit is None and name in self._thresholds:
                     self.warning(
                         msg=Event.Configure,
-                        target="limit",
+                        target=MetricTarget.Limit,
                         resource=name,
                         reason="limit unknown; the relative threshold is not applied",
                     )
@@ -123,7 +128,7 @@ class ResourceManager(Wattleflow):
                 limit, source = self.storage(path).limit()
                 self.debug(
                     msg=Event.Configure,
-                    target="limit",
+                    target=MetricTarget.Limit,
                     resource="storage",
                     path=path,
                     limit=limit,
@@ -132,7 +137,7 @@ class ResourceManager(Wattleflow):
                 )
         except Exception as e:
             # Measuring must not be what stops a workflow (`BR-07`).
-            self.warning(msg=Event.Configure, target="limit", error=str(e))
+            self.warning(msg=Event.Configure, target=MetricTarget.Limit, error=str(e))
 
 
 # --------------------------------------------------------------------------- #

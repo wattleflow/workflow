@@ -21,12 +21,12 @@ Adding a member extends a controlled vocabulary and goes through a DR (D-12).
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
-from enum import Enum
+from enum import Enum, StrEnum
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
 
-__all__ = ["Measure", "MetricKind"]
+__all__ = ["Measure", "MetricKind", "MetricTarget"]
 
 # --------------------------------------------------------------------------- #
 # region Enumerations                                                         #
@@ -87,6 +87,37 @@ class Measure(str, Enum):
 
 
 _LOOKUP: dict[str, Measure] = {member.value.lower(): member for member in Measure}
+
+
+class MetricTarget(StrEnum):
+    """What a record of the measurement subsystem is about (`NFRQ-ORG-12`).
+
+    `measurement` marks the records that carry a measured result, as opposed to
+    configuration notices, so a handler can route them by kind, not by level.
+    """
+
+    Export = ("export", True)
+    Hotspot = ("hotspot", True)
+    Limit = ("limit", True)
+    Measure = ("measure", True)
+    Operation = ("operation", False)
+    Pair = ("pair", False)
+    Resource = ("resource", True)
+    Role = ("role", False)
+    Run = ("run", True)
+    Threshold = ("threshold", False)
+    Volume = ("volume", False)
+
+    def __new__(cls, value: str, measurement: bool):
+        member = str.__new__(cls, value)
+        member._value_ = value
+        member.measurement = measurement
+        return member
+
+    @classmethod
+    def measurements(cls) -> frozenset[str]:
+        """Values of the members that carry a measured result."""
+        return frozenset(member.value for member in cls if member.measurement)
 
 
 # --------------------------------------------------------------------------- #
