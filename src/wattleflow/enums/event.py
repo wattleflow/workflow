@@ -62,6 +62,7 @@ class Event(StrEnum):
     Configuring = "Configuring"
     Configuration = "Configuration"
     Context = "Context"
+    Convert = "Convert"  # (DR-WFL-048): Converter.convert
     Copy = "Copy"
     Copying = "Copying"
     Copied = "Copied"
@@ -153,6 +154,7 @@ class Event(StrEnum):
     Operated = "Operated"
     Operation = "Operation"
     Operating = "Operating"
+    Parse = "Parse"  # (DR-WFL-048): Parser.parse
     OrchestrationCompleted = "OrchestrationCompleted"
     OrchestrationStarted = "OrchestrationStarted"
     OrchestrationStopped = "OrchestrationStopped"

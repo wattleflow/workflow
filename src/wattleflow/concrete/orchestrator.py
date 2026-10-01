@@ -44,6 +44,15 @@ from wattleflow.concrete.base import Wattleflow
 
 
 class Orchestrator(Wattleflow, IEventSource, IFacade):
+    __slots__ = (
+        "_listeners",
+        "_processors",
+        "_running",
+        "_connection_manager",
+        "_strategy_execute",
+        "_emit_lock",
+    )
+
     def __init__(
         self,
         connection_manager: ConnectionManager,
@@ -71,7 +80,9 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
             elif callable(getattr(processor, "operation", None)):
                 processor.operation(Operation.Start)
             else:
-                raise TypeError(f"Processor {proc_name!r} exposes neither start() nor operation()")
+                raise TypeError(
+                    f"Processor {proc_name!r} exposes neither start() nor operation()"
+                )
             duration = (Now.utc() - start_time).total_seconds()
 
             self.emit_event(
@@ -161,7 +172,9 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
                             errors.append(e)
 
                 for processor in self._processors:
-                    thread = threading.Thread(target=_runner, args=(processor,), daemon=False)
+                    thread = threading.Thread(
+                        target=_runner, args=(processor,), daemon=False
+                    )
                     threads.append(thread)
                     thread.start()
 

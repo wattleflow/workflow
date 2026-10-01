@@ -18,7 +18,7 @@ from wattleflow.concrete.exception import AuditException
 from wattleflow.concrete.helpers import NameHelper
 from wattleflow.enums.event import Event
 from wattleflow.decorators.preset import PresetDecorator
-# from wattleflow.decorators.measure import measured  # retired, DR-WFL-031 v3
+
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -42,9 +42,10 @@ class PipelineError(AuditException):
 # --------------------------------------------------------------------------- #
 
 
-# v0.0.1.14 (DR-WFL-031 v3): retired — measurement now observes audit records; kept for the record.
 # @measured()
 class GenericPipeline(Wattleflow, IPipeline, ABC):
+    __slots__ = ("_preset",)
+
     def __init__(
         self,
         level: int = NOTSET,
@@ -108,10 +109,12 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
             facade=facade,
         )
         try:
-            assert isinstance(processor, IProcessor), "Expected IProcessor. Found %s" % type(
-                processor
+            assert isinstance(processor, IProcessor), (
+                "Expected IProcessor. Found %s" % type(processor)
             )
-            assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(facade)
+            assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(
+                facade
+            )
 
             # Reported on ENTRY, so the audit stream reads top-down in the order
             # the activity diagram draws: pipeline -> blackboard -> repository ->

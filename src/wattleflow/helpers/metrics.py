@@ -14,7 +14,7 @@ quantity as well. This module pairs those records, corrects what the code got
 wrong, and derives the series — so a component never learns that a monitor
 exists.
 
-Transport is NOT here: a sink formats, a driver ships (`FRQ-PRC-15.22`). This
+Transport is NOT here: a sink formats, a driver ships (`FRQ-PRC-01.22`). This
 module therefore imports stdlib and `wattleflow.enums` only, and holds no edge
 to a domain package (`NFRQ-ORG-01`).
 """
@@ -344,7 +344,7 @@ class MetricSink(ABC):
 class MetricReporter:
     """Holds N destinations over ONE sample set.
 
-    The fan-out `FRQ-PRC-15.22` already uses for documents: a failing
+    The fan-out `FRQ-PRC-01.22` already uses for documents: a failing
     destination is reported and the others are still visited — monitoring must
     not be able to stop the run it is watching.
     """

@@ -23,16 +23,9 @@ __license__ = "Apache 2 Licence"
 # region Implementation                                                       #
 # --------------------------------------------------------------------------- #
 class LazyIterator(Wattleflow, IIterator[Element]):
-    """
-    LazyIterator - canonical lazy IIterator policy.
+    """LazyIterator - canonical lazy IIterator policy."""
 
-    Builds the underlying iterator on first __next__ via create_iterator()
-    and caches it for the remainder of the traversal (DR-COR-007). Subclasses
-    implement create_iterator() only.
-
-    Wattleflow supplies the root identity contract (name); without it every
-    subclass would inherit `name` abstract and stay uninstantiable.
-    """
+    __slots__ = ("_iterator",)
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -47,10 +40,9 @@ class LazyIterator(Wattleflow, IIterator[Element]):
 class LazyAsyncIterator(Wattleflow, IAsyncIterator[Element]):
     """
     LazyAsyncIterator - canonical lazy IAsyncIterator policy.
-
-    create_iterator() is synchronous and returns an AsyncIterator; it is
-    invoked on first __anext__ and cached (DR-COR-007).
     """
+
+    __slots__ = ("_iterator",)
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)

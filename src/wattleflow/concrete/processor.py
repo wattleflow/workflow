@@ -96,6 +96,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         "_blackboard",
         "_current",
         "_cycle",
+        "_flush_outcome",
         "_flush_per_cycle",
         "_fsm",
         "_generator",
@@ -151,6 +152,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
 
         self._cycle: int = 0
         self._flush_per_cycle: bool = bool(flush_per_cycle)
+        self._flush_outcome: bool | None = None
         self._fsm: StateMachine = StateMachine(
             TRANSITIONS,
             ProcessorState.IDLE,
@@ -237,6 +239,11 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
     @property
     def flush_per_cycle(self) -> bool:
         return self._flush_per_cycle
+
+    @property
+    def flush_outcome(self) -> bool | None:
+        """True when every repository confirmed the document; None if unknown (DR-WFL-047)."""
+        return self._flush_outcome
 
     @property
     def write_context(self) -> dict[str, Any]:
@@ -332,6 +339,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
 
             for facade in self._generator:
                 self._current = facade
+                self._flush_outcome = None
                 self._fsm.apply(ProcessorAction.NEXT_ITEM)
 
                 try:
@@ -341,7 +349,9 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                     self._cycle += 1
                     self._fsm.apply(ProcessorAction.CYCLE_COMPLETED)
                     if self._flush_per_cycle:
-                        self.blackboard.flush(caller=self, **self.write_context)
+                        outcome = self.blackboard.flush(caller=self, **self.write_context)
+                        # A blackboard that answers nothing has not confirmed anything.
+                        self._flush_outcome = outcome if isinstance(outcome, bool) else None
                     # v0.0.1.14 (FRQ-PTN-18.1 EV03): the `Processed` record below closes
                     # the unit of work; the monitor observes it (DR-WFL-031 v3).
                     # self.measure_units(documents=1)

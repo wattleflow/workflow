@@ -26,11 +26,12 @@ from wattleflow.enums.event import Event
 # --------------------------------------------------------------------------- #
 
 
-# v0.0.1.14 (DR-WFL-031 v3): retired — measurement now observes audit records; kept for the record.
 # @measured()
 class Strategy(Wattleflow, IStrategy, ABC):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    __slots__ = ("_strict",)
+
+    # def __init__(self, **kwargs):
+    #     super().__init__(**kwargs)
 
     @abstractmethod
     def execute(self, caller: IWattleflow, **kwargs) -> ITarget | None:
@@ -38,16 +39,22 @@ class Strategy(Wattleflow, IStrategy, ABC):
 
 
 class StrategyGenerate(Strategy, ABC):
+    __slots__ = ("_strict",)
+
     def generate(self, caller: IWattleflow, **kwargs) -> ITarget | None:
         return self.execute(caller=caller, **kwargs)
 
 
 class StrategyCreate(Strategy, ABC):
+    __slots__ = ("_strict",)
+
     def create(self, caller: IWattleflow, **kwargs) -> ITarget | None:
         return self.execute(caller=caller, **kwargs)
 
 
 class StrategyRead(Strategy, ABC):
+    __slots__ = ("_strict",)
+
     def read(
         self,
         caller: IWattleflow,
@@ -63,15 +70,7 @@ class StrategyWrite(Strategy, ABC):
 
 
 class StrategyReadDummy(StrategyRead):
-    """Stand in for a read nobody wrote, and say so in the document itself.
-
-    Raising instead would stop a pipeline that is otherwise ready to be tried
-    end to end, and returning silence would let a stand-in pass for a record.
-    This returns a document that declares what it is.
-
-    `strict` is for a caller that would rather stop: the failure still carries
-    the document, so the error says what would have been returned.
-    """
+    __slots__ = ("_document_type", "_strict")
 
     def __init__(
         self,

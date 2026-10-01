@@ -25,20 +25,9 @@ __license__ = "Apache 2 Licence"
 # region Implementation                                                       #
 # --------------------------------------------------------------------------- #
 class ThreadSafeObservable(Wattleflow, IObservableReactive):
-    """
-    ThreadSafeObservable - canonical IObservableReactive policy.
+    """ThreadSafeObservable - canonical IObservableReactive policy."""
 
-    Policy decisions this class fixes (deliberately, as implementation —
-    not contract; DR-COR-005):
-      * Registration is guarded by an RLock, allowing re-entrant calls if
-        observer callbacks interact with the observable.
-      * Notifications are delivered to a snapshot of registered observers,
-        in registration order, so the list may be mutated mid-notification.
-      * An observer that raises is logged and suppressed; remaining
-        observers are still notified. NOTE (availability, A in CIA): a
-        failing observer becomes invisible to the caller — consumers whose
-        observers are delivery-critical need a different policy class.
-    """
+    __slots__ = ("_observers", "_lock")
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
