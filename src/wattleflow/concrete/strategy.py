@@ -65,6 +65,8 @@ class StrategyRead(Strategy, ABC):
 
 
 class StrategyWrite(Strategy, ABC):
+    __slots__ = ("_strict",)
+
     def write(self, caller: IWattleflow, facade: ITarget, **kwargs) -> bool:
         return bool(self.execute(caller=caller, facade=facade, **kwargs))
 

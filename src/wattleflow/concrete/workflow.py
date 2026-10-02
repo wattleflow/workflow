@@ -54,8 +54,6 @@ class WorkflowFactoryException(AuditException):
 # --------------------------------------------------------------------------- #
 
 
-# v0.0.1.14 (DR-WFL-031 v3): retired — measurement now observes audit records; kept for the record.
-# @measured(passes=("execute",))
 class GenericWorkflow(Wattleflow, IOriginator, ABC):
     __slots__ = (
         "_connections",
@@ -147,7 +145,9 @@ class GenericWorkflow(Wattleflow, IOriginator, ABC):
         for driver in self.drivers.all.values():
             target = driver.driver if isinstance(driver, LazyDriverProxy) else driver
             try:
-                path = getattr(target, "write_path", None) if target is not None else None
+                path = (
+                    getattr(target, "write_path", None) if target is not None else None
+                )
             except Exception:
                 path = None
             if path:
@@ -193,17 +193,20 @@ class GenericWorkflow(Wattleflow, IOriginator, ABC):
 
 
 class WorkflowFactoryLogger(Wattleflow):
-    """Standalone audit logger for WorkflowFactory, which is not itself a
-    framework object."""
+    """Standalone audit logger for WorkflowFactory, not framework object."""
+
+    __slots__ = ("_logger",)
+    # ERROR until a workflow is built: before the YAML is read there is no declared
+    # level to honour, and a library that talks on import is a nuisance. `build()`
+    # raises it to the workflow's own level as soon as it knows one.
 
 
-# ERROR until a workflow is built: before the YAML is read there is no declared
-# level to honour, and a library that talks on import is a nuisance. `build()`
-# raises it to the workflow's own level as soon as it knows one.
 logger = WorkflowFactoryLogger(level="ERROR", logger=getLogger("WorkflowFactory"))
 
 
 class WorkflowFactory:
+    __slots__ = ("_registry", "_strategy_defaults")
+
     _registry: dict[str, type] = {}
     _strategy_defaults: dict[str, str] = {}  # role → fully-qualified class path
 
@@ -395,7 +398,9 @@ class WorkflowFactory:
         manager = ResourceManager(
             limits=monitoring.get("limits"),
             thresholds=monitoring.get("thresholds"),
-            extensions=[cls.resolve(name)() for name in monitoring.get("extensions") or ()],
+            extensions=[
+                cls.resolve(name)() for name in monitoring.get("extensions") or ()
+            ],
         )
         monitor = Monitor()
         monitor.configure(
@@ -403,8 +408,13 @@ class WorkflowFactory:
             roles=monitoring.get("roles"),
             thresholds=monitoring.get("thresholds"),
             interval=monitoring.get("interval"),
-            sinks=cls._build_exporters(monitoring.get("exporters"), built, workflow_name),
-            labels={"workflow": workflow_name, "app": adapter.find("app", "name", default=None)},
+            sinks=cls._build_exporters(
+                monitoring.get("exporters"), built, workflow_name
+            ),
+            labels={
+                "workflow": workflow_name,
+                "app": adapter.find("app", "name", default=None),
+            },
             limits=manager,
         )
         # EV01 is the manager's: it announces what it settled, not what someone
@@ -423,7 +433,15 @@ class WorkflowFactory:
     # Known runtime keys map to env-vars consumed by external libraries.
     # Anything not in this map is exported verbatim under runtime.env.
     _MONITORING_KEYS: frozenset[str] = frozenset(
-        {"level", "roles", "thresholds", "extensions", "interval", "exporters", "limits"}
+        {
+            "level",
+            "roles",
+            "thresholds",
+            "extensions",
+            "interval",
+            "exporters",
+            "limits",
+        }
     )
 
     _RUNTIME_KEY_TO_ENV: dict[str, str] = {
@@ -697,9 +715,7 @@ class WorkflowFactory:
                 blackboard_config,
                 key="strategy_create",
             )
-            logger.debug(
-                msg=Event.Build, target="processors", strategy=strategy_class
-            )
+            logger.debug(msg=Event.Build, target="processors", strategy=strategy_class)
 
             # blackboard ------------------------------------------------------
             blackboard_class = cls._resolve_section(
@@ -785,5 +801,4 @@ __all__ = [
     "GenericWorkflow",
     "WorkflowFactory",
     "WorkflowFactoryException",
-    "WorkflowFactoryLogger",
 ]

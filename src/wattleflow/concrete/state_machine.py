@@ -30,13 +30,14 @@ Action = TypeVar("Action", bound=Enum)
 # endregion Types                                                             #
 # --------------------------------------------------------------------------- #
 
+
 # --------------------------------------------------------------------------- #
-# region StateMachine                                                         #
+# region Classes                                                              #
 # --------------------------------------------------------------------------- #
 
 
 class StateMachine(IStateMachine, Generic[State, Action], ABC):
-    __slots__ = ("_name", "_state", "_transitions")
+    __slots__ = ("_name", "_transitions", "_state")
 
     def __init__(
         self,
@@ -71,22 +72,8 @@ class StateMachine(IStateMachine, Generic[State, Action], ABC):
         return f"{self.name}:[{state}]"
 
 
-# --------------------------------------------------------------------------- #
-# endregion StateMachine                                                      #
-# --------------------------------------------------------------------------- #
-
-# --------------------------------------------------------------------------- #
-# region GuardedStateMachine                                                  #
-# --------------------------------------------------------------------------- #
-
-
 class GuardedStateMachine(IStateMachine, ABC):
-    """One-shot guard wrapper for a StateMachine (GoF Decorator pattern).
-
-    Runs ``guard(inner)`` exactly once, before the first ``apply()`` call.
-    If the guard raises, the underlying transition does not happen. After a
-    successful guard the wrapper transparently delegates to the inner FSM.
-    """
+    """One-shot guard wrapper for a StateMachine (GoF Decorator pattern)."""
 
     __slots__ = ("_guard", "_inner", "_name", "_consumed")
 
@@ -129,7 +116,7 @@ class GuardedStateMachine(IStateMachine, ABC):
 
 
 # --------------------------------------------------------------------------- #
-# endregion GuardedStateMachine                                               #
+# endregion Classes                                                           #
 # --------------------------------------------------------------------------- #
 
 

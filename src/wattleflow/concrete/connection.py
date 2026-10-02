@@ -32,11 +32,6 @@ from wattleflow.decorators.preset import PresetDecorator
 # region Exceptions                                                           #
 # --------------------------------------------------------------------------- #
 
-
-class ConnectionManagerException(ManagerException):
-    pass
-
-
 # --------------------------------------------------------------------------- #
 # endregion Exceptions                                                        #
 # --------------------------------------------------------------------------- #
@@ -159,8 +154,6 @@ class ConnectionObserverInterface(Wattleflow, IObservable, ABC):
 # --------------------------------------------------------------------------- #
 
 
-# v0.0.1.14 (DR-WFL-031 v3): retired — measurement now observes audit records; kept for the record.
-# @measured("create_connection")
 class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
     __slots__ = (
         "_connection_name",
@@ -242,8 +235,6 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
     # endregion Context handling
 
     def __del__(self):
-        # v0.0.0.98 (DR-WFL-014 t.4): a half-built instance carries neither FSM
-        # nor logger, so reporting here would bury the real exception.
         try:
             object.__getattribute__(self, "_fsm")
         except AttributeError:
@@ -315,7 +306,7 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
         ):
             return
         if not self._fsm.can(ConnectionAction.CREATE):
-            raise ConnectionManagerException(
+            raise ManagerException(
                 caller=self,
                 error=f"Cannot create connection from state '{self._fsm.state.value}'",
             )
@@ -350,7 +341,7 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
 
     def hot_swap(self, name: str, new_connection: "GenericConnection") -> None:
         if name not in self._connections:
-            raise ConnectionManagerException(
+            raise ManagerException(
                 caller=self, error=f"Connection '{name}' nije registrirana."
             )
 
@@ -360,7 +351,7 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
             new_connection.request(action=Operation.Connect)
         except Exception as e:
             self.debug(msg=Event.Swap, step=Event.Failed, error=str(e))
-            raise ConnectionManagerException(
+            raise ManagerException(
                 caller=self,
                 error=f"Hot-swap failao, stara konekcija ostaje aktivna: {e}",
             ) from e
@@ -371,7 +362,9 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
         try:
             old_conn.request(action=Operation.Disconnect)
         except Exception as e:
-            self.warning(msg=Event.Swap, error=f"Old connection was not closed properly: {e}")
+            self.warning(
+                msg=Event.Swap, error=f"Old connection was not closed properly: {e}"
+            )
 
     def request(self, **kwargs: Any) -> Any:
         action = kwargs.get("action")
@@ -424,6 +417,7 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
 # --------------------------------------------------------------------------- #
 # endregion Classes                                                           #
 # --------------------------------------------------------------------------- #
+
 
 __all__ = [
     "ConnectionAction",

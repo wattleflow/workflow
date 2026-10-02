@@ -22,8 +22,10 @@ __license__ = "Apache 2 Licence"
 
 
 # --------------------------------------------------------------------------- #
-# region Implementation                                                       #
+# region Clasess                                                              #
 # --------------------------------------------------------------------------- #
+
+
 class ThreadSafeObservable(Wattleflow, IObservableReactive):
     """ThreadSafeObservable - canonical IObservableReactive policy."""
 

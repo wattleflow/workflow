@@ -117,7 +117,11 @@ class Attribute:
             return
 
         varname = cls.find_name_by_variable(target)
-        name = target.__class__.__name__ if hasattr(target, "__class__") else type(target).__name__
+        name = (
+            target.__class__.__name__
+            if hasattr(target, "__class__")
+            else type(target).__name__
+        )
         name = varname if varname else name
         expected_name = expected_type.__name__
         owner = getattr(caller, "name", caller.__class__.__name__)
@@ -148,9 +152,13 @@ class Attribute:
         Attribute.evaluate(caller, attr, cls)  # type: ignore
 
     @staticmethod
-    def load_from_class(name: str, obj: object, cls: type, caller: object = None, **kwargs):
+    def load_from_class(
+        name: str, obj: object, cls: type, caller: object = None, **kwargs
+    ):
         if not isinstance(obj, str):
-            raise TypeError(f"Expected class path as string for {name}, got {type(obj).__name__}")
+            raise TypeError(
+                f"Expected class path as string for {name}, got {type(obj).__name__}"
+            )
 
         from wattleflow.helpers.system import (
             ClassLoader,
@@ -272,7 +280,9 @@ class Attribute:
             ) from e
 
     @staticmethod
-    def optional(caller: object, name: str, cls: type, default: object | None, **kwargs):
+    def optional(
+        caller: object, name: str, cls: type, default: object | None, **kwargs
+    ):
         if (not kwargs) and (not default):
             return
 

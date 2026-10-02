@@ -114,7 +114,6 @@ TRANSITIONS: dict[tuple[DriverState, DriverAction], DriverState] = {
 # --------------------------------------------------------------------------- #
 
 
-# v0.0.1.14 (DR-WFL-031 v3): retired — measurement now observes audit records; kept for the record.
 # @measured()
 class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
     __slots__ = ("_fsm", "_preset")
@@ -245,11 +244,7 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
 
 
 class LazyDriverProxy(Wattleflow, IDriver, IObserver, ABC):
-    """Defer driver construction (and the connection behind it) until first use.
-
-    Every IDriver member is implemented as delegation: nothing is built before
-    a call actually needs the wrapped driver.
-    """
+    """Defer driver construction (and the connection behind it) until first use."""
 
     __slots__ = ("_factory", "_driver", "_conn_mgr", "_conn_name")
 
@@ -290,9 +285,6 @@ class LazyDriverProxy(Wattleflow, IDriver, IObserver, ABC):
             pass
 
     def __getattr__(self, name: str) -> Any:
-        # Only public names delegate. Private/dunder probes (copy, pickle,
-        # hasattr checks, debugger introspection) must never be the reason a
-        # connection gets opened — that would defeat the whole proxy.
         if name.startswith("_"):
             raise AttributeError(name)
 
@@ -315,10 +307,6 @@ class LazyDriverProxy(Wattleflow, IDriver, IObserver, ABC):
         self._ensure_ready()
 
     def metadata(self) -> Any:
-        # IDriver declares metadata() as a classmethod, but a proxy has no
-        # metadata of its own — it can only report the wrapped driver's, which
-        # requires an instance. Overriding as an instance method keeps the
-        # answer truthful.
         return self._ensure_ready().metadata()
 
     def read(self, uri: str, **kwargs):
@@ -328,8 +316,6 @@ class LazyDriverProxy(Wattleflow, IDriver, IObserver, ABC):
         return self._ensure_ready().write(uri, **kwargs)
 
     def update(self, event: Any, **kwargs) -> None:
-        # Observer notifications must not wake a lazy driver; forward only
-        # once one exists.
         if self._driver is not None:
             self._driver.update(event, **kwargs)
 

@@ -15,7 +15,7 @@ from wattleflow.core import (
     IProcessor,
 )
 from wattleflow.concrete.base import Wattleflow
-from wattleflow.concrete.exception import AuditException
+from wattleflow.concrete.exception import ManagerException
 from wattleflow.concrete.connection import Connection
 from wattleflow.concrete.driver import DriverState
 from wattleflow.enums.event import Event
@@ -26,26 +26,6 @@ from wattleflow.enums.operation import Operation
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
 
-# --------------------------------------------------------------------------- #
-# region Exceptions                                                           #
-# --------------------------------------------------------------------------- #
-
-
-class ConnectionManagerException(AuditException):
-    pass
-
-
-class DriverManagerException(AuditException):
-    pass
-
-
-class ProcessorManagerException(AuditException):
-    pass
-
-
-# --------------------------------------------------------------------------- #
-# endregion Exceptions                                                        #
-# --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
 # region Classes                                                              #
@@ -88,8 +68,6 @@ class ConnectionManager(Wattleflow, IObserver):
     def connect(self, name: str, **kwargs) -> object:
         self.debug(msg=Event.Connect, name=name, kwargs=kwargs)
         connected = self.operation(name, Operation.Connect, **kwargs)
-        # v0.0.1.10 (DR-WFL-018 t.5): opening a connection is a step in someone
-        # else's unit of work, so the owner of that unit keeps the INFO.
         self.debug(msg=Event.Connect, step=Event.Completed, status=connected)
         return self._connections[name]
 
@@ -115,9 +93,10 @@ class ConnectionManager(Wattleflow, IObserver):
     def get_connection(self, name: str) -> Connection:
         if name not in self._connections:
             error = (
-                "%s.get_connection error: Connection name not registered!" % self.__class__.__name__
+                "%s.get_connection error: Connection name not registered!"
+                % self.__class__.__name__
             )
-            raise ConnectionManagerException(
+            raise ManagerException(
                 caller=self,
                 name=name,
                 error=error,
@@ -134,7 +113,7 @@ class ConnectionManager(Wattleflow, IObserver):
                 "%s.register_connection error: Connection name is required!"
                 % self.__class__.__name__
             )
-            raise ConnectionManagerException(
+            raise ManagerException(
                 caller=self,
                 connection=connection,
                 error=error,
@@ -163,7 +142,7 @@ class ConnectionManager(Wattleflow, IObserver):
     def operation(self, name: str, action: Operation, **kwargs) -> bool:
         self.debug(msg=Event.Operation, step=Event.Started, kwargs=kwargs)
         if name not in self._connections:
-            raise ConnectionManagerException(
+            raise ManagerException(
                 caller=self,
                 error=f"Connection '{name}' is not registered.",
                 action=action.name,
@@ -234,7 +213,7 @@ class DriverManager(Wattleflow, IObserver):
     def get_driver(self, name: str) -> IDriver:
         self.debug(msg=Event.Get, target="driver", step=Event.Starting)
         if name not in self._drivers:
-            raise DriverManagerException(caller=self, error=f"Driver {name!r} is not found!")
+            raise ManagerException(caller=self, error=f"Driver {name!r} is not found!")
         self.debug(msg=Event.Get, target="driver", step=Event.Completed)
         return self._drivers.get(name)
 
@@ -293,7 +272,7 @@ class DriverManager(Wattleflow, IObserver):
     def operation(self, name: str, action: Operation, **kwargs) -> bool:
         self.debug(msg=Event.Operation, step=Event.Started, action=action.name)
         if name not in self._drivers:
-            raise DriverManagerException(
+            raise ManagerException(
                 caller=self,
                 error=f"Driver '{name}' is not registered.",
                 action=action.name,
@@ -314,7 +293,7 @@ class DriverManager(Wattleflow, IObserver):
 
 
 class ProcessorManager(Wattleflow, IObserver):
-    __slots__ = ("_processors",)
+    __slots_ = ("_processors",)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -361,7 +340,9 @@ class ProcessorManager(Wattleflow, IObserver):
     def get_processor(self, name: str) -> IProcessor:
         self.debug(msg=Event.Get, target="processor", step=Event.Starting)
         if name not in self._processors:
-            raise ProcessorManagerException(caller=self, error=f"Processor {name!r} is not found!")
+            raise ManagerException(
+                caller=self, error=f"Processor {name!r} is not found!"
+            )
         self.debug(msg=Event.Get, target="processor", step=Event.Completed)
         return self._processors.get(name)
 
@@ -395,7 +376,7 @@ class ProcessorManager(Wattleflow, IObserver):
     def operation(self, name: str, action: Operation, **kwargs) -> bool:
         self.debug(msg=Event.Operation, step=Event.Started, kwargs=kwargs)
         if name not in self._processors:
-            raise ProcessorManagerException(
+            raise ManagerException(
                 caller=self,
                 error=f"Processor '{name}' is not registered.",
                 action=action.name,
@@ -426,9 +407,6 @@ class ProcessorManager(Wattleflow, IObserver):
 
 __all__ = [
     "ConnectionManager",
-    "ConnectionManagerException",
     "DriverManager",
-    "DriverManagerException",
     "ProcessorManager",
-    "ProcessorManagerException",
 ]

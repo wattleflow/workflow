@@ -189,9 +189,7 @@ class SourceFile:
         if cached is None:
             allowed = _STDLIB | {"wattleflow"} | set(core_libs)
             cached = self._foreign[core_libs] = {
-                top
-                for module in self.imported_modules()
-                if (top := module.split(".")[0]) and top not in allowed
+                top for module in self.imported_modules() if (top := module.split(".")[0]) and top not in allowed
             }
         return cached
 
@@ -219,10 +217,7 @@ class Naming:
         all name the same base; reading only bare `ast.Name` saw the first and
         silently missed the other two.
         """
-        return {
-            ast.unparse(base).split("[", 1)[0].rsplit(".", 1)[-1].strip()
-            for base in node.bases
-        }
+        return {ast.unparse(base).split("[", 1)[0].rsplit(".", 1)[-1].strip() for base in node.bases}
 
     @staticmethod
     def tokenize(name: str) -> list[str]:
@@ -442,11 +437,7 @@ class Criterion:
 # region Source tree — Iterator / Aggregate (ISyncAggregate, IIterator)       #
 # --------------------------------------------------------------------------- #
 class PyFileIterator(LazyIterator[Path]):
-    """Yields every non-cache, in-scope .py file under a root, in stable order.
-
-    Since core v0.0.0.46 IIterator declares create_iterator() only; the lazy
-    build-on-first-__next__ machinery is the concrete LazyIterator policy.
-    """
+    """Yields every non-cache, in-scope .py file under a root, in stable order."""
 
     def __init__(self, root: Path, exclude: frozenset[Path] = frozenset()):
         super().__init__()
@@ -663,8 +654,7 @@ class NomenclatureRule(Wattleflow, IStrategy):
         elif expected is None and canon_pkg in reg.get("grouping_packages", []):
             add(
                 WARNING,
-                f"package '{canon_pkg}' groups several subjects — "
-                "subject/package relaxed (pending DR)",
+                f"package '{canon_pkg}' groups several subjects — subject/package relaxed (pending DR)",
             )
 
         # 2) Operation or To<Target>.
@@ -725,13 +715,9 @@ class ImportGraphBuilder(Wattleflow, IBuilder):
         self._shelf_use: dict[str, set[str]] = defaultdict(set)
         # Directional edge stores so violations can be classified in a post-pass:
         self._helper_to_domain: list[tuple] = []  # (path, line, target, module, names)
-        self._domain_to_helper: dict[str, list[tuple]] = defaultdict(
-            list
-        )  # src module -> [(path, line)]
+        self._domain_to_helper: dict[str, list[tuple]] = defaultdict(list)  # src module -> [(path, line)]
         self._imports_wf: set[str] = set()  # packages that import anything from wattleflow
-        self.edges: list[
-            tuple
-        ] = []  # (src_pkg, dst_pkg, dst_module, names, path, line) — for graphs
+        self.edges: list[tuple] = []  # (src_pkg, dst_pkg, dst_module, names, path, line) — for graphs
 
     def _module_of(self, path: Path) -> str | None:
         # Dotted module name of a file, so reverse edges key by the exact module (not just
@@ -1011,9 +997,7 @@ class TypeVarRule(Wattleflow, IStrategy):
 
         self._check_generic_arity(tree, single_letters, role_sev, add)
 
-    def _check_name(
-        self, name, call, roles, synonyms, tolerated, acronyms, casing, role_sev, line, add
-    ):
+    def _check_name(self, name, call, roles, synonyms, tolerated, acronyms, casing, role_sev, line, add):
         # 5) variance must not be encoded in the name — use covariant=/contravariant=.
         if name.endswith(("_co", "_contra")):
             add(
@@ -1295,9 +1279,7 @@ class SupplyChainRule(Wattleflow, IStrategy):
         severity = Criterion.severity(reg, "clean_core_imports", ERROR)
         scope = reg.get("scope") or {}
         waivers = {
-            str(entry.get("module")): entry
-            for entry in (scope.get("guarded_optional") or ())
-            if entry.get("module")
+            str(entry.get("module")): entry for entry in (scope.get("guarded_optional") or ()) if entry.get("module")
         }
         out: list[Finding] = []
         # The whole tree, not `caller.excluded`: a waived module is in scope for the
@@ -1428,9 +1410,7 @@ class SupplyChainRule(Wattleflow, IStrategy):
         matched = {name for name in packages if any(fnmatch.fnmatch(name, glob) for glob in globs)}
         # Report the outermost excluded package only; its sub-packages add no fact.
         outermost = {
-            name
-            for name in matched
-            if not any(other != name and name.startswith(other + ".") for other in matched)
+            name for name in matched if not any(other != name and name.startswith(other + ".") for other in matched)
         }
 
         # Who imports into those packages, from outside them?
@@ -1533,11 +1513,7 @@ class AuditRuleBase(Wattleflow, IStrategy):
         """
         if isinstance(node, ast.Attribute) and node.attr == "name":
             node = node.value
-        if (
-            isinstance(node, ast.Attribute)
-            and isinstance(node.value, ast.Name)
-            and node.value.id == enum
-        ):
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id == enum:
             return node.attr
         return None
 
@@ -1593,8 +1569,7 @@ class AuditLevelRule(AuditRuleBase):
                     # and the boundary logs that once. A trace here would add nothing
                     # the exception does not already say.
                     if handler.type is not None and (
-                        {e.strip() for e in ast.unparse(handler.type).strip("()").split(",")}
-                        & guards
+                        {e.strip() for e in ast.unparse(handler.type).strip("()").split(",")} & guards
                     ):
                         continue
                     bare = (
@@ -1805,9 +1780,7 @@ class WemLint(Wattleflow, IStrategyContext):
 
     def present_domains(self) -> set[str]:
         domains, shared = set(self._reg.get("domains", [])), self._reg.get("shared_namespace", "")
-        return {
-            d for d in (Naming.file_domain(p, self._src, domains, shared) for p in self._files) if d
-        }
+        return {d for d in (Naming.file_domain(p, self._src, domains, shared) for p in self._files) if d}
 
     @staticmethod
     def _waived_modules(src: Path, scope: dict, files) -> frozenset[Path]:
@@ -1815,11 +1788,7 @@ class WemLint(Wattleflow, IStrategyContext):
         # does NOT displace the module from the tier. SEC-03 read that waiver, the
         # scope filter did not, so the ORG rules skipped three in-tier modules
         # while the same run printed "waived by DR-WFL-003" about them.
-        declared = {
-            str(entry.get("module"))
-            for entry in (scope.get("guarded_optional") or ())
-            if entry.get("module")
-        }
+        declared = {str(entry.get("module")) for entry in (scope.get("guarded_optional") or ()) if entry.get("module")}
         return frozenset(p for p in files if p.relative_to(src).as_posix() in declared)
 
     @staticmethod
@@ -1832,9 +1801,7 @@ class WemLint(Wattleflow, IStrategyContext):
             if path in waived:
                 continue
             rel = path.relative_to(src).as_posix()
-            if any(fnmatch.fnmatch(rel, g) for g in globs) or Naming.foreign_imports(
-                path, core_libs
-            ):
+            if any(fnmatch.fnmatch(rel, g) for g in globs) or Naming.foreign_imports(path, core_libs):
                 excluded.add(path)
         return frozenset(excluded)
 
@@ -1886,8 +1853,7 @@ class WemLint(Wattleflow, IStrategyContext):
                 "the same fact is raised as a SEC-03 finding, so the skip is recorded "
                 "twice on purpose and silenced nowhere"
                 if foreign
-                else "the criterion itself put this path out of scope, so this INFO is "
-                "the only record of the skip"
+                else "the criterion itself put this path out of scope, so this INFO is the only record of the skip"
             )
             out.append(
                 Finding(
@@ -1896,8 +1862,7 @@ class WemLint(Wattleflow, IStrategyContext):
                     path,
                     0,
                     str(path.relative_to(self._src)),
-                    f"outside the declared tier ({reason}) — the ORG rules skipped this "
-                    f"module; {echo}",
+                    f"outside the declared tier ({reason}) — the ORG rules skipped this module; {echo}",
                     kind="out-of-scope-module",
                     detail=reason,
                 )
@@ -1923,9 +1888,7 @@ class WemLint(Wattleflow, IStrategyContext):
     def execute_strategy(self, caller: IWattleflow, **kwargs) -> list[Finding]:
         # `caller` is part of the IStrategyContext contract since core v0.0.0.46;
         # it is forwarded verbatim so a rule can attribute its findings.
-        return self._strategy.execute(
-            caller, src=self._src, reg=self._reg, source=self._source, **kwargs
-        )
+        return self._strategy.execute(caller, src=self._src, reg=self._reg, source=self._source, **kwargs)
 
     def run(self, rules) -> list[Finding]:
         findings: list[Finding] = []
@@ -2062,9 +2025,7 @@ class Application:
         # The INVOCATION directory, never the resolved one: a distribution may
         # symlink this tool, and the tree it wants measured is its own (N-01).
         here = _CALL_HOME
-        ap = argparse.ArgumentParser(
-            description="Wattleflow NFR lint (" + ", ".join(RuleFactory.available()) + ")"
-        )
+        ap = argparse.ArgumentParser(description="Wattleflow NFR lint (" + ", ".join(RuleFactory.available()) + ")")
         ap.add_argument("--version", action="version", version=f"wem_lint {__version__}")
         ap.add_argument(
             "--lang",
@@ -2153,8 +2114,7 @@ class Application:
         Locale.install(reg)
         if args.lang and args.lang not in Locale.available():
             print(
-                f"wem_lint: unknown --lang {args.lang!r}; the registry declares "
-                f"{', '.join(Locale.available())}",
+                f"wem_lint: unknown --lang {args.lang!r}; the registry declares {', '.join(Locale.available())}",
                 file=sys.stderr,
             )
             return 2
@@ -2241,8 +2201,7 @@ class Application:
         doc = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(doc, dict) or not isinstance(doc.get("domains"), list):
             raise KeyError(
-                "no `domains` list — expected a criterion dictionary.json "
-                "(the code vocabulary of one distribution)"
+                "no `domains` list — expected a criterion dictionary.json (the code vocabulary of one distribution)"
             )
         # JSON carries no comments: underscore-prefixed keys are the dictionary's
         # prose and are dropped before the rules see it.
@@ -2283,9 +2242,7 @@ class Application:
         for key in ("MESSAGES", "CATALOGUE"):
             table = inline[key] or doc.get(key) or {}
             complete = (
-                table.get(Locale.DEFAULT)
-                if key == "MESSAGES"
-                else all(Locale.DEFAULT in v for v in table.values())
+                table.get(Locale.DEFAULT) if key == "MESSAGES" else all(Locale.DEFAULT in v for v in table.values())
             )
             if not table or not complete:
                 raise KeyError(
@@ -2327,12 +2284,10 @@ class Application:
             # (dictionary.yaml) versions the terms people read, nothing the lint
             # measures against.
             "criterion": (
-                f"{reg.get('criterion_path', 'dictionary.json')} "
-                f"{reg.get('registry_version', 'unversioned')}"
+                f"{reg.get('criterion_path', 'dictionary.json')} {reg.get('registry_version', 'unversioned')}"
             ),
             "presentation": (
-                f"{reg.get('presentation_path', '(inline)')} "
-                f"{reg.get('presentation_version', 'unversioned')}"
+                f"{reg.get('presentation_path', '(inline)')} {reg.get('presentation_version', 'unversioned')}"
             ),
             "platform": f"python {platform.python_version()} ({platform.system()})",
             # Not a triple member — presentation is versioned apart (D-13); carried
@@ -2362,12 +2317,7 @@ class Application:
     def _render_graph(self, args, lint: WemLint) -> None:
         # Colour only when writing to an interactive terminal (never into a file),
         # honouring the NO_COLOR convention.
-        color = (
-            not args.no_color
-            and not args.graph_out
-            and sys.stdout.isatty()
-            and "NO_COLOR" not in os.environ
-        )
+        color = not args.no_color and not args.graph_out and sys.stdout.isatty() and "NO_COLOR" not in os.environ
         text = self._graph_renderers[args.graph](
             lint.import_graph(), color=color, lang=getattr(args, "lang", Locale.DEFAULT)
         )
@@ -2382,9 +2332,7 @@ class Application:
         # exposes the keys as --graph choices, _render_graph dispatches on them.
         return {"ascii": self._render_ascii_graph}
 
-    def _render_ascii_graph(
-        self, builder: ImportGraphBuilder, color: bool = True, lang: str = Locale.DEFAULT
-    ) -> str:
+    def _render_ascii_graph(self, builder: ImportGraphBuilder, color: bool = True, lang: str = Locale.DEFAULT) -> str:
         """Render the package-level import DAG as a Unicode tree, tagging bad edges."""
         nodes, adj, viol, scope = builder.graph()
 
@@ -2416,9 +2364,7 @@ class Application:
             lines.append("")
 
         tags = (("CYCLE", "tag_cycle"), ("LAYERING", "tag_layering"), ("LEAF", "tag_leaf"))
-        legend = "  ".join(
-            paint(f"{t} ({Locale.text(lang, k)})", self._TAG_COLOUR[t]) for t, k in tags
-        )
+        legend = "  ".join(paint(f"{t} ({Locale.text(lang, k)})", self._TAG_COLOUR[t]) for t, k in tags)
         lines.append(Locale.text(lang, "legend") + legend)
         return "\n".join(lines)
 
@@ -2497,17 +2443,14 @@ class Application:
             "date": args.date,
             "source": str(args.src),
             "rules_selected": selected,
-            "reproducibility_triple": {
-                k: triple[k] for k in ("tool", "source", "criterion", "platform")
-            },
+            "reproducibility_triple": {k: triple[k] for k in ("tool", "source", "criterion", "platform")},
             # Outside the triple on purpose: the report surface cannot change a
             # verdict, so it must not make two snapshots look incomparable.
             "presentation": triple["presentation"],
             "presentation_version": triple["presentation_version"],
             "python_reference": triple["python_reference"],
             "vector": [
-                {"nfr": nfr, "kind": k, "severity": sev, "count": n}
-                for nfr, k, sev, n in self._vector(findings)
+                {"nfr": nfr, "kind": k, "severity": sev, "count": n} for nfr, k, sev, n in self._vector(findings)
             ],
             # Only what is genuinely unmeasured territory. Registry drift and an
             # unparsable module are EXC too, but they are defects to act on — filing
@@ -2531,9 +2474,7 @@ class Application:
             ],
         }
         args.snapshot.parent.mkdir(parents=True, exist_ok=True)
-        args.snapshot.write_text(
-            json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-        )
+        args.snapshot.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(f"\nwem_lint: {kind} written to {args.snapshot}")
 
     def _report_compact(self, args, selected, findings) -> None:
@@ -2569,9 +2510,7 @@ class Application:
         # it — readable at any count. Kinds without a catalogue entry fall back to the
         # compact rendering, so nothing is ever swallowed.
         color = not args.no_color and sys.stdout.isatty() and "NO_COLOR" not in os.environ
-        red, yellow, dim, reset = (
-            ("\033[31m", "\033[33m", "\033[2m", "\033[0m") if color else ("", "", "", "")
-        )
+        red, yellow, dim, reset = ("\033[31m", "\033[33m", "\033[2m", "\033[0m") if color else ("", "", "", "")
 
         # Grouped by (kind, severity), not by kind alone: one kind can be raised at
         # two levels (a grammar breach is an ERROR, a relaxed grouping package only
@@ -2589,9 +2528,7 @@ class Application:
         for (kind, sev), items in groups.items():
             c = Locale.entry(kind, args.lang)
             badge, col = (
-                ("✖ ERROR", red)
-                if sev >= ERROR
-                else (("⚠ WARNING", yellow) if sev >= WARNING else ("ℹ INFO", ""))
+                ("✖ ERROR", red) if sev >= ERROR else (("⚠ WARNING", yellow) if sev >= WARNING else ("ℹ INFO", ""))
             )
             print(f"\n{col}{badge} {c['code']} · {c['title']}{reset}  {dim}[{c['ref']}]{reset}\n")
             for ln in c["why"]:
