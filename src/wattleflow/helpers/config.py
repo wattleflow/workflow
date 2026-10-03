@@ -37,7 +37,7 @@ _MISSING: Any = object()
 # --------------------------------------------------------------------------- #
 
 
-# v0.0.0.97 (DR-WFL-012, DR-COR-016): the search contract is shared and public —
+# v0.0.0.97: the search contract is shared and public —
 # clean core carries JSON, the YAML variant lives in wattleflow-processors.
 class Config(Audit, IConfig):
     """Format-independent lookup; the serialisation format is the only variant."""

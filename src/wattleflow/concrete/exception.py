@@ -12,7 +12,7 @@ from __future__ import annotations
 import inspect
 from wattleflow.constants.errors import ERROR_UNEXPECTED_TYPE
 
-# Taxonomy root lives one layer down (DR-WFL-009); re-exported so it stays a
+# Taxonomy root lives one layer down; re-exported so it stays a
 # member of this module's public API.
 from wattleflow.helpers.exception import AuditException
 

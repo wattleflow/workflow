@@ -4,7 +4,7 @@
 # License: Apache 2 Licence
 
 # Root of the framework's exception taxonomy. It sits in the foundation layer
-# because helpers raise it and helpers may not import an upper one (DR-WFL-009);
+# because helpers raise it and helpers may not import an upper one;
 # concrete/exception.py re-exports it, so the taxonomy reads as one unit.
 
 

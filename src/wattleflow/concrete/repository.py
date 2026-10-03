@@ -18,7 +18,7 @@ from wattleflow.concrete.driver import GenericDriver
 from wattleflow.concrete.exception import RepositoryException
 from wattleflow.concrete.strategy import StrategyRead, StrategyWrite
 from wattleflow.decorators.preset import PresetDecorator
-# from wattleflow.decorators.measure import measured  # retired, DR-WFL-031 v3
+# from wattleflow.decorators.measure import measured  # retired
 
 
 # --------------------------------------------------------------------------- #
@@ -30,7 +30,7 @@ from wattleflow.decorators.preset import PresetDecorator
 # --------------------------------------------------------------------------- #
 
 
-# v0.0.1.14 (DR-WFL-031 v3): retired — measurement now observes audit records; kept for the record.
+# v0.0.1.14: retired — measurement now observes audit records; kept for the record.
 # @measured()
 class GenericRepository(Wattleflow, IRepository, ABC):
     """Read and write documents through strategies, and count what was written.
@@ -169,7 +169,7 @@ class GenericRepository(Wattleflow, IRepository, ABC):
             )
         except Exception as e:
             reason = f"[{self.name}] Read strategy failed: {e}"
-            # v0.0.1.10 (DR-WFL-018 t.2): one cause, one ERROR — this layer only
+            # v0.0.1.10: one cause, one ERROR — this layer only
             # traces the step; the cause travels in the exception.
             self.debug(
                 msg=Event.Read,

@@ -19,7 +19,7 @@ class PresetGate:
     # Consumed by the framework itself (Audit pops these from its own copy of
     # kwargs), so they reach the preset and are never a configuration mistake.
     FRAMEWORK: ClassVar[frozenset[str]] = frozenset(
-        {"allowed", "formating", "formatting", "handler", "level", "name"}
+        {"allowed", "formatting", "handler", "level", "name"}
     )
 
     @classmethod
@@ -34,7 +34,12 @@ class PresetGate:
         if override is None:
             merged: set[str] = set()
             for klass in target.__mro__:
-                merged.update(vars(klass).get(cls.DECLARATION, ()) or ())
+                declared = vars(klass).get(cls.DECLARATION)
+                if declared is None:
+                    continue
+                if not isinstance(declared, list) or not all(isinstance(k, str) for k in declared):
+                    raise TypeError(f"{klass.__name__}.{cls.DECLARATION} must be a list of str")
+                merged.update(declared)
             return merged
         if isinstance(override, (tuple, set, frozenset)):
             override = list(override)

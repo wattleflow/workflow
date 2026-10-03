@@ -129,7 +129,7 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
         self._metadata["last_change_time"] = self.utc_time_stamp()
 
     def update_metadata(self, key: str, value: object) -> None:
-        # v0.0.1.14 (DR-WFL-032): no audit record per key — a key is not a unit of
+        # v0.0.1.14: no audit record per key — a key is not a unit of
         # work (NFRQ-OBS-03); the change itself is evidenced by the metadata below.
         if not key or not key.strip():
             raise ValueError(f"{self.name}.update_metadata: key must be non-empty")

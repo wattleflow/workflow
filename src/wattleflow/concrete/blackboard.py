@@ -29,7 +29,7 @@ from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.strategy import StrategyCreate
 from wattleflow.enums.event import Event
 from wattleflow.decorators.preset import PresetDecorator
-# from wattleflow.decorators.measure import measured  # retired, DR-WFL-031 v3
+# from wattleflow.decorators.measure import measured  # retired
 
 
 # --------------------------------------------------------------------------- #
@@ -98,7 +98,8 @@ TRANSITIONS = {
 # Wattleflow precedes Generic[Item] so IWattleflow lands before Generic in the MRO,
 # matching IOriginator's ordering; otherwise LargeBlackboard (GenericBlackboard +
 # IOriginator) cannot linearise a consistent MRO.
-# v0.0.1.14 (DR-WFL-031 v3): retired — measurement now observes audit records; kept for the record.
+
+
 # @measured()
 class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
     __slots__ = (
@@ -107,6 +108,10 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
         "_repositories",
         "_strategy_create",
     )
+
+    # The generic layer injects this key, so it declares it; PresetGate unions
+    # ALLOWED across the MRO, so a specialisation adds only its own keys.
+    ALLOWED = ["defer_flush"]
 
     # region Private
     def __init__(
@@ -204,6 +209,33 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
 
     # endregion Properties
 
+    # region Public
+    def register(self, repository: IRepository) -> None:
+        self.debug(msg=Event.Register, step=Event.Started, repository=repository)
+        assert isinstance(repository, IRepository), (
+            "Expected IRepository. Found %s" % type(repository)
+        )
+
+        if repository in self._repositories:
+            self.warning(
+                msg=Event.Register,
+                repository=repository,
+                error="Repository already registered!",
+            )
+            return
+
+        self._repositories.append(repository)
+        self._registered(repository)
+        self.debug(msg=Event.Register, step=Event.Completed, added=repository)
+
+    # endregion Public
+
+    # region Protected
+    def _registered(self, repository: IRepository) -> None:
+        """Hook after a repository is attached; the specialisation applies its automaton here."""
+
+    # endregion Protected
+
     # region Abstract
     @abstractmethod
     def clean(self): ...
@@ -231,4 +263,4 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
 # --------------------------------------------------------------------------- #
 
 
-__all__ = ["BlackboardAction", "BlackboardState", "GenericBlackboard"]
+__all__ = ["BlackboardAction", "BlackboardState", "GenericBlackboard", "TRANSITIONS"]

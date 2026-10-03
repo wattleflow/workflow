@@ -83,7 +83,7 @@ class TextMacros:
     @staticmethod
     def _replacement_error(pattern: re.Pattern, replacement) -> str | None:
         # A probe, not a gate: the branch reports the fault to its caller instead
-        # of wrapping and re-raising it (DR-WFL-018 t.2).
+        # of wrapping and re-raising it.
         try:
             pattern.sub(replacement, "")
         except re.error as e:

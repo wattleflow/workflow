@@ -23,7 +23,7 @@ standard library and this distribution's own `wattleflow.core` +
 INVOKED distribution — JSON, not YAML, so a quality gate never depends on a
 third-party parser being installed. Severity and waiver come from that
 criterion's `rules` block, not from constants here, so the enforcement level
-stays under DR governance. Report strings live in `tools/messages.json` next to
+stays under documentation governance. Report strings live in `tools/messages.json` next to
 the tool (a criterion may still carry them inline); `report_language` picks the
 default (en) and --lang overrides it per run.
 
@@ -169,7 +169,7 @@ class SourceFile:
         """Every module name this file imports, in source order.
 
         ast.walk (not just tree.body) is deliberate: a lazy, in-function import
-        still fixes the module's home distribution (DR-WFL-002 §2.1), so it must
+        still fixes the module's home distribution, so it must
         count exactly like a module-level one.
         """
         if self._imports is None:
@@ -271,6 +271,58 @@ class Criterion:
 
     LEVELS = {"error": ERROR, "warning": WARNING, "info": INFO}
 
+    # Waiver values: `forbidden` (no deviation), `declared` (the deviation is
+    # declared in the criterion itself) and `documented` (the deviation holds only
+    # with a documented change in the requirement record, named by `rq` and dated
+    # by the documentation `version`). Only `documented` carries obligations.
+    RQ_PATTERN = re.compile(r"^(HL|F|NF)RQ-[A-Z]{2,4}(-[0-9.]+)?(-BR-?[0-9]+)?$")
+    VERSION_PATTERN = re.compile(r"^v\d+\.\d+\.\d+$")
+
+    @classmethod
+    def validate_documentation(cls, reg: dict) -> None:
+        """Check the documentation-version references of a criterion; raise ValueError.
+
+        `documentation_version` (top level) is the default `version`. Every rule
+        whose waiver is `documented` needs `rq` (default: the rule's `nfr`) and
+        `version` (default: `documentation_version`); the resolved values are
+        written back so every later reader sees one complete record. A
+        `scope.guarded_optional` entry that names a `ref` follows the same shapes.
+        """
+        default = reg.get("documentation_version")
+        if default is not None and not (isinstance(default, str) and cls.VERSION_PATTERN.match(default)):
+            raise ValueError(f"documentation_version {default!r} does not match vX.Y.Z")
+
+        def check(where: str, rq, version) -> None:
+            if not (isinstance(rq, str) and cls.RQ_PATTERN.match(rq)):
+                raise ValueError(f"{where}: rq {rq!r} is not a requirement label (e.g. NFRQ-ORG-01)")
+            if not (isinstance(version, str) and cls.VERSION_PATTERN.match(version)):
+                raise ValueError(f"{where}: version {version!r} does not match vX.Y.Z")
+
+        for rule in reg.get("rules") or ():
+            if rule.get("waiver") != "documented":
+                continue
+            rule.setdefault("rq", rule.get("nfr"))
+            if rule.get("version") is None and default is not None:
+                rule["version"] = default
+            check(f"rule {rule.get('id', rule.get('check', '?'))} (waiver documented)", rule.get("rq"), rule.get("version"))
+        guarded = (reg.get("scope") or {}).get("guarded_optional") or ()
+        if isinstance(guarded, dict):
+            guarded = ()
+        for entry in guarded:
+            if entry.get("ref") is None:
+                continue
+            if entry.get("version") is None and default is not None:
+                entry["version"] = default
+            check(f"scope.guarded_optional {entry.get('module', '?')}", entry.get("ref"), entry.get("version"))
+
+    @staticmethod
+    def waiver_label(rule: dict) -> str:
+        """The waiver as reported: `documented` names its requirement and version."""
+        word = str(rule.get("waiver"))
+        if word == "documented" and rule.get("rq"):
+            return f"{word} ({rule['rq']}, {rule.get('version', 'unversioned')})"
+        return word
+
     # `acronym_identifier_casing.status` values that put criterion 4 in force.
     # The Croatian form is accepted because the discourse registry the criterion
     # was cut from still carries its own status vocabulary.
@@ -289,6 +341,7 @@ class Criterion:
         "preset_allowed_declaration": (
             "preset-allowed-name",
             "preset-allowed-scope",
+            "preset-allowed-type",
             "preset-allowed-forwarded",
         ),
         "audit_level_vs_propagation": ("audit-escalation-with-raise",),
@@ -308,7 +361,7 @@ class Criterion:
 
         The mode is criterion data, not a switch: whether an unused shelf module is a
         finding or a statistic depends on who owns the shelf's consumers, and that is a
-        property of the distribution (DR-WFL-019 v2).
+        property of the distribution.
         """
         for rule in reg.get("rules") or ():
             if rule.get("check") == check:
@@ -330,8 +383,8 @@ class Criterion:
 
         Two registry keys used to answer this — `acronym_identifier_casing.status`
         (which the tool read) and the `acronym_case` rule severity (which it did
-        not) — so a DR editing the rule table would have been silently ignored on
-        precisely the rule that is under an open DR. Precedence is now declared:
+        not) — so a documented change to the rule table would have been silently ignored on
+        precisely the rule whose decision is still open. Precedence is now declared:
         an adopted status puts criterion 4 in force; while the decision is open
         the rule severity applies but cannot exceed WARNING, because enforcing
         one side of an undecided question is what METHODOLOGY §9 forbids.
@@ -368,7 +421,7 @@ class Criterion:
     def drift(cls, reg: dict, src: Path) -> list[Finding]:
         # Three directions, all silent until now: a rule the registry declares but
         # no code path can raise (its severity and waiver are decoration), a check
-        # this tool emits that the registry never declared (it escapes DR governance
+        # this tool emits that the registry never declared (it escapes documentation governance
         # of severity/waiver entirely), and a severity word the tool cannot read —
         # which fell back to a constant here, i.e. to the level the registry was
         # supposed to be deciding.
@@ -402,12 +455,12 @@ class Criterion:
                     0,
                     f"{rule.get('id', '?')} · {check}",
                     f"declared in the registry (severity={rule.get('severity')}, "
-                    f"waiver={rule.get('waiver')}) but no check implements it — "
+                    f"waiver={cls.waiver_label(rule)}) but no check implements it — "
                     "the criterion promises a verdict the instrument cannot give",
                     kind="unimplemented-rule",
                     detail=(
                         f"{rule.get('id', '?')} · {check} "
-                        f"(severity={rule.get('severity')}, waiver={rule.get('waiver')})"
+                        f"(severity={rule.get('severity')}, waiver={cls.waiver_label(rule)})"
                     ),
                 )
             )
@@ -420,7 +473,7 @@ class Criterion:
                     0,
                     check,
                     "emitted by this tool but absent from the registry `rules` block — "
-                    "its severity and waiver are outside DR governance",
+                    "its severity and waiver are outside documentation governance",
                     kind="undeclared-check",
                     detail=f"{check} → emits: {', '.join(cls.IMPLEMENTED[check])}",
                 )
@@ -588,7 +641,7 @@ class NomenclatureRule(Wattleflow, IStrategy):
                     INFO,
                     node.lineno,
                     node.name,
-                    f"package '{subpkg}' is exempt (deferred via DR) — grammar not enforced",
+                    f"package '{subpkg}' is exempt (deferred by a documented change) — grammar not enforced",
                     kind="exempt-package",
                 )
                 continue
@@ -616,7 +669,7 @@ class NomenclatureRule(Wattleflow, IStrategy):
         # Registry-driven, like ORG-03: the enforcement level is a fact of the
         # criterion, not a constant of the tool — and it is resolved in one place.
         casing_sev = Criterion.acronym_severity(reg)
-        casing_pending = reg.get("acronym_pending", "an open DR")
+        casing_pending = reg.get("acronym_pending", "an open decision")
         casing_note = (
             "criterion 4"
             if casing_sev == ERROR
@@ -654,7 +707,7 @@ class NomenclatureRule(Wattleflow, IStrategy):
         elif expected is None and canon_pkg in reg.get("grouping_packages", []):
             add(
                 WARNING,
-                f"package '{canon_pkg}' groups several subjects — subject/package relaxed (pending DR)",
+                f"package '{canon_pkg}' groups several subjects — subject/package relaxed (pending a documented decision)",
             )
 
         # 2) Operation or To<Target>.
@@ -689,7 +742,7 @@ class NomenclatureRule(Wattleflow, IStrategy):
                     kind="acronym-case",
                 )
             else:
-                add(WARNING, f"qualifier '{q}' not registered (extend via DR, criterion 3)")
+                add(WARNING, f"qualifier '{q}' not registered (extend via a documented change, criterion 3)")
 
 
 # --------------------------------------------------------------------------- #
@@ -854,7 +907,7 @@ class ImportGraphBuilder(Wattleflow, IBuilder):
 class DependencyLocalityRule(Wattleflow, IStrategy):
     """NFRQ-ORG-01 — shared helpers must be acyclic and used from outside the shelf.
 
-    Criterion 1 asks for a consumer, not for a quorum (DR-WFL-019 v2): `helpers/`
+    Criterion 1 asks for a consumer, not for a quorum: `helpers/`
     holds what other packages use, so the module nothing outside the shelf imports
     is the misfiled one. Whether that is a finding or a statistic depends on who
     owns the consumers: in a distribution whose shelf serves a sibling distribution
@@ -957,7 +1010,7 @@ class TypeVarRule(Wattleflow, IStrategy):
         acronyms = reg.get("acronyms", [])
         # Acronym casing is enforced at whatever level the registry declares —
         # WARNING while the decision is open, ERROR once it is taken.
-        casing = (Criterion.acronym_severity(reg), reg.get("acronym_pending", "an open DR"))
+        casing = (Criterion.acronym_severity(reg), reg.get("acronym_pending", "an open decision"))
         # Every ORG-03 verdict is the same declared check, so it carries the
         # severity the registry gives that check (POLICY §9) — not a constant here.
         role_sev = Criterion.severity(reg, "typevar_role_vocabulary", ERROR)
@@ -1007,13 +1060,13 @@ class TypeVarRule(Wattleflow, IStrategy):
                 "variance encoded in name — declare it via TypeVar() args (criterion 5)",
             )
             return
-        # branded name pending a DR decision (rename to canonical role vs keep) → WARN.
+        # branded name pending a documented decision (rename to canonical role vs keep) → WARN.
         if name in tolerated:
             add(
                 WARNING,
                 line,
                 name,
-                "branded TypeVar — a DR must decide rename to canonical role vs keep (criterion 1)",
+                "branded TypeVar — a documented decision must settle rename to canonical role vs keep (criterion 1)",
             )
             return
         # 2/3) bare single-letter is allowed ONLY for one unconstrained parameter.
@@ -1065,7 +1118,7 @@ class TypeVarRule(Wattleflow, IStrategy):
                 role_sev,
                 line,
                 name,
-                "not in the registered role vocabulary (extend via DR, criterion 1)",
+                "not in the registered role vocabulary (extend via a documented change, criterion 1)",
             )
 
     @staticmethod
@@ -1129,18 +1182,7 @@ class TypeVarRule(Wattleflow, IStrategy):
 # region NFRQ-ORG-07 — Preset whitelist declaration                            #
 # --------------------------------------------------------------------------- #
 class PresetAllowedRule(Wattleflow, IStrategy):
-    """NFRQ-ORG-07 — the preset whitelist is a class attribute named `ALLOWED`.
-
-    Three criteria, one check, because they are three faces of one fact —
-    PresetDecorator resolves the whitelist from ``type(parent).ALLOWED``:
-
-    * §1 name — a synonym is never resolved, so the whitelist reads empty and
-      every configured key is dropped without a word.
-    * §2 scope — a module-level constant is equally invisible; it survives only
-      while some constructor hand-carries it, and no subclass can extend it.
-    * §3 forwarding — a class that declares ALLOWED and still passes `allowed=`
-      upward keeps a second copy of the same fact, free to drift from the first.
-    """
+    """NFRQ-ORG-07 — see documentation/requirements/03-NFRQ/NFRQ-ORG-07-preset-allowed-declaration.md."""
 
     def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
         cfg = reg.get("preset_allowed", {}) or {}
@@ -1173,9 +1215,7 @@ class PresetAllowedRule(Wattleflow, IStrategy):
                     severity,
                     line,
                     name,
-                    f"`{name}` declared at module scope — PresetDecorator resolves the "
-                    f"whitelist from `type(self).{canonical}`, so nothing here is found "
-                    "once a constructor stops hand-carrying it (criterion 2)",
+                    f"`{name}` declared at module scope (NFRQ-ORG-07)",
                     "preset-allowed-scope",
                     detail=f"module-level {name}",
                 )
@@ -1186,15 +1226,22 @@ class PresetAllowedRule(Wattleflow, IStrategy):
                 for name, line in self._assigned_names(stmt):
                     if name == canonical:
                         declares_canonical = True
+                        bad = self._not_a_list(self._assigned_value(stmt))
+                        if bad:
+                            add(
+                                severity,
+                                line,
+                                f"{cls.name}.{name}",
+                                f"`{name}` is {bad}, expected a list of names (NFRQ-ORG-07)",
+                                "preset-allowed-type",
+                                detail=f"{cls.name}.{name} is {bad}",
+                            )
                     elif name in synonyms:
-                        # §1 — a synonym is silently unresolvable.
                         add(
                             severity,
                             line,
                             f"{cls.name}.{name}",
-                            f"preset whitelist named `{name}` — PresetDecorator only "
-                            f"resolves `{canonical}`, so this class permits nothing and "
-                            "every configured key is dropped silently (criterion 1)",
+                            f"preset whitelist named `{name}`, expected `{canonical}` (NFRQ-ORG-07)",
                             "preset-allowed-name",
                             detail=f"{cls.name}.{name} → rename to {canonical}",
                         )
@@ -1206,11 +1253,35 @@ class PresetAllowedRule(Wattleflow, IStrategy):
                         line,
                         f"{cls.name}.{canonical}",
                         f"`{canonical}` is declared on the class and still forwarded as "
-                        "`allowed=` — the base resolves it, so the argument is a second "
-                        "copy free to drift (criterion 3)",
+                        "`allowed=` (NFRQ-ORG-07)",
                         "preset-allowed-forwarded",
                         detail=f"{cls.name} forwards allowed=",
                     )
+
+    @staticmethod
+    def _assigned_value(node):
+        """Value expression of a plain or annotated assignment, or None."""
+        return getattr(node, "value", None) if isinstance(node, (ast.Assign, ast.AnnAssign)) else None
+
+    @staticmethod
+    def _not_a_list(value) -> str | None:
+        """Description of a declaration that is statically not a list of names, else None.
+
+        Only what the AST proves is reported: a name, attribute, call or `+` of lists
+        cannot be resolved here and is left to the run-time check in `PresetGate`.
+        """
+        if value is None:
+            return None
+        if isinstance(value, ast.List):
+            for el in value.elts:
+                if isinstance(el, ast.Constant) and not isinstance(el.value, str):
+                    return f"a list holding {type(el.value).__name__}"
+            return None
+        if isinstance(value, ast.Constant):
+            return f"a {type(value.value).__name__}"
+        if isinstance(value, (ast.Tuple, ast.Set, ast.Dict, ast.JoinedStr)):
+            return {ast.Tuple: "a tuple", ast.Set: "a set", ast.Dict: "a dict", ast.JoinedStr: "a string"}[type(value)]
+        return None
 
     @staticmethod
     def _assigned_names(node) -> list[tuple[str, int]]:
@@ -1283,7 +1354,7 @@ class SupplyChainRule(Wattleflow, IStrategy):
         }
         out: list[Finding] = []
         # The whole tree, not `caller.excluded`: a waived module is in scope for the
-        # ORG rules (DR-WFL-003) and therefore absent from that set, but its waiver
+        # ORG rules and therefore absent from that set, but its waiver
         # must stay visible for as long as it is in force (D-11) — reading only the
         # excluded set would have silenced exactly the record it depends on.
         for path in caller.all_files():
@@ -1307,11 +1378,12 @@ class SupplyChainRule(Wattleflow, IStrategy):
                             0,
                             rel,
                             f"guarded optional dependency ({', '.join(foreign)}) — waived by "
-                            f"{waiver.get('dr', 'an undeclared DR')}, fallback "
+                            f"{waiver.get('ref', 'an undeclared reference')} "
+                            f"({waiver.get('version', 'unversioned')}), fallback "
                             f"{waiver.get('fallback', 'undeclared')}; the waiver holds only "
                             "while the masking test passes",
                             kind="foreign-import",
-                            detail=f"waived ({waiver.get('dr', 'no DR')}): {', '.join(foreign)}",
+                            detail=f"waived ({waiver.get('ref', 'no reference')}, {waiver.get('version', 'unversioned')}): {', '.join(foreign)}",
                         )
                     )
                     continue
@@ -1461,7 +1533,7 @@ class AuditRuleBase(Wattleflow, IStrategy):
     """Shared reading of the registry's `audit` block and of audit call sites.
 
     An audit call is `self.<level>(...)`; the level set, the phase vocabulary and
-    the class roles are criterion data, not constants, so a DR editing the
+    the class roles are criterion data, not constants, so a documented change to the
     registry moves the instrument without touching this file.
     """
 
@@ -1508,7 +1580,7 @@ class AuditRuleBase(Wattleflow, IStrategy):
     def _event_member(node, enum: str) -> "str | None":
         """`Event.<Member>` or `Event.<Member>.name` → `<Member>`; anything else → None.
 
-        v1.18.0 (DR-WFL-032): the enum is a `StrEnum`, so the member itself is the
+        v1.18.0: the enum is a `StrEnum`, so the member itself is the
         record's text; `.name` stays accepted for code that has not moved.
         """
         if isinstance(node, ast.Attribute) and node.attr == "name":
@@ -1564,7 +1636,7 @@ class AuditLevelRule(AuditRuleBase):
                 for handler in (n for n in ast.walk(fn) if isinstance(n, ast.ExceptHandler)):
                     if not any(isinstance(n, ast.Raise) for n in ast.walk(handler)):
                         continue
-                    # Guarded optional dependency (DR-WFL-003): the branch turns a
+                    # Guarded optional dependency: the branch turns a
                     # missing package into a domain error carrying the install hint,
                     # and the boundary logs that once. A trace here would add nothing
                     # the exception does not already say.
@@ -1784,10 +1856,10 @@ class WemLint(Wattleflow, IStrategyContext):
 
     @staticmethod
     def _waived_modules(src: Path, scope: dict, files) -> frozenset[Path]:
-        # DR-WFL-003: a guarded reference whose fallback is functionally complete
+        # A guarded reference whose fallback is functionally complete
         # does NOT displace the module from the tier. SEC-03 read that waiver, the
         # scope filter did not, so the ORG rules skipped three in-tier modules
-        # while the same run printed "waived by DR-WFL-003" about them.
+        # while the same run printed "waived" about them.
         declared = {str(entry.get("module")) for entry in (scope.get("guarded_optional") or ()) if entry.get("module")}
         return frozenset(p for p in files if p.relative_to(src).as_posix() in declared)
 
@@ -2039,7 +2111,7 @@ class Application:
             type=Path,
             default=here / "dictionary.json",
             help="criterion dictionary: the code vocabulary in JSON, one per "
-            "distribution — the sole source since DR-WFL-020",
+            "distribution — the sole source",
         )
         ap.add_argument(
             "--messages",
@@ -2107,7 +2179,7 @@ class Application:
         try:
             reg = self._load_registry(args.registry)
             self._load_presentation(reg, args.messages)
-        except (OSError, json.JSONDecodeError, KeyError) as e:
+        except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
             print(f"wem_lint: cannot read criterion {args.registry}: {e}", file=sys.stderr)
             return 2
 
@@ -2195,7 +2267,7 @@ class Application:
                       (DQI, NFR, PDSA) and checking class names against it would
                       be nonsense. The two sets are disjoint by construction.
           acronym_severity — driven by `acronym_identifier_casing.status`, so
-                      the enforcement level is a registry fact under DR
+                      the enforcement level is a registry fact under documentation
                       governance rather than a constant in this file.
         """
         doc = json.loads(path.read_text(encoding="utf-8"))
@@ -2211,13 +2283,15 @@ class Application:
         # traceback instead of the guarded exit the caller can act on.
         reg.setdefault("shared_namespace", "")
         reg["acronyms"] = reg.get("identifier_acronyms", [])
+        Criterion.validate_documentation(reg)
         casing = reg.get("acronym_identifier_casing") or {}
-        reg["acronym_pending"] = casing.get("decision_pending", "an open DR")
+        reg["acronym_pending"] = casing.get("decision_pending", "an open decision")
         reg["criterion_path"] = str(path)
         # The reproducibility triple names the criterion (the code vocabulary) and
         # the discourse revision it was cut from — versioned apart from each other.
         reg["registry_version"] = reg.get("criterion_version", "unversioned")
         reg["dictionary_version"] = reg.get("dictionary_version", "unversioned")
+        reg["documentation_version"] = reg.get("documentation_version", "unversioned")
         return reg
 
     @staticmethod
@@ -2279,8 +2353,8 @@ class Application:
             # tool reported another distribution's tree as green (N-01/N-02).
             "source": f"{args.src} [{reg.get('distribution', 'undeclared distribution')}]",
             # The criterion is the code vocabulary: one JSON per distribution,
-            # named with its version so a snapshot pins the exact file. Since
-            # DR-WFL-020 it has no second source — the discourse registry
+            # named with its version so a snapshot pins the exact file. It
+            # has no second source — the discourse registry
             # (dictionary.yaml) versions the terms people read, nothing the lint
             # measures against.
             "criterion": (
@@ -2290,6 +2364,8 @@ class Application:
                 f"{reg.get('presentation_path', '(inline)')} {reg.get('presentation_version', 'unversioned')}"
             ),
             "platform": f"python {platform.python_version()} ({platform.system()})",
+            # The documentation revision the criterion's waivers refer to.
+            "documentation": str(reg.get("documentation_version", "unversioned")),
             # Not a triple member — presentation is versioned apart (D-13); carried
             # so a snapshot still records which wording produced it.
             "presentation_version": str(reg.get("presentation_version", "unversioned")),
@@ -2385,6 +2461,7 @@ class Application:
         warns = sum(1 for f in findings if f.severity == WARNING)
         infos = sum(1 for f in findings if f.severity == INFO)
 
+        print(f"wem_lint {__version__} · documentation {triple['documentation']}")
         if args.format == "compact":
             self._report_compact(args, selected, shown)
         else:
@@ -2400,7 +2477,7 @@ class Application:
         print(Locale.text(lang, "vector_note"))
 
         print(f"\n== {Locale.text(lang, 'reproducibility')} {'=' * 52}")
-        for key in ("tool", "rules", "source", "criterion", "presentation", "platform"):
+        for key in ("tool", "rules", "source", "criterion", "documentation", "presentation", "platform"):
             print(f"  {key:<13} {triple[key]}")
         if not self._pin_matches(triple["python_reference"], platform.python_version()):
             print(
@@ -2443,7 +2520,7 @@ class Application:
             "date": args.date,
             "source": str(args.src),
             "rules_selected": selected,
-            "reproducibility_triple": {k: triple[k] for k in ("tool", "source", "criterion", "platform")},
+            "reproducibility_triple": {k: triple[k] for k in ("tool", "source", "criterion", "documentation", "platform")},
             # Outside the triple on purpose: the report surface cannot change a
             # verdict, so it must not make two snapshots look incomparable.
             "presentation": triple["presentation"],

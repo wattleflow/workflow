@@ -45,8 +45,7 @@ from wattleflow.helpers.normaliser import Normaliser
 # --------------------------------------------------------------------------- #
 # region Constants                                                            #
 # --------------------------------------------------------------------------- #
-# The core is JSON-only since DR-WFL-012; the name follows the reader
-# (DR-WFL-016).
+# The core is JSON-only; the name follows the reader.
 KEY_CONFIG_FILE_NAME = "config.json"
 # --------------------------------------------------------------------------- #
 # endregion Constants                                                         #
@@ -79,7 +78,7 @@ class ClassLoader(Audit, IWattleflow):
         level: int | str = kwargs.pop("level", NOTSET)
         handler: Handler | None = kwargs.pop("handler", None)
 
-        # v0.0.1.10 (DR-WFL-018 t.2): the audit sink lives in this same layer,
+        # v0.0.1.10: the audit sink lives in this same layer,
         # so the loader records through the house vocabulary without importing a
         # domain package. A falsy level is left unset — NOTSET here would reset
         # a level someone else configured for this class.

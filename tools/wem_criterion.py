@@ -66,7 +66,7 @@ class Finding:
     subject: str
     evidence: list[str] = field(default_factory=list)
     action: str = ""
-    # Who may settle it: "DR", "author", "registers", or "observation".
+    # Who may settle it: "documentation", "documented-change", "registers", or "observation".
     authority: str = ""
 
 
@@ -145,12 +145,10 @@ def bump_minor(version: str) -> str:
 
 
 class Registers:
-    """The requirement registers and decision records under a documentation root."""
+    """The requirement registers under a documentation root."""
 
     KEY_TOKEN = re.compile(r"[a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)*")
     ARROW = re.compile(r"dictionary\.json\s*(?:→|->)\s*([a-z_][a-z0-9_.]*)")
-    STATUS = re.compile(r"\*\*Status\*\*\s*\|\s*([^|\n]+)")
-    ACCEPTED = re.compile(r"prihva[ćc]en|accepted", re.IGNORECASE)
 
     def __init__(self, root: Path) -> None:
         self.root = root
@@ -169,13 +167,6 @@ class Registers:
             if match:
                 found.add(match.group(1))
         return found
-
-    def dr_status(self, dr: str) -> str | None:
-        records = sorted(self.base.glob(f"04-DR/{dr}-*.md"))
-        if not records:
-            return None
-        match = self.STATUS.search(records[0].read_text(encoding="utf-8"))
-        return match.group(1).strip() if match else "?"
 
     def cited_keys(self) -> Iterator[tuple[str, str]]:
         """(token, "file:line") for key-shaped names cited after `dictionary.json` on a line.
@@ -350,9 +341,9 @@ class Drift:
                         f"the criterion names it `{alias}` (wem_lint alias) — correct the register"
                         if alias
                         else "the register cites a key the criterion lacks: correct the "
-                        "register, or add the key through a DR"
+                        "register, or add the key through a documented change"
                     ),
-                    "registers" if alias else "DR",
+                    "registers" if alias else "documentation",
                 )
             )
         return out
@@ -373,21 +364,6 @@ class Drift:
                         "registers",
                     )
                 )
-        changelog = " ".join(self.criterion.get("_criterion_version") or ())
-        for dr in sorted(set(re.findall(r"DR-[A-Z]{3}-\d{3}", changelog))):
-            status = self.registers.dr_status(dr)
-            if status is not None and self.registers.ACCEPTED.search(status):
-                continue
-            out.append(
-                Finding(
-                    "criterion→registers",
-                    "change-authority",
-                    dr,
-                    [str(self.criterion.path)],
-                    f"the changelog cites {dr}, status: {status or 'no record'}",
-                    "DR",
-                )
-            )
         return out
 
     def code_to_criterion(self) -> list[Finding]:
@@ -411,7 +387,7 @@ class Drift:
                         if clean
                         else "add to scope.core_libraries once the dependency is accepted"
                     ),
-                    "DR" if clean else "author",
+                    "documentation" if clean else "documented-change",
                 )
             )
 
@@ -428,12 +404,12 @@ class Drift:
                     "unregistered-acronym",
                     run,
                     where[:5],
-                    "register it, or rename — casing is under DR-WFL-004",
-                    "DR",
+                    "register it, or rename — casing is a documented decision",
+                    "documentation",
                 )
             )
 
-        # 0.2.0: foundation_packages are declared material the lint skips (DR-PRC-008).
+        # 0.2.0: foundation_packages are declared material the lint skips.
         declared = (
             set(crit.get("domains") or ())
             | set(crit.get("foundation_packages") or ())
@@ -447,7 +423,7 @@ class Drift:
                     package,
                     [package],
                     "declare it a domain, or record it as foundation material the lint skips",
-                    "DR",
+                    "documentation",
                 )
             )
 
@@ -464,7 +440,7 @@ class Drift:
                     package,
                     [f"pipelines/{package}"],
                     "a pipeline here passes the name grammar unmeasured: map it to a subject",
-                    "DR",
+                    "documentation",
                 )
             )
         return out
@@ -497,7 +473,7 @@ class Drift:
                 str(f.get("name")),
                 [str(f.get("location"))],
                 str(f.get("message")),
-                "DR",
+                "documentation",
             )
             for f in snapshot.get("findings") or ()
             if f.get("kind") in LINT_DRIFT_KINDS
@@ -567,7 +543,7 @@ def propose(findings: list[Finding]) -> dict[str, Any] | None:
     """The mechanical part of the report as a patch; everything else needs a decision."""
     ops, expect = [], []
     for f in findings:
-        if f.kind == "undeclared-library" and f.authority == "author":
+        if f.kind == "undeclared-library" and f.authority == "documented-change":
             ops.append({"op": "add", "path": "scope.core_libraries", "value": f.subject})
             for where in f.evidence:
                 expect.append({"kind": "foreign-import", "match": where.split(":")[0]})
@@ -622,7 +598,7 @@ def apply(
 ) -> dict[str, Any]:
     if not authority.strip():
         raise PermissionError(
-            "no authority: a criterion change needs a DR or the author's instruction"
+            "no authority: a criterion change needs a documented reference (--authority)"
         )
     if Criterion.dump(criterion.doc) != criterion.raw:
         raise ValueError(

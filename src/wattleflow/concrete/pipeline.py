@@ -101,7 +101,7 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
         facade: ITarget,
         **kwargs,
     ) -> None:
-        # v0.0.1.14 (DR-WFL-031 v3): no `step` — the operation opens once, below,
+        # v0.0.1.14: no `step` — the operation opens once, below,
         # after the arguments are known to be what they claim.
         self.debug(
             msg=Event.Transform,
@@ -138,7 +138,7 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
                 result=result,
             )
         except AssertionError as e:
-            # v0.0.1.10 (DR-WFL-018 t.2): the caller stops the propagation and owns
+            # v0.0.1.10: the caller stops the propagation and owns
             # the ERROR; this layer leaves the trace and carries the cause in the
             # exception.
             self.debug(msg=Event.Transform, step=Event.Failed, error=str(e))

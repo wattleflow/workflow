@@ -7,7 +7,7 @@
 """
 Central measurement — `FRQ-MET-01` (time, volume) and `FRQ-PTN-18.1` (resources).
 
-The audit record is the event (v0.0.1.14, DR-WFL-031 v3). Every component already
+The audit record is the event (v0.0.1.14). Every component already
 writes `step=Started` / `step=Completed|Failed` around its operations and the
 processor writes one `Processed` record per document; `Audit._log_msg` hands
 those records to the monitor BEFORE the level gate, so measurement works at

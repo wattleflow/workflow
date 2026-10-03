@@ -22,7 +22,7 @@ from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.enums.event import Event
 from wattleflow.enums.operation import Operation
 from wattleflow.decorators.preset import PresetDecorator
-# from wattleflow.decorators.measure import measured  # retired, DR-WFL-031 v3
+# from wattleflow.decorators.measure import measured  # retired
 
 # --------------------------------------------------------------------------- #
 # endregion imports                                                           #
@@ -169,9 +169,6 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
     def __init__(self, **kwargs) -> None:
         connection_name = kwargs.pop("connection_name", None)
 
-        # The old form passed `formating={}` (the legacy spelling) when the
-        # caller supplied none, which
-        # only worked because Formatter falls back on a falsy fmt.
         super().__init__(**kwargs)
 
         if connection_name is None or connection_name.strip() == "":
@@ -365,6 +362,23 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
             self.warning(
                 msg=Event.Swap, error=f"Old connection was not closed properly: {e}"
             )
+
+    def operation(self, action: Operation, **kwargs: Any) -> bool:
+        """Entry point of a managed object (`ConnectionManager.operation`).
+
+        `Connect` and `Disconnect` are carried out through `request`; any other
+        action is reported and answered with `False`.
+        """
+        if action not in (Operation.Connect, Operation.Disconnect):
+            self.warning(
+                msg=Event.Operation,
+                step=Event.Failed,
+                action=getattr(action, "name", action),
+                reason="unsupported action",
+            )
+            return False
+        self.request(action=action, **kwargs)
+        return True
 
     def request(self, **kwargs: Any) -> Any:
         action = kwargs.get("action")

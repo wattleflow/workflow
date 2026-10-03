@@ -171,7 +171,7 @@ class CreatedWithin(IParser):
     @staticmethod
     def _iso(text: str) -> datetime | None:
         # A probe, not a gate: the caller decides what an unreadable value means,
-        # so no branch here wraps and re-raises (DR-WFL-018 t.2).
+        # so no branch here wraps and re-raises.
         try:
             return datetime.fromisoformat(text)
         except ValueError:
@@ -227,7 +227,7 @@ class Stamp:
         """`value` as a moment, or None when it states none.
 
         ISO first, then RFC 5322 — a probe, not a gate: an unreadable value is
-        the caller's to interpret, so neither branch raises (DR-WFL-018 t.2).
+        the caller's to interpret, so neither branch raises.
         """
         if isinstance(value, datetime):
             return value

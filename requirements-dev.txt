@@ -4,7 +4,7 @@ wheel
 # pyyaml is dev-only and no longer needed by wem_lint (its criterion moved to
 # tools/dictionary.json, stdlib-only). It is NOT a runtime dependency either —
 # the shipped helpers/config*.py guard the import and fall back to
-# helpers/yaml.py, so installing the wheel never forces it (DR-ORG-07).
+# helpers/yaml.py, so installing the wheel never forces it.
 # pyyaml
 # ruff
 # twine>=6.1   # older twine rejects the Metadata-Version 2.4 this project emits

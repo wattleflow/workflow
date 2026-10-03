@@ -79,7 +79,7 @@ class MeasurementFilter(Filter):
 # --------------------------------------------------------------------------- #
 
 
-# The record a processor writes once per finished unit of work (DR-WFL-028).
+# The record a processor writes once per finished unit of work.
 _UNIT_CLOSED: str = Event.Processed
 
 
@@ -103,7 +103,7 @@ class Audit(ILogger, IObserver):
 
     _lock = RLock()
     _instances: set[type] = set()
-    # v0.0.1.14 (DR-WFL-031): the audit record is the measurement event. One
+    # v0.0.1.14: the audit record is the measurement event. One
     # observer per process, installed for the duration of a workflow pass;
     # it receives records that carry a `step` (or close a unit of work)
     # BEFORE the level gate, so measurement does not depend on DEBUG.
@@ -222,7 +222,7 @@ class Audit(ILogger, IObserver):
     def update(self, event: Any, **kwargs) -> None:
         # IObserver end of the sink: an observed event is an audit record. One
         # frame deeper than the level methods, hence stacklevel 4.
-        # v0.0.1.10 (DR-WFL-018 t.3): the observed value is a named field, so a
+        # v0.0.1.10: the observed value is a named field, so a
         # caller key can no longer land in this call's own namespace.
         self.info(
             msg=Event.Notify,

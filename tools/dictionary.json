@@ -22,62 +22,63 @@
     "intersection is empty (measured 2026-07-28) and must stay empty — merging them",
     "would make one sign carry two roles.",
     "Versioning: `criterion_version` versions THIS criterion, and nothing else",
-    "does. Since DR-WFL-020 the file has no upstream source: the discourse",
+    "does. The file has no upstream source: the discourse",
     "registry (documentation/dictionary.yaml) versions the terms people read, not",
     "the vocabulary the lint measures against, so editing an entry there cannot",
     "invalidate a code conformance snapshot (reproducibility triple).",
     "Governance: every extension — a new domain, base family, acronym or TypeVar",
-    "role — requires a DR record, never an ad-hoc edit."
+    "role — requires a documented change in the requirement record, never an ad-hoc edit."
   ],
   "registry": "wattleflow-code-vocabulary",
   "distribution": "wattleflow-workflow",
   "_criterion_version": [
-    "0.10.0 (2026-08-24) — rule semantics changed by DR-WFL-019 v2, so vectors are not",
+    "0.10.0 (2026-08-24) — rule semantics changed, so vectors are not",
     "comparable with 0.9.x on ORG-01: criterion 1 asks for ONE consumer outside the",
     "shelf instead of two domains, the population is every module on the shelf (not",
     "only those already in the import graph), and the new `rules[].report` key selects",
     "how the check states itself — `summary` here, one INFO statistic, because this",
     "shelf's consumers ship in another distribution. Finding kinds `unused-shared-helper`",
     "(K4, renamed from `single-consumer-helper`) and `shared-shelf-usage` (K30).",
-    "0.9.3 (2026-08-24) — provenance only, by DR-WFL-020: `dictionary_version` and",
+    "0.9.3 (2026-08-24) — provenance only: `dictionary_version` and",
     "`dictionary_source` removed, because the `code:` block they pointed at left",
     "documentation/dictionary.yaml. This file is now the sole source of the code",
     "criterion for this distribution. No rule, domain or scope moved: vectors stay",
     "comparable with 0.9.2.",
     "0.9.2 (2026-08-24) — `helper_fan_in` (ORG-01c) severity warning -> info by",
-    "DR-WFL-019: the count is a lower bound (intra-shared edges, relative imports",
+    "The count is a lower bound (intra-shared edges, relative imports",
     "and sibling-distribution consumers are unmeasured), so the check states a",
     "diagnosis, not a verdict. Verdict semantics changed: ORG-01 vectors before and",
     "after this revision are not comparable without this note (D-10).",
-    "0.8.2 (2026-08-19) — `scope.guarded_optional` emptied by DR-WFL-012 (witness:",
+    "0.8.2 (2026-08-19) — `scope.guarded_optional` emptied (witness:",
     "tag v0.0.0.97): the YAML config, its shim and the config adapter/validator left",
     "for wattleflow-processors, and the JSON config that stays is stdlib-only. Waiver",
     "list only, no rule semantics: vectors stay comparable with 0.8.1.",
-    "0.8.1 (2026-08-16) — `bases` families realigned by DR-WFL-009 (witness: tag",
+    "0.8.1 (2026-08-16) — `bases` families realigned (witness: tag",
     "v0.0.0.93). Names only, no rule semantics: vectors stay comparable with 0.8.0.",
     "0.8.0 (2026-07-31) — rule semantics changed, so old and new vectors are not",
     "comparable without a declared note (D-10). Changes, per analysis",
     "tools/2026-07-31-analysis-changes.md §2.2: `helper_fan_in` and",
     "`distribution_manifest` declared in `rules`; `scope.guarded_optional` added",
-    "(DR-WFL-003 waivers, without which `clean_core_imports` would turn a proven",
+    "(waivers, without which `clean_core_imports` would turn a proven",
     "waiver into an ERROR); absent domains `audit`, `blackboards`, `mappers`",
     "removed (they are not in this tree — `mappers` moved to processors per",
     "NFRQ-SEC-03); blind spots extended; presentation moved to messages.json.",
-    "PENDING: DR-PRC-001 must enact this revision — until then the criterion is a",
+    "PENDING: this revision must be enacted in the documentation — until then the criterion is a",
     "draft and its findings are conformant, not descriptive (D-08)."
   ],
   "criterion_version": "0.10.0",
+  "documentation_version": "v0.0.5",
   "_python_reference": "Defines the 'stdlib' set for ORG-01; must track requires-python in pyproject.toml.",
   "python_reference": "3.11",
   "_acronym_identifier_casing": [
-    "Enforcement level of the acronym-casing criterion — a registry fact under DR",
+    "Enforcement level of the acronym-casing criterion — a registry fact under documentation",
     "governance rather than a constant in the tool: `adopted` makes the check an",
     "ERROR, any other status falls back to the severity declared for the",
     "`acronym_case` rule below (single resolution path since v1.11.0)."
   ],
   "acronym_identifier_casing": {
     "status": "undecided",
-    "decision_pending": "DR-WFL-004",
+    "decision_pending": "NFRQ-ORG-02",
     "note": "the lint warns (WARNING, waiver declared) instead of failing the build until the decision is taken"
   },
   "_blind_spots": [
@@ -86,7 +87,7 @@
   ],
   "blind_spots": [
     "imports inside the shared namespace are not modelled as edges, so cycles and layering within helpers/ are unmeasured, and a helper consumed only by another helper counts as unconsumed (helpers->domain acyclicity IS measured)",
-    "helper fan-in is counted within ONE distribution: this shelf mostly serves wattleflow-processors, whose imports are outside --src, so an unused-looking module here is usually consumed there. That is why criterion 1 states itself as one INFO statistic (`report: summary`) instead of a verdict per module — the verdict-bearing measurement belongs to the distribution that ships the shelf's consumers (DR-WFL-019 v2)",
+    "helper fan-in is counted within ONE distribution: this shelf mostly serves wattleflow-processors, whose imports are outside --src, so an unused-looking module here is usually consumed there. That is why criterion 1 states itself as one INFO statistic (`report: summary`) instead of a verdict per module — the verdict-bearing measurement belongs to the distribution that ships the shelf's consumers",
     "the ORG-02 name grammar (Subject/Operation) is inert in this distribution: no `subjects` block and no `pipelines` domain are declared, so only criterion 6 (prohibited_standalone) is enforced here",
     "ORG-01 measures the import graph, never the runtime one: dynamic edges (ClassLoader, YAML-declared types) are invisible to the AST, so blast radius per NFRQ-SEC-01 is under-counted",
     "a strategic adversary is beyond the reach of the lint",
@@ -106,14 +107,14 @@
       "nfr": "NFRQ-SEC-03",
       "check": "clean_core_imports",
       "severity": "error",
-      "waiver": "dr_required"
+      "waiver": "documented"
     },
     {
       "id": "ORG-01b",
       "nfr": "NFRQ-ORG-01",
       "check": "domain_acyclicity",
       "severity": "error",
-      "waiver": "dr_required"
+      "waiver": "documented"
     },
     {
       "id": "ORG-01c",
@@ -128,7 +129,7 @@
       "nfr": "NFRQ-ORG-02",
       "check": "base_family_membership",
       "severity": "error",
-      "waiver": "dr_required"
+      "waiver": "documented"
     },
     {
       "id": "ORG-02b",
@@ -156,14 +157,14 @@
       "nfr": "NFRQ-SEC-03",
       "check": "distribution_manifest",
       "severity": "warning",
-      "waiver": "dr_required"
+      "waiver": "documented"
     },
     {
       "id": "ORG-07a",
       "nfr": "NFRQ-ORG-07",
       "check": "preset_allowed_declaration",
       "severity": "error",
-      "waiver": "dr_required"
+      "waiver": "documented"
     },
     {
       "id": "PRC-OBS-01a",
@@ -204,7 +205,7 @@
     "src/wattleflow belongs to them (mappers moved to wattleflow-processors per",
     "NFRQ-SEC-03). The `absent-domain` check (K10) keeps this list honest from now on.",
     "`enums` is absent for the same reason: it imports nothing intra-project,",
-    "so every layer may depend on it (DR-WFL-016 t.5, DR-WFL-017)."
+    "so every layer may depend on it (see the requirement records)."
   ],
   "domains": [
     "concrete",
@@ -228,7 +229,7 @@
     "finding (NFRQ-SEC-03 criterion 1), because a silent skip is what the criterion",
     "forbids.",
     "`guarded_optional` is the only waiver: modules whose third-party reference sits",
-    "behind a try/except branch with a FUNCTIONALLY COMPLETE fallback (DR-WFL-003).",
+    "behind a try/except branch with a FUNCTIONALLY COMPLETE fallback (see the requirement records).",
     "The test is masking (mask the package — the module must still import and work),",
     "never code review; a branch that raises, returns None or degrades is NOT guarded.",
     "`exclude_paths` opts modules out by path glob, for cases the import filter",
@@ -390,7 +391,7 @@
     "            Adapter-pattern role (document.py: Generic[Adaptee]), `Connection`",
     "            the wrapped-resource role (connection.py: Generic[Connection]).",
     "synonyms  — collapsed to a canonical role (criterion 6; the lint flags and suggests)",
-    "tolerated — branded names awaiting a DR decision (rename to a canonical role vs",
+    "tolerated — branded names awaiting a documented decision (rename to a canonical role vs",
     "            keep): WARNING, not ERROR, until decided — the same tolerance policy",
     "            as ORG-01."
   ],
@@ -424,16 +425,7 @@
     ]
   },
   "_preset_allowed": [
-    "NFRQ-ORG-07 — Preset Whitelist Declaration. A class whose optional runtime",
-    "configuration is carried by PresetDecorator declares the permitted keys in a",
-    "class attribute named exactly `ALLOWED`.",
-    "Why a rule and not a preference: PresetDecorator resolves the whitelist from",
-    "the CLASS (`type(parent).ALLOWED`). A declaration under any other name, or at",
-    "module scope, is invisible to that resolution — the whitelist reads as empty",
-    "and every configuration key the caller passes is dropped WITHOUT ERROR. The",
-    "failure is silent by construction, which is why the severity is `error`.",
-    "The synonyms below were all in use on 2026-08-01 (27 declarations across 4",
-    "spellings) and are recorded so the check can name what it found."
+    "NFRQ-ORG-07 — see documentation/requirements/03-NFRQ/NFRQ-ORG-07-preset-allowed-declaration.md."
   ],
   "preset_allowed": {
     "declaration": "ALLOWED",
@@ -447,7 +439,7 @@
     ],
     "forwarding": "prohibited"
   },
-  "_audit": "NFRQ-OBS-01/02/03 criterion data: which call is an audit call, which levels escalate, which Event members are phases, and which classes are steps inside a unit of work (and therefore emit no INFO). Editing this block edits the criterion -> DR (D-03).",
+  "_audit": "NFRQ-OBS-01/02/03 criterion data: which call is an audit call, which levels escalate, which Event members are phases, and which classes are steps inside a unit of work (and therefore emit no INFO). Editing this block edits the criterion -> a documented change (D-03).",
   "audit": {
     "levels": [
       "debug",

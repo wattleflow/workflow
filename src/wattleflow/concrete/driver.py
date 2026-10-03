@@ -22,7 +22,7 @@ from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.enums.event import Event
 from wattleflow.enums.operation import Operation
 from wattleflow.decorators.preset import PresetDecorator
-# from wattleflow.decorators.measure import measured  # retired, DR-WFL-031 v3
+# from wattleflow.decorators.measure import measured  # retired
 
 
 # --------------------------------------------------------------------------- #
@@ -186,11 +186,6 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
             self.load()
             self._fsm.apply(DriverAction.LOAD_OK)
         except Exception as e:
-            # Record the failure only if the machine can still take it. A
-            # subclass hook that already applied LOAD_FAIL leaves the state at
-            # DEGRADED, where a second apply() raises — and that ValueError
-            # would replace the real load error on its way up, hiding the one
-            # fact the caller needs.
             if self._fsm.can(DriverAction.LOAD_FAIL):
                 self._fsm.apply(DriverAction.LOAD_FAIL)
             self.debug(msg=Event.Load, step=Event.Failed, error=str(e))
@@ -215,6 +210,26 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
             self.debug(msg=Event.Close, step=Event.Failed, error=str(e))
             raise
 
+    def operation(self, action: Operation, **kwargs) -> bool:
+        """Entry point of a managed object (`DriverManager.operation`).
+
+        `Connect` loads the resource and `Disconnect` unloads it; any other
+        action is reported and answered with `False`.
+        """
+        if action is Operation.Connect:
+            self.ensure_live()
+            return True
+        if action is Operation.Disconnect:
+            self.ensure_unloaded()
+            return True
+        self.warning(
+            msg=Event.Operation,
+            step=Event.Failed,
+            action=getattr(action, "name", action),
+            reason="unsupported action",
+        )
+        return False
+
     def pause(self) -> None:
         if self._fsm.can(DriverAction.PAUSE):
             self._fsm.apply(DriverAction.PAUSE)
@@ -229,9 +244,6 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
     # Subclass hooks, intentionally not abstract: load, close, read, write.
 
     def update(self, event: Any, **kwargs) -> None:
-        # v0.0.1.10 (DR-WFL-018 t.3): observables notify with a plain value as
-        # readily as with an Enum, and the payload travels as one named field —
-        # a caller key can then never become a control argument.
         self.debug(
             msg=Event.Update,
             step=Event.Started,

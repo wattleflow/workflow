@@ -26,7 +26,7 @@ __license__ = "Apache 2 Licence"
 
 class Singleton(IWattleflow):
     """
-    One cached instance per concrete subclass (DR-COR-003).
+    One cached instance per concrete subclass.
 
     Abstract subclasses are never cached; each subclass gets its own lock and
     runs __init__ once, guarded via __init_subclass__ so no metaclass is

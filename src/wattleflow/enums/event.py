@@ -19,7 +19,7 @@ from enum import StrEnum
 
 
 # Events
-# v0.0.1.14 (DR-WFL-032): a member IS its name — `msg=Event.Write` costs 57 ns where
+# v0.0.1.14: a member IS its name — `msg=Event.Write` costs 57 ns where
 # `Event.Write` cost 144 ns (an `enum.property` per access, twice per record).
 # Every value equals its name so `.name`, `.value` and the member read the same.
 class Event(StrEnum):
@@ -62,7 +62,7 @@ class Event(StrEnum):
     Configuring = "Configuring"
     Configuration = "Configuration"
     Context = "Context"
-    Convert = "Convert"  # (DR-WFL-048): Converter.convert
+    Convert = "Convert"  #: Converter.convert
     Copy = "Copy"
     Copying = "Copying"
     Copied = "Copied"
@@ -154,7 +154,7 @@ class Event(StrEnum):
     Operated = "Operated"
     Operation = "Operation"
     Operating = "Operating"
-    Parse = "Parse"  # (DR-WFL-048): Parser.parse
+    Parse = "Parse"  #: Parser.parse
     OrchestrationCompleted = "OrchestrationCompleted"
     OrchestrationStarted = "OrchestrationStarted"
     OrchestrationStopped = "OrchestrationStopped"

@@ -25,11 +25,11 @@ from wattleflow.concrete.driver import LazyDriverProxy
 from wattleflow.concrete.manager import (
     ConnectionManager,
     DriverManager,
-    DriverManagerException,
+    ManagerException,
     ProcessorManager,
 )
 from wattleflow.decorators.preset import PresetGate
-# from wattleflow.decorators.measure import measured  # retired, DR-WFL-031 v3
+# from wattleflow.decorators.measure import measured  # retired
 
 
 # --------------------------------------------------------------------------- #
@@ -205,7 +205,9 @@ logger = WorkflowFactoryLogger(level="ERROR", logger=getLogger("WorkflowFactory"
 
 
 class WorkflowFactory:
-    __slots__ = ("_registry", "_strategy_defaults")
+    # Class-level registry only: the factory is never instantiated, so it has no
+    # per-instance slots (a slot named like a class variable is a ValueError).
+    __slots__ = ()
 
     _registry: dict[str, type] = {}
     _strategy_defaults: dict[str, str] = {}  # role → fully-qualified class path
@@ -387,7 +389,7 @@ class WorkflowFactory:
         level = MonitorLevel.resolve(monitoring.get("level", "OFF"))
         if level == MonitorLevel.OFF:
             return
-        # The series carry which workflow they belong to (DR-WFL-033 t.5): the YAML
+        # The series carry which workflow they belong to: the YAML
         # entry's `name:` and the document's `app.name`.
         workflow_name = (workflow or {}).get("name")
 
@@ -496,7 +498,6 @@ class WorkflowFactory:
             "pipelines",
             "level",
             "handler",
-            "formating",  # legacy spelling, still accepted
             "formatting",
         }
     )
@@ -505,7 +506,7 @@ class WorkflowFactory:
     # not travel a second time inside a component's `configuration`, or the
     # constructor is called with the same keyword twice.
     AUDIT_KEYS: ClassVar[frozenset] = frozenset(
-        {"level", "handler", "formatting", "formating"}
+        {"level", "handler", "formatting"}
     )
 
     @classmethod
@@ -524,13 +525,7 @@ class WorkflowFactory:
         audit = {
             "handler": config.get("handler", nested.get("handler", default["handler"])),
             "formatting": config.get(
-                "formatting",
-                config.get(
-                    "formating",
-                    nested.get(
-                        "formatting", nested.get("formating", default["formatting"])
-                    ),
-                ),
+                "formatting", nested.get("formatting", default["formatting"])
             ),
         }
         level = config.get("level", nested.get("level"))
@@ -608,7 +603,7 @@ class WorkflowFactory:
 
         try:
             return {"driver": drivers.get_driver(name)}
-        except DriverManagerException as e:
+        except ManagerException as e:
             cls._fail(
                 section,
                 item,

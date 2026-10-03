@@ -15,7 +15,7 @@ from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.document import DocumentFacade, DummyReadDocument
 from wattleflow.concrete.exception import StrategyException
 from wattleflow.enums.event import Event
-# from wattleflow.decorators.measure import measured  # retired, DR-WFL-031 v3
+# from wattleflow.decorators.measure import measured  # retired
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #

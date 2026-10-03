@@ -28,7 +28,7 @@ from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.enums.event import Event
 from wattleflow.enums.operation import Operation
 from wattleflow.decorators.preset import PresetDecorator
-# from wattleflow.decorators.measure import measured  # retired, DR-WFL-031 v3
+# from wattleflow.decorators.measure import measured  # retired
 from wattleflow.concrete.exception import PipelineException, ProcessorException
 
 # --------------------------------------------------------------------------- #
@@ -89,7 +89,7 @@ TRANSITIONS = {
 # ----------------------------------------------------------------------------#
 
 
-# v0.0.1.14 (DR-WFL-031 v3): retired — measurement now observes audit records; kept for the record.
+# v0.0.1.14: retired — measurement now observes audit records; kept for the record.
 # @measured()
 class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
     __slots__ = (
@@ -242,7 +242,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
 
     @property
     def flush_outcome(self) -> bool | None:
-        """True when every repository confirmed the document; None if unknown (DR-WFL-047)."""
+        """True when every repository confirmed the document; None if unknown."""
         return self._flush_outcome
 
     @property
@@ -353,7 +353,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                         # A blackboard that answers nothing has not confirmed anything.
                         self._flush_outcome = outcome if isinstance(outcome, bool) else None
                     # v0.0.1.14 (FRQ-PTN-18.1 EV03): the `Processed` record below closes
-                    # the unit of work; the monitor observes it (DR-WFL-031 v3).
+                    # the unit of work; the monitor observes it.
                     # self.measure_units(documents=1)
                     # self.measure_boundary("cycle")
 
@@ -400,7 +400,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             )
             raise ProcessorException(caller=self, error=str(e)) from e
 
-        # v0.0.1.14 (DR-WFL-031 v3): closes the `Start` pair the monitor measures.
+        # v0.0.1.14: closes the `Start` pair the monitor measures.
         self.debug(msg=Event.Start, step=Event.Completed, cycles=self._cycle)
         # `msg` names the record; the phase is not a separate field. The opening
         # record is `Start`, the closing one `Completed` — the same `msg` twice

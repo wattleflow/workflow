@@ -8,7 +8,7 @@
 # region Constants                                                            #
 # --------------------------------------------------------------------------- #
 # The only message the framework itself raises; the rest of the catalogue serves
-# specialisations and ships with them (DR-WFL-016).
+# specialisations and ships with them.
 ERROR_UNEXPECTED_TYPE = "%s.%s: Unexpected type [%s], expected [%s]"
 # --------------------------------------------------------------------------- #
 # endregion Constants                                                         #

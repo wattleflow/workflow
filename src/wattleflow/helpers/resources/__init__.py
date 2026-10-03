@@ -4,12 +4,12 @@
 # License: Apache 2 Licence
 
 # --------------------------------------------------------------------------- #
-# Lazy public API (PEP 562) — DR-WFL-007.
+# Lazy public API (PEP 562).
 #
 # One resource per module, so adding one is adding a file rather than growing a
 # class. The package carries an `__init__.py` to belong to THIS distribution and
-# not merge with a same-named directory another ships (CLAUDE.md 2.6, 2.7 t.1,
-# DR-WFL-017). Nothing here needs an optional library today; the deferred form is
+# not merge with a same-named directory another ships (CLAUDE.md 2.6, 2.7 t.1).
+# Nothing here needs an optional library today; the deferred form is
 # kept because the GPU resource that will join arrives from a distribution that
 # does (`HLRQ-18` BR-08).
 # --------------------------------------------------------------------------- #

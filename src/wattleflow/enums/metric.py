@@ -14,7 +14,7 @@ but each component chose its own word, so a collector had to guess among them.
 `Measure` fixes that vocabulary and, with it, the unit and the series a value
 belongs to — so a number cannot arrive without saying what it counts.
 
-Adding a member extends a controlled vocabulary and goes through a DR (D-12).
+Adding a member extends a controlled vocabulary and goes through a documented change (D-12).
 """
 
 # --------------------------------------------------------------------------- #

@@ -3,7 +3,7 @@
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
-# Retired 2026-09-17 (DR-WFL-031 v3): measurement observes audit records instead of
+# Retired 2026-09-17: measurement observes audit records instead of
 # wrapping operations. The module is kept commented out for the record; nothing imports it.
 # """`measured` — the class decorator that places a class under `Monitor` (v0.0.1.14).
 #

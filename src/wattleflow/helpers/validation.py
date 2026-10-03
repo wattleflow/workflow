@@ -5,8 +5,7 @@
 
 
 """
-JSON Schema subset validator, stdlib only. Stands in for `jsonschema.validate`
-(DR-WFL-003) and is the schema check every configuration format uses — it
+JSON Schema subset validator, stdlib only. Stands in for `jsonschema.validate` and is the schema check every configuration format uses — it
 belongs to no single format, so it lives as a capability rather than inside a
 parser (NFRQ-ORG-01).
 
