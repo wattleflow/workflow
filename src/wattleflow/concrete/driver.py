@@ -250,6 +250,10 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
             event=getattr(event, "name", event),
             kwargs=kwargs,
         )
+        if event == Event.Swap and kwargs.get("name") == getattr(self, "connection_name", None):
+            # The connection behind this driver was replaced: unload, so the next
+            # ensure_live() runs load(), which resolves the swapped connection.
+            self.ensure_unloaded()
         self.debug(msg=Event.Update, step=Event.Completed)
 
     # endregion implementation
@@ -328,6 +332,9 @@ class LazyDriverProxy(Wattleflow, IDriver, IObserver, ABC):
         return self._ensure_ready().write(uri, **kwargs)
 
     def update(self, event: Any, **kwargs) -> None:
+        if event == Event.Swap and kwargs.get("name") == self._conn_name:
+            self.release()
+            return
         if self._driver is not None:
             self._driver.update(event, **kwargs)
 

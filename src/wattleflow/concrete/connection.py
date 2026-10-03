@@ -133,6 +133,11 @@ class ConnectionObserverInterface(Wattleflow, IObservable, ABC):
     def subscribe_observer(self, observer: IObserver) -> None:
         self.subscribe(observer)
 
+    def transfer_observers(self, target: IObservable) -> None:
+        """Subscribe every observer of this connection to `target` (used by `ConnectionManager.hot_swap`)."""
+        for observer in list(self._observers.values()):
+            target.subscribe(observer)
+
     def notify(self, owner, **kwargs) -> None:
         for observer in self._observers.values():
             try:
@@ -335,33 +340,6 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
             self._fsm.apply(ConnectionAction.RESET)
 
     # endregion FSM lifecycle
-
-    def hot_swap(self, name: str, new_connection: "GenericConnection") -> None:
-        if name not in self._connections:
-            raise ManagerException(
-                caller=self, error=f"Connection '{name}' nije registrirana."
-            )
-
-        old_conn = self._connections[name]
-
-        try:
-            new_connection.request(action=Operation.Connect)
-        except Exception as e:
-            self.debug(msg=Event.Swap, step=Event.Failed, error=str(e))
-            raise ManagerException(
-                caller=self,
-                error=f"Hot-swap failao, stara konekcija ostaje aktivna: {e}",
-            ) from e
-
-        self._connections[name] = new_connection
-        self.notify_observers(name, new_connection=new_connection)
-
-        try:
-            old_conn.request(action=Operation.Disconnect)
-        except Exception as e:
-            self.warning(
-                msg=Event.Swap, error=f"Old connection was not closed properly: {e}"
-            )
 
     def operation(self, action: Operation, **kwargs: Any) -> bool:
         """Entry point of a managed object (`ConnectionManager.operation`).

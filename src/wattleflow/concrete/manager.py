@@ -139,6 +139,51 @@ class ConnectionManager(Wattleflow, IObserver):
                 error="Trying to unregister a non-existent connection",
             )
 
+    def hot_swap(self, name: str, new_connection: Connection) -> None:
+        """Replace the registered connection `name` without losing its observers.
+
+        The new connection is connected first; if that fails the old one stays
+        registered and active. Observers move to the new connection and are
+        notified with `Event.Swap`; the old connection is disconnected last.
+        """
+        self.debug(msg=Event.Swap, step=Event.Started, name=name)
+        if name not in self._connections:
+            raise ManagerException(
+                caller=self, error=f"Connection '{name}' is not registered.", name=name
+            )
+
+        old_connection = self._connections[name]
+        try:
+            connected = new_connection.operation(Operation.Connect)
+        except Exception as e:
+            self.debug(msg=Event.Swap, step=Event.Failed, name=name, error=str(e))
+            raise ManagerException(
+                caller=self,
+                error=f"Hot swap failed, the old connection '{name}' stays active: {e}",
+                name=name,
+            ) from e
+        if not connected:
+            self.debug(msg=Event.Swap, step=Event.Failed, name=name)
+            raise ManagerException(
+                caller=self,
+                error=f"Hot swap failed, the old connection '{name}' stays active: new connection did not connect.",
+                name=name,
+            )
+
+        old_connection.transfer_observers(new_connection)
+        self._connections[name] = new_connection
+        new_connection.notify(Event.Swap, name=name, connection=new_connection)
+
+        try:
+            old_connection.operation(Operation.Disconnect)
+        except Exception as e:
+            self.warning(
+                msg=Event.Swap,
+                name=name,
+                error=f"Old connection was not closed properly: {e}",
+            )
+        self.debug(msg=Event.Swap, step=Event.Completed, name=name)
+
     def operation(self, name: str, action: Operation, **kwargs) -> bool:
         self.debug(msg=Event.Operation, step=Event.Started, kwargs=kwargs)
         if name not in self._connections:
