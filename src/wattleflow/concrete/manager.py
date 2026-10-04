@@ -17,7 +17,6 @@ from wattleflow.core import (
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.exception import ManagerException
 from wattleflow.concrete.connection import Connection
-from wattleflow.concrete.driver import DriverState
 from wattleflow.enums.event import Event
 from wattleflow.enums.operation import Operation
 
@@ -39,12 +38,22 @@ class ConnectionManager(Wattleflow, IObserver):
         super().__init__(**kwargs)
         self._connections: dict[str, IObserver] = {}
 
+    @staticmethod
+    def _release(conn: object) -> None:
+        """What a connection owes when it leaves the manager: a disconnect, if it is connected."""
+        if hasattr(conn, "connected") and conn.connected:
+            conn.request(action=Operation.Disconnect)
+
     def __del__(self):
+        # A construction that failed before `_connections` was set has nothing to release.
+        try:
+            object.__getattribute__(self, "_connections")
+        except AttributeError:
+            return
         errors = []
         for name, conn in list(self._connections.items()):
             try:
-                if hasattr(conn, "connected") and conn.connected:
-                    conn.request(action=Operation.Disconnect)
+                self._release(conn)
             except Exception as e:
                 errors.append(f"{name}: {e}")
 
@@ -55,9 +64,6 @@ class ConnectionManager(Wattleflow, IObserver):
             self.debug(msg=Event.Delete, step=Event.Completed)
 
         self._connections.clear()
-
-    def __hash__(self) -> str:
-        return abs(hash((self._random)))
 
     def __repr__(self) -> str:
         return f"{self.name}-{hash(id(self))}:[{len(self._connections)}]"
@@ -106,7 +112,9 @@ class ConnectionManager(Wattleflow, IObserver):
     def register_connection(self, connection: Connection, **kwargs) -> None:
         self.debug(msg=Event.Register, connection=connection, kwargs=kwargs)
 
-        connection_name: str = kwargs.pop("connection_name", connection.connection_name)
+        connection_name: str | None = kwargs.pop("connection_name", None) or getattr(
+            connection, "connection_name", None
+        )
 
         if connection_name is None:
             error = (
@@ -130,8 +138,19 @@ class ConnectionManager(Wattleflow, IObserver):
         self._connections[connection_name] = connection
 
     def unregister_connection(self, name: str) -> None:
+        """Remove the connection and release it as `__del__` would: disconnect if connected.
+        A failing disconnect is reported, and the entry is gone either way."""
         if name in self._connections:
-            del self._connections[name]
+            conn = self._connections.pop(name)
+            try:
+                self._release(conn)
+            except Exception as e:
+                self.error(
+                    msg=Event.Disconnect,
+                    reason="Failed to disconnect on unregister!",
+                    name=name,
+                    error=str(e),
+                )
         else:
             self.warning(
                 msg=Event.Update,
@@ -198,12 +217,8 @@ class ConnectionManager(Wattleflow, IObserver):
         return self._connections[name].operation(action, **kwargs)
 
     def update(self, *args, **kwargs):
-        self.debug(
-            msg=Event.Update,
-            step=Event.Started,
-            kwargs=kwargs,
-            note="Not implemented yet.",
-        )
+        # The manager observes nothing yet: the hook exists for the IObserver contract.
+        self.debug(msg=Event.Update, kwargs=kwargs, note="Not implemented yet.")
 
 
 class DriverManager(Wattleflow, IObserver):
@@ -217,6 +232,10 @@ class DriverManager(Wattleflow, IObserver):
         self.debug(msg=Event.Constructor, step=Event.Completed)
 
     def __del__(self):
+        try:
+            object.__getattribute__(self, "_drivers")
+        except AttributeError:
+            return
         self.debug(msg=Event.Destructor, step=Event.Started)
         errors = []
         for name, driver in list(self._drivers.items()):
@@ -228,14 +247,10 @@ class DriverManager(Wattleflow, IObserver):
         if errors:
             reason = "%s.__del__ error: %s" % (self.__class__.__name__, errors)
             self.error(msg=Event.Delete, step=Event.Failed, reason=reason)
-        else:
-            self.debug(msg=Event.Delete, step=Event.Completed)
 
         self._drivers.clear()
-        self.debug(msg=Event.Delete, step=Event.Completed)
-
-    def __hash__(self) -> str:
-        return abs(hash(id(self)))
+        if not errors:
+            self.debug(msg=Event.Delete, step=Event.Completed)
 
     def __repr__(self) -> str:
         return f"{self.name}-{hash(id(self))}:[{len(self._drivers)}]"
@@ -287,30 +302,36 @@ class DriverManager(Wattleflow, IObserver):
         )
 
     def unregister_driver(self, driver: str | IDriver) -> None:
+        """Remove the driver and release it as `__del__` would: unload it. A failing unload is
+        reported, and the entry is gone either way."""
         self.debug(
-            msg=Event.Register,
+            msg=Event.Unregister,
             target="driver",
             step=Event.Starting,
             driver=driver,
         )
         name = driver.name if isinstance(driver, IDriver) else driver
         if name in self._drivers:
-            self._drivers[name].update(
-                event=DriverState.UNLOADING,
-                caller=self,
-                msg="unregister_driver",
-            )
-            self._drivers[name].update(event=DriverState.UNLOADING)
+            registered = self._drivers.pop(name)
+            try:
+                registered.ensure_unloaded()
+            except Exception as e:
+                self.error(
+                    msg=Event.Unregister,
+                    step=Event.Failed,
+                    name=name,
+                    error=str(e),
+                )
         else:
             self.warning(
-                msg=Event.Update,
+                msg=Event.Unregister,
                 name=name,
-                error="Trying to unregister a non-existent connection",
+                error="Trying to unregister a driver that is not registered",
             )
         self.debug(
-            msg=Event.Register,
+            msg=Event.Unregister,
             target="driver",
-            step=Event.Starting,
+            step=Event.Completed,
             driver=name,
         )
 
@@ -332,19 +353,22 @@ class DriverManager(Wattleflow, IObserver):
         return result
 
     def update(self, *args, **kwargs):
-        self.debug(msg=Event.Update, step=Event.Started)
-        self.warning(msg=Event.Update, error="Not implemented yet.")
-        self.debug(msg=Event.Update, step=Event.Completed)
+        # The manager observes nothing yet: the hook exists for the IObserver contract.
+        self.debug(msg=Event.Update, kwargs=kwargs, note="Not implemented yet.")
 
 
 class ProcessorManager(Wattleflow, IObserver):
-    __slots_ = ("_processors",)
+    __slots__ = ("_processors",)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._processors: dict[str, IProcessor] = {}
 
     def __del__(self):
+        try:
+            object.__getattribute__(self, "_processors")
+        except AttributeError:
+            return
         self.debug(msg=Event.Delete, step=Event.Starting)
         errors = []
         while self._processors:
@@ -362,9 +386,6 @@ class ProcessorManager(Wattleflow, IObserver):
 
         self._processors.clear()
         self.debug(msg=Event.Delete, step=Event.Completed)
-
-    def __hash__(self) -> str:
-        return abs(hash(id(self)))
 
     def __repr__(self) -> str:
         return f"{self.name}-{hash(id(self))}:[{len(self._processors)}]"
@@ -439,10 +460,9 @@ class ProcessorManager(Wattleflow, IObserver):
         self.debug(msg=Event.Operation, step=Event.Completing, kwargs=kwargs)
         return self._processors[name].operation(action, **kwargs)
 
-    def update(self, **kwargs):
-        self.debug(msg=Event.Update, step=Event.Starting)
-        self.warning(msg=Event.Update, error="NOT IMPLEMENTED")
-        self.debug(msg=Event.Update, step=Event.Completed)
+    def update(self, *args, **kwargs):
+        # The manager observes nothing yet: the hook exists for the IObserver contract.
+        self.debug(msg=Event.Update, kwargs=kwargs, note="Not implemented yet.")
 
 
 # --------------------------------------------------------------------------- #
