@@ -65,18 +65,18 @@ prune src/wattleflow/core
 # DIRECTORY plus a PATTERN, so a glob path such as `documentation/*.md` matches
 # nothing and fails silently.
 prune documentation
+prune tests
 
 # --- NFR enforcement tooling ---
 # The controlled-vocabulary registry ships so the NFR lint is reproducible from
 # the sdist; it is governed data, not an importable module. Both files
 # are needed together — the lint carries no built-in vocabulary.
-# (`global-exclude *.yaml` above means the registry needs an explicit include.)
-# tools/dictionary.yaml is a link to documentation/dictionary.yaml; the sdist
-# copy follows the link, so the content is embedded rather than a dangling link.
-# It superseded tools/naming_registry.yaml on 2026-07-28 — one file now carries
-# both vocabularies (discourse: entries/acronyms; code: the `code:` block).
+# (`global-exclude *.json` above means both registries need an explicit include.)
+# tools/dictionary.json is the code vocabulary (the criterion wem_lint reads by
+# default); the discourse vocabulary, documentation/dictionary.yaml, stays in the
+# documentation repository and does not ship.
 include tools/wem_core.py
 include tools/wem_lint.py
-include tools/dictionary.yaml
+include tools/dictionary.json
 include tools/messages.json
 include README.md LICENSE pyproject.toml requirements-dev.txt

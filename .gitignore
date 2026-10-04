@@ -1,0 +1,33 @@
+*.config
+*.yaml
+.cl*/*
+.in*/*
+.ipynb_checkpoints/
+.pytest_cache
+.ruff_cache/
+.mypy_cache/
+.scraps
+.vscode
+.venv/
+.coverage
+htmlcov/
+*.egg-info/
+CL*
+Makefile
+__pycache__
+build/
+dist
+examples
+trace*
+tools/*.md
+documentation/
+
+# Dev symlink to the separate wattleflow-core repo; never part of this
+# distribution (mirrors `prune src/wattleflow/core` in MANIFEST.in).
+src/wattleflow/core
+
+# Secrets never enter git (P-23, NFRQ-SEC-09): ignore by pattern, at any depth.
+.env
+.env.*
+!.env.example
+.envrc
