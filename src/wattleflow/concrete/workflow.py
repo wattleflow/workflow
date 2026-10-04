@@ -12,6 +12,7 @@ from __future__ import annotations
 import difflib
 import os
 from abc import abstractmethod, ABC
+from collections.abc import Iterable
 from typing import Any, ClassVar, NoReturn
 from logging import getLogger
 from wattleflow.core import IConfig, IOriginator
@@ -251,7 +252,6 @@ class WorkflowFactory:
     __slots__ = ()
 
     _registry: dict[str, type] = {}
-    _strategy_defaults: dict[str, str] = {}  # role → fully-qualified class path
 
     # ------------------------------------------------------------------ #
     # region Registration
@@ -259,6 +259,19 @@ class WorkflowFactory:
 
     @classmethod
     def register(cls, name: str, class_name: type) -> None:
+        if not isinstance(class_name, type):
+            raise WorkflowFactoryException(
+                cls, f"Only a class can be registered; {name!r} got {type(class_name).__name__}."
+            )
+        known = cls._registry.get(name)
+        if known is not None and known is not class_name:
+            # A name taken by another class is a decision somebody should see.
+            logger.warning(
+                msg=Event.Register,
+                name=name,
+                replaced=known.__qualname__,
+                by=class_name.__qualname__,
+            )
         cls._registry[name] = class_name
 
     @classmethod
@@ -343,6 +356,7 @@ class WorkflowFactory:
             )
 
         workflow_class = cls._resolve_section("workflows", workflow)
+        cls._report_inline("workflows", workflow, {"processors", "runtime", "memento"})
 
         cls._apply_runtime_env(workflow.get("runtime"))
 
@@ -363,12 +377,17 @@ class WorkflowFactory:
             # could never be read.
             logger.set_level(resolved)
 
+        if declared_level is None:
+            # No declaration: follow the level the operator has set on the root logger, so the
+            # factory is neither louder nor quieter than everything else in the process.
+            logger.set_level(getLogger().getEffectiveLevel())
+
         global_audit = {
             "handler": adapter.find(*sections, "logging", "handler", default=None),
             "formatting": adapter.find(*sections, "logging", "format", default=None),
         }
 
-        # Worflow Class ------------------------------------------------ #
+        # Workflow class ----------------------------------------------- #
         connections = cls._build_connections(adapter, sections, **global_audit)
         drivers = cls._build_drivers(adapter, sections, connections, **global_audit)
         processors = cls._build_processors(workflow, drivers, **global_audit)
@@ -538,6 +557,7 @@ class WorkflowFactory:
             if value is None or value == "":
                 continue
             os.environ[env_name] = str(value)
+            # The known keys are installation paths; the value is part of the trace.
             logger.debug(
                 msg=Event.Configure,
                 stage="runtime",
@@ -551,11 +571,13 @@ class WorkflowFactory:
                 if value is None:
                     continue
                 os.environ[str(env_name)] = str(value)
+                # An arbitrary `runtime.env` entry may carry a token or a password: the name is
+                # traced, the value never is (BR-PTN-04, NFRQ-SEC-06).
                 logger.debug(
                     msg=Event.Configure,
                     stage="runtime",
                     env=str(env_name),
-                    value=str(value),
+                    value="<set>",
                 )
 
     # Keys the factory consumes itself: they identify or wire the entry and
@@ -603,6 +625,23 @@ class WorkflowFactory:
         if level is not None:
             audit["level"] = level
         return audit
+
+    @classmethod
+    def _report_inline(cls, section: str, item: dict, extra: Iterable[str] = ()) -> None:
+        """A key an entry carries that the factory neither consumes nor passes on would vanish
+        unseen: say so, with the section, the entry and the keys. (Only the blackboard merges
+        inline keys into its settings; everywhere else they belong in `configuration:`.)"""
+        if not isinstance(item, dict):
+            return
+        unknown = sorted(str(k) for k in item if k not in cls.STRUCTURAL and k not in extra)
+        if unknown:
+            logger.warning(
+                msg=Event.Configure,
+                section=section,
+                name=item.get("name", "<no-name>"),
+                discarded=unknown,
+                hint="put it under `configuration:`",
+            )
 
     @classmethod
     def _configuration(cls, config: dict) -> dict:
@@ -692,6 +731,7 @@ class WorkflowFactory:
         )
         for connection in connections:
             connection_class = cls._resolve_section("managers.connections", connection)
+            cls._report_inline("managers.connections", connection)
             configuration = cls._configuration(connection)
             manager.register_connection(
                 connection=connection_class(
@@ -714,6 +754,7 @@ class WorkflowFactory:
         drivers = adapter.find(*sections, "managers", "drivers", default=[]) or []
         for driver in drivers:
             driver_class = cls._resolve_section("managers.drivers", driver)
+            cls._report_inline("managers.drivers", driver)
             driver_type = driver.get("type", None)
             driver_name = driver.get("name", driver_type)
             driver_audit = cls._audit(driver, global_audit)
@@ -752,6 +793,7 @@ class WorkflowFactory:
                 )
             # processor class ----------------------------------------------- #
             processor_class = cls._resolve_section("workflows.processors", config)
+            cls._report_inline("workflows.processors", config, {"driver", "blackboard"})
             proc_audit = cls._audit(config, global_audit)
             configuration = cls._configuration(config)
 
@@ -761,7 +803,15 @@ class WorkflowFactory:
                 "driver", None
             )
             if driver_name:
-                configuration["driver"] = drivers.get_driver(driver_name)
+                try:
+                    configuration["driver"] = drivers.get_driver(driver_name)
+                except ManagerException as e:
+                    cls._fail(
+                        "workflows.processors",
+                        config,
+                        f"driver {driver_name!r} is not registered under managers.drivers",
+                        cause=e,
+                    )
 
             if memento_store is not None:
                 # The registered name is the checkpoint's key: it is what a restart finds again.
@@ -781,6 +831,7 @@ class WorkflowFactory:
             pipelines_config = config.get("pipelines", [])
             for pipeline in pipelines_config:
                 pipeline_class = cls._resolve_section("processors.pipelines", pipeline)
+                cls._report_inline("processors.pipelines", pipeline)
                 pipeline_audit = cls._audit(pipeline, global_audit)
                 pipeline_configuration = cls._configuration(pipeline)
                 processor.register_pipeline(
@@ -824,6 +875,7 @@ class WorkflowFactory:
                 repository_class = cls._resolve_section(
                     "blackboard.repositories", repository
                 )
+                cls._report_inline("blackboard.repositories", repository)
                 configuration = repository.get("configuration", {}) or {}
                 # What is left once the repository has taken its own keys is the
                 # strategy's configuration. Without this a strategy can be named
