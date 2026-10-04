@@ -54,12 +54,15 @@ class GenericRepository(Wattleflow, IRepository, ABC):
         strategy_read: StrategyRead | None = None,
         **kwargs,
     ):
-        assert isinstance(strategy_write, StrategyWrite), (
-            "Expected StrategyWrite. Found %s" % type(strategy_write)
-        )
-        if strategy_read is not None:
-            assert isinstance(strategy_read, StrategyRead), (
-                "Expected StrategyRead. Found %s" % type(strategy_read)
+        if not isinstance(strategy_write, StrategyWrite):
+            raise RepositoryException(
+                caller=type(self),
+                error="Expected StrategyWrite. Found %s" % type(strategy_write),
+            )
+        if strategy_read is not None and not isinstance(strategy_read, StrategyRead):
+            raise RepositoryException(
+                caller=type(self),
+                error="Expected StrategyRead. Found %s" % type(strategy_read),
             )
 
         super().__init__(**kwargs)
@@ -79,26 +82,13 @@ class GenericRepository(Wattleflow, IRepository, ABC):
 
         self.debug(msg=Event.Constructor, step=Event.Completed)
 
-    def __eq__(self, other: "GenericRepository") -> bool:
-        if not isinstance(other, GenericRepository):
-            return NotImplemented
-        self.debug(msg=Event.Probing, eq=hash(self) == hash(other))
-        return hash(self) == hash(other)
-
-    def __hash__(self) -> int:
-        return hash(
-            (
-                id(self),
-                self.name,
-                self._preset,
-                self._strategy_write,
-                self._strategy_read,
-            )
-        )
-
     # Must be implemented if using PresetDecorator
     def __getattr__(self, name: str) -> Any:
-        preset: PresetDecorator = object.__getattribute__(self, "_preset")
+        # Before `_preset` exists the lookup answers with the name asked for, not with `_preset`.
+        try:
+            preset: PresetDecorator = object.__getattribute__(self, "_preset")
+        except AttributeError:
+            raise AttributeError(name) from None
         return preset.__getattr__(name)
 
     def __repr__(self) -> str:
@@ -181,13 +171,22 @@ class GenericRepository(Wattleflow, IRepository, ABC):
                 caller=self,
                 error=reason,
                 id=identifier,
-                # trace=traceback.format_exc(),
             ) from e
 
         return facade
 
     def write(self, caller: IBlackboard, facade: ITarget, **kwargs) -> bool:
         context: dict[str, Any] = self._strategy_context()
+        # Checked before anything reads `caller.name` or `facade.identifier`, so a wrong object
+        # is answered with a RepositoryException and not with an AttributeError from the report.
+        if not isinstance(caller, IBlackboard):
+            raise RepositoryException(
+                caller=self, error="Expected IBlackboard. Found %s" % type(caller)
+            )
+        if not isinstance(facade, ITarget):
+            raise RepositoryException(
+                caller=self, error="Expected ITarget. Found %s" % type(facade)
+            )
 
         try:
             self.debug(
@@ -196,13 +195,6 @@ class GenericRepository(Wattleflow, IRepository, ABC):
                 caller=caller.name,
                 counter=self._write_counter,
                 facade=facade,
-            )
-
-            assert isinstance(caller, IBlackboard), (
-                "Expected IBlackboard. Found %s" % type(caller)
-            )
-            assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(
-                facade
             )
 
             result: bool = self._strategy_write.write(
@@ -267,9 +259,11 @@ class RepositoryWithDriver(GenericRepository):
         **kwargs,
     ):
         driver = kwargs.get("driver", None)
-        assert isinstance(driver, GenericDriver), (
-            "Expected GenericDriver. Found %s" % type(driver)
-        )
+        if not isinstance(driver, GenericDriver):
+            raise RepositoryException(
+                caller=type(self),
+                error="Expected GenericDriver. Found %s" % type(driver),
+            )
         super().__init__(**kwargs)
 
     # endregion Constructor
