@@ -39,21 +39,21 @@ class Strategy(Wattleflow, IStrategy, ABC):
 
 
 class StrategyGenerate(Strategy, ABC):
-    __slots__ = ("_strict",)
+    __slots__ = ()
 
     def generate(self, caller: IWattleflow, **kwargs) -> ITarget | None:
         return self.execute(caller=caller, **kwargs)
 
 
 class StrategyCreate(Strategy, ABC):
-    __slots__ = ("_strict",)
+    __slots__ = ()
 
     def create(self, caller: IWattleflow, **kwargs) -> ITarget | None:
         return self.execute(caller=caller, **kwargs)
 
 
 class StrategyRead(Strategy, ABC):
-    __slots__ = ("_strict",)
+    __slots__ = ()
 
     def read(
         self,
@@ -65,14 +65,14 @@ class StrategyRead(Strategy, ABC):
 
 
 class StrategyWrite(Strategy, ABC):
-    __slots__ = ("_strict",)
+    __slots__ = ()
 
     def write(self, caller: IWattleflow, facade: ITarget, **kwargs) -> bool:
         return bool(self.execute(caller=caller, facade=facade, **kwargs))
 
 
 class StrategyReadDummy(StrategyRead):
-    __slots__ = ("_document_type", "_strict")
+    __slots__ = ("_document_type",)
 
     def __init__(
         self,

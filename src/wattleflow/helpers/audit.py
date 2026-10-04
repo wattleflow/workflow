@@ -112,6 +112,9 @@ class Audit(ILogger, IObserver):
     def __init__(self, **kwargs):
         super().__init__()
 
+        # `fmt` is an alias of `formatting`; the one place that knows it, so no subclass has to.
+        if "fmt" in kwargs:
+            kwargs.setdefault("formatting", kwargs.pop("fmt"))
         formatting: str = kwargs.pop("formatting", LogFormat.DEFAULT.value)
         propagate: bool | None = kwargs.pop("propagate", None)
         logger: Logger | None = kwargs.pop("logger", None)

@@ -70,8 +70,6 @@ class GenericWorkflow(Wattleflow, IOriginator, ABC):
         "_connections",
         "_drivers",
         "_processors",
-        "_level",
-        "_handler",
         "_monitor",
     )
 
@@ -238,7 +236,7 @@ class GenericWorkflow(Wattleflow, IOriginator, ABC):
 class WorkflowFactoryLogger(Wattleflow):
     """Standalone audit logger for WorkflowFactory, not framework object."""
 
-    __slots__ = ("_logger",)
+    __slots__ = ()
     # ERROR until a workflow is built: before the YAML is read there is no declared
     # level to honour, and a library that talks on import is a nuisance. `build()`
     # raises it to the workflow's own level as soon as it knows one.

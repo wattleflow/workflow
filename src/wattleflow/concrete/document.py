@@ -262,6 +262,8 @@ class DummyReadDocument(Document[dict]):
     reader nor a dashboard takes it for a record.
     """
 
+    __slots__ = ()
+
     NOTICE = "read strategy not implemented"
 
     def __init__(self, identifier: str = "", expected: str = "", **kwargs):

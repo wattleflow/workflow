@@ -38,6 +38,8 @@ __all__ = ["SchedulerCronJob"]
 class SchedulerCronJob(Scheduler):
     """Build and run a workflow every ``heartbeat`` seconds."""
 
+    __slots__ = ("_adapter", "_heartbeat", "_sections", "_passes", "_failures")
+
     # The adapter is injected rather than read from a path: the YAML adapter
     # lives in a downstream distribution, and this package must not import it
     # (NFRQ-SEC-03, the dependency arrow points one way only).

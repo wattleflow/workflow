@@ -256,6 +256,8 @@ class GenericRepository(Wattleflow, IRepository, ABC):
 
 class RepositoryWithDriver(GenericRepository):
     # v0.0.1.12: read and write live in GenericRepository; only the strategy context differs.
+    __slots__ = ()
+
     ALLOWED = ["driver"]
 
     # region Constructor

@@ -78,7 +78,7 @@ class PresetGateResolveTest(unittest.TestCase):
     def test_framework_keys_are_a_closed_set(self):
         self.assertEqual(
             PresetGate.FRAMEWORK,
-            frozenset({"allowed", "formatting", "handler", "level", "name"}),
+            frozenset({"allowed", "fmt", "formatting", "handler", "level", "name"}),  # fmt: alias of formatting, split by Audit
         )
 
 

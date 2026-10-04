@@ -126,12 +126,6 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
             "Expected StrategyCreate. Found %s" % type(strategy_create)
         )
 
-        # `fmt` was this class's own spelling of the logger's `formatting`, so
-        # it never reached the logger; accepted as an alias so existing callers
-        # keep working.
-        if "fmt" in kwargs:
-            kwargs.setdefault("formatting", kwargs.pop("fmt"))
-
         # Default to caching through the cycle and flushing at the end.
         if "defer_flush" not in kwargs:
             kwargs["defer_flush"] = True
