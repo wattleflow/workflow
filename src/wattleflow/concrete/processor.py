@@ -200,6 +200,11 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         return f"{self.name}: [{len(self._pipelines)}]:[{self.levelname}]"
 
     def __del__(self):
+        # A construction that failed before the members were set has nothing to release.
+        try:
+            object.__getattribute__(self, "_pipelines")
+        except AttributeError:
+            return
         try:
             self.debug(msg=Event.Delete, step=Event.Started)
 
@@ -457,11 +462,18 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                         error=reason,
                     ) from e
 
+            # Without a flush per cycle the canvas is emptied once, here, when every item is done.
+            if not self._flush_per_cycle and self._cycle > 0:
+                self.blackboard.flush(caller=self, **self.write_context)
+
             self._fsm.apply(ProcessorAction.RECORDS_PROCESSED)
             if self._memento_store is not None:
                 self._release()
 
         except PipelineException:
+            # A failure inside an item leaves the machine FAILED, the state a resume loads from.
+            if self._fsm.can(ProcessorAction.FAIL):
+                self._fsm.apply(ProcessorAction.FAIL)
             raise
         except Exception as e:
             if self._fsm.can(ProcessorAction.FAIL):
