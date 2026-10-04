@@ -1,5 +1,5 @@
 # Module name: tests/test_blackboard.py
-# Tests for concrete/blackboard.py — FRQ-BBD §9 criteria 1–5 and §12 t.5, t.9:
+# Tests for concrete/blackboard.py — FRQ-BBD §9 criteria 1–5 and the closed §12 findings:
 # the generic layer declares the key it injects (`defer_flush`), `TRANSITIONS`
 # is exported, and the constructor/destructor contract holds.
 #
@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 from wattleflow.concrete import blackboard as module
 from wattleflow.concrete.blackboard import GenericBlackboard, TRANSITIONS
+from wattleflow.concrete.exception import BlackboardException
 from wattleflow.concrete.repository import GenericRepository
 from wattleflow.concrete.strategy import StrategyCreate, StrategyWrite
 from wattleflow.core import IOriginator, IWattleflow
@@ -149,10 +150,10 @@ class ModuleContractTest(unittest.TestCase):
 
         self.assertIsInstance(Snap(), IOriginator)
 
-    def test_slots_cover_the_four_members(self):
+    def test_slots_cover_the_five_members(self):
         self.assertEqual(
             set(GenericBlackboard.__slots__),
-            {"_canvas", "_preset", "_repositories", "_strategy_create"},
+            {"_canvas", "_fsm", "_preset", "_repositories", "_strategy_create"},
         )
 
     def test_fail_from_every_non_terminal_state_and_clean_from_every_state(self):
@@ -161,7 +162,96 @@ class ModuleContractTest(unittest.TestCase):
             self.assertEqual(TRANSITIONS[(state, A.FAIL)], S.FAILED)
         for state in (S.IDLE, S.READY, S.DIRTY, S.FAILED):
             self.assertEqual(TRANSITIONS[(state, A.CLEAN)], S.CLEARED)
-        self.assertFalse(any(action is A.READ for _, action in TRANSITIONS))
+        self.assertFalse(hasattr(A, "READ"))
+
+
+class AutomatonTest(unittest.TestCase):
+    """§12 resolved t.1: the generic layer holds the automaton and refuses a transition the table does not allow."""
+
+    def setUp(self):
+        self.S, self.A = module.BlackboardState, module.BlackboardAction
+
+    def test_new_board_is_idle(self):
+        self.assertIs(Board().state, self.S.IDLE)
+
+    def test_register_moves_to_ready(self):
+        board = Board()
+        board.register(Repo())
+        self.assertIs(board.state, self.S.READY)
+
+    def test_write_flush_cycle(self):
+        board = Board()
+        board.register(Repo())
+        board._transition(self.A.WRITE)
+        self.assertIs(board.state, self.S.DIRTY)
+        board._transition(self.A.FLUSH)
+        self.assertIs(board.state, self.S.READY)
+
+    def test_refused_transition_raises_and_keeps_state(self):
+        board = Board()
+        with self.assertRaises(BlackboardException):
+            board._transition(self.A.WRITE)
+        self.assertIs(board.state, self.S.IDLE)
+
+    def test_register_is_refused_after_clean(self):
+        board = Board()
+        self.assertTrue(board._try_transition(self.A.CLEAN))
+        with self.assertRaises(BlackboardException):
+            board.register(Repo())
+        self.assertEqual(board.repositories, [])
+
+    def test_register_is_refused_in_failed(self):
+        board = Board()
+        board._try_transition(self.A.FAIL)
+        with self.assertRaises(BlackboardException):
+            board.register(Repo())
+
+    def test_try_transition_never_raises_and_is_repeatable(self):
+        board = Board()
+        self.assertTrue(board._try_transition(self.A.CLEAN))
+        self.assertFalse(board._try_transition(self.A.CLEAN))
+        self.assertFalse(board._try_transition(self.A.FAIL))
+        self.assertIs(board.state, self.S.CLEARED)
+
+    def test_specialisation_may_replace_its_own_fsm(self):
+        """Specialisations in blackwattle still build their own `_fsm`."""
+        from wattleflow.concrete.state_machine import StateMachine
+
+        class Own(Board):
+            __slots__ = ("_fsm",)
+
+            def __init__(self, **kwargs):
+                super().__init__(**kwargs)
+                self._fsm = StateMachine(TRANSITIONS, self.S0, name="Own")
+
+            S0 = module.BlackboardState.IDLE
+
+        self.assertIs(Own().state, module.BlackboardState.IDLE)
+
+
+class CanvasContractTest(unittest.TestCase):
+    """§12 resolved t.3: `canvas` is a read-only Mapping[str, Item]."""
+
+    def test_annotation_is_mapping_of_str_to_item(self):
+        self.assertEqual(
+            GenericBlackboard.canvas.fget.__annotations__["return"], "Mapping[str, Item]"
+        )
+
+    def test_empty_canvas_gives_an_empty_view(self):
+        self.assertEqual(dict(Board().canvas), {})
+
+
+class FlushContractTest(unittest.TestCase):
+    """§12 resolved t.4: the contract of `flush` is written where the generic layer declares it."""
+
+    def test_docstring_defines_the_outcome(self):
+        doc = GenericBlackboard.flush.__doc__
+        self.assertIn("every", doc)
+        self.assertIn("False", doc)
+
+    def test_flush_is_still_abstract_and_bool(self):
+        self.assertIn("flush", GenericBlackboard.__abstractmethods__)
+        self.assertEqual(GenericBlackboard.flush.__annotations__["return"], "bool")
 
 
 class ConstructorContractTest(unittest.TestCase):

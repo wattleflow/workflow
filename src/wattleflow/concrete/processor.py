@@ -113,10 +113,6 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         blackboard: IBlackboard | None = kwargs.pop("blackboard", None)
         pipelines: list[IPipeline] | None = kwargs.pop("pipelines", None)
         flush_per_cycle = kwargs.pop("flush_per_cycle", None)
-        legacy_defer = kwargs.pop("defer_flush", None)
-
-        if flush_per_cycle is None and legacy_defer is not None:
-            flush_per_cycle = not bool(legacy_defer)
         if flush_per_cycle is None:
             flush_per_cycle = True
 
@@ -140,15 +136,6 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             flush_per_cycle=flush_per_cycle,
             kwargs=kwargs,
         )
-
-        if legacy_defer is not None:
-            self.warning(
-                msg=Event.Configure,
-                component="config",
-                deprecated="defer_flush",
-                use="flush_per_cycle",
-                value=flush_per_cycle,
-            )
 
         self._cycle: int = 0
         self._flush_per_cycle: bool = bool(flush_per_cycle)

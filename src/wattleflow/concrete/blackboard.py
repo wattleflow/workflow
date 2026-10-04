@@ -26,6 +26,8 @@ from wattleflow.core import (
 )
 from wattleflow.core.transactional import Item
 from wattleflow.concrete.base import Wattleflow
+from wattleflow.concrete.exception import BlackboardException
+from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.concrete.strategy import StrategyCreate
 from wattleflow.enums.event import Event
 from wattleflow.decorators.preset import PresetDecorator
@@ -54,7 +56,6 @@ class BlackboardState(str, Enum):
 class BlackboardAction(str, Enum):
     REGISTER = "register"  # repository attached
     WRITE = "write"
-    READ = "read"  # reserved — no transition
     FLUSH = "flush"  # broadcast to repositories
     LOAD = "load"  # restore from memento
     FAIL = "fail"
@@ -104,6 +105,7 @@ TRANSITIONS = {
 class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
     __slots__ = (
         "_canvas",
+        "_fsm",
         "_preset",
         "_repositories",
         "_strategy_create",
@@ -147,6 +149,11 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
         self._strategy_create = strategy_create
         self._canvas: Item = canvas
         self._repositories: Repositories = []
+        self._fsm: StateMachine = StateMachine(
+            TRANSITIONS,
+            BlackboardState.IDLE,
+            name=type(self).__name__,
+        )
 
         self.debug(msg=Event.Constructor, step=Event.Completed)
 
@@ -196,8 +203,17 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
 
     # region Property
     @property
-    def canvas(self) -> Mapping[Item]:
+    def canvas(self) -> Mapping[str, Item]:
+        """Read-only view of the canvas: a mapping from identifier to item.
+
+        A specialisation that keeps a single item overrides this property and
+        answers with a one-entry (or empty) mapping.
+        """
         return MappingProxyType(self._canvas)
+
+    @property
+    def state(self) -> BlackboardState:
+        return self._fsm.state
 
     @property
     @abstractmethod
@@ -224,6 +240,7 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
             )
             return
 
+        self._transition(BlackboardAction.REGISTER)
         self._repositories.append(repository)
         self._registered(repository)
         self.debug(msg=Event.Register, step=Event.Completed, added=repository)
@@ -231,8 +248,32 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
     # endregion Public
 
     # region Protected
+    def _transition(self, action: BlackboardAction) -> None:
+        """Apply `action`; a transition the table does not allow is refused.
+
+        Used for REGISTER, WRITE, FLUSH and LOAD: a call the automaton rejects
+        must not change the canvas, so the caller transitions first.
+        """
+        if not self._fsm.can(action):
+            raise BlackboardException(
+                self,
+                error=f"{action.name} is not allowed in state {self._fsm.state.name}.",
+            )
+        self._fsm.apply(action)
+
+    def _try_transition(self, action: BlackboardAction) -> bool:
+        """Apply `action` when allowed and answer whether it was; never raises.
+
+        Used for FAIL and CLEAN, which must stay safe to repeat and to call
+        from a destructor.
+        """
+        if not self._fsm.can(action):
+            return False
+        self._fsm.apply(action)
+        return True
+
     def _registered(self, repository: IRepository) -> None:
-        """Hook after a repository is attached; the specialisation applies its automaton here."""
+        """Hook after a repository is attached and REGISTER is applied."""
 
     # endregion Protected
 
@@ -247,7 +288,13 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
     def delete(self, identifier: str, **kwargs) -> None: ...
 
     @abstractmethod
-    def flush(self, caller: IWattleflow, **kwargs) -> bool: ...
+    def flush(self, caller: IWattleflow, **kwargs) -> bool:
+        """Broadcast the canvas to every repository and empty it.
+
+        True only when the canvas held at least one document and every
+        repository confirmed every document; False otherwise (including an
+        empty canvas). The processor reads this outcome.
+        """
 
     @abstractmethod
     def read(self, identifier: str, **kwargs) -> Item: ...

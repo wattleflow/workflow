@@ -24,14 +24,6 @@ __author__ = "WattleFlow"
 __copyright__ = "© 2022–2026 WattleFlow. All rights reserved"
 __license__ = "Apache 2 Licence"
 
-__all__ = [
-    "ConverterError",
-    "FormatterError",
-    "GenericConverter",
-    "GenericFormatter",
-    "GenericParser",
-    "ParserError",
-]
 
 # --------------------------------------------------------------------------- #
 # region Exceptions                                                           #
@@ -299,3 +291,14 @@ class GenericConverter(IStrategyContext, ABC):
 # --------------------------------------------------------------------------- #
 # endregion Conversion                                                        #
 # --------------------------------------------------------------------------- #
+
+
+# v0.0.1.23: DEF-DRV-03, last top-level statement of the module (STANDARDS §2.7)
+__all__ = [
+    "ConverterError",
+    "FormatterError",
+    "GenericConverter",
+    "GenericFormatter",
+    "GenericParser",
+    "ParserError",
+]

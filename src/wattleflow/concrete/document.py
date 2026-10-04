@@ -12,7 +12,6 @@
 
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from datetime import datetime
 from typing import Generic, TypeVar
 from collections.abc import Mapping
 from types import MappingProxyType
@@ -110,11 +109,10 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
             content=type(content),
         )
 
+        # v0.0.1.23: DEF-DOC-02, None is not content: it leaves a document only through `clean()`,
+        # so `content` can fail fast on use after cleaning and never in a state the class allowed
         if content is None:
-            self._content = None
-            self._metadata["last_change_key"] = "content"
-            self._metadata["last_change_time"] = self.utc_time_stamp()
-            return
+            raise ValueError(f"{self.name}.update_content: content must not be None")
 
         if self._expected_type is None:
             self._expected_type = type(content)
@@ -126,7 +124,8 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
 
         self._content = content
         self._metadata["last_change_key"] = "content"
-        self._metadata["last_change_time"] = self.utc_time_stamp()
+        # v0.0.1.23: DEF-DOC-09, one route to the time: Now.utc() (no per-document clock)
+        self._metadata["last_change_time"] = Now.utc()
 
     def update_metadata(self, key: str, value: object) -> None:
         # v0.0.1.14: no audit record per key — a key is not a unit of
@@ -144,10 +143,7 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
 
         self._metadata[key] = value
         self._metadata["last_change_key"] = key
-        self._metadata["last_change_time"] = self.utc_time_stamp()
-
-    def utc_time_stamp(self) -> datetime:
-        return Now.utc()
+        self._metadata["last_change_time"] = Now.utc()
 
     def __del__(self):
         try:
@@ -161,6 +157,11 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
             and self.identifier == other.identifier  # noqa: W503
             and type(self) is type(other)  # noqa: W503
         )
+
+    # v0.0.1.23: DEF-DOC-01, defining `__eq__` alone sets `__hash__` to None; the hash uses the
+    # same two facets as `__eq__` and the identifier never changes after construction
+    def __hash__(self) -> int:
+        return hash((type(self), self.identifier))
 
     def __repr__(self) -> str:
         return f"{self.name}:{self.identifier}"
@@ -211,9 +212,10 @@ class DocumentFacade(Wattleflow, ITarget, Generic[Adaptee], ABC):
     __slots__ = ("_adapter",)
 
     def __init__(self, adaptee: IAdaptee, **kwargs):
-        super().__init__(**kwargs)
+        # v0.0.1.23: DEF-DOC-05, refuse before any base initialisation, as DocumentAdapter does
         if not isinstance(adaptee, IAdaptee):
             raise TypeError("IAdaptee must be used.")
+        super().__init__(**kwargs)
         # The adapter is an implementation detail of this facade, so it audits
         # under the same configuration rather than falling back to defaults.
         self._adapter = DocumentAdapter(adaptee, **kwargs)
@@ -227,10 +229,15 @@ class DocumentFacade(Wattleflow, ITarget, Generic[Adaptee], ABC):
     def __getattr__(self, attr: str):
         if attr.startswith("_"):
             raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
+        # v0.0.1.23: DEF-DOC-06, one lookup: `hasattr` followed by `getattr` evaluated a property
+        # twice. The adaptee is still resolved on every miss; the adapter may resolve it lazily.
         adaptee = self._adapter.request()
-        if hasattr(adaptee, attr):
+        try:
             return getattr(adaptee, attr)
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
+        except AttributeError as error:
+            raise AttributeError(
+                f"'{self.__class__.__name__}' object has no attribute '{attr}'"
+            ) from error
 
     def __repr__(self) -> str:
         return f"{self.name}:{getattr(self, 'identifier', '')}"

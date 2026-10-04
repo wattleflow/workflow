@@ -134,7 +134,10 @@ class ConnectionObserverInterface(Wattleflow, IObservable, ABC):
         self.subscribe(observer)
 
     def transfer_observers(self, target: IObservable) -> None:
-        """Subscribe every observer of this connection to `target` (used by `ConnectionManager.hot_swap`)."""
+        """Subscribe every observer of this connection to `target`.
+
+        Used by `ConnectionManager.hot_swap`.
+        """
         for observer in list(self._observers.values()):
             target.subscribe(observer)
 
@@ -160,6 +163,10 @@ class ConnectionObserverInterface(Wattleflow, IObservable, ABC):
 
 
 class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
+    # v0.0.1.23: DEF-CON-04, the generic class declares its own argument once; the preset unions
+    # `ALLOWED` across the MRO, so a specialisation lists only what it adds
+    ALLOWED = ["lazy_loading"]
+
     __slots__ = (
         "_connection_name",
         "_connection",
@@ -194,7 +201,7 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
         self._engine: object = None
         self._connection: Connection = None
         self._context = None
-        self._version: str = None
+        self._version: str | None = None
 
         if not self._lazy_loading:
             self.ensure_created()
@@ -262,9 +269,13 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
             self._context = None
 
     def __getattr__(self, name: str) -> Any:
-        all_slots: set = set()
-        for cls in type(self).__mro__:
-            all_slots.update(getattr(cls, "__slots__", ()))
+        cls = type(self)
+        # v0.0.1.23: DEF-CON-03, the slot set is constant per type; read from `__dict__` so a
+        # subclass never inherits its parent's set
+        all_slots = cls.__dict__.get("_slot_names")
+        if all_slots is None:
+            all_slots = frozenset(s for base in cls.__mro__ for s in getattr(base, "__slots__", ()))
+            cls._slot_names = all_slots
 
         if name in all_slots:
             return object.__getattribute__(self, name)
@@ -283,6 +294,16 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
     def connected(self) -> bool:
         return self._fsm.state is ConnectionState.CONNECTED
 
+    # v0.0.1.23: DEF-DRV-06, true exactly where `ensure_created` returns without acting, so a
+    # caller can skip a connect request that would only be audited (any other state acts or raises)
+    @property
+    def created(self) -> bool:
+        return self._fsm.state in (
+            ConnectionState.CREATING,
+            ConnectionState.CREATED,
+            ConnectionState.CONNECTED,
+        )
+
     @property
     def connection(self) -> Connection | None:
         return self._connection if self.connected else None
@@ -292,7 +313,9 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
         return self._fsm.state
 
     @property
-    def version(self) -> str:
+    def version(self) -> str | None:
+        """Version of the remote system as it reports it; `None` when unknown or not applicable."""
+        # v0.0.1.23: DEF-CON-02, a specialisation fills it only from the remote system's own answer
         return self._version
 
     # region FSM lifecycle
@@ -372,7 +395,8 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
             self.debug(msg=Event.Operation, step=Event.Completed, action=action)
             return result
 
-        raise RuntimeError(f"Unknown action: {action}")
+        # v0.0.1.23: DEF-CON-01, every failure of this module is a ConnectionException (BR-PTN-05)
+        raise ConnectionException(caller=self, error=f"Unknown action: {action}")
 
     # region Abstract methods
 

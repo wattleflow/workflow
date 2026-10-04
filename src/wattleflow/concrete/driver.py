@@ -19,6 +19,7 @@ from wattleflow.core.transactional import IDriver
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.exception import DriverException
 from wattleflow.concrete.state_machine import StateMachine
+from wattleflow.enums.capability import DriverCapability
 from wattleflow.enums.event import Event
 from wattleflow.enums.operation import Operation
 from wattleflow.decorators.preset import PresetDecorator
@@ -34,21 +35,35 @@ from wattleflow.decorators.preset import PresetDecorator
 # --------------------------------------------------------------------------- #
 
 
-__all__ = [
-    "DriverAction",
-    "DriverMetadata",
-    "DriverState",
-    "GenericDriver",
-    "LazyDriverProxy",
-]
-
-
 @dataclass
 class DriverMetadata:
     name: str
     version: str
     protocol: str
-    capabilities: list[str]  # ["read", "write", "stream"]
+    capabilities: list[str]
+
+    # v0.0.1.23: DEF-DRV-05, a self-description is checked when it is built, not trusted later
+    def __post_init__(self) -> None:
+        if not isinstance(self.capabilities, list):
+            raise TypeError(
+                f"DriverMetadata.capabilities must be a list, got {type(self.capabilities).__name__}"
+            )
+        seen: set[str] = set()
+        for capability in self.capabilities:
+            if not isinstance(capability, str):
+                raise TypeError(
+                    f"DriverMetadata.capabilities holds a {type(capability).__name__}, not a str"
+                )
+            if capability in seen:
+                raise ValueError(f"DriverMetadata.capabilities: duplicate '{capability}'")
+            seen.add(capability)
+            try:
+                DriverCapability(capability)
+            except ValueError:
+                allowed = ", ".join(member.value for member in DriverCapability)
+                raise ValueError(
+                    f"DriverMetadata.capabilities: unknown '{capability}' (allowed: {allowed})"
+                ) from None
 
 
 # --------------------------------------------------------------------------- #
@@ -241,7 +256,8 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
     # endregion lifecycle
 
     # region implementation methods
-    # Subclass hooks, intentionally not abstract: load, close, read, write.
+    # v0.0.1.23: DEF-DRV-01, load, close, read, write and metadata are abstract through IDriver;
+    # a subclass that omits one cannot be instantiated.
 
     def update(self, event: Any, **kwargs) -> None:
         self.debug(
@@ -276,7 +292,8 @@ class LazyDriverProxy(Wattleflow, IDriver, IObserver, ABC):
         super().__init__(**kwargs)
 
         self._factory = factory  # callable → GenericDriver
-        self._driver: GenericDriver | None = None  # stvarni driver
+        # v0.0.1.23: DEF-DRV-02, the real driver, built on first use
+        self._driver: GenericDriver | None = None
         self._conn_mgr = conn_mgr
         self._conn_name = conn_name
 
@@ -285,7 +302,9 @@ class LazyDriverProxy(Wattleflow, IDriver, IObserver, ABC):
     def _ensure_ready(self) -> GenericDriver:
         conn = self._conn_mgr.get_connection(self._conn_name)
 
-        if not conn.connected:
+        # v0.0.1.23: DEF-DRV-06, `connected` means a session is open, which an idle connection never
+        # has; ask whether a connect request has anything to do instead
+        if not conn.created:
             conn.request(action=Operation.Connect)
 
         if self._driver is None:
@@ -318,6 +337,23 @@ class LazyDriverProxy(Wattleflow, IDriver, IObserver, ABC):
     def driver(self) -> GenericDriver | None:
         """The wrapped driver, or None while still lazy. Never forces a load."""
         return self._driver
+
+    # v0.0.1.23: DEF-DRV-04, a query about the driver must not connect, build or resume it. While
+    # lazy the proxy answers as a driver that has not loaded yet (PENDING), as close() and reset()
+    # already do not build one.
+    @property
+    def state(self) -> DriverState:
+        return self._driver.state if self._driver is not None else DriverState.PENDING
+
+    def can(self, action: DriverAction) -> bool:
+        if self._driver is not None:
+            return self._driver.can(action)
+        return (DriverState.PENDING, action) in TRANSITIONS
+
+    def pause(self) -> None:
+        if self._driver is None:
+            return
+        self._driver.pause()
 
     def load(self) -> None:
         self._ensure_ready()
@@ -369,3 +405,13 @@ class LazyDriverProxy(Wattleflow, IDriver, IObserver, ABC):
 # --------------------------------------------------------------------------- #
 # endregion Drivers                                                           #
 # --------------------------------------------------------------------------- #
+
+
+# v0.0.1.23: DEF-DRV-03, last top-level statement of the module (STANDARDS §2.7)
+__all__ = [
+    "DriverAction",
+    "DriverMetadata",
+    "DriverState",
+    "GenericDriver",
+    "LazyDriverProxy",
+]

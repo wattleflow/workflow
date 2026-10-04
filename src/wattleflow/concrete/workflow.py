@@ -505,9 +505,7 @@ class WorkflowFactory:
     # Settings the audit layer consumes. They are resolved by `_audit` and must
     # not travel a second time inside a component's `configuration`, or the
     # constructor is called with the same keyword twice.
-    AUDIT_KEYS: ClassVar[frozenset] = frozenset(
-        {"level", "handler", "formatting"}
-    )
+    AUDIT_KEYS: ClassVar[frozenset] = frozenset({"level", "handler", "formatting"})
 
     @classmethod
     def _audit(cls, config: dict, default: dict) -> dict:
