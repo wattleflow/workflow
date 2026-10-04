@@ -33,8 +33,8 @@ class GenericMemento(Wattleflow, IMemento):
     by reference. Owners are responsible for snapshot integrity if the
     referenced values are mutable.
 
-    TODO: persistence layer — pluggable read/write strategies (analogous to
-    ``PresetDecorator``) for serialising mementos to disk / database.
+    Persistence is not this class's job: a ``MementoStore`` (concrete/memento_store.py)
+    holds the latest snapshot per key and GenericProcessor checkpoints to it.
     """
 
     __slots__ = ("_data",)
@@ -57,8 +57,8 @@ class GenericMemento(Wattleflow, IMemento):
 
     def __repr__(self) -> str:
         name = self.name or self.__class__.__name__
-        fields = ", ".join(f"{k}={v!r}" for k, v in self._data.items())
-        return f"{name}({fields})"
+        # Keys only: the payload is arbitrary and may carry secrets (NFRQ-SEC-06).
+        return f"{name}(keys=[{', '.join(self._data)}])"
 
     def get_state(self) -> Any:
         return self._data.get("state")

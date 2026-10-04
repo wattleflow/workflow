@@ -24,6 +24,7 @@ from wattleflow.core import (
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.helpers import NameHelper
 from wattleflow.concrete.memento import GenericMemento
+from wattleflow.concrete.memento_store import MementoStore
 from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.enums.event import Event
 from wattleflow.enums.operation import Operation
@@ -100,6 +101,9 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         "_flush_per_cycle",
         "_fsm",
         "_generator",
+        "_checkpoint_every",
+        "_memento_key",
+        "_memento_store",
         "_pipelines",
         "_preset",
     )
@@ -113,6 +117,9 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         blackboard: IBlackboard | None = kwargs.pop("blackboard", None)
         pipelines: list[IPipeline] | None = kwargs.pop("pipelines", None)
         flush_per_cycle = kwargs.pop("flush_per_cycle", None)
+        memento_store: MementoStore | None = kwargs.pop("memento_store", None)
+        memento_key: str | None = kwargs.pop("memento_key", None)
+        checkpoint_every = kwargs.pop("checkpoint_every", None)
         if flush_per_cycle is None:
             flush_per_cycle = True
 
@@ -127,6 +134,30 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
 
         super().__init__(**kwargs)
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
+
+        # Checkpointing is opt-in: without a store the processor saves and reads nothing.
+        if memento_store is not None:
+            if not isinstance(memento_store, MementoStore):
+                raise ProcessorException(
+                    caller=self,
+                    error=f"Expected MementoStore. Found {type(memento_store).__name__}",
+                )
+            # A checkpoint says "this many items are done"; without a flush they are not.
+            if flush_per_cycle is False:
+                raise ProcessorException(
+                    caller=self,
+                    error="A memento store needs flush_per_cycle: unflushed items would be skipped",
+                )
+        if checkpoint_every is None:
+            checkpoint_every = 1
+        if type(checkpoint_every) is not int or checkpoint_every < 1:
+            raise ProcessorException(
+                caller=self,
+                error=f"checkpoint_every must be a positive int, found {checkpoint_every!r}",
+            )
+        self._memento_store: MementoStore | None = memento_store
+        self._memento_key: str = memento_key or type(self).__name__
+        self._checkpoint_every: int = checkpoint_every
 
         self.debug(
             msg=Event.Constructor,
@@ -258,17 +289,31 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
 
     def restore_state(self, memento: GenericMemento) -> None:
         saved_state = memento.get_state()
-        # LOAD recovery only valid from IDLE or FAILED — validate before mutating.
+        saved_cycle = memento.to_dict().get("cycle")
+
+        # Validate the whole snapshot before mutating anything.
+        if not isinstance(saved_state, ProcessorState):
+            raise ProcessorException(
+                caller=self,
+                error=f"Cannot restore: saved state {saved_state!r} is not a ProcessorState",
+            )
+        # LOAD recovery only valid from IDLE or FAILED.
         if (saved_state, ProcessorAction.LOAD) not in TRANSITIONS:
             raise ProcessorException(
                 caller=self,
                 error=f"Cannot restore: LOAD not allowed from saved state {saved_state.name}",
             )
+        if type(saved_cycle) is not int or saved_cycle < 0:
+            raise ProcessorException(
+                caller=self,
+                error=f"Cannot restore: saved cycle {saved_cycle!r} is not a non-negative int",
+            )
 
-        self._fsm.state = saved_state
+        # StateMachine.state is read-only: restart the machine from the saved state.
+        self._fsm = StateMachine(TRANSITIONS, saved_state, name="ProcessorFSM")
         self._fsm.apply(ProcessorAction.LOAD)
 
-        self._cycle = memento.cycle
+        self._cycle = saved_cycle
         self._generator = self.create_generator()
 
         skipped = 0
@@ -286,6 +331,40 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                 error=error,
             )
             raise ProcessorException(caller=self, error=error) from None
+
+    def _resume(self) -> None:
+        """Continue after the cycle a previous run checkpointed, if there is one."""
+        try:
+            memento = self._memento_store.read(self._memento_key)
+        except Exception as error:
+            raise ProcessorException(
+                caller=self, error=f"Cannot read checkpoint {self._memento_key!r}: {error}"
+            ) from error
+        if memento is None:
+            return
+        state = memento.get_state()
+        if isinstance(state, str) and not isinstance(state, ProcessorState):
+            state = ProcessorState.__members__.get(state, state)
+        self.info(msg=Event.Restore, key=self._memento_key, cycle=memento.to_dict().get("cycle"))
+        self.restore_state(GenericMemento(cycle=memento.to_dict().get("cycle"), state=state))
+
+    def _checkpoint(self) -> None:
+        """An interrupted run is a failed one, so the checkpoint records FAILED: the state a
+        restart can load from. A store that cannot write must not stop the run."""
+        try:
+            self._memento_store.write(
+                self._memento_key,
+                GenericMemento(cycle=self._cycle, state=ProcessorState.FAILED),
+            )
+        except Exception as error:
+            self.warning(msg=Event.Save, step=Event.Failed, key=self._memento_key, error=str(error))
+
+    def _release(self) -> None:
+        """A completed run leaves no checkpoint, or the next run would skip its items."""
+        try:
+            self._memento_store.clear(self._memento_key)
+        except Exception as error:
+            self.warning(msg=Event.Clear, step=Event.Failed, key=self._memento_key, error=str(error))
 
     # endregion Memento
 
@@ -318,6 +397,10 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             repositories=self._repository_names(),
         )
 
+        # A processor that already has a generator is mid-run or restored: only a fresh one resumes.
+        if self._memento_store is not None and self._generator is None:
+            self._resume()
+
         try:
             if self._generator is None:
                 self._generator = self.create_generator()
@@ -339,6 +422,8 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                         outcome = self.blackboard.flush(caller=self, **self.write_context)
                         # A blackboard that answers nothing has not confirmed anything.
                         self._flush_outcome = outcome if isinstance(outcome, bool) else None
+                    if self._memento_store is not None and self._cycle % self._checkpoint_every == 0:
+                        self._checkpoint()
                     # v0.0.1.14 (FRQ-PTN-18.1 EV03): the `Processed` record below closes
                     # the unit of work; the monitor observes it.
                     # self.measure_units(documents=1)
@@ -373,6 +458,8 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                     ) from e
 
             self._fsm.apply(ProcessorAction.RECORDS_PROCESSED)
+            if self._memento_store is not None:
+                self._release()
 
         except PipelineException:
             raise

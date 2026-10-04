@@ -17,6 +17,13 @@ from logging import getLogger
 from wattleflow.core import IConfig, IOriginator
 from wattleflow.enums.event import Event
 from wattleflow.concrete.exception import AuditException
+from wattleflow.concrete.memento import GenericMemento
+from wattleflow.concrete.memento_store import (
+    FileMementoStore,
+    MementoStore,
+    MementoStoreException,
+    MemoryMementoStore,
+)
 from wattleflow.helpers.audit import Audit
 from wattleflow.helpers.monitor import Monitor, MonitorLevel
 from wattleflow.helpers.resources import ResourceManager
@@ -42,6 +49,10 @@ from wattleflow.decorators.preset import PresetGate
 
 
 class WorkflowFactoryException(AuditException):
+    pass
+
+
+class WorkflowException(AuditException):
     pass
 
 
@@ -178,6 +189,38 @@ class GenericWorkflow(Wattleflow, IOriginator, ABC):
                 type=type(driver).__name__,
                 reported=False,
             )
+
+    # region Memento
+    # A workflow is an originator whose state is its processors' state. This default lets a
+    # workflow class leave the pair out: the snapshot is each processor's own, by the name it
+    # was registered under. Persistence is the processors' (`memento:` in the YAML), not this.
+
+    def save_state(self) -> GenericMemento:
+        return GenericMemento(
+            processors={
+                name: processor.save_state()
+                for name, processor in self._processors.all.items()
+                if isinstance(processor, IOriginator)
+            }
+        )
+
+    def restore_state(self, memento: GenericMemento) -> None:
+        if not isinstance(memento, GenericMemento):
+            raise WorkflowException(self, f"Invalid memento: {type(memento).__name__}")
+        saved = memento.to_dict().get("processors")
+        if not isinstance(saved, dict):
+            raise WorkflowException(self, "Invalid memento: no `processors` mapping")
+        known = self._processors.all
+        # Check every entry before restoring any, so a bad snapshot changes nothing.
+        for name, snapshot in saved.items():
+            if name not in known or not isinstance(known[name], IOriginator):
+                raise WorkflowException(self, f"Cannot restore: no processor named {name!r}")
+            if not isinstance(snapshot, GenericMemento):
+                raise WorkflowException(self, f"Invalid snapshot for processor {name!r}")
+        for name, snapshot in saved.items():
+            known[name].restore_state(snapshot)
+
+    # endregion Memento
 
     @abstractmethod
     def execute(self) -> None: ...
@@ -349,6 +392,38 @@ class WorkflowFactory:
         )
         cls._configure_monitor(adapter, sections, built, workflow)
         return built
+
+    # Stores a `memento:` section can name without registering anything.
+    _MEMENTO_STORES: ClassVar[dict[str, type]] = {
+        "memory": MemoryMementoStore,
+        "file": FileMementoStore,
+    }
+
+    @classmethod
+    def _build_memento(cls, workflow: dict) -> tuple[MementoStore | None, int | None]:
+        """`memento:` on the workflow entry switches checkpointing on for its processors.
+
+        `store:` is `memory`, `file` or a registered MementoStore; `path:` is the directory a
+        file store keeps its snapshots in (the same path after a restart is what resumes a
+        run); `checkpoint_every:` is the cycle interval. Without the section: no store.
+        """
+        section = workflow.get("memento")
+        if section is None:
+            return None, None
+        if not isinstance(section, dict):
+            cls._fail("workflows.memento", workflow, "`memento` must be a mapping")
+        name = section.get("store")
+        store_class = cls._MEMENTO_STORES.get(name) if isinstance(name, str) else None
+        if store_class is None:
+            store_class = cls._resolve_section("workflows.memento", section, key="store")
+        if not (isinstance(store_class, type) and issubclass(store_class, MementoStore)):
+            cls._fail("workflows.memento", workflow, f"{name!r} is not a MementoStore")
+        options = {k: v for k, v in section.items() if k not in ("store", "checkpoint_every")}
+        try:
+            store = store_class(**options)
+        except Exception as error:
+            cls._fail("workflows.memento", workflow, str(error), cause=error)
+        return store, section.get("checkpoint_every")
 
     @classmethod
     def _build_exporters(
@@ -665,6 +740,7 @@ class WorkflowFactory:
         cls, workflow: dict, drivers: DriverManager, **global_audit
     ) -> ProcessorManager:
         manager = ProcessorManager(**global_audit)
+        memento_store, checkpoint_every = cls._build_memento(workflow)
 
         # Processors config ------------------------------------------------- #
         processors = workflow.get("processors", [])
@@ -688,6 +764,18 @@ class WorkflowFactory:
             )
             if driver_name:
                 configuration["driver"] = drivers.get_driver(driver_name)
+
+            if memento_store is not None:
+                # The registered name is the checkpoint's key: it is what a restart finds again.
+                key = config.get("name") or processor_class.__name__
+                try:
+                    MementoStore._check_key(key)
+                except MementoStoreException as error:
+                    cls._fail("workflows.processors", config, str(error), cause=error)
+                configuration.setdefault("memento_store", memento_store)
+                configuration.setdefault("memento_key", key)
+                if checkpoint_every is not None:
+                    configuration.setdefault("checkpoint_every", checkpoint_every)
 
             processor = processor_class(**proc_audit, **configuration)
 
@@ -792,6 +880,7 @@ class WorkflowFactory:
 
 __all__ = [
     "GenericWorkflow",
+    "WorkflowException",
     "WorkflowFactory",
     "WorkflowFactoryException",
 ]

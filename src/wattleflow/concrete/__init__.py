@@ -20,6 +20,7 @@ from . import (
     iterator,
     manager,
     memento,
+    memento_store,
     observable,
     orchestrator,
     pipeline,
@@ -42,6 +43,7 @@ from .helpers import *  # noqa: F403
 from .iterator import *  # noqa: F403
 from .manager import *  # noqa: F403
 from .memento import *  # noqa: F403
+from .memento_store import *  # noqa: F403
 from .observable import *  # noqa: F403
 from .orchestrator import *  # noqa: F403
 from .pipeline import *  # noqa: F403
@@ -65,6 +67,7 @@ __all__ = [
     *iterator.__all__,
     *manager.__all__,
     *memento.__all__,
+    *memento_store.__all__,
     *observable.__all__,
     *orchestrator.__all__,
     *pipeline.__all__,
