@@ -6,12 +6,11 @@
 
 """
 Orchestrator Implementation for WattleFlow Workflow
-The Orchestrator class will:
-    - Manage and coordinate multiple processors within a workflow.
-    - Ensure connection management is shared across processors.
-    - Execute processors sequentially or in parallel.
-    - Monitor and log execution using event-driven behavior.
-    - Utilize pipelines for structured data flow.
+The Orchestrator class:
+    - Holds processors and starts them in registration order, or all at once in threads.
+    - Reports each step to its listeners (Processed, Failed, Orchestration*) and to the audit.
+    - Holds the connection manager and an optional execute strategy for specialisations; the
+      orchestrator itself does not use either.
 """
 
 # --------------------------------------------------------------------------- #
@@ -19,6 +18,7 @@ The Orchestrator class will:
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+import inspect
 import threading
 from wattleflow.helpers.dtime import Now
 from wattleflow.core import (
@@ -32,6 +32,7 @@ from wattleflow.enums.event import Event
 from wattleflow.enums.operation import Operation
 from wattleflow.concrete.manager import ConnectionManager
 from wattleflow.concrete.exception import OrchestratorException
+from wattleflow.concrete.helpers import Attribute
 from wattleflow.concrete.base import Wattleflow
 
 # --------------------------------------------------------------------------- #
@@ -51,6 +52,7 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
         "_connection_manager",
         "_strategy_execute",
         "_emit_lock",
+        "_state_lock",
     )
 
     def __init__(
@@ -60,12 +62,28 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
         **kwargs,
     ):
         super().__init__(**kwargs)
+        Attribute.evaluate(self, connection_manager, ConnectionManager)
+        if strategy_execute is not None:
+            Attribute.evaluate(self, strategy_execute, IStrategy)
         self._listeners: list[IEventListener] = []
         self._processors: list[IProcessor] = []
         self._running: bool = False
         self._connection_manager = connection_manager
         self._strategy_execute = strategy_execute
         self._emit_lock = threading.Lock()
+        self._state_lock = threading.Lock()
+
+    @property
+    def connection_manager(self) -> ConnectionManager:
+        return self._connection_manager
+
+    @property
+    def strategy_execute(self) -> IStrategy | None:
+        return self._strategy_execute
+
+    @property
+    def running(self) -> bool:
+        return self._running
 
     # region Internal
 
@@ -115,30 +133,58 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
         Requires a callable `start()` per IProcessor contract.
         """
         if not callable(getattr(processor, "start", None)):
-            raise TypeError(
+            raise OrchestratorException(
+                self,
                 "Processor {} is missing callable `start()`.".format(
                     getattr(processor, "name", "unknown"),
-                )
+                ),
             )
-        self._processors.append(processor)
+        with self._state_lock:
+            # Identity: the same processor twice would run twice.
+            if not any(known is processor for known in self._processors):
+                self._processors.append(processor)
 
     def register_listener(self, listener: IEventListener) -> None:
-        if listener not in self._listeners:
-            self._listeners.append(listener)
+        with self._emit_lock:
+            # Identity, not ==: a listener is registered as an object.
+            if not any(known is listener for known in self._listeners):
+                self._listeners.append(listener)
+
+    @staticmethod
+    def _accepts_metadata(listener: IEventListener, event: Event, kwargs: dict) -> bool:
+        """The contract is on_event(event); a listener that also takes the metadata gets it.
+        Decided from the signature, so a TypeError raised inside the listener is its own bug
+        and is never mistaken for a signature mismatch and called a second time."""
+        try:
+            inspect.signature(listener.on_event).bind(event, **kwargs)
+        except TypeError:
+            return False
+        except ValueError:  # no signature available: pass everything, as the contract allows
+            return True
+        return True
 
     def emit_event(self, event: Event, **kwargs) -> None:
         with self._emit_lock:
             listeners = list(self._listeners)
+        # A listener that fails must not turn a processor that ran into a failure, hide the
+        # error of one that did not, or keep the others from hearing the event.
         for listener in listeners:
             try:
-                listener.on_event(event, **kwargs)
-            except TypeError:
-                # Interface contract is on_event(event); allow strict listeners.
-                listener.on_event(event)
+                if self._accepts_metadata(listener, event, kwargs):
+                    listener.on_event(event, **kwargs)
+                else:
+                    listener.on_event(event)
+            except Exception as error:
+                self.exception(
+                    msg=Event.Notify,
+                    reason="Listener raised during on_event",
+                    listener=listener,
+                    error=str(error),
+                )
 
-    def operation(self, action: Operation):
+    def operation(self, action: Operation, **kwargs):
         if action == Operation.Start:
-            return self.start()
+            return self.start(**kwargs)
         if action == Operation.Stop:
             return self.stop()
         raise OrchestratorException(
@@ -148,9 +194,10 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
 
     def start(self, parallel: bool = False) -> None:
         """Starts processor execution (sequentially or in parallel)."""
-        if self._running:
-            return
-        self._running = True
+        with self._state_lock:
+            if self._running:
+                return
+            self._running = True
         self.info(
             msg=Event.OrchestrationStarted,
             processors=len(self._processors),
@@ -182,14 +229,20 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
                     thread.join()
 
                 if errors:
-                    raise errors[0]
+                    if len(errors) == 1:
+                        raise errors[0]
+                    raise OrchestratorException(
+                        self,
+                        f"{len(errors)} processors failed: " + "; ".join(str(e) for e in errors),
+                    ) from errors[0]
             else:
                 for processor in self._processors:
                     if not self._running:
                         break
                     self._start_processor(processor)
         finally:
-            self._running = False
+            with self._state_lock:
+                self._running = False
             self.info(
                 msg=Event.OrchestrationCompleted,
                 processors=len(self._processors),
@@ -197,7 +250,8 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
             self.emit_event(Event.OrchestrationCompleted)
 
     def stop(self) -> None:
-        self._running = False
+        with self._state_lock:
+            self._running = False
         self.info(msg=Event.OrchestrationStopped)
         self.emit_event(Event.OrchestrationStopped)
 

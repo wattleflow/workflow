@@ -39,14 +39,18 @@ class Scheduler(Wattleflow, IScheduler, ABC):
         "_running",
         "_counter",
         "_listeners",
-        "_tasks",
         "_orchestrator",
-        "_config",
+        "_preset",
     )
 
     @property
     def count(self) -> int:
+        """Orchestrations that ran to completion; a failed one is not counted."""
         return self._counter
+
+    @property
+    def running(self) -> bool:
+        return self._running
 
     def __init__(self, level: int, handler: Handler | None = None, **kwargs):
         # The base constructor audits under `self._lock`, and `__slots__` above
@@ -74,7 +78,6 @@ class Scheduler(Wattleflow, IScheduler, ABC):
             self._running = False
             self._counter = 0
             self._listeners = []
-            self._tasks = []
             self._orchestrator = None
 
             self.setup_orchestrator()
@@ -82,29 +85,59 @@ class Scheduler(Wattleflow, IScheduler, ABC):
     def setup_orchestrator(self) -> None:
         self.debug(msg=Event.Configuring, name=self.name)
 
+    # The lock guards state, never the orchestrator's run: a start that held it for the whole run
+    # would make stop_orchestration wait for the very thing it is meant to stop.
     def start_orchestration(self, parallel: bool = False):
         with self._lock:
-            if self._orchestrator:
-                self.emit_event(Event.Started)
-                self._orchestrator.start(parallel)
-                self.emit_event(Event.Completed)
+            orchestrator = self._orchestrator
+            if orchestrator is None or self._running:
+                return
+            self._running = True
+        self.emit_event(Event.Started)
+        try:
+            orchestrator.start(parallel)
+        except Exception as error:
+            # Started is always closed: Completed on success, Failed otherwise.
+            self.emit_event(Event.Failed, error=str(error))
+            raise
+        finally:
+            with self._lock:
+                self._running = False
+        with self._lock:
+            self._counter += 1
+        self.emit_event(Event.Completed)
 
     def stop_orchestration(self):
         with self._lock:
-            if self._orchestrator:
-                self.emit_event(Event.Stopped)
-                self._orchestrator.stop()
+            orchestrator = self._orchestrator
+        if orchestrator is None:
+            return
+        self.emit_event(Event.Stopped)
+        orchestrator.stop()
 
     # Event Source Pattern Implementation
     def register_listener(self, listener: IEventListener) -> None:
         with self._lock:
-            if listener not in self._listeners:
+            # Identity, not ==: a listener is registered as an object, so two equal ones are two.
+            if not any(known is listener for known in self._listeners):
                 self._listeners.append(listener)
 
     def emit_event(self, event: Event, **kwargs):
         with self._lock:
-            for listener in self._listeners:
+            listeners = list(self._listeners)
+        # Delivery is outside the lock and isolated: a listener may register another or call
+        # back into the scheduler, and one that fails must not hide the event from the rest
+        # (SchedulerCronJob emits its error event from inside the handler of that very error).
+        for listener in listeners:
+            try:
                 listener.on_event(event, **kwargs)
+            except Exception as error:
+                self.exception(
+                    msg=Event.Notify,
+                    reason="Listener raised during on_event",
+                    listener=listener,
+                    error=str(error),
+                )
 
     # Must be implemented if using PresetDecorator.
     # The guards matter during construction: the base constructor touches

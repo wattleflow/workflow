@@ -14,7 +14,7 @@ from logging import Handler, NOTSET
 from typing import Any
 from wattleflow.core import IProcessor, IPipeline, ITarget
 from wattleflow.concrete.base import Wattleflow
-from wattleflow.concrete.exception import AuditException
+from wattleflow.concrete.exception import PipelineException
 from wattleflow.concrete.helpers import NameHelper
 from wattleflow.enums.event import Event
 from wattleflow.decorators.preset import PresetDecorator
@@ -29,8 +29,8 @@ from wattleflow.decorators.preset import PresetDecorator
 # --------------------------------------------------------------------------- #
 
 
-class PipelineError(AuditException):
-    pass
+class PipelineError(PipelineException):
+    """What a pipeline raises; one family with the PipelineException the processor raises."""
 
 
 # --------------------------------------------------------------------------- #
@@ -65,21 +65,28 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
 
     # region Private
     def __del__(self):
-        if self._preset is not None:
-            try:
-                del self._preset
-            except Exception as e:
-                reason = "%s.__del__ error: %s" % (self.__class__.__name__, str(e))
-                self.error(
-                    msg=Event.Delete,
-                    step=Event.Failed,
-                    preset=self._preset,
-                    reason=reason,
-                )
+        # A construction that failed before `_preset` was set has nothing to release.
+        try:
+            object.__getattribute__(self, "_preset")
+        except AttributeError:
+            return
+        try:
+            del self._preset
+        except Exception as e:
+            reason = "%s.__del__ error: %s" % (self.__class__.__name__, str(e))
+            self.error(
+                msg=Event.Delete,
+                step=Event.Failed,
+                reason=reason,
+            )
 
     # Must be implemented if using PresetDecorator
     def __getattr__(self, name: str) -> Any:
-        preset: PresetDecorator = object.__getattribute__(self, "_preset")
+        # Before `_preset` exists the lookup answers with the name asked for, not with `_preset`.
+        try:
+            preset: PresetDecorator = object.__getattribute__(self, "_preset")
+        except AttributeError:
+            raise AttributeError(name) from None
         return preset.__getattr__(name)
 
     def __repr__(self) -> str:
@@ -109,12 +116,15 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
             facade=facade,
         )
         try:
-            assert isinstance(processor, IProcessor), (
-                "Expected IProcessor. Found %s" % type(processor)
-            )
-            assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(
-                facade
-            )
+            # Explicit checks, not `assert`: assertions are removed under `python -O`.
+            if not isinstance(processor, IProcessor):
+                raise PipelineError(
+                    caller=self, error="Expected IProcessor. Found %s" % type(processor)
+                )
+            if not isinstance(facade, ITarget):
+                raise PipelineError(
+                    caller=self, error="Expected ITarget. Found %s" % type(facade)
+                )
 
             # Reported on ENTRY, so the audit stream reads top-down in the order
             # the activity diagram draws: pipeline -> blackboard -> repository ->
@@ -137,22 +147,16 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
                 step=Event.Completed,
                 result=result,
             )
-        except AssertionError as e:
-            # v0.0.1.10: the caller stops the propagation and owns
-            # the ERROR; this layer leaves the trace and carries the cause in the
-            # exception.
+        except PipelineError as e:
+            # The input check above: already the right exception; this layer leaves the trace.
             self.debug(msg=Event.Transform, step=Event.Failed, error=str(e))
-            # v0.0.1.14: `PipelineError` takes (caller, error); the positional form raised
-            # TypeError instead, so a failed input check never surfaced as a pipeline error.
-            raise PipelineError(caller=self, error=str(e)) from e
+            raise
         except Exception as e:
+            # The caller stops the propagation and owns the ERROR; this layer leaves the trace and
+            # carries the cause (and with it the traceback) in the exception.
             error = "%s.process error: %s" % (self.__class__.__name__, str(e))
             self.debug(msg=Event.Transform, step=Event.Failed, error=error)
-            raise PipelineError(
-                caller=self,
-                error=error,
-                # trace=traceback.format_exc(),
-            ) from e
+            raise PipelineError(caller=self, error=error) from e
 
 
 # --------------------------------------------------------------------------- #
