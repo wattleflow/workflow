@@ -28,28 +28,41 @@ from wattleflow.enums.event import Event
 
 # @measured()
 class Strategy(Wattleflow, IStrategy, ABC):
-    __slots__ = ("_strict",)
-
-    # def __init__(self, **kwargs):
-    #     super().__init__(**kwargs)
+    __slots__ = ()
 
     @abstractmethod
     def execute(self, caller: IWattleflow, **kwargs) -> ITarget | None:
         pass
+
+    def _run(self, operation: str, **kwargs):
+        """`execute` with every failure carried as StrategyException (BR-PTN-05).
+
+        The family methods differ in name and signature only. A StrategyException the
+        specialisation already raised passes through unchanged; anything else is wrapped with
+        its cause, so a specialisation needs no try/except of its own for that.
+        """
+        try:
+            return self.execute(**kwargs)
+        except StrategyException:
+            raise
+        except Exception as e:
+            error = "%s.%s error: %s: %s" % (type(self).__name__, operation, type(e).__name__, e)
+            self.debug(msg=Event.Executing, step=Event.Failed, operation=operation, error=error)
+            raise StrategyException(caller=self, error=error) from e
 
 
 class StrategyGenerate(Strategy, ABC):
     __slots__ = ()
 
     def generate(self, caller: IWattleflow, **kwargs) -> ITarget | None:
-        return self.execute(caller=caller, **kwargs)
+        return self._run("generate", caller=caller, **kwargs)
 
 
 class StrategyCreate(Strategy, ABC):
     __slots__ = ()
 
     def create(self, caller: IWattleflow, **kwargs) -> ITarget | None:
-        return self.execute(caller=caller, **kwargs)
+        return self._run("create", caller=caller, **kwargs)
 
 
 class StrategyRead(Strategy, ABC):
@@ -61,18 +74,18 @@ class StrategyRead(Strategy, ABC):
         identifier: str,
         **kwargs,
     ) -> ITarget | None:
-        return self.execute(caller=caller, identifier=identifier, **kwargs)
+        return self._run("read", caller=caller, identifier=identifier, **kwargs)
 
 
 class StrategyWrite(Strategy, ABC):
     __slots__ = ()
 
     def write(self, caller: IWattleflow, facade: ITarget, **kwargs) -> bool:
-        return bool(self.execute(caller=caller, facade=facade, **kwargs))
+        return bool(self._run("write", caller=caller, facade=facade, **kwargs))
 
 
 class StrategyReadDummy(StrategyRead):
-    __slots__ = ("_document_type",)
+    __slots__ = ("_document_type", "_strict")
 
     def __init__(
         self,

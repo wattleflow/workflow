@@ -15,7 +15,7 @@ from unittest.mock import MagicMock
 
 from wattleflow.concrete.blackboard import GenericBlackboard
 from wattleflow.concrete.driver import GenericDriver
-from wattleflow.concrete.exception import RepositoryException
+from wattleflow.concrete.exception import RepositoryException, StrategyException
 from wattleflow.concrete.repository import GenericRepository, RepositoryWithDriver
 from wattleflow.concrete.strategy import StrategyRead, StrategyWrite
 from wattleflow.core import ITarget
@@ -156,7 +156,9 @@ class WriteTest(unittest.TestCase):
         repository = WithContext(strategy_write=Write(fail=True), **QUIET)
         with self.assertRaises(RepositoryException) as caught:
             repository.write(board(), facade("doc-7"))
-        self.assertIsInstance(caught.exception.__cause__, RuntimeError)
+        # the strategy layer wraps first: RepositoryException <- StrategyException <- RuntimeError
+        self.assertIsInstance(caught.exception.__cause__, StrategyException)
+        self.assertIsInstance(caught.exception.__cause__.__cause__, RuntimeError)
         text = str(caught.exception)
         for part in ("doc-7", "board", "extra=str", "RuntimeError", "write down"):
             self.assertIn(part, text)
@@ -196,7 +198,8 @@ class ReadTest(unittest.TestCase):
         repository = make(read=Read(fail=True))
         with self.assertRaises(RepositoryException) as caught:
             repository.read("x")
-        self.assertIsInstance(caught.exception.__cause__, RuntimeError)
+        self.assertIsInstance(caught.exception.__cause__, StrategyException)
+        self.assertIsInstance(caught.exception.__cause__.__cause__, RuntimeError)
 
 
 class IdentityTest(unittest.TestCase):
