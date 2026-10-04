@@ -10,6 +10,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
+import os
 from io import BytesIO
 from typing import Any, BinaryIO, ClassVar
 from collections.abc import Iterator
@@ -83,8 +84,10 @@ class GenericParser(IParser[Content], ABC):
         payload=  bytes; wrapped in an in-memory buffer
 
     ENCODING is the declared default and `encoding=` on the call the
-    per-call override. `__slots__` is empty so the audit tier can combine it
-    with Wattleflow, whose slots are not.
+    per-call override. A source is checked for what it is: `stream` needs a
+    `read`, `path` a str or PathLike (an integer would be taken by `open` for a
+    file descriptor and closed), `payload` a bytes-like value. `__slots__` is
+    empty so the class combines with Wattleflow, whose slots are not.
     """
 
     ENCODING: ClassVar[str] = "utf-8"
@@ -127,6 +130,7 @@ class GenericParser(IParser[Content], ABC):
 
         source = declared[0]
         value = kwargs.pop(source)
+        self._check_source(source, value)
 
         if source == "stream":
             # Borrowed: whoever opened it closes it.
@@ -137,6 +141,19 @@ class GenericParser(IParser[Content], ABC):
         else:
             with open(value, "rb") as handle:
                 yield handle
+
+    def _check_source(self, source: str, value: object) -> None:
+        if source == "stream":
+            ok = callable(getattr(value, "read", None))
+        elif source == "payload":
+            ok = isinstance(value, (bytes, bytearray, memoryview))
+        else:
+            ok = isinstance(value, (str, os.PathLike))
+        if not ok:
+            raise self.ERROR(
+                caller=self,
+                error=f"{source}= is not a usable source: {type(value).__name__}",
+            )
 
     def decode(self, reader: BinaryIO, **kwargs) -> str:
         """Read the source as text; the common case for text formats.
@@ -156,9 +173,9 @@ class GenericFormatter(IFormatter[Content], ABC):
     is not already one of ERRORS becomes ERROR. Subclasses implement
     `serialise`, declare SUFFIX (default file extension) and may declare
     CONTENT to have their input type enforced. `render` returns the payload
-    and writes nothing — the caller owns the sink. Streaming-native formats
-    (ORC, Avro, ...) override `stream` instead of buffering through `render`.
-    No audit, no logging, no presets: GenericFormatterAudit adds them.
+    (bytes or str — anything else is an ERROR) and writes nothing — the caller
+    owns the sink. Streaming-native formats (ORC, Avro, ...) override `stream`
+    instead of buffering through `render`. No audit, no logging, no presets.
     """
 
     CONTENT: ClassVar[type | None] = None
@@ -185,7 +202,13 @@ class GenericFormatter(IFormatter[Content], ABC):
             # CONTENT stays None for formats that legitimately take anything.
             if self.CONTENT is not None:
                 self.check(content)
-            return self.serialise(content, **kwargs)
+            payload = self.serialise(content, **kwargs)
+            if not isinstance(payload, (bytes, bytearray, memoryview, str)):
+                raise self.ERROR(
+                    caller=self,
+                    error=f"serialise must return bytes or str, found {type(payload).__name__}",
+                )
+            return payload
         except self.ERRORS:
             raise
         except Exception as e:
@@ -208,7 +231,13 @@ class GenericFormatter(IFormatter[Content], ABC):
         # stays positional here.
         encoding = self.encoding_of(**kwargs)
         payload = self.render(content=content, **kwargs)
-        handle.write(payload.encode(encoding) if isinstance(payload, str) else bytes(payload))
+        try:
+            handle.write(payload.encode(encoding) if isinstance(payload, str) else bytes(payload))
+        except self.ERRORS:
+            raise
+        except Exception as e:
+            error = "%s.stream error: %s" % (self.name, str(e))
+            raise self.ERROR(caller=self, error=error) from e
 
     def encoding_of(self, **kwargs) -> str:
         """The text encoding of a call: per call, per class."""
@@ -238,11 +267,10 @@ class GenericConverter(IStrategyContext, ABC):
     strategy is called as `execute(caller, source=..., **options)` and returns
     the payload. A failure that is not already one of ERRORS becomes ERROR.
 
-    `__slots__` is empty so GenericConverterAudit can combine it with
-    Wattleflow; `_strategy` is a slot of the tier that holds it. A light
-    subclass declares `__slots__ = ("_strategy",)` to stay dict-free once the
-    core interfaces carry `__slots__ = ()`; until then the instance dict holds
-    it.
+    `__slots__` is empty so the class combines with Wattleflow: two bases that
+    both declared slots would not lay out together. `_strategy` therefore lives
+    in the instance dict, which the core interfaces (no `__slots__`) give every
+    instance anyway.
     """
 
     STRATEGY: ClassVar[type[IStrategy]] = IStrategy
@@ -252,6 +280,7 @@ class GenericConverter(IStrategyContext, ABC):
     __slots__ = ()
 
     def __init__(self, strategy: IStrategy | None = None):
+        super().__init__()
         self._strategy: IStrategy | None = None
         if strategy is not None:
             self.set_strategy(strategy)
