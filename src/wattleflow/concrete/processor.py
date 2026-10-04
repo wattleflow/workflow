@@ -123,13 +123,14 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         if flush_per_cycle is None:
             flush_per_cycle = True
 
-        if blackboard is not None:
-            assert isinstance(blackboard, IBlackboard), (
-                "Expected IBlackboard. Found %s" % type(blackboard)
+        # Explicit checks, not `assert`: assertions are removed under `python -O`.
+        if blackboard is not None and not isinstance(blackboard, IBlackboard):
+            raise ProcessorException(
+                caller=type(self), error="Expected IBlackboard. Found %s" % type(blackboard)
             )
-        if pipelines is not None:
-            assert isinstance(pipelines, list), "Expected list. Found %s" % type(
-                pipelines
+        if pipelines is not None and not isinstance(pipelines, list):
+            raise ProcessorException(
+                caller=type(self), error="Expected list. Found %s" % type(pipelines)
             )
 
         super().__init__(**kwargs)
@@ -504,9 +505,10 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             step=Event.Starting,
             blackboard=self._blackboard,
         )
-        assert isinstance(blackboard, IBlackboard), (
-            "Expected IBlackboard. Found %s" % type(blackboard)
-        )
+        if not isinstance(blackboard, IBlackboard):
+            raise ProcessorException(
+                caller=self, error="Expected IBlackboard. Found %s" % type(blackboard)
+            )
         self._blackboard = blackboard
         self.debug(
             msg=Event.Register, step=Event.Completed, added=self._blackboard
@@ -514,9 +516,10 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
 
     def register_pipeline(self, pipeline: IPipeline) -> None:
         self.debug(msg=Event.Register, step=Event.Starting, pipeline=pipeline)
-        assert isinstance(pipeline, IPipeline), "Expected IPipeline. Found %s" % type(
-            pipeline
-        )
+        if not isinstance(pipeline, IPipeline):
+            raise ProcessorException(
+                caller=self, error="Expected IPipeline. Found %s" % type(pipeline)
+            )
         self._pipelines.append(pipeline)
         self.debug(
             msg=Event.Register,

@@ -264,7 +264,7 @@ class ConstructorContractTest(unittest.TestCase):
             def __init__(self):
                 GenericBlackboard.__init__(self, strategy_create=object(), canvas={})
 
-        with self.assertRaisesRegex(AssertionError, "Expected StrategyCreate"):
+        with self.assertRaisesRegex(BlackboardException, "Expected StrategyCreate"):
             Bare()
 
     def test_del_survives_failed_construction_without_masking(self):
@@ -277,7 +277,7 @@ class ConstructorContractTest(unittest.TestCase):
         with patch.object(Bare, "error") as error:
             try:
                 Bare()
-            except AssertionError:
+            except BlackboardException:
                 pass
             gc.collect()
         error.assert_not_called()
@@ -320,7 +320,7 @@ class RegisterTest(unittest.TestCase):
 
     def test_non_repository_is_rejected(self):
         board = Board()
-        with self.assertRaisesRegex(AssertionError, "Expected IRepository"):
+        with self.assertRaisesRegex(BlackboardException, "Expected IRepository"):
             board.register(object())
         self.assertEqual(board.repositories, [])
 
@@ -345,7 +345,7 @@ class RegisterTest(unittest.TestCase):
     def test_hook_is_not_run_for_a_rejected_type(self):
         board = Board()
         with patch.object(Board, "_registered") as hook:
-            with self.assertRaises(AssertionError):
+            with self.assertRaises(BlackboardException):
                 board.register(object())
         hook.assert_not_called()
 

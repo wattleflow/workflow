@@ -122,9 +122,12 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
         canvas: Item,
         **kwargs,
     ):
-        assert isinstance(strategy_create, StrategyCreate), (
-            "Expected StrategyCreate. Found %s" % type(strategy_create)
-        )
+        # Explicit checks, not `assert`: assertions are removed under `python -O`.
+        if not isinstance(strategy_create, StrategyCreate):
+            raise BlackboardException(
+                caller=type(self),
+                error="Expected StrategyCreate. Found %s" % type(strategy_create),
+            )
 
         # Default to caching through the cycle and flushing at the end.
         if "defer_flush" not in kwargs:
@@ -222,9 +225,10 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
     # region Public
     def register(self, repository: IRepository) -> None:
         self.debug(msg=Event.Register, step=Event.Started, repository=repository)
-        assert isinstance(repository, IRepository), (
-            "Expected IRepository. Found %s" % type(repository)
-        )
+        if not isinstance(repository, IRepository):
+            raise BlackboardException(
+                caller=self, error="Expected IRepository. Found %s" % type(repository)
+            )
 
         if repository in self._repositories:
             self.warning(
