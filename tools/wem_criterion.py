@@ -42,7 +42,7 @@ from typing import Any
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 # Distributions whose tier is stdlib ∪ wattleflow only: a third-party import there
 # is a module in the wrong distribution, never a library to allow (CLAUDE.md §7.1).
@@ -238,8 +238,11 @@ class Code:
     def packages(self) -> set[str]:
         return {p.name for p in self.src.iterdir() if p.is_dir() and p.name != "__pycache__"}
 
-    def pipeline_packages(self) -> set[str]:
-        base = self.src / "pipelines"
+    def pipeline_packages(self, package: str | None) -> set[str]:
+        # The criterion names the package (`pipeline_package`); none named, none measured.
+        if not package:
+            return set()
+        base = self.src / package
         if not base.is_dir():
             return set()
         return {p.name for p in base.iterdir() if p.is_dir() and p.name != "__pycache__"}
@@ -432,7 +435,7 @@ class Drift:
             | set(crit.get("grouping_packages") or ())
             | set(crit.get("exempt_packages") or ())
         )
-        for package in sorted(self.code.pipeline_packages() - mapped):
+        for package in sorted(self.code.pipeline_packages(crit.get("pipeline_package")) - mapped):
             out.append(
                 Finding(
                     "code→criterion",

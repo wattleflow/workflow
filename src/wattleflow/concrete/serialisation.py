@@ -14,7 +14,13 @@ import os
 from io import BytesIO
 from typing import Any, BinaryIO, ClassVar
 from collections.abc import Iterator
-from wattleflow.core import IFormatter, IParser, IStrategy, IStrategyContext, IWattleflow
+from wattleflow.core import (
+    IFormatter,
+    IParser,
+    IStrategy,
+    IStrategyContext,
+    IWattleflow,
+)
 from wattleflow.core.transactional import Content
 
 # --------------------------------------------------------------------------- #
@@ -63,7 +69,7 @@ class ConverterError(Exception):
 # --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
-# region Serialisation                                                        #
+# region Classes                                                              #
 # --------------------------------------------------------------------------- #
 
 
@@ -195,7 +201,9 @@ class GenericFormatter(IFormatter[Content], ABC):
 
     def render(self, **kwargs) -> bytes | str:
         if "content" not in kwargs:
-            raise self.ERROR(caller=self, error="mandatory 'content' not found in kwargs")
+            raise self.ERROR(
+                caller=self, error="mandatory 'content' not found in kwargs"
+            )
 
         content = kwargs.pop("content")
         try:
@@ -232,7 +240,9 @@ class GenericFormatter(IFormatter[Content], ABC):
         encoding = self.encoding_of(**kwargs)
         payload = self.render(content=content, **kwargs)
         try:
-            handle.write(payload.encode(encoding) if isinstance(payload, str) else bytes(payload))
+            handle.write(
+                payload.encode(encoding) if isinstance(payload, str) else bytes(payload)
+            )
         except self.ERRORS:
             raise
         except Exception as e:
@@ -242,15 +252,6 @@ class GenericFormatter(IFormatter[Content], ABC):
     def encoding_of(self, **kwargs) -> str:
         """The text encoding of a call: per call, per class."""
         return kwargs.get("encoding") or self.ENCODING
-
-
-# --------------------------------------------------------------------------- #
-# endregion Serialisation                                                     #
-# --------------------------------------------------------------------------- #
-
-# --------------------------------------------------------------------------- #
-# region Conversion                                                           #
-# --------------------------------------------------------------------------- #
 
 
 class GenericConverter(IStrategyContext, ABC):
@@ -318,7 +319,7 @@ class GenericConverter(IStrategyContext, ABC):
 
 
 # --------------------------------------------------------------------------- #
-# endregion Conversion                                                        #
+# endregion Classes                                                           #
 # --------------------------------------------------------------------------- #
 
 

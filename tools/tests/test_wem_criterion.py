@@ -34,6 +34,7 @@ CRITERION = {
     "distribution": "wattleflow-processors",
     "criterion_version": "0.1.0",
     "domains": ["connections", "pipelines"],
+    "pipeline_package": "pipelines",
     "shared_namespace": "helpers",
     "scope": {"core_libraries": ["kafka"], "exclude_paths": [], "guarded_optional": {}},
     "identifier_acronyms": ["PDF"],
@@ -159,6 +160,12 @@ class DriftTest(unittest.TestCase):
         self.assertEqual(self.kinds["unregistered-acronym"], {"SDR"})
         self.assertEqual(self.kinds["undeclared-package"], {"metrics"})
         self.assertEqual(self.kinds["unmapped-pipeline-package"], {"mail"})
+
+    def test_pipeline_package_comes_from_the_criterion(self) -> None:
+        doc = json.loads(self.fx.criterion.read_text())
+        del doc["pipeline_package"]
+        self.fx.criterion.write_text(wc.Criterion.dump(doc), encoding="utf-8")
+        self.assertNotIn("unmapped-pipeline-package", self.fx.drift())
 
     def test_foundation_package_is_declared(self) -> None:
         doc = json.loads(self.fx.criterion.read_text())

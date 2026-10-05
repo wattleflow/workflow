@@ -34,6 +34,7 @@ import re
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 __TOOL__ = Path(__file__).resolve().parent.parent / "wem_lint.py"
@@ -65,6 +66,7 @@ CRITERION: dict = {
     "criterion_version": "org02-test-fixture-1",
     "dictionary_version": "org02-test-fixture-1",
     "domains": ["pipelines", "drivers"],
+    "pipeline_package": "pipelines",
     "shared_namespace": "helpers",
     "scope": {"core_libraries": [], "exclude_paths": [], "guarded_optional": []},
     "bases": {"pipeline": ["GenericPipeline"]},
@@ -229,6 +231,25 @@ class Org02Harness(unittest.TestCase):
 # --------------------------------------------------------------------------- #
 # region Tests                                                                #
 # --------------------------------------------------------------------------- #
+
+
+class TestPipelinePackageFromCriterion(Org02Harness):
+    """v1.19.0: the grammar reaches the package the criterion names, and no other."""
+
+    MODULES = {
+        "pipelines/mail/c1_subject.py": "class PipelineFooWrite(GenericPipeline):\n    pass\n",
+        "pipelines/mail/c6_standalone.py": "class Helper:\n    pass\n",
+    }
+
+    def test_named_package_gets_the_grammar(self) -> None:
+        self.assertIn(K14, {f[1] for f in self.facts(self.MODULES)})
+
+    def test_without_the_key_only_criterion_6_applies(self) -> None:
+        with mock.patch.dict(CRITERION):
+            del CRITERION["pipeline_package"]
+            facts = self.facts(self.MODULES)
+        self.assertNotIn(K14, {f[1] for f in facts})
+        self.assertIn("Helper", {f[0] for f in facts})
 
 
 class TestK14Binding(Org02Harness):

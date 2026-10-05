@@ -20,7 +20,7 @@ from __future__ import annotations
 import os
 import time
 from typing import Any, Iterable, Mapping
-from wattleflow.concrete.base import Wattleflow
+from wattleflow.helpers.audit import Audit
 from wattleflow.enums.event import Event
 from wattleflow.enums.metric import MetricTarget
 from wattleflow.helpers.resources.base import Resource, ResourceSnapshot
@@ -38,7 +38,7 @@ __all__ = ["ResourceManager"]
 # --------------------------------------------------------------------------- #
 
 
-class ResourceManager(Wattleflow):
+class ResourceManager(Audit):  # below the root, as FRQ-PTN-root-base §07 t.5
     """Resolve and announce the limits a pass will be measured against."""
 
     def __init__(

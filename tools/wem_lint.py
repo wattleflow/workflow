@@ -102,7 +102,7 @@ _CAMEL = re.compile(r"[A-Z]+(?![a-z])|[A-Z][a-z]+|[A-Z]|\d+")
 # Criterion-versioning convention (METHODOLOGY §1 t.2): a change in rule
 # semantics or in the criterion source is a minor bump, because the same code
 # can yield a different vector afterwards.
-__version__ = "1.18.0"
+__version__ = "1.19.0"
 ERROR, WARNING, INFO = logging.ERROR, logging.WARNING, logging.INFO
 
 
@@ -534,9 +534,10 @@ class NomenclatureRule(Wattleflow, IStrategy):
         v1.11.0 the whole rule short-circuited on `domain != "pipelines"`, so in a
         distribution without a `pipelines` domain it enforced nothing while the
         vector still read green.
-      * the `Pipeline<Subject><Operation>` grammar applies to the `pipelines`
-        domain and needs the processors vocabulary (`subjects`); a criterion that
-        declares neither opts out of that half, and says so in `blind_spots`.
+      * the `Pipeline<Subject><Operation>` grammar applies to the package the
+        criterion names in `pipeline_package` and needs its vocabulary
+        (`subjects`); a criterion without that key opts out of this half. The
+        tool carries no distribution's package name (v1.19.0).
     """
 
     def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
@@ -605,10 +606,11 @@ class NomenclatureRule(Wattleflow, IStrategy):
                     kind="standalone-role-noun",
                 )
 
-        if domain != "pipelines":
+        package = reg.get("pipeline_package")
+        if not package or domain != package:
             return
 
-        subpkg = Naming.class_subpackage(path, src, "pipelines")
+        subpkg = Naming.class_subpackage(path, src, package)
         canon_pkg = reg.get("package_aliases", {}).get(subpkg, subpkg)
 
         for node in tree.body:

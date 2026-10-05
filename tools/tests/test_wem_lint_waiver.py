@@ -146,14 +146,12 @@ class DocumentedWaiverTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 wem.Application._load_registry(path)
 
-    def test_shipped_criteria_are_valid(self) -> None:
-        root = Path(__file__).resolve().parents[3]
-        for dist in ("workflow", "blackwattle", "core"):
-            path = root / dist / "tools" / "dictionary.json"
-            doc = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual(doc.get("documentation_version"), "v0.0.5", dist)
-            if dist != "core":
-                wem.Criterion.validate_documentation(doc)
+    def test_shipped_criterion_is_valid(self) -> None:
+        # Only this distribution's criterion; blackwattle and core test their own.
+        path = Path(__file__).resolve().parents[1] / "dictionary.json"
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(doc.get("documentation_version"), "v0.0.5")
+        wem.Criterion.validate_documentation(doc)
 
 
 if __name__ == "__main__":
