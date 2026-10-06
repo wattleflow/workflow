@@ -80,7 +80,7 @@ class GenericParser(IParser[Content], ABC):
     `IParser.parse` fixes no transport; this base fixes one. It resolves
     exactly one declared source into a binary reader and hands it to the
     subclass; any failure that is not already one of ERRORS becomes ERROR.
-    Subclasses implement `deserialise` and never open, resolve or validate a
+    Subclasses implement `_deserialise` and never open, resolve or validate a
     path — the source policy lives here, once. No audit, no logging, no
     presets.
 
@@ -108,12 +108,12 @@ class GenericParser(IParser[Content], ABC):
         return type(self).__name__
 
     @abstractmethod
-    def deserialise(self, reader: BinaryIO, **kwargs) -> Content: ...
+    def _deserialise(self, reader: BinaryIO, **kwargs) -> Content: ...
 
     def parse(self, **kwargs) -> Content:
         try:
-            with self.reader(kwargs) as stream:
-                return self.deserialise(stream, **kwargs)
+            with self._reader(kwargs) as stream:
+                return self._deserialise(stream, **kwargs)
         except self.ERRORS:
             raise
         except Exception as e:
@@ -121,10 +121,10 @@ class GenericParser(IParser[Content], ABC):
             raise self.ERROR(caller=self, error=error) from e
 
     @contextmanager
-    def reader(self, kwargs: dict) -> Iterator[BinaryIO]:
+    def _reader(self, kwargs: dict) -> Iterator[BinaryIO]:
         """Resolve the declared source into a binary reader.
 
-        Consumes its own keyword out of `kwargs` so `deserialise` receives only
+        Consumes its own keyword out of `kwargs` so `_deserialise` receives only
         format options. Override to extend the policy with a further source.
         """
         declared = [key for key in self.SOURCES if key in kwargs]
@@ -161,7 +161,7 @@ class GenericParser(IParser[Content], ABC):
                 error=f"{source}= is not a usable source: {type(value).__name__}",
             )
 
-    def decode(self, reader: BinaryIO, **kwargs) -> str:
+    def _decode(self, reader: BinaryIO, **kwargs) -> str:
         """Read the source as text; the common case for text formats.
 
         Resolution order: per call, per class.
@@ -323,7 +323,7 @@ class GenericConverter(IStrategyContext, ABC):
 # --------------------------------------------------------------------------- #
 
 
-# v0.0.1.23: DEF-DRV-03, last top-level statement of the module (STANDARDS §2.7)
+# DEF-DRV-03, last top-level statement of the module (STANDARDS §2.7)
 __all__ = [
     "ConverterError",
     "FormatterError",

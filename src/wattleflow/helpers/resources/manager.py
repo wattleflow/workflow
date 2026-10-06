@@ -31,7 +31,6 @@ from wattleflow.helpers.resources.storage import ResourceStorage
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
 
-__all__ = ["ResourceManager"]
 
 # --------------------------------------------------------------------------- #
 # region Manager                                                              #
@@ -90,7 +89,7 @@ class ResourceManager(Audit):  # below the root, as FRQ-PTN-root-base §07 t.5
         return resource.limit()
 
     def snapshot(self) -> ResourceSnapshot:
-        """Process resources at one instant, for the Monitor to difference."""
+        """Process resources at one moment, for the Monitor to difference."""
         times = os.times()
         return ResourceSnapshot(
             at=time.perf_counter(),
@@ -143,3 +142,6 @@ class ResourceManager(Audit):  # below the root, as FRQ-PTN-root-base §07 t.5
 # --------------------------------------------------------------------------- #
 # endregion Manager                                                           #
 # --------------------------------------------------------------------------- #
+
+
+__all__ = ["ResourceManager"]

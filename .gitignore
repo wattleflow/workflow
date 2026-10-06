@@ -31,3 +31,4 @@ src/wattleflow/core
 .env.*
 !.env.example
 .envrc
+TODO.md

@@ -28,18 +28,18 @@ class Echo(GenericParser):
     def __init__(self):
         self.seen = {}
 
-    def deserialise(self, reader, **kwargs):
+    def _deserialise(self, reader, **kwargs):
         self.seen = {"reader": reader, "kwargs": dict(kwargs)}
         return reader.read()
 
 
 class Text(Echo):
-    def deserialise(self, reader, **kwargs):
-        return self.decode(reader, **kwargs)
+    def _deserialise(self, reader, **kwargs):
+        return self._decode(reader, **kwargs)
 
 
 class Failing(GenericParser):
-    def deserialise(self, reader, **kwargs):
+    def _deserialise(self, reader, **kwargs):
         raise ValueError("bad bytes")
 
 
@@ -52,7 +52,7 @@ class Passing(GenericParser):
     ERROR = OwnError
     ERRORS = (OwnError, KeyError)
 
-    def deserialise(self, reader, **kwargs):
+    def _deserialise(self, reader, **kwargs):
         raise KeyError("own family")
 
 
@@ -123,7 +123,7 @@ class ParserSourceTest(unittest.TestCase):
 
 
 class ParserFailureTest(unittest.TestCase):
-    def test_a_failure_in_deserialise_is_a_parser_error_with_its_cause(self):
+    def test_a_failure_in_the_hook_is_a_parser_error_with_its_cause(self):
         with self.assertRaises(ParserError) as caught:
             Failing().parse(payload=b"x")
         self.assertIsInstance(caught.exception.__cause__, ValueError)
@@ -141,7 +141,7 @@ class ParserFailureTest(unittest.TestCase):
         with self.assertRaises(OwnError):
             Other().parse(payload=b"x")
 
-    def test_deserialise_is_abstract(self):
+    def test_the_deserialise_hook_is_abstract(self):
         class NoBody(GenericParser):
             pass
 
@@ -367,6 +367,16 @@ class SlotsTest(unittest.TestCase):
         for cls in (GenericParser, GenericFormatter, GenericConverter):
             with self.subTest(cls=cls.__name__):
                 self.assertEqual(cls.__slots__, ())
+
+
+
+class PublicSurfaceTest(unittest.TestCase):
+    """FRQ-SER-PAR c.8: `parse` is the only entry; the hooks are protected (NFRQ-ORG-13 c.2)."""
+
+    def test_only_parse_and_name_are_public(self):
+        public = {n for n in vars(GenericParser) if not n.startswith("_") and not n.isupper()}
+        self.assertEqual(public, {"parse", "name"})
+        self.assertIn("_deserialise", GenericParser.__abstractmethods__)
 
 
 if __name__ == "__main__":

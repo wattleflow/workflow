@@ -25,7 +25,6 @@ from typing import Any, ClassVar
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
 
-__all__ = ["Resource", "ResourceSnapshot"]
 
 # --------------------------------------------------------------------------- #
 # region Resources                                                            #
@@ -34,7 +33,7 @@ __all__ = ["Resource", "ResourceSnapshot"]
 
 @dataclass(frozen=True, slots=True)
 class ResourceSnapshot:
-    """Process resources at one instant; `None` means unmeasured, never zero."""
+    """Process resources at one moment; `None` means unmeasured, never zero."""
 
     at: float
     cpu_user: float
@@ -86,3 +85,5 @@ class Resource(ABC):
 # --------------------------------------------------------------------------- #
 # endregion Resources                                                         #
 # --------------------------------------------------------------------------- #
+
+__all__ = ["Resource", "ResourceSnapshot"]

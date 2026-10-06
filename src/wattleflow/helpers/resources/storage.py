@@ -18,7 +18,6 @@ from wattleflow.helpers.resources.base import Resource
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
 
-__all__ = ["ResourceStorage"]
 
 # --------------------------------------------------------------------------- #
 # region Resource                                                             #
@@ -64,3 +63,5 @@ class ResourceStorage(Resource):
 # --------------------------------------------------------------------------- #
 # endregion Resource                                                          #
 # --------------------------------------------------------------------------- #
+
+__all__ = ["ResourceStorage"]

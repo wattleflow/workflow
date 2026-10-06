@@ -4,6 +4,7 @@
 # License: Apache 2 Licence
 
 from __future__ import annotations
+import os
 from dataclasses import dataclass
 from datetime import datetime, time, timezone, tzinfo
 from email.utils import parsedate_to_datetime
@@ -29,7 +30,8 @@ class Now:
 
     @staticmethod
     def iso() -> str:
-        return datetime.now(timezone.utc).isoformat()
+        """Now, written by `ZonedDateTimeHelper` in UTC (NFRQ-DEF-04)."""
+        return ZonedDateTimeHelper.convert(datetime.now(timezone.utc), zone="UTC")
 
     @staticmethod
     def timestamp() -> float:
@@ -40,22 +42,16 @@ class Zone:
     """Moves a datetime to one reference zone before it is compared or printed.
 
     A timestamp that carries the offset it was written with is correct and
-    useless for ordering: two records of the SAME instant, one written `+1000`
+    useless for ordering: two records of the SAME moment, one written `+1000`
     and one `+0000`, format as different times and sometimes different days.
     Anything that names, sorts or buckets by time has to convert first — this is
-    where that conversion lives, so it is done one way everywhere.
-
-    Naive input is assumed to be in `default` (the machine zone unless another
-    is named) rather than in UTC: a value written without an offset was written
-    by a clock somewhere, and treating it as UTC silently shifts it. The
-    assumption cannot be avoided, only declared — which is why it is a
-    parameter."""
+    where that conversion lives, so it is done one way everywhere."""
 
     @staticmethod
     def of(name: str | None = None) -> tzinfo | None:
         """The named IANA zone. None — for no name — means the SYSTEM zone, and
         is returned as None on purpose: the system offset must be resolved for
-        the instant being converted, not snapshotted now. Snapshotting it
+        the moment being converted, not snapshotted now. Snapshotting it
         (`datetime.now().astimezone().tzinfo`) yields today's offset and then
         stamps every summer date with the winter offset, or the reverse."""
         if not name:
@@ -82,13 +78,153 @@ class Zone:
 
     @staticmethod
     def label(moment: datetime, zone: str | None = None) -> str:
-        """Abbreviation the zone uses at that instant (AEST/AEDT, CET/CEST) —
+        """Abbreviation the zone uses at that moment (AEST/AEDT, CET/CEST) —
         for reporting, never for parsing: the abbreviations are not unique."""
         return Zone.convert(moment, zone).strftime("%Z") or "?"
 
     @classmethod
     def utc(cls, moment: datetime, default: str | None = None) -> datetime:
         return cls.convert(moment, "UTC", default)
+
+
+class ZonedDateTimeHelper:
+    """A zoned datetime as RFC 3339 text (the Internet profile of ISO 8601), and back.
+
+    The zoned datetime is the norm (NFRQ-DEF-04): it names one point in time for every reader.
+    `write` gives the default form, `convert` a declared deviation from it, `read` the zoned
+    datetime a text names. The defaults are the installation's settings, read once at import:
+    the zone from `ENV_ZONE` when set, else the system zone (`Zone.of(None)`); microseconds; UTC
+    marked `Z`. A datetime without a zone is the other model (`DateTimeHelper`, NFRQ-DEF-05) and is
+    refused here; nothing assumes a zone for it.
+    """
+
+    #: The environment variable naming the default zone (IANA name or "UTC").
+    ENV_ZONE: ClassVar[str] = "WATTLEFLOW_TIME_ZONE"
+    #: Zone the default form is written in; None is the system zone.
+    DEFAULT_ZONE: ClassVar[str | None] = os.getenv("WATTLEFLOW_TIME_ZONE") or None
+    #: Precision of the default form (`datetime.isoformat(timespec=...)`).
+    DEFAULT_TIMESPEC: ClassVar[str] = "microseconds"
+    #: How a UTC offset is written: "Z" (RFC 3339 §4.3), or None for "+00:00".
+    DEFAULT_UTC_MARKER: ClassVar[str | None] = "Z"
+
+    _UTC_OFFSET: ClassVar[str] = "+00:00"
+    _UNSET: ClassVar[object] = object()
+
+    @classmethod
+    def write(cls, moment: datetime) -> str:
+        """`moment` in the default form; a datetime without a zone is a ValueError."""
+        return cls.convert(moment)
+
+    @classmethod
+    def convert(
+        cls,
+        moment: datetime,
+        *,
+        zone: str | tzinfo | None | object = _UNSET,
+        timespec: str | None = None,
+        utc_marker: str | None | object = _UNSET,
+    ) -> str:
+        """`moment` written in `zone` with `timespec`, UTC marked `utc_marker`.
+
+        Each argument left out is the class default. `zone` is an IANA name, "UTC", None for the
+        system zone, or a `tzinfo` (`moment.tzinfo` keeps the offset the value carries).
+        """
+        cls._refuse_naive(moment)
+        target = cls.DEFAULT_ZONE if zone is cls._UNSET else zone
+        marker = cls.DEFAULT_UTC_MARKER if utc_marker is cls._UNSET else utc_marker
+        moved = (
+            moment.astimezone(target)
+            if isinstance(target, tzinfo)
+            else Zone.convert(moment, target)
+        )
+        text = moved.isoformat(timespec=timespec or cls.DEFAULT_TIMESPEC)
+        if marker and text.endswith(cls._UTC_OFFSET):
+            text = text[: -len(cls._UTC_OFFSET)] + marker
+        return text
+
+    @staticmethod
+    def read(text: str) -> datetime:
+        """The zoned datetime `text` names (RFC 3339, `Z` or ±HH:MM); other text is a ValueError."""
+        moment = datetime.fromisoformat(str(text).strip())
+        if moment.tzinfo is None:
+            raise ValueError(
+                f"{text!r} carries no offset, so it is a datetime without a zone. Fix: write the "
+                "offset (Z or ±HH:MM), or read it with DateTimeHelper.read()"
+            )
+        return moment
+
+    @staticmethod
+    def _refuse_naive(moment: datetime) -> None:
+        if moment.tzinfo is None:
+            raise ValueError(
+                f"{moment.isoformat()} is a datetime without a zone. Fix: make it zoned with "
+                "DateTimeHelper.zoned(value, zone=...), or write it with DateTimeHelper.write()"
+            )
+
+
+class DateTimeHelper:
+    """A datetime without a zone as ISO 8601 text without an offset, and back (NFRQ-DEF-05).
+
+    Not the norm: it names no single point in time, so it is held only where its source gives no
+    zone. `zoned` is the one crossing into the norm (`ZonedDateTimeHelper`), and the zone is always
+    the caller's to name. A zoned datetime is refused here.
+    """
+
+    #: Precision of `write` (`datetime.isoformat(timespec=...)`).
+    DEFAULT_TIMESPEC: ClassVar[str] = "microseconds"
+
+    @classmethod
+    def write(cls, moment: datetime, timespec: str | None = None) -> str:
+        """`moment` as ISO 8601 text without an offset; a zoned datetime is a ValueError."""
+        cls._refuse_zoned(moment)
+        return moment.isoformat(timespec=timespec or cls.DEFAULT_TIMESPEC)
+
+    @staticmethod
+    def read(text: str) -> datetime:
+        """The datetime without a zone `text` names; text with an offset is a ValueError."""
+        moment = datetime.fromisoformat(str(text).strip())
+        if moment.tzinfo is not None:
+            raise ValueError(
+                f"{text!r} carries an offset, so it is a zoned datetime. Fix: read it with "
+                "ZonedDateTimeHelper.read()"
+            )
+        return moment
+
+    @classmethod
+    def zoned(cls, moment: datetime, *, zone: str | None) -> datetime:
+        """`moment` read in `zone` (an IANA name, "UTC", or None for the system zone, named by the
+        caller): the zoned datetime of the norm."""
+        cls._refuse_zoned(moment)
+        return Zone.convert(moment, zone, default=zone)
+
+    @staticmethod
+    def _refuse_zoned(moment: datetime) -> None:
+        if moment.tzinfo is not None:
+            raise ValueError(
+                f"{moment.isoformat()} is a zoned datetime. Fix: write it with "
+                "ZonedDateTimeHelper.write() or ZonedDateTimeHelper.convert()"
+            )
+
+
+class DateTimeKind:
+    """Hands a datetime whose model its source decides (metadata of a document, a mail header) to the
+    helper of that model, unchanged: zoned to `ZonedDateTimeHelper`, without a zone to
+    `DateTimeHelper`. It converts nothing and assumes no zone (NFRQ-DEF-04, NFRQ-DEF-05)."""
+
+    @staticmethod
+    def text(moment: datetime) -> str:
+        """A zoned datetime with the offset it carries; one without a zone as such."""
+        if moment.tzinfo is None:
+            return DateTimeHelper.write(moment)
+        return ZonedDateTimeHelper.convert(moment, zone=moment.tzinfo)
+
+    @staticmethod
+    def parse(text: str) -> datetime:
+        """ISO 8601 text as the model it names; text that is not ISO 8601 is a ValueError."""
+        try:
+            return ZonedDateTimeHelper.read(text)
+        except ValueError:
+            return DateTimeHelper.read(text)
 
 
 @dataclass(frozen=True)
@@ -120,8 +256,8 @@ class CreatedWithin(IParser):
         self._to: datetime | None = self.parse(value=created_to, end_of_day=True)
         if self._from and self._to and self._from > self._to:
             raise ValueError(
-                f"created_from ({self._from.isoformat()}) is later than "
-                f"created_to ({self._to.isoformat()})"
+                f"created_from ({DateTimeKind.text(self._from)}) is later than "
+                f"created_to ({DateTimeKind.text(self._to)})"
             )
 
     @property
@@ -155,7 +291,7 @@ class CreatedWithin(IParser):
         ts = getattr(st, "st_birthtime", None)
         if ts is None:
             ts = st.st_ctime
-        return datetime.fromtimestamp(ts)
+        return datetime.fromtimestamp(ts).astimezone()  # zoned: the norm (NFRQ-DEF-04)
 
     def check(self, path: Path) -> CreatedVerdict:
         try:
@@ -173,7 +309,7 @@ class CreatedWithin(IParser):
         # A probe, not a gate: the caller decides what an unreadable value means,
         # so no branch here wraps and re-raises.
         try:
-            return datetime.fromisoformat(text)
+            return DateTimeKind.parse(text)
         except ValueError:
             return None
 
@@ -186,7 +322,7 @@ class CreatedWithin(IParser):
         if value is None:
             return None
         if isinstance(value, datetime):
-            return value
+            return self._zoned(value)
         text = str(value).strip()
         if not text:
             return None
@@ -197,10 +333,18 @@ class CreatedWithin(IParser):
                 f"Invalid date '{text}': expected ISO format YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS"
             )
         if with_time:
-            return dt
+            return self._zoned(dt)
         if end_of_day:
             dt = datetime.combine(dt.date(), time(23, 59, 59, 999999))
-        return dt
+        return self._zoned(dt)
+
+    @staticmethod
+    def _zoned(moment: datetime) -> datetime:
+        # A bound from the configuration without a zone is read in the installation's zone before it
+        # is compared with the zoned file time (NFRQ-DEF-05 c.3).
+        if moment.tzinfo is not None:
+            return moment
+        return DateTimeHelper.zoned(moment, zone=ZonedDateTimeHelper.DEFAULT_ZONE)
 
 
 class Stamp:
@@ -235,7 +379,7 @@ class Stamp:
         if not text:
             return None
         try:
-            return datetime.fromisoformat(text)
+            return DateTimeKind.parse(text)
         except ValueError:
             pass
         try:
@@ -249,7 +393,9 @@ class Stamp:
         moment = cls.parse(value)
         if moment is None:
             return ""
-        return Zone.convert(moment, zone, default=cls.ASSUME).strftime(cls.FORMAT)
+        if moment.tzinfo is None:
+            moment = DateTimeHelper.zoned(moment, zone=cls.ASSUME)
+        return Zone.convert(moment, zone).strftime(cls.FORMAT)
 
     @classmethod
     def first(cls, values: Iterable[Any], zone: str | None = None) -> str:
@@ -273,4 +419,13 @@ class Stamp:
 # endregion Clasess                                                           #
 # --------------------------------------------------------------------------- #
 
-__all__ = ["Now", "Zone", "Stamp", "CreatedWithin", "CreatedVerdict"]
+__all__ = [
+    "Now",
+    "Zone",
+    "ZonedDateTimeHelper",
+    "DateTimeHelper",
+    "DateTimeKind",
+    "Stamp",
+    "CreatedWithin",
+    "CreatedVerdict",
+]
