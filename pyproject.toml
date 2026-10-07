@@ -1,6 +1,6 @@
 [project]
 name = "wattleflow-workflow"
-version = "0.0.1.39"
+version = "0.0.1.40"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"
@@ -19,7 +19,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "wattleflow>=0.0.0.54",
+    "wattleflow>=0.0.0.55",
 ]
 
 [build-system]

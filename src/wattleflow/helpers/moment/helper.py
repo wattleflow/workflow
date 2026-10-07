@@ -1,7 +1,16 @@
-# Module name: helpers/moment/moment.py
+# Module name: helpers/moment/helper.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
+
+"""MomentHelper (base) + MomentAwareHelper + MomentNaiveHelper.
+
+int: UTC ns (aware) or wall-time ns (naive). The wrong kind raises TypeError.
+Conversion runs one way only: MomentAwareHelper.strip (aware -> naive); the reverse does
+not exist, because a zone must not be invented (DST fold and gap).
+An aware Moment is built from a datetime with a tzinfo.
+Every method is a classmethod; a subclass may override it.
+"""
 
 from __future__ import annotations
 from datetime import date, datetime, time, timedelta, timezone
@@ -10,66 +19,61 @@ from functools import lru_cache
 from struct import Struct
 from time import struct_time, time_ns
 from zoneinfo import ZoneInfo
-from .moment import Moment
-
-
-"""MomentHelper (baza) + MomentAwareHelper + MomentNaiveHelper.
-
-int: UTC ns (Aware) ili ns zidnog vremena (Naive). Pogrešna vrsta baca TypeError.
-Pretvorba je jednosmjerna: MomentAwareHelper.strip (svjesno → naivno);
-obrnuto ne postoji jer se zona ne smije izmisliti (DST fold/gap).
-Svjesni Moment gradi se iz datetimea s tzinfo.
-Sve su classmethod; podklasa ih može nadjačati.
-"""
+from .base import Moment, MomentRangeError
 
 
 class MomentHelper:
-    """Zajedničko za obje vrste: zone, serijalizacija (nosi oznaku vrste), odabir helpera.
-    AWARE: True = svjesno, False = naivno, None = bilo koja vrsta (goli int tada nije dopušten)."""
+    """Common to both kinds: zones, serialisation (which carries the kind), choice of helper.
+
+    AWARE: True = aware, False = naive, None = either kind (a bare int is then refused).
+    """
 
     AWARE = None
     _E_AW = datetime(1970, 1, 1, tzinfo=timezone.utc)
     _E_NA = datetime(1970, 1, 1)
     _G = 1_000_000_000
-    _PK = Struct(">qIB")  # sekunde int64, nanosekunde uint32, aware uint8 (13 B)
+    _PK = Struct(">qIB")  # seconds int64, nanoseconds uint32, aware uint8 (13 B)
+    #: The int64 ns of numpy, pandas and Arrow; -2**63 is their NaT, not a value (BR-MOM-07).
+    INT64_MIN_NS = -(2**63) + 1
+    INT64_MAX_NS = 2**63 - 1
 
-    # ---------- zone ----------
+    # ---------- zones ----------
     @staticmethod
     @lru_cache(maxsize=64)
     def zone(name: str) -> ZoneInfo:
         return ZoneInfo(name)
 
-    key = staticmethod(Moment._key)  # alias: jedan izvor istine je u Moment-u
+    key = staticmethod(Moment._key)  # alias: the one source of truth is Moment
 
-    # ---------- odabir helpera ----------
+    # ---------- choice of helper ----------
     @classmethod
     def of(cls, x):
-        """MomentAwareHelper ili MomentNaiveHelper prema vrsti Moment-a / datetime-a."""
+        """MomentAwareHelper or MomentNaiveHelper by the kind of a Moment or datetime."""
         if isinstance(x, Moment):
             aw = x.aware
         elif isinstance(x, datetime):
             aw = x.tzinfo is not None
         else:
-            raise TypeError(f"vrsta se ne može odrediti iz: {type(x).__name__}")
+            raise TypeError(f"cannot tell the kind of: {type(x).__name__}")
         return MomentAwareHelper if aw else MomentNaiveHelper
 
-    # ---------- unutarnje ----------
+    # ---------- internal ----------
     @classmethod
     def _wrong(cls):
         return TypeError(
-            "očekivan svjestan ulaz (Moment/datetime sa zonom)"
+            "expected an aware input (Moment or datetime with a zone)"
             if cls.AWARE
-            else "očekivan naivan ulaz (Moment/datetime bez zone)"
+            else "expected a naive input (Moment or datetime without a zone)"
         )
 
     @classmethod
     def _parts(cls, x):
-        """x -> (ns, aware, tz); vrsta mora odgovarati cls.AWARE."""
+        """x -> (ns, aware, tz); the kind must match cls.AWARE."""
         a = cls.AWARE
         if type(x) is int or (not isinstance(x, (Moment, datetime)) and hasattr(x, "__index__")):
             if a is None:
                 raise TypeError(
-                    "goli int nema vrstu; koristi MomentAwareHelper ili MomentNaiveHelper"
+                    "a bare int has no kind; use MomentAwareHelper or MomentNaiveHelper"
                 )
             return int(x), a, None
         if isinstance(x, Moment):
@@ -82,7 +86,7 @@ class MomentHelper:
                 d, aw, tz = x - cls._E_AW, True, cls.key(z)
             ns = ((d.days * 86400 + d.seconds) * 1_000_000 + d.microseconds) * 1000
         else:
-            raise TypeError(f"nepodržan tip: {type(x).__name__}")
+            raise TypeError(f"unsupported type: {type(x).__name__}")
         if a is not None and aw != a:
             raise cls._wrong()
         return ns, aw, tz
@@ -104,7 +108,7 @@ class MomentHelper:
     def _off_ns(off: timedelta) -> int:
         return ((off.days * 86400 + off.seconds) * 1_000_000 + off.microseconds) * 1000
 
-    # ---------- serijalizacija (nosi oznaku vrste) ----------
+    # ---------- serialisation (carries the kind) ----------
     @classmethod
     def to_dict(cls, x) -> dict:
         ns, aw, tz = cls._fields(x)
@@ -126,18 +130,41 @@ class MomentHelper:
         sec, nsec, a = cls._PK.unpack_from(b)
         return cls._expect(Moment(sec * cls._G + nsec, bool(a), b[cls._PK.size :].decode() or None))
 
+    # ---------- bridge to int64 ns columns ----------
+    @classmethod
+    def to_int64_ns(cls, x) -> int:
+        """ns for an int64 column; outside int64, or NaT, a MomentRangeError.
+
+        The one way into ns columns: numpy wraps an out-of-range value silently on some paths.
+        """
+        ns = cls._fields(x)[0]
+        if not cls.INT64_MIN_NS <= ns <= cls.INT64_MAX_NS:
+            raise MomentRangeError(f"{ns} ns is outside the int64 ns of a column")
+        return ns
+
+    @staticmethod
+    def _shown(make):
+        # Past years 1-9999 (zone edge, inf) datetime fails; it is named a range error (BR-MOM-06).
+        try:
+            return make()
+        except (OverflowError, ValueError) as e:
+            raise MomentRangeError(f"outside years 1-9999 in this form ({e})") from e
+
 
 class MomentAwareHelper(MomentHelper):
-    """Svjesno vrijeme: UTC trenutak (+ zona za prikaz). Goli int = ns UTC."""
+    """Aware time: a UTC moment (+ a zone for display). A bare int = UTC ns."""
 
     AWARE = True
-    _JD_UNIX = 2440587.5  # JD trenutka 1970-01-01T00:00:00 UTC
+    _JD_UNIX = 2440587.5  # JD of 1970-01-01T00:00:00 UTC
 
-    # ================= ulaz -> Moment =================
+    # ================= input -> Moment =================
     @classmethod
     def moment(cls, x, tz=None) -> Moment:
-        """Svjesni Moment iz Moment | datetime (sa zonom) | int (ns UTC). tz mijenja zonu prikaza."""
-        if tz is None and type(x) is datetime:  # najčešći put
+        """Aware Moment from Moment | datetime (with a zone) | int (UTC ns).
+
+        `tz` sets the display zone.
+        """
+        if tz is None and type(x) is datetime:  # the common path
             z = x.tzinfo
             if z is None:
                 raise cls._wrong()
@@ -150,17 +177,17 @@ class MomentAwareHelper(MomentHelper):
 
     @classmethod
     def from_iso(cls, s: str) -> Moment:
-        """ISO niz mora imati pomak ili 'Z'; bez toga TypeError (zona se ne izmišlja)."""
+        """The ISO text must carry an offset or 'Z'; without one TypeError (no zone is invented)."""
         return cls.moment(datetime.fromisoformat(s.replace("Z", "+00:00")))
 
     @classmethod
     def from_str(cls, s: str, fmt: str) -> Moment:
-        """strptime; format mora davati zonu (npr. %z), inače TypeError."""
+        """strptime; the format must yield a zone (e.g. %z), otherwise TypeError."""
         return cls.moment(datetime.strptime(s, fmt))
 
     @classmethod
     def from_unix(cls, sec: float, tz=None) -> Moment:
-        return Moment._raw(round(sec * cls._G), True, cls.key(tz))
+        return Moment._raw(cls._shown(lambda: round(sec * cls._G)), True, cls.key(tz))
 
     @classmethod
     def from_unix_ns(cls, ns: int, tz=None) -> Moment:
@@ -170,10 +197,10 @@ class MomentAwareHelper(MomentHelper):
     def now(cls, tz=None) -> Moment:
         return Moment._raw(time_ns(), True, cls.key(tz))
 
-    # ================= izlaz =================
+    # ================= output =================
     @classmethod
     def to_datetime(cls, x, tz=None) -> datetime:
-        """U zoni tz, inače spremljenoj, inače UTC."""
+        """In zone `tz`, else the stored zone, else UTC."""
         t = type(x)
         if t is Moment:
             if not x.aware:
@@ -184,14 +211,16 @@ class MomentAwareHelper(MomentHelper):
         elif isinstance(x, datetime):
             if x.tzinfo is None:
                 raise cls._wrong()
-            return x if tz is None else x.astimezone(cls.zone(tz) if isinstance(tz, str) else tz)
+            if tz is None:
+                return x
+            return cls._shown(lambda: x.astimezone(cls.zone(tz) if isinstance(tz, str) else tz))
         else:
             ns, _, tzs = cls._parts(x)
             z = tz if tz is not None else tzs
-        dt = cls._E_AW + timedelta(microseconds=ns // 1000)
+        dt = cls._shown(lambda: cls._E_AW + timedelta(microseconds=ns // 1000))
         if z is None:
             return dt
-        return dt.astimezone(cls.zone(z) if isinstance(z, str) else z)
+        return cls._shown(lambda: dt.astimezone(cls.zone(z) if isinstance(z, str) else z))
 
     @classmethod
     def to_utc(cls, x) -> datetime:
@@ -199,18 +228,18 @@ class MomentAwareHelper(MomentHelper):
 
     @classmethod
     def to_local(cls, x) -> datetime:
-        """datetime u zoni operacijskog sustava."""
-        return cls.to_datetime(x, timezone.utc).astimezone()
+        """datetime in the operating system's zone."""
+        return cls._shown(lambda: cls.to_datetime(x, timezone.utc).astimezone())
 
     @classmethod
     def to_str(cls, x, fmt: str = None, tz=None) -> str:
-        """Bez fmt: oblik kao str(datetime). S fmt: strftime."""
+        """Without `fmt`: the form of str(datetime). With `fmt`: strftime."""
         dt = cls.to_datetime(x, tz)
         return str(dt) if fmt is None else dt.strftime(fmt)
 
     @classmethod
     def to_iso(cls, x, tz=None, timespec: str = "auto", z: bool = False) -> str:
-        """isoformat; z=True zamjenjuje '+00:00' sa 'Z'."""
+        """isoformat; z=True writes '+00:00' as 'Z'."""
         s = cls.to_datetime(x, tz).isoformat(timespec=timespec)
         return s[:-6] + "Z" if (z and s.endswith("+00:00")) else s
 
@@ -251,32 +280,35 @@ class MomentAwareHelper(MomentHelper):
 
     @classmethod
     def to_jd(cls, x) -> float:
-        """Julijanski datum kao float64 (rezolucija ~40 µs; za točnost koristi ns)."""
+        """Julian date as float64 (resolution ~40 µs; use ns for exactness)."""
         return cls.to_unix_ns(x) / (86400 * cls._G) + cls._JD_UNIX
 
     @classmethod
     def to_mjd(cls, x) -> float:
-        """Modificirani JD kao float64 (rezolucija ~0.6 µs)."""
+        """Modified JD as float64 (resolution ~0.6 µs)."""
         return cls.to_jd(x) - 2400000.5
 
-    # ================= zona i jednosmjerna pretvorba =================
+    # ================= zone and one-way conversion =================
     @classmethod
     def with_tz(cls, x, tz):
-        """Isti trenutak, druga zona za prikaz. Moment -> Moment, datetime -> datetime."""
+        """The same moment, another display zone. Moment -> Moment, datetime -> datetime."""
         if isinstance(x, datetime):
             if x.tzinfo is None:
                 raise cls._wrong()
             return cls.to_datetime(x, tz)
         if not isinstance(x, Moment):
-            raise TypeError("int nema zonu; koristi Moment ili datetime")
+            raise TypeError("an int has no zone; use a Moment or a datetime")
         if not x.aware:
             raise cls._wrong()
         return x._raw(x.ns, True, cls.key(tz))
 
     @classmethod
     def strip(cls, x, tz=None):
-        """Svjesno -> NAIVNO (jednosmjerno, gubi zonu): zidno vrijeme u zoni tz (zadano spremljena zona,
-        inače UTC). Moment -> Moment, datetime -> datetime, int (ns UTC) -> int (ns zidnog vremena)."""
+        """Aware -> NAIVE (one way, the zone is lost): the wall time in zone `tz`.
+
+        `tz` defaults to the stored zone, else UTC. Moment -> Moment, datetime -> datetime,
+        int (UTC ns) -> int (wall-time ns).
+        """
         if isinstance(x, datetime):
             if x.tzinfo is None:
                 raise cls._wrong()
@@ -285,23 +317,29 @@ class MomentAwareHelper(MomentHelper):
         z = tz if tz is not None else tzs
         out = ns
         if z is not None:
-            inst = cls._E_AW + timedelta(microseconds=ns // 1000)
-            out = ns + cls._off_ns(
-                inst.astimezone(cls.zone(z) if isinstance(z, str) else z).utcoffset()
-            )
-        return x._raw(out, False, None) if isinstance(x, Moment) else out
+            zone = cls.zone(z) if isinstance(z, str) else z
+            inst = cls.to_datetime(ns, timezone.utc)
+            out = ns + cls._off_ns(cls._shown(lambda: inst.astimezone(zone)).utcoffset())
+        if isinstance(x, Moment):
+            return x._raw(out, False, None)
+        if not Moment.MIN_NS <= out <= Moment.MAX_NS:
+            raise MomentRangeError(f"{out} ns is outside years 1-9999")
+        return out
 
 
 class MomentNaiveHelper(MomentHelper):
-    """Naivno vrijeme: zidno vrijeme bez zone. Goli int = ns zidnog vremena.
-    Nema unix/http/jd/zona operacija i NEMA pretvorbe u svjesno (zona se ne izmišlja)."""
+    """Naive time: a wall time without a zone. A bare int = wall-time ns.
+
+    No unix/http/jd/zone operations, no RFC 5322 form (its '-0000' means UTC, BR-MOM-09) and NO
+    conversion to aware (a zone is never invented).
+    """
 
     AWARE = False
 
-    # ================= ulaz -> Moment =================
+    # ================= input -> Moment =================
     @classmethod
     def moment(cls, x) -> Moment:
-        """Naivni Moment iz Moment | datetime (bez zone) | int (ns zidnog vremena)."""
+        """Naive Moment from Moment | datetime (without a zone) | int (wall-time ns)."""
         if type(x) is datetime:
             if x.tzinfo is not None:
                 raise cls._wrong()
@@ -313,15 +351,15 @@ class MomentNaiveHelper(MomentHelper):
 
     @classmethod
     def from_iso(cls, s: str) -> Moment:
-        """ISO niz bez pomaka; s pomakom ili 'Z' TypeError."""
+        """ISO text without an offset; with an offset or 'Z', TypeError."""
         return cls.moment(datetime.fromisoformat(s))
 
     @classmethod
     def from_str(cls, s: str, fmt: str) -> Moment:
-        """strptime; format ne smije davati zonu."""
+        """strptime; the format must not yield a zone."""
         return cls.moment(datetime.strptime(s, fmt))
 
-    # ================= izlaz =================
+    # ================= output =================
     @classmethod
     def to_datetime(cls, x) -> datetime:
         t = type(x)
@@ -337,7 +375,7 @@ class MomentNaiveHelper(MomentHelper):
             return x
         else:
             ns = cls._parts(x)[0]
-        return cls._E_NA + timedelta(microseconds=ns // 1000)
+        return cls._shown(lambda: cls._E_NA + timedelta(microseconds=ns // 1000))
 
     @classmethod
     def to_str(cls, x, fmt: str = None) -> str:
@@ -359,11 +397,6 @@ class MomentNaiveHelper(MomentHelper):
     @classmethod
     def to_struct(cls, x) -> struct_time:
         return cls.to_datetime(x).timetuple()
-
-    @classmethod
-    def to_rfc2822(cls, x) -> str:
-        """Bez zone: pomak je '-0000' (RFC 2822: zona nepoznata)."""
-        return format_datetime(cls.to_datetime(x))
 
 
 __all__ = ["MomentHelper", "MomentAwareHelper", "MomentNaiveHelper"]
