@@ -8,8 +8,10 @@
 and conversions that never invent a zone."""
 
 import copy
+import os
 import pickle
 import unittest
+from unittest import mock
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -126,7 +128,7 @@ class TestNaive(unittest.TestCase):
         for name in ("to_unix_ns", "to_http", "to_jd", "with_tz", "strip"):
             self.assertFalse(hasattr(N, name), name)
 
-    def test_a_wall_time_has_no_rfc_5322_form(self):  # FRQ-MOM c.11
+    def test_a_wall_time_has_no_rfc_5322_form(self):  # FRQ-MMN c.11
         # RFC 5322 section 3.3: "-0000" means UT, and a wall time is not UT.
         self.assertFalse(hasattr(N, "to_rfc2822"))
 
@@ -166,7 +168,7 @@ class TestCommon(unittest.TestCase):
 
 
 class TestDomain(unittest.TestCase):
-    """FRQ-MOM c.7-9: years 1-9999 on creation, named errors at zone edges, one bridge to int64."""
+    """FRQ-MMN c.7-9: years 1-9999 on creation, named errors at zone edges, one bridge to int64."""
 
     def test_the_bounds_are_the_years_of_datetime(self):
         self.assertEqual(Moment.MIN_NS, -62_135_596_800 * 10**9)
@@ -221,6 +223,92 @@ class TestDomain(unittest.TestCase):
         with self.assertRaises(TypeError):
             MomentHelper.to_int64_ns(0)  # a bare int has no kind
 
+
+
+class TestWorkflowZone(unittest.TestCase):
+    """FRQ-MMN c.13-14 (BR-MMN-12): now() carries the workflow zone, resolved once."""
+
+    def setUp(self):
+        saved = {k: os.environ.get(k) for k in ("WATTLEFLOW_TIME_ZONE", "TZ")}
+
+        def restore():
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+            MomentHelper.configure()
+
+        self.addCleanup(restore)
+        os.environ.pop("WATTLEFLOW_TIME_ZONE", None)
+
+    def test_a_configured_zone_wins(self):
+        os.environ["WATTLEFLOW_TIME_ZONE"] = "Asia/Tokyo"
+        MomentHelper.configure("Europe/Zagreb")
+        self.assertEqual(MomentHelper.workflow_zone(), "Europe/Zagreb")
+        self.assertEqual(A.now().tz, "Europe/Zagreb")
+        self.assertEqual(A.now("UTC").tz, "UTC")  # an explicit zone still wins per call
+
+    def test_the_global_setting_comes_next(self):
+        os.environ["WATTLEFLOW_TIME_ZONE"] = "Asia/Tokyo"
+        MomentHelper.configure()
+        self.assertEqual(MomentHelper.workflow_zone(), "Asia/Tokyo")
+
+    def test_then_the_system_zone(self):
+        os.environ["TZ"] = "America/New_York"
+        MomentHelper.configure()
+        self.assertEqual(MomentHelper.workflow_zone(), "America/New_York")
+
+    def test_without_a_name_utc_with_one_warning(self):
+        with mock.patch.object(MomentHelper, "_system_zone", return_value=None):
+            with self.assertWarns(RuntimeWarning):
+                MomentHelper.configure()
+        self.assertEqual(MomentHelper.workflow_zone(), "UTC")
+
+    def test_resolved_once(self):
+        MomentHelper.configure("Europe/Zagreb")
+        os.environ["WATTLEFLOW_TIME_ZONE"] = "Asia/Tokyo"
+        self.assertEqual(MomentHelper.workflow_zone(), "Europe/Zagreb")
+
+    def test_an_unknown_zone_is_refused(self):
+        with self.assertRaises(ZoneInfoNotFoundError):
+            MomentHelper.configure("Not/AZone")
+        os.environ["WATTLEFLOW_TIME_ZONE"] = "Not/AZone"
+        with self.assertRaises(ZoneInfoNotFoundError):
+            MomentHelper.configure()
+
+
+
+class TestTextOfEitherKind(unittest.TestCase):
+    """FRQ-MMN c.15-17: text whose kind the source decides; the one crossing into a moment."""
+
+    def test_text_keeps_the_kind_in_the_default_form(self):
+        self.assertEqual(MomentHelper.text(A.moment(SYDNEY_NOON)), "2026-10-06T12:00:00.000000+11:00")
+        self.assertEqual(MomentHelper.text(A.moment(UTC_NOON)), "2026-10-06T12:00:00.000000Z")
+        self.assertEqual(MomentHelper.text(N.moment(WALL)), "2026-10-06T12:00:00.000000")
+        self.assertEqual(MomentHelper.text(SYDNEY_NOON), "2026-10-06T12:00:00.000000+11:00")
+        self.assertEqual(MomentHelper.text(WALL), "2026-10-06T12:00:00.000000")
+
+    def test_parse_iso_chooses_the_kind_by_the_offset(self):
+        self.assertEqual(MomentHelper.parse_iso("2026-10-06T12:00:00Z"), A.moment(UTC_NOON))
+        self.assertTrue(MomentHelper.parse_iso("2026-10-06T12:00:00+11:00").aware)
+        naive = MomentHelper.parse_iso(" 2026-10-06T12:00:00 ")
+        self.assertFalse(naive.aware)
+        self.assertEqual(naive, N.moment(WALL))
+        with self.assertRaises(ValueError):
+            MomentHelper.parse_iso("06/10/2026")
+
+    def test_localize_needs_a_zone_and_a_wall_time(self):
+        m = N.localize(N.moment(WALL), "Australia/Sydney")
+        self.assertTrue(m.aware)
+        self.assertEqual((m, m.tz), (A.moment(SYDNEY_NOON), "Australia/Sydney"))
+        self.assertEqual(N.localize(N.moment(datetime(2026, 7, 1, 12)), "Australia/Sydney"),
+                         A.moment(datetime(2026, 7, 1, 2, tzinfo=timezone.utc)))  # fmt: skip
+        self.assertEqual(N.localize(Moment(123, False), "UTC").ns, 123)  # nanoseconds survive
+        with self.assertRaises(TypeError):
+            N.localize(N.moment(WALL))  # the zone is not optional
+        with self.assertRaises(TypeError):
+            N.localize(A.moment(UTC_NOON), "UTC")
 
 if __name__ == "__main__":
     unittest.main()

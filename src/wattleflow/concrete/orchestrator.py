@@ -20,7 +20,7 @@ The Orchestrator class:
 from __future__ import annotations
 import inspect
 import threading
-from wattleflow.helpers.dtime import Now
+from wattleflow.helpers.moment import MomentAwareHelper
 from wattleflow.core import (
     IFacade,
     IEventSource,
@@ -90,7 +90,7 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
     def _start_processor(self, processor: IProcessor) -> None:
         proc_name = getattr(processor, "name", "unknown")
         try:
-            start_time = Now.utc()
+            start_time = MomentAwareHelper.now()
             # IProcessor contract uses start(); fall back to operation(Start)
             # if a custom processor only exposes the facade signature.
             if callable(getattr(processor, "start", None)):
@@ -101,7 +101,7 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
                 raise TypeError(
                     f"Processor {proc_name!r} exposes neither start() nor operation()"
                 )
-            duration = (Now.utc() - start_time).total_seconds()
+            duration = (MomentAwareHelper.now() - start_time).total_seconds()
 
             self.emit_event(
                 Event.Processed,

@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 
 class MomentRangeError(OverflowError, ValueError):
-    """A value outside the domain of Moment (years 1-9999) or of its target form (BR-MOM-05..07)."""
+    """A value outside the domain of Moment (years 1-9999) or of its target form (BR-MMN-05..07)."""
 
 
 class _MomentSlots:
@@ -32,7 +32,7 @@ class Moment(_MomentSlots):
 
     __slots__ = ()
 
-    #: 0001-01-01T00:00:00 and 9999-12-31T23:59:59.999999999, both kinds (BR-MOM-05).
+    #: 0001-01-01T00:00:00 and 9999-12-31T23:59:59.999999999, both kinds (BR-MMN-05).
     MIN_NS = -62_135_596_800 * 1_000_000_000
     MAX_NS = 253_402_300_800 * 1_000_000_000 - 1
 

@@ -20,7 +20,7 @@ from wattleflow.core import IAdaptee, IAdapter, ITarget
 from wattleflow.core.transactional import Content
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.enums.event import Event
-from wattleflow.helpers.dtime import Now
+from wattleflow.helpers.moment import MomentAwareHelper
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -69,7 +69,7 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
         # lock after first assignment
         self._expected_type: type[object] | None = None
 
-        self.update_metadata(key="created_at", value=Now.utc())
+        self.update_metadata(key="created_at", value=MomentAwareHelper.now())
         self.update_content(content=content)
 
         self.debug(msg=Event.Constructor, step=Event.Completed)
@@ -124,8 +124,8 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
 
         self._content = content
         self._metadata["last_change_key"] = "content"
-        # v0.0.1.23: DEF-DOC-09, one route to the time: Now.utc() (no per-document clock)
-        self._metadata["last_change_time"] = Now.utc()
+        # FRQ-DOC c.12: one route to the time, MomentAwareHelper.now() (no per-document clock)
+        self._metadata["last_change_time"] = MomentAwareHelper.now()
 
     def update_metadata(self, key: str, value: object) -> None:
         # v0.0.1.14: no audit record per key — a key is not a unit of
@@ -143,13 +143,9 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
 
         self._metadata[key] = value
         self._metadata["last_change_key"] = key
-        self._metadata["last_change_time"] = Now.utc()
+        self._metadata["last_change_time"] = MomentAwareHelper.now()
 
-    def __del__(self):
-        try:
-            self.clean()
-        except Exception:
-            pass
+    # v0.0.1.42: no __del__; clearing on collection emptied metadata views outliving the document.
 
     def __eq__(self, other: object) -> bool:
         return (

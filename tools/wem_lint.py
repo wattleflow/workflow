@@ -920,8 +920,8 @@ class DependencyLocalityRule(Wattleflow, IStrategy):
 
     @staticmethod
     def _shelf_modules(src, shared) -> list[str]:
-        # Top-level names on the shelf: `helpers/dtime.py` -> dtime, `helpers/formatters/`
-        # -> formatters. Enumerated from the tree, not from the import graph, so a module
+        # Top-level names on the shelf: `helpers/audit.py` -> audit, `helpers/moment/`
+        # -> moment. Enumerated from the tree, not from the import graph, so a module
         # nobody imports is still part of the population.
         root = src / shared
         if not root.is_dir():

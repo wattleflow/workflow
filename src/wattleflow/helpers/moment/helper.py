@@ -13,11 +13,14 @@ Every method is a classmethod; a subclass may override it.
 """
 
 from __future__ import annotations
+import os
+import warnings
 from datetime import date, datetime, time, timedelta, timezone
 from email.utils import format_datetime
 from functools import lru_cache
 from struct import Struct
 from time import struct_time, time_ns
+from pathlib import Path
 from zoneinfo import ZoneInfo
 from .base import Moment, MomentRangeError
 
@@ -33,9 +36,50 @@ class MomentHelper:
     _E_NA = datetime(1970, 1, 1)
     _G = 1_000_000_000
     _PK = Struct(">qIB")  # seconds int64, nanoseconds uint32, aware uint8 (13 B)
-    #: The int64 ns of numpy, pandas and Arrow; -2**63 is their NaT, not a value (BR-MOM-07).
+    #: The int64 ns of numpy, pandas and Arrow; -2**63 is their NaT, not a value (BR-MMN-07).
     INT64_MIN_NS = -(2**63) + 1
     INT64_MAX_NS = 2**63 - 1
+    #: The global setting of the workflow zone (BR-MMN-12).
+    ENV_ZONE = "WATTLEFLOW_TIME_ZONE"
+    _workflow_zone: str | None = None
+
+    # ---------- workflow zone ----------
+    @classmethod
+    def configure(cls, zone=None) -> str:
+        """Sets the workflow zone once, at the start of a workflow (BR-MMN-12).
+
+        `zone`, else ENV_ZONE, else the system zone, else UTC with one warning.
+        """
+        name = cls.key(zone) if zone is not None else None
+        if name is None:
+            name = cls.key(os.environ.get(cls.ENV_ZONE) or None) or cls._system_zone()
+        if name is None:
+            warnings.warn(
+                f"the system zone has no IANA name; times are shown in UTC. Set {cls.ENV_ZONE}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            name = "UTC"
+        MomentHelper._workflow_zone = name
+        return name
+
+    @classmethod
+    def workflow_zone(cls) -> str:
+        """The workflow zone, resolved on first use when no workflow configured it."""
+        return MomentHelper._workflow_zone or cls.configure()
+
+    @staticmethod
+    def _system_zone() -> str | None:
+        # The standard library names the system zone only through TZ or /etc/localtime.
+        name = (os.environ.get("TZ") or "").lstrip(":")
+        if not name:
+            link = Path("/etc/localtime")
+            target = str(link.resolve()) if link.is_symlink() else ""
+            name = target.split("zoneinfo/", 1)[1] if "zoneinfo/" in target else ""
+        try:
+            return Moment._key(name) if name else None
+        except Exception:
+            return None
 
     # ---------- zones ----------
     @staticmethod
@@ -130,6 +174,22 @@ class MomentHelper:
         sec, nsec, a = cls._PK.unpack_from(b)
         return cls._expect(Moment(sec * cls._G + nsec, bool(a), b[cls._PK.size :].decode() or None))
 
+    # ---------- text whose kind the source decides ----------
+    @classmethod
+    def text(cls, x) -> str:
+        """ISO 8601 of either kind in the default form (microseconds in full, UTC as 'Z'):
+        a moment with the offset of its zone, a wall time without one."""
+        helper = cls.of(x)
+        if helper.AWARE:
+            return helper.to_iso(x, timespec="microseconds", z=True)
+        return helper.to_iso(x, timespec="microseconds")
+
+    @classmethod
+    def parse_iso(cls, text: str) -> Moment:
+        """A moment when the text carries an offset or 'Z', else a wall time; other text, ValueError."""
+        value = datetime.fromisoformat(str(text).strip().replace("Z", "+00:00"))
+        return cls.of(value).moment(value)
+
     # ---------- bridge to int64 ns columns ----------
     @classmethod
     def to_int64_ns(cls, x) -> int:
@@ -144,7 +204,7 @@ class MomentHelper:
 
     @staticmethod
     def _shown(make):
-        # Past years 1-9999 (zone edge, inf) datetime fails; it is named a range error (BR-MOM-06).
+        # Past years 1-9999 (zone edge, inf) datetime fails; it is named a range error (BR-MMN-06).
         try:
             return make()
         except (OverflowError, ValueError) as e:
@@ -195,7 +255,8 @@ class MomentAwareHelper(MomentHelper):
 
     @classmethod
     def now(cls, tz=None) -> Moment:
-        return Moment._raw(time_ns(), True, cls.key(tz))
+        """This moment, shown in `tz`, else in the workflow zone (BR-MMN-12)."""
+        return Moment._raw(time_ns(), True, cls.key(tz) if tz is not None else cls.workflow_zone())
 
     # ================= output =================
     @classmethod
@@ -330,7 +391,7 @@ class MomentAwareHelper(MomentHelper):
 class MomentNaiveHelper(MomentHelper):
     """Naive time: a wall time without a zone. A bare int = wall-time ns.
 
-    No unix/http/jd/zone operations, no RFC 5322 form (its '-0000' means UTC, BR-MOM-09) and NO
+    No unix/http/jd/zone operations, no RFC 5322 form (its '-0000' means UTC, BR-MMN-09) and NO
     conversion to aware (a zone is never invented).
     """
 
@@ -358,6 +419,16 @@ class MomentNaiveHelper(MomentHelper):
     def from_str(cls, s: str, fmt: str) -> Moment:
         """strptime; the format must not yield a zone."""
         return cls.moment(datetime.strptime(s, fmt))
+
+    @classmethod
+    def localize(cls, x, zone) -> Moment:
+        """The wall time read in `zone`: the one crossing into a moment, and the zone is always
+        named by the caller (BR-MMN-13, BR-MMN-14)."""
+        m = cls.moment(x)
+        z = MomentHelper.zone(zone) if isinstance(zone, str) else zone
+        # The offset comes from datetime (µs); the nanoseconds stay those of the Moment.
+        offset = cls._shown(lambda: cls.to_datetime(m).replace(tzinfo=z)).utcoffset()
+        return Moment._raw(m.ns - cls._off_ns(offset), True, cls.key(zone))
 
     # ================= output =================
     @classmethod

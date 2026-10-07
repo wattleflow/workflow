@@ -26,6 +26,7 @@ from wattleflow.concrete.memento_store import (
     MemoryMementoStore,
 )
 from wattleflow.helpers.audit import Audit
+from wattleflow.helpers.moment import MomentHelper
 from wattleflow.helpers.monitor import Monitor, MonitorLevel
 from wattleflow.helpers.resources import ResourceManager
 from wattleflow.concrete.base import Wattleflow
@@ -359,6 +360,8 @@ class WorkflowFactory:
         cls._report_inline("workflows", workflow, {"processors", "runtime", "memento"})
 
         cls._apply_runtime_env(workflow.get("runtime"))
+        # The workflow zone is settled once, after `runtime:` may have named it (BR-MMN-12).
+        MomentHelper.configure()
 
         # Global audit logger settings --------------------------------- #
         # The declared level is the DEFAULT for the whole workflow, so it is set
@@ -546,6 +549,7 @@ class WorkflowFactory:
         "java_home": "JAVA_HOME",
         "spark_home": "SPARK_HOME",
         "pyspark_python": "PYSPARK_PYTHON",
+        "time_zone": "WATTLEFLOW_TIME_ZONE",
     }
 
     @classmethod

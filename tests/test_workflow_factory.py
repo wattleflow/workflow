@@ -222,6 +222,16 @@ class RuntimeEnvTest(Isolated):
         self.assertIn("API_TOKEN", text)
         self.assertNotIn("s3cret-value", text)
 
+    def test_time_zone_sets_the_workflow_zone_once(self):  # FRQ-WFL c.15, HLRQ-MMN BR-MMN-12
+        from wattleflow.helpers.moment import MomentAwareHelper, MomentHelper
+
+        self.addCleanup(MomentHelper.configure)  # runs after the environment is restored below
+        self.addCleanup(os.environ.pop, "WATTLEFLOW_TIME_ZONE", None)
+        self.build(document(workflow_extra={"runtime": {"time_zone": "Europe/Zagreb"}}))
+        self.assertEqual(os.environ["WATTLEFLOW_TIME_ZONE"], "Europe/Zagreb")
+        self.assertEqual(MomentHelper.workflow_zone(), "Europe/Zagreb")
+        self.assertEqual(MomentAwareHelper.now().tz, "Europe/Zagreb")
+
 
 class DriverLookupTest(Isolated):
     def test_an_unknown_processor_driver_is_a_factory_exception_naming_the_entry(self):
