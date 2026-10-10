@@ -9,6 +9,14 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = [
+    "ConnectionManager",
+    "DriverManager",
+    "ProcessorManager",
+]
+
+from typing import Any
 from wattleflow.core import (
     IObserver,
     IDriver,
@@ -72,29 +80,10 @@ class ConnectionManager(Wattleflow, IObserver):
         return len(self._connections)
 
     def connect(self, name: str, **kwargs) -> object:
-        self.debug(msg=Event.Connect, name=name, kwargs=kwargs)
-        connected = self.operation(name, Operation.Connect, **kwargs)
-        self.debug(msg=Event.Connect, step=Event.Completed, status=connected)
-        return self._connections[name]
+        return self.operation(name, Operation.Connect, **kwargs)
 
     def disconnect(self, name: str, **kwargs) -> bool:
-        try:
-            success = self.operation(name, Operation.Disconnect, **kwargs)
-            self.debug(
-                msg=Event.Disconnected,
-                step=Event.Completed,
-                name=name,
-                kwargs=kwargs,
-            )
-            return success
-        except Exception as e:
-            self.error(
-                msg=Event.Disconnect,
-                reason="Failed to disconnect!",
-                name=name,
-                error=str(e),
-            )
-            return False
+        return self.operation(name, Operation.Disconnect, **kwargs)
 
     def get_connection(self, name: str) -> Connection:
         if name not in self._connections:
@@ -203,8 +192,8 @@ class ConnectionManager(Wattleflow, IObserver):
             )
         self.debug(msg=Event.Swap, step=Event.Completed, name=name)
 
-    def operation(self, name: str, action: Operation, **kwargs) -> bool:
-        self.debug(msg=Event.Operation, step=Event.Started, kwargs=kwargs)
+    def operation(self, name: str, action: Operation, **kwargs) -> Any:
+        self.debug(msg=Event.Operation, step=Event.Started, action=action.name)
         if name not in self._connections:
             raise ManagerException(
                 caller=self,
@@ -213,7 +202,7 @@ class ConnectionManager(Wattleflow, IObserver):
                 **kwargs,
             )
 
-        self.debug(msg=Event.Operation, step=Event.Completing, kwargs=kwargs)
+        self.debug(msg=Event.Operation, step=Event.Completing, action=action.name)
         return self._connections[name].operation(action, **kwargs)
 
     def update(self, *args, **kwargs):
@@ -406,9 +395,7 @@ class ProcessorManager(Wattleflow, IObserver):
     def get_processor(self, name: str) -> IProcessor:
         self.debug(msg=Event.Get, target="processor", step=Event.Starting)
         if name not in self._processors:
-            raise ManagerException(
-                caller=self, error=f"Processor {name!r} is not found!"
-            )
+            raise ManagerException(caller=self, error=f"Processor {name!r} is not found!")
         self.debug(msg=Event.Get, target="processor", step=Event.Completed)
         return self._processors.get(name)
 
@@ -468,10 +455,3 @@ class ProcessorManager(Wattleflow, IObserver):
 # --------------------------------------------------------------------------- #
 # endregion Classes                                                           #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = [
-    "ConnectionManager",
-    "DriverManager",
-    "ProcessorManager",
-]

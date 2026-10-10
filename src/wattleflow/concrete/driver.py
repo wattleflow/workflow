@@ -8,6 +8,15 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = [
+    "DriverAction",
+    "DriverMetadata",
+    "DriverState",
+    "GenericDriver",
+    "LazyDriverProxy",
+]
+
 import logging
 from abc import ABC
 from dataclasses import dataclass
@@ -23,7 +32,6 @@ from wattleflow.enums.capability import DriverCapability
 from wattleflow.enums.event import Event
 from wattleflow.enums.operation import Operation
 from wattleflow.decorators.preset import PresetDecorator
-# from wattleflow.decorators.measure import measured  # retired
 
 
 # --------------------------------------------------------------------------- #
@@ -42,7 +50,6 @@ class DriverMetadata:
     protocol: str
     capabilities: list[str]
 
-    # v0.0.1.23: DEF-DRV-05, a self-description is checked when it is built, not trusted later
     def __post_init__(self) -> None:
         if not isinstance(self.capabilities, list):
             raise TypeError(
@@ -256,9 +263,6 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
     # endregion lifecycle
 
     # region implementation methods
-    # v0.0.1.23: DEF-DRV-01, load, close, read, write and metadata are abstract through IDriver;
-    # a subclass that omits one cannot be instantiated.
-
     def update(self, event: Any, **kwargs) -> None:
         self.debug(
             msg=Event.Update,
@@ -292,7 +296,6 @@ class LazyDriverProxy(Wattleflow, IDriver, IObserver, ABC):
         super().__init__(**kwargs)
 
         self._factory = factory  # callable → GenericDriver
-        # v0.0.1.23: DEF-DRV-02, the real driver, built on first use
         self._driver: GenericDriver | None = None
         self._conn_mgr = conn_mgr
         self._conn_name = conn_name
@@ -302,8 +305,6 @@ class LazyDriverProxy(Wattleflow, IDriver, IObserver, ABC):
     def _ensure_ready(self) -> GenericDriver:
         conn = self._conn_mgr.get_connection(self._conn_name)
 
-        # v0.0.1.23: DEF-DRV-06, `connected` means a session is open, which an idle connection never
-        # has; ask whether a connect request has anything to do instead
         if not conn.created:
             conn.request(action=Operation.Connect)
 
@@ -338,9 +339,6 @@ class LazyDriverProxy(Wattleflow, IDriver, IObserver, ABC):
         """The wrapped driver, or None while still lazy. Never forces a load."""
         return self._driver
 
-    # v0.0.1.23: DEF-DRV-04, a query about the driver must not connect, build or resume it. While
-    # lazy the proxy answers as a driver that has not loaded yet (PENDING), as close() and reset()
-    # already do not build one.
     @property
     def state(self) -> DriverState:
         return self._driver.state if self._driver is not None else DriverState.PENDING
@@ -405,13 +403,3 @@ class LazyDriverProxy(Wattleflow, IDriver, IObserver, ABC):
 # --------------------------------------------------------------------------- #
 # endregion Drivers                                                           #
 # --------------------------------------------------------------------------- #
-
-
-# v0.0.1.23: DEF-DRV-03, last top-level statement of the module (STANDARDS §2.7)
-__all__ = [
-    "DriverAction",
-    "DriverMetadata",
-    "DriverState",
-    "GenericDriver",
-    "LazyDriverProxy",
-]

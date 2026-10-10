@@ -9,6 +9,14 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = [
+    "FileMementoStore",
+    "MementoStore",
+    "MementoStoreException",
+    "MemoryMementoStore",
+]
+
 import json
 import os
 import re
@@ -204,11 +212,3 @@ class FileMementoStore(MementoStore):
 # --------------------------------------------------------------------------- #
 # endregion Classes                                                           #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = [
-    "FileMementoStore",
-    "MementoStore",
-    "MementoStoreException",
-    "MemoryMementoStore",
-]

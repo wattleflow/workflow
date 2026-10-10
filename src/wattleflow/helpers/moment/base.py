@@ -4,6 +4,9 @@
 # License: Apache 2 Licence
 
 from __future__ import annotations
+
+__all__ = ["Moment", "MomentRangeError"]
+
 from datetime import timedelta
 from zoneinfo import ZoneInfo
 
@@ -189,6 +192,3 @@ class Moment(_MomentSlots):
         from .helper import MomentHelper
 
         return f"Moment({MomentHelper.of(self).to_iso(self)!r})"
-
-
-__all__ = ["Moment", "MomentRangeError"]

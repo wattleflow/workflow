@@ -21,12 +21,13 @@ Adding a member extends a controlled vocabulary and goes through a documented ch
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
+
+__all__ = ["Measure", "MetricKind", "MetricTarget"]
+
 from enum import Enum, StrEnum
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
-
-__all__ = ["Measure", "MetricKind", "MetricTarget"]
 
 # --------------------------------------------------------------------------- #
 # region Enumerations                                                         #

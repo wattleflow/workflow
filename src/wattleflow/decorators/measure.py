@@ -154,3 +154,5 @@
 #         return target
 #
 #     return decorate
+
+__all__ = []

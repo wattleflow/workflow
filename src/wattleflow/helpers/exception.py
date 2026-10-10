@@ -13,6 +13,9 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["AuditException"]
+
 import inspect
 import linecache
 import logging
@@ -144,6 +147,3 @@ class AuditException(Exception):
 # --------------------------------------------------------------------------- #
 # endregion Audit base class                                                  #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = ["AuditException"]

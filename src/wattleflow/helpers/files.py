@@ -15,6 +15,9 @@ entry then behaves identically on Linux, Windows and macOS.
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
+
+__all__ = ["FileScanner", "FileSourceScanner"]
+
 import re
 from collections.abc import Iterable, Iterator
 from pathlib import Path
@@ -22,8 +25,6 @@ from wattleflow.helpers.routing import PatternSpec
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
-
-__all__ = ["FileScanner", "FileSourceScanner"]
 
 # --------------------------------------------------------------------------- #
 # region FileScanner                                                          #

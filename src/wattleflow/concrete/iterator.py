@@ -7,11 +7,14 @@
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
+
+__all__ = ["LazyAsyncIterator", "LazyIterator", "ThreadSafeLazyIterator"]
+
 import threading
 from collections.abc import AsyncIterator, Iterator
 from wattleflow.core.behavioural import IIterator, IAsyncIterator, Element
 from wattleflow.concrete.base import Wattleflow
-from wattleflow.concrete.helpers import Attribute
+from wattleflow.concrete.helper import Attribute
 from wattleflow.enums.event import Event
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -100,6 +103,3 @@ class LazyAsyncIterator(Wattleflow, IAsyncIterator[Element]):
 # --------------------------------------------------------------------------- #
 # endregion Implementation                                                    #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = ["LazyAsyncIterator", "LazyIterator", "ThreadSafeLazyIterator"]

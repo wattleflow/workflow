@@ -9,6 +9,9 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["GuardedStateMachine", "StateMachine"]
+
 import threading
 from abc import ABC
 from enum import Enum
@@ -32,9 +35,8 @@ Action = TypeVar("Action", bound=Enum)
 # endregion Types                                                             #
 # --------------------------------------------------------------------------- #
 
-
 # --------------------------------------------------------------------------- #
-# region Classes                                                              #
+# region StateMachine Classes                                                 #
 # --------------------------------------------------------------------------- #
 
 
@@ -49,8 +51,8 @@ class StateMachine(IStateMachine, Generic[State, Action], ABC):
     ) -> None:
         IStateMachine.__init__(self)
         self._name: str | None = name
-        # A read-only copy: the owner keeps its dictionary, but changing it later does not
-        # change this machine (the table of a shared TRANSITIONS stays what it was).
+        # A read-only copy: the owner keeps its dictionary,
+        # but the FSM cannot change it. The mapping is from (state, action) to state.
         table = MappingProxyType(dict(transitions))
         known = {source for source, _ in table} | set(table.values())
         if initial not in known:
@@ -128,7 +130,7 @@ class GuardedStateMachine(IStateMachine, Generic[State, Action], ABC):
 
     def _check(self) -> None:
         # The guard runs once, before the first transition, also when threads arrive together:
-        # the others wait for it. A guard that raises is not consumed and is tried again.
+        # the others wait for it.
         with self._guard_lock:
             if not self._consumed:
                 self._guard(self._inner)
@@ -147,8 +149,5 @@ class GuardedStateMachine(IStateMachine, Generic[State, Action], ABC):
 
 
 # --------------------------------------------------------------------------- #
-# endregion Classes                                                           #
+# endregion StateMachine Classes                                              #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = ["GuardedStateMachine", "StateMachine"]

@@ -9,6 +9,9 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["GenericRepository", "RepositoryWithDriver"]
+
 from abc import ABC
 from typing import Any
 from wattleflow.core import IBlackboard, IRepository, ITarget
@@ -279,6 +282,3 @@ class RepositoryWithDriver(GenericRepository):
 # --------------------------------------------------------------------------- #
 # endregion Repositories                                                      #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = ["GenericRepository", "RepositoryWithDriver"]

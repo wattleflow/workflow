@@ -10,6 +10,9 @@
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
+
+__all__ = ["ResourceStorage"]
+
 import shutil
 from pathlib import Path
 from typing import ClassVar
@@ -63,5 +66,3 @@ class ResourceStorage(Resource):
 # --------------------------------------------------------------------------- #
 # endregion Resource                                                          #
 # --------------------------------------------------------------------------- #
-
-__all__ = ["ResourceStorage"]

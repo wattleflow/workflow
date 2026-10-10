@@ -9,6 +9,14 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = [
+    "ConnectionAction",
+    "ConnectionState",
+    "GenericConnection",
+    "ConnectionObserverInterface",
+]
+
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -163,7 +171,7 @@ class ConnectionObserverInterface(Wattleflow, IObservable, ABC):
 
 
 class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
-    # v0.0.1.23: DEF-CON-04, the generic class declares its own argument once; the preset unions
+    # DEF-CON-04, the generic class declares its own argument once; the preset unions
     # `ALLOWED` across the MRO, so a specialisation lists only what it adds
     ALLOWED = ["lazy_loading"]
 
@@ -187,9 +195,7 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
             error = "`connection_name` must be provided in connection kwargs!"
             raise ConnectionException(caller=self, error=error, **kwargs)
 
-        # Subclasses declare configurable kwargs via the ``ALLOWED`` class
-        # attribute; PresetDecorator resolves it from the type (NFRQ-ORG-07), so
-        # this no longer needs its own copy of that resolution.
+        # PresetDecorator resolves it from the type (NFRQ-ORG-07)
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
         self._connection_name = connection_name
         self._lazy_loading = kwargs.pop("lazy_loading", False)
@@ -395,7 +401,6 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
             self.debug(msg=Event.Operation, step=Event.Completed, action=action)
             return result
 
-        # v0.0.1.23: DEF-CON-01, every failure of this module is a ConnectionException (BR-PTN-05)
         raise ConnectionException(caller=self, error=f"Unknown action: {action}")
 
     # region Abstract methods
@@ -433,11 +438,3 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
 # --------------------------------------------------------------------------- #
 # endregion Classes                                                           #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = [
-    "ConnectionAction",
-    "ConnectionState",
-    "GenericConnection",
-    "ConnectionObserverInterface",
-]

@@ -1,4 +1,4 @@
-# Module name: concrete/helpers.py
+# Module name: concrete/helper.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -9,6 +9,9 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["Attribute", "NameHelper"]
+
 from enum import Enum
 from importlib import import_module
 from pathlib import Path
@@ -26,10 +29,6 @@ from wattleflow.concrete.exception import AttributeException
 
 # Types that are never loaded from a class path given as a string.
 _PRIMITIVES = (int, float, bool, bytes, dict, list, set, frozenset, str, tuple)
-
-# Keyword names used by AttributeException / load_from_class themselves.
-# Caller kwargs with these names are dropped from the error context, otherwise
-# they would collide with explicit keyword arguments (TypeError).
 _RESERVED = frozenset({"caller", "error", "name", "cls", "obj"})
 
 
@@ -48,22 +47,7 @@ def _extra(kwargs: dict) -> dict:
 
 
 class Attribute:
-    """Attribute validation and conversion helpers.
-
-    Conventions (same for all methods):
-      * convert() returns the converted value; the caller assigns it.
-      * mandatory() and optional() take **kwargs, so they never change the
-        caller's dictionary. Both set the resolved value on `caller`.
-      * get() takes an explicit dict and consumes `name` from it; it sets a
-        value it had to load on `caller` and returns the value.
-      * A value of the wrong type always raises AttributeException.
-      * A string is a class path (loaded through ClassLoader) only where a
-        class is expected: the class is resolved and checked against the
-        expected type BEFORE it is instantiated. mandatory() loads only for
-        IWattleflow types; with no expected type a value is returned as it is.
-    """
-
-    # --- name helpers: thin wrappers over NameHelper (single source) ------- #
+    """Attribute validation and conversion helpers."""
 
     @staticmethod
     def name(o: object) -> str:
@@ -203,22 +187,14 @@ class Attribute:
         return getattr(module, class_name)
 
     @staticmethod
-    def load_from_class(
-        name: str, obj: object, cls: type, caller: object = None, **kwargs
-    ):
+    def load_from_class(name: str, obj: object, cls: type, caller: object = None, **kwargs):
         if not isinstance(obj, str):
-            raise TypeError(
-                f"Expected class path as string for {name}, got {type(obj).__name__}"
-            )
+            raise TypeError(f"Expected class path as string for {name}, got {type(obj).__name__}")
 
-        # NOTE: local import keeps the static import graph free of the
-        # concrete -> helpers edge, but the runtime dependency remains.
         from wattleflow.helpers.system import (
             ClassLoader,
         )  # pylint: disable=import-outside-toplevel
 
-        # v0.0.1.23: DEF-HLP-02, the class is resolved and checked BEFORE it is instantiated, so
-        # a class of the wrong type never runs its constructor
         try:
             klass = Attribute._class_at(obj)
         except ModuleNotFoundError as e:
@@ -244,8 +220,6 @@ class Attribute:
         except Exception as e:
             raise ValueError(f"Failed to instantiate {obj}: {e}") from e
 
-    # v0.0.1.23: DEF-HLP-03, private and without a `cls` parameter, so it goes through `cls`; the public
-    # methods keep `cls` as the domain type and stay static (NFRQ-ORG-05 exception c.1, deferred)
     @classmethod
     def _resolve(
         cls,
@@ -256,13 +230,7 @@ class Attribute:
         params: dict,
         load: bool = True,
     ) -> object:
-        """Return value as an instance of `expected`.
-
-        An instance of `expected` is returned unchanged, and so is any value when
-        nothing is expected. A string is loaded as a class path (with `params` as
-        constructor arguments) when `load` allows it and `expected` is not a
-        primitive; anything else is an incorrect type.
-        """
+        """Return value as an instance of `expected`."""
         if expected is None or isinstance(value, expected):
             return value
 
@@ -312,8 +280,6 @@ class Attribute:
             )
 
         rest = {k: v for k, v in kwargs.items() if k != name}
-        # a class path is loaded only for IWattleflow types: a string from configuration may not
-        # make an arbitrary module import for any other type
         instance = Attribute._resolve(
             caller, name, kwargs[name], cls, rest, load=Attribute._is_family(cls)
         )
@@ -357,9 +323,7 @@ class Attribute:
         return instance
 
     @staticmethod
-    def optional(
-        caller: object, name: str, cls: type, default: object | None, **kwargs
-    ):
+    def optional(caller: object, name: str, cls: type, default: object | None, **kwargs):
         value = kwargs.get(name)
 
         if value is None:
@@ -431,12 +395,7 @@ class NameHelper:
 
     @staticmethod
     def source_name(o) -> str | None:
-        """Human-readable name of the unit behind a facade, or None.
-
-        Never raises: it runs inside audit records, where an exception would mask
-        the event being reported. A facade forwards unknown attributes to its
-        adaptee, so a document type without a filename simply yields None.
-        """
+        """Human-readable name of the unit behind a facade, or None."""
         try:
             name = getattr(o, "filename", None)
         except Exception:
@@ -515,6 +474,3 @@ class NameHelper:
 # --------------------------------------------------------------------------- #
 # endregion Classes                                                           #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = ["Attribute", "NameHelper"]

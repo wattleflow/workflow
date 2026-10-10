@@ -10,14 +10,15 @@
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
+
+__all__ = ["ResourceCpu"]
+
 import os
 from typing import ClassVar
 from wattleflow.helpers.resources.base import Resource
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
-
-__all__ = ["ResourceCpu"]
 
 # --------------------------------------------------------------------------- #
 # region Resource                                                             #

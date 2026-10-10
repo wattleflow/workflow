@@ -11,6 +11,9 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["Document", "DocumentAdapter", "DocumentFacade"]
+
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 from collections.abc import Mapping
@@ -31,8 +34,6 @@ from wattleflow.helpers.moment import MomentAwareHelper
 # --------------------------------------------------------------------------- #
 
 Adaptee = TypeVar("Adaptee", bound=IAdaptee)
-
-# Keys managed internally by update_metadata — must not be set by callers directly.
 _AUDIT_KEYS: frozenset = frozenset({"last_change_key", "last_change_time"})
 
 
@@ -41,7 +42,7 @@ _AUDIT_KEYS: frozenset = frozenset({"last_change_key", "last_change_time"})
 # --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
-# region GenericDocument                                                      #
+# region Document Classes                                                     #
 # --------------------------------------------------------------------------- #
 
 
@@ -166,16 +167,6 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
         return f"{self.identifier}"
 
 
-# --------------------------------------------------------------------------- #
-# endregion GenericDocument                                                   #
-# --------------------------------------------------------------------------- #
-
-# Adapter with specific_request adaptee object call
-# --------------------------------------------------------------------------- #
-# region Adapter                                                              #
-# --------------------------------------------------------------------------- #
-
-
 class DocumentAdapter(Wattleflow, IAdapter, Generic[Adaptee]):
     __slots__ = ("_adaptee",)
 
@@ -192,16 +183,6 @@ class DocumentAdapter(Wattleflow, IAdapter, Generic[Adaptee]):
 
     def request(self):
         return self._adaptee.specific_request()
-
-
-# --------------------------------------------------------------------------- #
-# endregion Adapter                                                           #
-# --------------------------------------------------------------------------- #
-
-# Facade implements ITarget and delegates access methods adaptee object
-# --------------------------------------------------------------------------- #
-# region Facade                                                               #
-# --------------------------------------------------------------------------- #
 
 
 class DocumentFacade(Wattleflow, ITarget, Generic[Adaptee], ABC):
@@ -240,52 +221,5 @@ class DocumentFacade(Wattleflow, ITarget, Generic[Adaptee], ABC):
 
 
 # --------------------------------------------------------------------------- #
-# endregion Facade                                                            #
+# region Document Classes                                                     #
 # --------------------------------------------------------------------------- #
-
-
-# --------------------------------------------------------------------------- #
-# region Placeholder                                                          #
-# --------------------------------------------------------------------------- #
-
-
-class DummyReadDocument(Document[dict]):
-    """What a read that nobody wrote returns, saying so about itself.
-
-    A pipeline can then be exercised end to end without an unwritten read
-    stopping it. It is honest only because it declares itself: `implemented` is
-    False in the metadata and the content repeats the notice, so neither a
-    reader nor a dashboard takes it for a record.
-    """
-
-    __slots__ = ()
-
-    NOTICE = "read strategy not implemented"
-
-    def __init__(self, identifier: str = "", expected: str = "", **kwargs):
-        super().__init__(
-            content={
-                "notice": self.NOTICE,
-                "identifier": identifier,
-                "expected_type": expected,
-            },
-            **kwargs,
-        )
-        # Stated as data, not only as prose, so a consumer and a lint can both
-        # tell this apart from a record without parsing the notice.
-        self.update_metadata("implemented", False)
-        self.update_metadata("placeholder", self.NOTICE)
-        self.update_metadata("expected_type", expected)
-        self.update_metadata("identifier", identifier)
-
-    @property
-    def size(self) -> int:
-        return len(self.content) if self.content else 0
-
-
-# --------------------------------------------------------------------------- #
-# endregion Placeholder                                                       #
-# --------------------------------------------------------------------------- #
-
-
-__all__ = ["Document", "DocumentAdapter", "DocumentFacade", "DummyReadDocument"]

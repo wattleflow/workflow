@@ -15,6 +15,9 @@ change events to subscribed listeners.
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["MementoClass", "ObservableClass"]
+
 import copy
 from wattleflow.core import IMemento, IObservable
 

@@ -9,6 +9,9 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["BlackboardAction", "BlackboardState", "GenericBlackboard", "TRANSITIONS"]
+
 from abc import ABC, abstractmethod
 from enum import Enum
 from types import MappingProxyType
@@ -306,6 +309,3 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
 # --------------------------------------------------------------------------- #
 # endregion Blackboards                                                        #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = ["BlackboardAction", "BlackboardState", "GenericBlackboard", "TRANSITIONS"]

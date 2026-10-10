@@ -17,6 +17,9 @@ reported unmeasured — never as free.
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
+
+__all__ = ["Resource", "ResourceSnapshot"]
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -85,5 +88,3 @@ class Resource(ABC):
 # --------------------------------------------------------------------------- #
 # endregion Resources                                                         #
 # --------------------------------------------------------------------------- #
-
-__all__ = ["Resource", "ResourceSnapshot"]

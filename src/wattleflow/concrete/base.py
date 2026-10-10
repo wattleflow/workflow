@@ -7,6 +7,9 @@
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
+
+__all__ = ["Wattleflow"]
+
 from wattleflow.core import IWattleflow
 from wattleflow.helpers.audit import Audit
 # --------------------------------------------------------------------------- #
@@ -33,6 +36,3 @@ class Wattleflow(Audit, IWattleflow):
 # --------------------------------------------------------------------------- #
 # endregion Implementation                                                    #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = ["Wattleflow"]

@@ -9,6 +9,9 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["GenericMemento"]
+
 from types import MappingProxyType
 from typing import Any
 from collections.abc import Mapping
@@ -70,6 +73,3 @@ class GenericMemento(Wattleflow, IMemento):
 # --------------------------------------------------------------------------- #
 # endregion Classes                                                           #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = ["GenericMemento"]

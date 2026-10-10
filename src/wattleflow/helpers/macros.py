@@ -13,6 +13,9 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["TextMacros", "CompiledMacros", "Replacements"]
+
 import logging
 import re
 
@@ -22,9 +25,6 @@ import re
 CompiledMacros = list[tuple[re.Pattern, str]]
 # What one substitution pass replaced: {"text", "replacement", "entity"}.
 Replacements = list[dict[str, str]]
-
-__all__ = ["TextMacros", "CompiledMacros", "Replacements"]
-
 
 # v0.0.0.97 (NFRQ-ORG-05): the ReDoS guard and its pattern are members of the
 # class that applies them, not module-level helpers.

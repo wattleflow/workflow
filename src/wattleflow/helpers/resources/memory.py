@@ -10,6 +10,9 @@
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
+
+__all__ = ["ResourceMemory"]
+
 import os
 import sys
 from pathlib import Path
@@ -68,6 +71,3 @@ class ResourceMemory(Resource):
 # --------------------------------------------------------------------------- #
 # endregion Resource                                                          #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = ["ResourceMemory"]

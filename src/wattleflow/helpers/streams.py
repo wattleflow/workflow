@@ -20,6 +20,9 @@ processing stream-based naming operations.
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["TextFileStream", "TextStream"]
+
 from pathlib import Path
 from typing import Any
 from .macros import TextMacros

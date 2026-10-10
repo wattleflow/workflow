@@ -16,6 +16,9 @@ and debugging efficiency.
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["TraceHandler"]
+
 import logging
 import traceback
 

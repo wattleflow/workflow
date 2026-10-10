@@ -9,6 +9,9 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["Normaliser", "CaseText", "NormaliserFormatSpec"]
+
 import re
 import unicodedata
 from datetime import datetime
@@ -396,5 +399,3 @@ class NormaliserFormatSpec(str):
 # --------------------------------------------------------------------------- #
 # endregion Normaliser classes                                                #
 # --------------------------------------------------------------------------- #
-
-__all__ = ["Normaliser", "CaseText", "NormaliserFormatSpec"]

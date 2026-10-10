@@ -12,15 +12,15 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["ObjectName", "SqlName"]
+
 import re
 from typing import Any, ClassVar
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
-
-__all__ = ["ObjectName", "SqlName"]
-
 
 # --------------------------------------------------------------------------- #
 # region Classes                                                              #
@@ -29,7 +29,7 @@ __all__ = ["ObjectName", "SqlName"]
 
 # v0.0.0.97 (NFRQ-ORG-05): the naming primitives and the type list they screen
 # against belong to the class, not to the module namespace.
-# NOTE: concrete/helpers.py carries `NameHelper`, a domain-local copy of the
+# NOTE: concrete/helper.py carries `NameHelper`, a domain-local copy of the
 # same trio; the duplication is deliberate — concrete/ must not import back
 # into helpers/ (ORG-01 cycle).
 class ObjectName:

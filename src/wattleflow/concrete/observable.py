@@ -7,10 +7,13 @@
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
+
+__all__ = ["ThreadSafeObservable"]
+
 from threading import RLock
 from wattleflow.core.concurrent import IObservableReactive, IObserverReactive
 from wattleflow.concrete.base import Wattleflow
-from wattleflow.concrete.helpers import Attribute
+from wattleflow.concrete.helper import Attribute
 from wattleflow.enums.event import Event
 
 # --------------------------------------------------------------------------- #
@@ -71,6 +74,3 @@ class ThreadSafeObservable(Wattleflow, IObservableReactive):
 # --------------------------------------------------------------------------- #
 # endregion Implementation                                                    #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = ["ThreadSafeObservable"]

@@ -5,6 +5,11 @@
 
 
 from __future__ import annotations
+
+__all__ = [
+    "FileClass",
+]
+
 from dataclasses import dataclass
 from datetime import datetime
 from stat import filemode
@@ -50,8 +55,3 @@ class FileClass:
     @property
     def guid(self) -> int:
         return self.filename.stat().st_gid
-
-
-__all__ = [
-    "FileClass",
-]

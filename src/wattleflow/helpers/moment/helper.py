@@ -13,6 +13,9 @@ Every method is a classmethod; a subclass may override it.
 """
 
 from __future__ import annotations
+
+__all__ = ["MomentHelper", "MomentAwareHelper", "MomentNaiveHelper"]
+
 import os
 import warnings
 from datetime import date, datetime, time, timedelta, timezone
@@ -468,6 +471,3 @@ class MomentNaiveHelper(MomentHelper):
     @classmethod
     def to_struct(cls, x) -> struct_time:
         return cls.to_datetime(x).timetuple()
-
-
-__all__ = ["MomentHelper", "MomentAwareHelper", "MomentNaiveHelper"]

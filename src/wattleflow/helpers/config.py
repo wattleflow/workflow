@@ -9,6 +9,9 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["Config", "JSONConfig"]
+
 import json
 from pathlib import Path
 from abc import abstractmethod
@@ -27,7 +30,6 @@ from wattleflow.helpers.validation import SchemaValidator
 # region Types                                                                #
 # --------------------------------------------------------------------------- #
 
-__all__ = ["Config", "JSONConfig"]
 
 # Distinguishes "no such key" from a key holding a falsy value.
 _MISSING: Any = object()
@@ -37,13 +39,9 @@ _MISSING: Any = object()
 # --------------------------------------------------------------------------- #
 
 
-# v0.0.0.97: the search contract is shared and public —
-# clean core carries JSON, the YAML variant lives in wattleflow-processors.
 class Config(Audit, IConfig):
     """Format-independent lookup; the serialisation format is the only variant."""
 
-    # Serialisation contract of the subclass: label used in errors, decoding of
-    # the file, and the parse failures that mean "this document is not valid".
     FORMAT: ClassVar[str] = ""
     ENCODING: ClassVar[str | None] = None
     ERRORS: ClassVar[tuple[type[Exception], ...]] = ()

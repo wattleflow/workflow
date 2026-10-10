@@ -18,6 +18,9 @@ The Orchestrator class:
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["Orchestrator"]
+
 import inspect
 import threading
 from wattleflow.helpers.moment import MomentAwareHelper
@@ -32,7 +35,7 @@ from wattleflow.enums.event import Event
 from wattleflow.enums.operation import Operation
 from wattleflow.concrete.manager import ConnectionManager
 from wattleflow.concrete.exception import OrchestratorException
-from wattleflow.concrete.helpers import Attribute
+from wattleflow.concrete.helper import Attribute
 from wattleflow.concrete.base import Wattleflow
 
 # --------------------------------------------------------------------------- #
@@ -261,6 +264,3 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
 # --------------------------------------------------------------------------- #
 # endregion Orchestrators                                                     #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = ["Orchestrator"]

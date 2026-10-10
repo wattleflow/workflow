@@ -9,6 +9,37 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = [
+    "AttributeException",
+    "AuditException",
+    "AuthenticationException",
+    "BlackboardException",
+    "ClassificationException",
+    "ClassInitialisationException",
+    "ClassLoaderException",
+    "ConfigurationException",
+    "ConnectionException",
+    "ConstructorException",
+    "DocumentException",
+    "DriverException",
+    "DriverNotFound",
+    "EventObserverException",
+    "ManagerException",
+    "MissingException",
+    "NotFoundException",
+    "OrchestratorException",
+    "PKeyException",
+    "PipelineException",
+    "ProcessorException",
+    "PrometheusException",
+    "RepositoryException",
+    "SFTPConnectionError",
+    "SaltException",
+    "StrategyException",
+    "UnexpectedTypeException",
+]
+
 import inspect
 from wattleflow.constants.errors import ERROR_UNEXPECTED_TYPE
 
@@ -71,9 +102,9 @@ class NotFoundException(AttributeError):
 
 class UnexpectedTypeException(TypeError):
     def __init__(self, caller, found, expected_type):
-        # Lazy: concrete.helpers imports AttributeException from this module at
+        # Lazy: concrete.helper imports AttributeException from this module at
         # module level — a top-level import here would be a circular import.
-        from wattleflow.concrete.helpers import NameHelper
+        from wattleflow.concrete.helper import NameHelper
 
         try:
             _frame = inspect.currentframe().f_back  # type: ignore
@@ -191,34 +222,3 @@ class PrometheusException(AuditException):
 # --------------------------------------------------------------------------- #
 # endregion Connection exceptions                                             #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = [
-    "AttributeException",
-    "AuditException",
-    "AuthenticationException",
-    "BlackboardException",
-    "ClassificationException",
-    "ClassInitialisationException",
-    "ClassLoaderException",
-    "ConfigurationException",
-    "ConnectionException",
-    "ConstructorException",
-    "DocumentException",
-    "DriverException",
-    "DriverNotFound",
-    "EventObserverException",
-    "ManagerException",
-    "MissingException",
-    "NotFoundException",
-    "OrchestratorException",
-    "PKeyException",
-    "PipelineException",
-    "ProcessorException",
-    "PrometheusException",
-    "RepositoryException",
-    "SFTPConnectionError",
-    "SaltException",
-    "StrategyException",
-    "UnexpectedTypeException",
-]

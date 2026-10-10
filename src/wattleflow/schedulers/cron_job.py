@@ -18,6 +18,9 @@ loop, because a cron job that dies on one bad pass stops being a cron job.
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["SchedulerCronJob"]
+
 import time
 from typing import Any, Mapping
 from wattleflow.concrete.scheduler import Scheduler
@@ -27,8 +30,6 @@ from wattleflow.enums.event import Event
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
-
-__all__ = ["SchedulerCronJob"]
 
 # --------------------------------------------------------------------------- #
 # region Classes                                                              #

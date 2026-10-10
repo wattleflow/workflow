@@ -25,6 +25,9 @@ reaches the work being measured (`HLRQ-18` BR-07).
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
+
+__all__ = ["Monitor", "MonitorLevel"]
+
 import threading
 import time
 from collections import defaultdict, deque
@@ -42,8 +45,6 @@ from wattleflow.helpers.resources import Resource, ResourceManager, ResourceSnap
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
-
-__all__ = ["Monitor", "MonitorLevel"]
 
 # --------------------------------------------------------------------------- #
 # region Monitor                                                              #

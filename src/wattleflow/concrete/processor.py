@@ -9,6 +9,9 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["GenericProcessor", "ProcessorAction", "ProcessorState"]
+
 import gc
 from abc import abstractmethod, ABC
 from enum import Enum
@@ -22,14 +25,13 @@ from wattleflow.core import (
     ITarget,
 )
 from wattleflow.concrete.base import Wattleflow
-from wattleflow.concrete.helpers import NameHelper
+from wattleflow.concrete.helper import NameHelper
 from wattleflow.concrete.memento import GenericMemento
 from wattleflow.concrete.memento_store import MementoStore
 from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.enums.event import Event
 from wattleflow.enums.operation import Operation
 from wattleflow.decorators.preset import PresetDecorator
-# from wattleflow.decorators.measure import measured  # retired
 from wattleflow.concrete.exception import PipelineException, ProcessorException
 
 # --------------------------------------------------------------------------- #
@@ -90,8 +92,6 @@ TRANSITIONS = {
 # ----------------------------------------------------------------------------#
 
 
-# v0.0.1.14: retired — measurement now observes audit records; kept for the record.
-# @measured()
 class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
     __slots__ = (
         "_blackboard",
@@ -271,15 +271,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
 
     @property
     def write_context(self) -> dict[str, Any]:
-        """Configuration this processor publishes to the write strategies.
-
-        A processor owns the batch and therefore the policy for it (which
-        attachments count, what happens to a source once archived), but the
-        strategy is what applies that policy. The blackboard already forwards
-        `flush` kwargs to every repository, so a subclass overriding this is
-        the whole path from configuration to strategy. Empty by default: a
-        processor that declares nothing changes no call.
-        """
+        """Configuration this processor publishes to the write strategies."""
         return {}
 
     # endregion Property
@@ -363,14 +355,18 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                 GenericMemento(cycle=self._cycle, state=ProcessorState.FAILED),
             )
         except Exception as error:
-            self.warning(msg=Event.Save, step=Event.Failed, key=self._memento_key, error=str(error))
+            self.warning(
+                msg=Event.Save, step=Event.Failed, key=self._memento_key, error=str(error)
+            )
 
     def _release(self) -> None:
         """A completed run leaves no checkpoint, or the next run would skip its items."""
         try:
             self._memento_store.clear(self._memento_key)
         except Exception as error:
-            self.warning(msg=Event.Clear, step=Event.Failed, key=self._memento_key, error=str(error))
+            self.warning(
+                msg=Event.Clear, step=Event.Failed, key=self._memento_key, error=str(error)
+            )
 
     # endregion Memento
 
@@ -428,25 +424,17 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                         outcome = self.blackboard.flush(caller=self, **self.write_context)
                         # A blackboard that answers nothing has not confirmed anything.
                         self._flush_outcome = outcome if isinstance(outcome, bool) else None
-                    if self._memento_store is not None and self._cycle % self._checkpoint_every == 0:
+                    if (
+                        self._memento_store is not None
+                        and self._cycle % self._checkpoint_every == 0
+                    ):
                         self._checkpoint()
-                    # v0.0.1.14 (FRQ-PTN-18.1 EV03): the `Processed` record below closes
-                    # the unit of work; the monitor observes it.
-                    # self.measure_units(documents=1)
-                    # self.measure_boundary("cycle")
 
-                    # The processor owns the document as a unit of work — it is
-                    # what drives the pipelines over it — so the single INFO
-                    # record that stands for a document is written here, once the
-                    # pipelines and the flush for it are done. The pipelines carry
-                    # the same identity at DEBUG (GenericPipeline.process), which
-                    # keeps the INFO stream proportional to the input rather than
-                    # to the number of pipelines configured.
                     self.info(
                         msg=Event.Processed,
                         cycle=self._cycle,
                         source=NameHelper.source_name(facade),
-                        document=getattr(facade, "identifier", None),
+                        document=facade,
                     )
                 except Exception as e:
                     reason = "%s.start error: Pipeline processing failed: %s" % (
@@ -487,13 +475,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             )
             raise ProcessorException(caller=self, error=str(e)) from e
 
-        # v0.0.1.14: closes the `Start` pair the monitor measures.
         self.debug(msg=Event.Start, step=Event.Completed, cycles=self._cycle)
-        # `msg` names the record; the phase is not a separate field. The opening
-        # record is `Start`, the closing one `Completed` — the same `msg` twice
-        # with only `step` telling them apart made the operator read the field to
-        # learn which of the two they were looking at. Only the OUTCOME belongs
-        # here; the wiring was already reported when the pass opened.
         self.info(
             msg=Event.Completed,
             cycles=self._cycle,
@@ -510,9 +492,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                 caller=self, error="Expected IBlackboard. Found %s" % type(blackboard)
             )
         self._blackboard = blackboard
-        self.debug(
-            msg=Event.Register, step=Event.Completed, added=self._blackboard
-        )
+        self.debug(msg=Event.Register, step=Event.Completed, added=self._blackboard)
 
     def register_pipeline(self, pipeline: IPipeline) -> None:
         self.debug(msg=Event.Register, step=Event.Starting, pipeline=pipeline)
@@ -534,6 +514,3 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
 # ----------------------------------------------------------------------------#
 # endregion Processors                                                        #
 # ----------------------------------------------------------------------------#
-
-
-__all__ = ["GenericProcessor", "ProcessorAction", "ProcessorState"]

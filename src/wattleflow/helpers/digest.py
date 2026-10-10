@@ -16,6 +16,9 @@
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
+
+__all__ = ["FileDigest"]
+
 import hashlib
 import hmac
 from collections.abc import Iterable
@@ -23,8 +26,6 @@ from pathlib import Path
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
-
-__all__ = ["FileDigest"]
 
 Source = str | Path | bytes | bytearray | memoryview
 
@@ -34,13 +35,7 @@ Source = str | Path | bytes | bytearray | memoryview
 
 
 class FileDigest:
-    """Content digest of a file (or raw bytes / a binary stream).
-
-    ``of`` computes the hex digest; ``labelled`` prefixes the algorithm
-    (``sha256:…``) so a stored digest is self-describing and portable across
-    stores; ``verify`` compares content against an expected digest in constant
-    time. All operate on CONTENT, so a digest is stable across copies/renames.
-    """
+    """Content digest of a file (or raw bytes / a binary stream)."""
 
     DEFAULT_ALGORITHM = "sha256"
     CHUNK_SIZE = 1 << 20  # 1 MiB streaming granularity
@@ -89,9 +84,7 @@ class FileDigest:
         return f"{algorithm}:{folded.hexdigest()}"
 
     @classmethod
-    def verify(
-        cls, source: Source, expected: str, *, algorithm: str | None = None
-    ) -> bool:
+    def verify(cls, source: Source, expected: str, *, algorithm: str | None = None) -> bool:
         """Compare ``source`` content against ``expected`` (constant-time).
 
         ``expected`` may be a bare hex digest or an ``algo:hex`` label; when

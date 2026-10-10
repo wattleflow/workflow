@@ -16,6 +16,16 @@
 
 from __future__ import annotations
 
+__all__ = [
+    "Resource",
+    "ResourceCpu",
+    "ResourceManager",
+    "ResourceMemory",
+    "ResourceSnapshot",
+    "ResourceStorage",
+]
+
+
 from importlib import import_module
 from typing import Any
 
@@ -29,16 +39,6 @@ _EXPORTS: dict[str, str] = {
     "ResourceMemory": "memory",
     "ResourceStorage": "storage",
 }
-
-__all__ = [
-    "Resource",
-    "ResourceCpu",
-    "ResourceManager",
-    "ResourceMemory",
-    "ResourceSnapshot",
-    "ResourceStorage",
-]
-
 
 def __getattr__(name: str) -> Any:  # NFRQ-ORG-11: pep562
     module = _EXPORTS.get(name)

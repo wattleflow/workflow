@@ -17,6 +17,9 @@ that discovers its own limits has nowhere to receive one.
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
+
+__all__ = ["ResourceManager"]
+
 import os
 import time
 from typing import Any, Iterable, Mapping
@@ -142,6 +145,3 @@ class ResourceManager(Audit):  # below the root, as FRQ-PTN-root-base §07 t.5
 # --------------------------------------------------------------------------- #
 # endregion Manager                                                           #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = ["ResourceManager"]

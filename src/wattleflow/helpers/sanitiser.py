@@ -15,6 +15,9 @@ secure handling and logging of URIs within the Wattleflow framework.
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["sanitised_uri"]
+
 from urllib.parse import urlparse, urlunparse
 
 # --------------------------------------------------------------------------- #

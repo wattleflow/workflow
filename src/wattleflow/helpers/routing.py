@@ -19,6 +19,18 @@
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
+
+__all__ = [
+    "ROUTE_KEY",
+    "RoutingLabel",
+    "RoutingRule",
+    "PatternSpec",
+    "route_label",
+    "route_target",
+    "DestinationRouter",
+    "LocalStorageDestinationRouter",
+]
+
 import fnmatch
 import re
 from abc import ABC, abstractmethod
@@ -202,14 +214,3 @@ class LocalStorageDestinationRouter(DestinationRouter):
 # --------------------------------------------------------------------------- #
 # endregion Resolution                                                        #
 # --------------------------------------------------------------------------- #
-
-__all__ = [
-    "ROUTE_KEY",
-    "RoutingLabel",
-    "RoutingRule",
-    "PatternSpec",
-    "route_label",
-    "route_target",
-    "DestinationRouter",
-    "LocalStorageDestinationRouter",
-]

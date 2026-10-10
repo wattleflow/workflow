@@ -9,6 +9,9 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["Scheduler"]
+
 import threading
 from abc import ABC
 from logging import Handler
@@ -156,6 +159,3 @@ class Scheduler(Wattleflow, IScheduler, ABC):
 # --------------------------------------------------------------------------- #
 # endregion Schedulers                                                        #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = ["Scheduler"]

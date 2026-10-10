@@ -19,15 +19,15 @@ see a constraint must not report conformance to it.
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["SchemaValidator", "ValidationError"]
+
 import re
 from typing import Any, ClassVar
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
-
-__all__ = ["SchemaValidator", "ValidationError"]
-
 
 # --------------------------------------------------------------------------- #
 # region Schema validation                                                    #

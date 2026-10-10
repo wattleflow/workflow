@@ -7,6 +7,9 @@
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
+
+__all__ = ["Singleton"]
+
 import functools
 import inspect
 import threading
@@ -120,6 +123,3 @@ class Singleton(IWattleflow):
 # --------------------------------------------------------------------------- #
 # endregion Implementation                                                    #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = ["Singleton"]

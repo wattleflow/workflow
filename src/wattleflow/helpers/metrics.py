@@ -23,6 +23,16 @@ to a domain package (`NFRQ-ORG-01`).
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
+
+__all__ = [
+    "MetricCollector",
+    "MetricReporter",
+    "MetricSample",
+    "MetricSet",
+    "MetricSink",
+    "MetricSpan",
+]
+
 import logging
 import re
 from abc import ABC, abstractmethod
@@ -33,15 +43,6 @@ from wattleflow.enums.metric import Measure, MetricKind
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
-
-__all__ = [
-    "MetricCollector",
-    "MetricReporter",
-    "MetricSample",
-    "MetricSet",
-    "MetricSink",
-    "MetricSpan",
-]
 
 # --------------------------------------------------------------------------- #
 # region Values                                                               #

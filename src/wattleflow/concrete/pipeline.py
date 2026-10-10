@@ -9,13 +9,16 @@
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["GenericPipeline", "PipelineError"]
+
 from abc import ABC, abstractmethod
 from logging import Handler, NOTSET
 from typing import Any
 from wattleflow.core import IProcessor, IPipeline, ITarget
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.exception import PipelineException
-from wattleflow.concrete.helpers import NameHelper
+from wattleflow.concrete.helper import NameHelper
 from wattleflow.enums.event import Event
 from wattleflow.decorators.preset import PresetDecorator
 
@@ -162,6 +165,3 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
 # --------------------------------------------------------------------------- #
 # endregion Pipelines                                                         #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = ["GenericPipeline", "PipelineError"]

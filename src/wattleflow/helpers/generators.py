@@ -15,6 +15,9 @@ Random sample-data generation lives in wattleflow-processors (numpy-backed).
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
+
+__all__ = ["inc", "text_generator"]
+
 import re
 
 # --------------------------------------------------------------------------- #

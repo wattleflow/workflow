@@ -7,6 +7,9 @@
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
+
+__all__ = ["AsyncHandler", "Audit", "ContextFilter", "MeasurementFilter"]
+
 from enum import Enum
 import logging
 from logging import (
@@ -365,6 +368,3 @@ class Audit(ILogger, IObserver):
 # --------------------------------------------------------------------------- #
 # endregion Classes                                                           #
 # --------------------------------------------------------------------------- #
-
-
-__all__ = ["AsyncHandler", "Audit", "ContextFilter", "MeasurementFilter"]
