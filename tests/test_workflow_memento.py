@@ -37,11 +37,7 @@ class Create:
         pass
 
 
-class Workflow(BaseWorkflow):
-    """A workflow class with no memento code: only `execute`."""
-
-    def execute(self, **kwargs):
-        pass
+Workflow = BaseWorkflow  # final (BR-WFL-17): there is no subclass to test with
 
 
 def workflow_with(*names):

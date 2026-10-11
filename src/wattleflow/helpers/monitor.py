@@ -84,6 +84,38 @@ _CALLS, _FAILS, _NS, _EXCLUSIVE, _MAX, _UNITS = range(6)
 class Monitor(Audit):
     """Observer of audit records: spans, units, cycles, resource samples, one report per pass."""
 
+    __slots__ = (
+        "_above",
+        "_alerts",
+        "_baseline",
+        "_cycle_at",
+        "_cycle_ns",
+        "_cycles",
+        "_defects",
+        "_documents",
+        "_guard",
+        "_dropped",
+        "_faults",
+        "_interval",
+        "_labels",
+        "_last",
+        "_level",
+        "_levels",
+        "_manager",
+        "_peak_rss",
+        "_roles",
+        "_rows",
+        "_rss_track",
+        "_sampled_at",
+        "_samples",
+        "_sinks",
+        "_stacks",
+        "_storage",
+        "_thresholds",
+        "_trace",
+        "_unpaired",
+    )
+
     ROLES: ClassVar[tuple[tuple[str, type], ...]] = (
         ("processor", IProcessor),
         ("pipeline", IPipeline),
@@ -102,7 +134,7 @@ class Monitor(Audit):
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self._lock = threading.Lock()
+        self._guard = threading.Lock()
         self._level: int = MonitorLevel.SUMMARY
         self._roles: dict[str, int] = {}
         self._thresholds: dict[str, float] = {}
@@ -279,7 +311,7 @@ class Monitor(Audit):
         if stack:
             stack[-1][3] += elapsed
         key = (component, msg)
-        with self._lock:
+        with self._guard:
             row = self._rows.get(key)
             if row is None:
                 row = self._rows[key] = [0, 0, 0, 0, 0, {}]
@@ -498,7 +530,7 @@ class Monitor(Audit):
 
     def rows(self) -> dict[tuple[str, str], list]:
         """Aggregated operations of the current pass (read-only view for reports and sinks)."""
-        with self._lock:
+        with self._guard:
             return {key: list(row) for key, row in self._rows.items()}
 
     @staticmethod

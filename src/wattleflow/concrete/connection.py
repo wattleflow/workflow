@@ -138,6 +138,10 @@ class ConnectionObserverInterface(Wattleflow, IObservable, ABC):
         if observer.name not in self._observers:
             self._observers[observer.name] = observer
 
+    def unsubscribe(self, observer: IObserver) -> None:
+        if self._observers.get(observer.name) is observer:
+            del self._observers[observer.name]
+
     def subscribe_observer(self, observer: IObserver) -> None:
         self.subscribe(observer)
 

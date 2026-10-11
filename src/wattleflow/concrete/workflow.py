@@ -15,18 +15,11 @@ __all__ = [
     "WorkflowException",
 ]
 
-from abc import ABC
-from typing import Any
+from typing import Any, ClassVar, final
 from wattleflow.core import IConfig, IOriginator
 from wattleflow.enums.event import Event
 from wattleflow.concrete.exception import AuditException
 from wattleflow.concrete.memento import GenericMemento
-from wattleflow.concrete.memento_store import (
-    FileMementoStore,
-    MementoStore,
-    MementoStoreException,
-    MemoryMementoStore,
-)
 from wattleflow.helpers.audit import Audit
 from wattleflow.helpers.monitor import Monitor
 from wattleflow.concrete.base import Wattleflow
@@ -60,14 +53,22 @@ class WorkflowException(AuditException):
 # region Workflow Classes                                                     #
 # --------------------------------------------------------------------------- #
 
-
-class Workflow(Wattleflow, IOriginator, ABC):
+@final
+class Workflow(Wattleflow, IOriginator):
     __slots__ = (
         "_connections",
         "_drivers",
         "_processors",
         "_monitor",
     )
+
+    # Marks a monitor slot nobody has filled: the composition is frozen at the first
+    # `attach_monitor` or `run` (FR-WRK-09), and no extra slot is needed to remember it.
+    _UNATTACHED: ClassVar[Any] = object()
+
+    # Final (BR-WFL-17): flows differ by configuration; no subclass can change the run and error rules.
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        raise TypeError(f"{cls.__name__}: Workflow is final and cannot be subclassed")
 
     def __init__(
         self,
@@ -97,7 +98,7 @@ class Workflow(Wattleflow, IOriginator, ABC):
         self._connections: ConnectionManager = connections
         self._drivers: DriverManager = drivers
         self._processors: ProcessorManager = processors
-        self._monitor: Monitor | None = None
+        self._monitor: Any = self._UNATTACHED
 
         self.debug(
             msg=Event.Constructor,
@@ -124,54 +125,105 @@ class Workflow(Wattleflow, IOriginator, ABC):
 
     @property
     def monitor(self) -> Monitor | None:
-        return self._monitor
+        return None if self._monitor is self._UNATTACHED else self._monitor
 
     def attach_monitor(self, monitor: Monitor | None) -> None:
-        """The factory hands over the monitor the configuration asked for (`monitoring:`)."""
+        """The factory hands over the monitor the configuration asked for (`monitoring:`).
+
+        Once only, and before the first `run`."""
+        if self._monitor is not self._UNATTACHED:
+            raise WorkflowException(
+                self, "The monitor is attached once, before the first run"
+            )
         self._monitor = monitor
 
     def run(self, **kwargs: Any) -> Any:
+        if self._monitor is self._UNATTACHED:
+            self._monitor = None  # the first run freezes the composition
         monitor = self._monitor
         if monitor is None:
-            return self.execute(**kwargs)
-        monitor.begin(self.measured_paths())
-        previous = Audit.observe(monitor.hook)
+            return self._execute(**kwargs)
+        # A monitor failure is a minor error (BR-WFL-14): the flow runs without it and a
+        # failing `end` never hides the error of a processor.
+        begun = observed = False
+        previous = None
         try:
-            return self.execute(**kwargs)
+            monitor.begin(self.measured_paths())
+            begun = True
+            previous = Audit.observe(monitor.hook)
+            observed = True
+        except Exception as error:
+            self.warning(msg=Event.Start, target="monitor", reason=str(error))
+        try:
+            return self._execute(**kwargs)
         finally:
-            Audit.observe(previous)
-            monitor.end()
+            if observed:
+                Audit.observe(previous)
+            if begun:
+                try:
+                    monitor.end()
+                except Exception as error:
+                    self.warning(msg=Event.Stop, target="monitor", reason=str(error))
 
     def measured_paths(self) -> list[str]:
         """Write paths of the drivers already built; a lazy driver is not woken."""
         paths: list[str] = []
-        for driver in self.drivers.all.values():
+        for name, driver in self.drivers.all.items():
             target = driver.driver if isinstance(driver, LazyDriverProxy) else driver
             try:
-                path = getattr(target, "write_path", None) if target is not None else None
-            except Exception:
+                path = (
+                    getattr(target, "write_path", None) if target is not None else None
+                )
+            except Exception as error:
+                self.warning(
+                    msg=Event.Check, target="driver", name=name, reason=str(error)
+                )
                 path = None
             if path:
                 paths.append(str(path))
         return paths
 
     def audit_drivers(self) -> None:
-        """Ask every driver to report what it did."""
+        """Ask every driver to report what it did; one that cannot or fails does not stop the rest."""
         for name, driver in self.drivers.all.items():
             report = getattr(driver, "report", None)
-            if callable(report):
-                report()
+            if not callable(report):
+                self.debug(
+                    msg=Event.Audit,
+                    step=Event.Completed,
+                    target="driver",
+                    name=name,
+                    type=type(driver).__name__,
+                    reported=False,
+                )
                 continue
-
-            self.info(
-                msg=Event.Completed,
-                target="driver",
-                name=name,
-                type=type(driver).__name__,
-                reported=False,
-            )
+            try:
+                report()
+            except Exception as error:
+                self.warning(
+                    msg=Event.Audit,
+                    step=Event.Failed,
+                    target="driver",
+                    name=name,
+                    type=type(driver).__name__,
+                    reason=str(error),
+                )
 
     def save_state(self) -> GenericMemento:
+        try:
+            return self._save_state()
+        except Exception as error:
+            self.error(msg=Event.Save, step=Event.Failed, error=str(error))
+            raise
+
+    def restore_state(self, memento: GenericMemento) -> None:
+        try:
+            self._restore_state(memento)
+        except Exception as error:
+            self.error(msg=Event.Restore, step=Event.Failed, error=str(error))
+            raise
+
+    def _save_state(self) -> GenericMemento:
         return GenericMemento(
             processors={
                 name: processor.save_state()
@@ -180,7 +232,7 @@ class Workflow(Wattleflow, IOriginator, ABC):
             }
         )
 
-    def restore_state(self, memento: GenericMemento) -> None:
+    def _restore_state(self, memento: GenericMemento) -> None:
         if not isinstance(memento, GenericMemento):
             raise WorkflowException(self, f"Invalid memento: {type(memento).__name__}")
         saved = memento.to_dict().get("processors")
@@ -190,9 +242,13 @@ class Workflow(Wattleflow, IOriginator, ABC):
         # Check every entry before restoring any, so a bad snapshot changes nothing.
         for name, snapshot in saved.items():
             if name not in known or not isinstance(known[name], IOriginator):
-                raise WorkflowException(self, f"Cannot restore: no processor named {name!r}")
+                raise WorkflowException(
+                    self, f"Cannot restore: no processor named {name!r}"
+                )
             if not isinstance(snapshot, GenericMemento):
-                raise WorkflowException(self, f"Invalid snapshot for processor {name!r}")
+                raise WorkflowException(
+                    self, f"Invalid snapshot for processor {name!r}"
+                )
         # All or nothing: every processor prepares (validates and builds) its restore first, and
         # only when all are ready do they commit. A processor that rejects its snapshot leaves
         # every processor as it was. A processor without `prepare_restore` is restored at commit.
@@ -207,15 +263,26 @@ class Workflow(Wattleflow, IOriginator, ABC):
         for commit in commits:
             commit()
 
-    def execute(self, **kwargs: Any) -> None:
+    def _execute(self, **kwargs: Any) -> None:
         processors = self.processors.all
         self.info(
             msg=Event.Execute,
             processors=", ".join(processors.keys()),
         )
 
-        for processor in processors.values():
-            processor.start()
+        # The workflow owns the main process (BR-WFL-11, BR-WFL-12): a processor error is recorded
+        # here once, as an error, and goes on to the runner unchanged.
+        for name, processor in processors.items():
+            try:
+                processor.start()
+            except Exception as error:
+                self.error(
+                    msg=Event.Execute,
+                    step=Event.Failed,
+                    processor=name,
+                    error=str(error),
+                )
+                raise
 
         self.info(
             msg=Event.Completed,

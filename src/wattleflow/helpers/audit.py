@@ -225,6 +225,9 @@ class Audit(ILogger, IObserver):
     def subscribe(self, observer):
         raise NotImplementedError(f"{self.name}.subscribe is not implemented!")
 
+    def unsubscribe(self, observer):
+        raise NotImplementedError(f"{self.name}.unsubscribe is not implemented!")
+
     def update(self, event: Any, **kwargs) -> None:
         # IObserver end of the sink: an observed event is an audit record. One
         # frame deeper than the level methods, hence stacklevel 4.

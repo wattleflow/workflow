@@ -496,6 +496,9 @@
     "import_guard": [
       "ImportError",
       "ModuleNotFoundError"
+    ],
+    "framework_boundary": [
+      "Workflow"
     ]
   }
 }

@@ -153,6 +153,10 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
             if not any(known is listener for known in self._listeners):
                 self._listeners.append(listener)
 
+    def unregister_listener(self, listener: IEventListener) -> None:
+        with self._emit_lock:
+            self._listeners = [known for known in self._listeners if known is not listener]
+
     @staticmethod
     def _accepts_metadata(listener: IEventListener, event: Event, kwargs: dict) -> bool:
         """The contract is on_event(event); a listener that also takes the metadata gets it.

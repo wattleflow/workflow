@@ -18,7 +18,7 @@ from wattleflow.concrete.factory import (
     WorkflowFactoryException,
     logger as factory_logger,
 )
-from wattleflow.concrete.workflow import Workflow as BaseWorkflow
+from wattleflow.concrete.workflow import Workflow as BaseWorkflow, WorkflowException
 from wattleflow.core import IConfig
 
 
@@ -41,9 +41,7 @@ class DictConfig(IConfig):
         return node
 
 
-class Workflow(BaseWorkflow):
-    def execute(self, **kwargs):
-        pass
+Workflow = BaseWorkflow  # final (BR-WFL-17): there is no subclass to test with
 
 
 class Proc(GenericProcessor):
@@ -51,6 +49,13 @@ class Proc(GenericProcessor):
 
     def create_generator(self):
         return iter(())
+
+
+class DriverProc(Proc):
+    """A processor that declares it takes a driver (NFRQ-ORG-07 c.6)."""
+
+    __slots__ = ()
+    ALLOWED = ["driver"]
 
 
 class Board:
@@ -69,6 +74,14 @@ class Fake:
     def __init__(self, **kwargs):
         self.kwargs = kwargs
         self.name = kwargs.get("name", "fake")
+
+
+class PathDriver(Fake):
+    """A driver that writes somewhere, as the monitor measures it."""
+
+    @property
+    def write_path(self):
+        return self.kwargs.get("configuration", {}).get("write_path") or self.kwargs.get("write_path")
 
 
 SECTIONS = ("infrastructure", "dev")
@@ -116,7 +129,7 @@ class Isolated(unittest.TestCase):
     def setUp(self):
         saved = dict(WorkflowFactory._registry)
         self.addCleanup(lambda: (WorkflowFactory._registry.clear(), WorkflowFactory._registry.update(saved)))
-        for cls in (Workflow, Proc, Board, Create, Fake):
+        for cls in (Workflow, Proc, DriverProc, Board, Create, Fake, PathDriver):
             WorkflowFactory.register(cls.__name__, cls)
         self.addCleanup(factory_logger.set_level, factory_logger._level)
         self.addCleanup(logging.getLogger().setLevel, logging.getLogger().level)
@@ -139,7 +152,7 @@ class RegistrationTest(Isolated):
             WorkflowFactory.register("Workflow", Workflow)
 
     def test_replacing_a_name_with_another_class_is_reported(self):
-        class Other(Workflow):
+        class Other:
             pass
 
         factory_logger.set_level(logging.DEBUG)
@@ -159,10 +172,16 @@ class LevelTest(Isolated):
         return [r.getMessage() for r in records if r.levelno >= level]
 
     def test_without_a_declared_level_the_factory_follows_the_root_level(self):
+        logging.getLogger().setLevel(logging.DEBUG)
+        with captured() as records:
+            self.build(document())
+        self.assertTrue(any("Build" in m for m in self.messages(records, logging.DEBUG)))
+
+    def test_the_build_is_recorded_at_debug_not_info(self):  # FR-FAC-08 k.1
         logging.getLogger().setLevel(logging.INFO)
         with captured() as records:
             self.build(document())
-        self.assertTrue(any("Build" in m for m in self.messages(records)))
+        self.assertEqual([m for m in self.messages(records) if "Build" in m], [])
 
     def test_a_root_level_above_info_keeps_the_build_quiet(self):
         logging.getLogger().setLevel(logging.WARNING)
@@ -173,8 +192,8 @@ class LevelTest(Isolated):
     def test_a_declared_level_wins(self):
         logging.getLogger().setLevel(logging.WARNING)
         with captured() as records:
-            self.build(document(logging_level="INFO"))
-        self.assertTrue(any("Build" in m for m in self.messages(records)))
+            self.build(document(logging_level="DEBUG"))
+        self.assertTrue(any("Build" in m for m in self.messages(records, logging.DEBUG)))
 
 
 class InlineKeysTest(Isolated):
@@ -236,13 +255,25 @@ class RuntimeEnvTest(Isolated):
 class DriverLookupTest(Isolated):
     def test_an_unknown_processor_driver_is_a_factory_exception_naming_the_entry(self):
         with self.assertRaises(WorkflowFactoryException) as caught:
-            self.build(document(processor_extra={"driver": "nowhere"}))
+            self.build(document(processor_extra={"type": "DriverProc", "driver": "nowhere"}))
         text = str(caught.exception)
         for part in ("nowhere", "reader"):
             self.assertIn(part, text)
 
+    def test_a_declared_driver_is_required(self):  # NFRQ-ORG-07 c.6
+        with self.assertRaises(WorkflowFactoryException) as caught:
+            self.build(document(processor_extra={"type": "DriverProc"}))
+        self.assertIn("mandatory", str(caught.exception))
+
+    def test_a_driver_the_processor_does_not_declare_is_not_resolved(self):  # NFRQ-ORG-15 c.2
+        built = self.build(document(processor_extra={"driver": "nowhere"}))
+        self.assertIn("reader", built.processors.all)
+
     def test_a_registered_driver_reaches_the_processor(self):
-        config = document(driver_entry={"name": "d", "type": "Fake"}, processor_extra={"driver": "d"})
+        config = document(
+            driver_entry={"name": "d", "type": "Fake"},
+            processor_extra={"type": "DriverProc", "driver": "d"},
+        )
         built = self.build(config)
         self.assertIn("reader", built.processors.all)
         self.assertIsInstance(built.drivers, DriverManager)
@@ -256,47 +287,61 @@ class Boom:
 
 
 class ConstructionFailureTest(Isolated):
-    """BR-FAC-17: a failure while a component is built names the section and the entry."""
+    """BR-FAC-17, NFRQ-ORG-15 c.3: a component's own error reaches the caller as it raised it."""
 
     def setUp(self):
         super().setUp()
         WorkflowFactory.register("Boom", Boom)
 
-    def assertWrapped(self, caught, *parts):
-        text = str(caught.exception)
-        for part in parts:
-            self.assertIn(part, text)
-        self.assertIsInstance(caught.exception.__cause__, RuntimeError)
+    def assertPassedThrough(self, build):
+        with self.assertRaises(RuntimeError) as caught:
+            build()
+        self.assertNotIsInstance(caught.exception, WorkflowFactoryException)
+        self.assertEqual(str(caught.exception), "boom")
 
-    def test_a_driver_constructor_failure_names_the_section_and_the_entry(self):
-        with self.assertRaises(WorkflowFactoryException) as caught:
-            self.build(document(driver_entry={"name": "slow", "type": "Boom"}))
-        self.assertWrapped(caught, "managers.drivers", "slow", "boom")
+    def test_a_driver_constructor_failure_arrives_unchanged(self):
+        self.assertPassedThrough(lambda: self.build(document(driver_entry={"name": "slow", "type": "Boom"})))
 
-    def test_a_processor_constructor_failure_names_the_section_and_the_entry(self):
-        with self.assertRaises(WorkflowFactoryException) as caught:
-            self.build(document(processor_extra={"type": "Boom"}))
-        self.assertWrapped(caught, "workflows.processors", "reader", "boom")
+    def test_a_processor_constructor_failure_arrives_unchanged(self):
+        self.assertPassedThrough(lambda: self.build(document(processor_extra={"type": "Boom"})))
 
-    def test_a_connection_constructor_failure_names_the_section_and_the_entry(self):
+    def test_a_connection_constructor_failure_arrives_unchanged(self):
         config = document()
         config.data["infrastructure"]["dev"]["managers"]["connections"] = [{"name": "db", "type": "Boom"}]
-        with self.assertRaises(WorkflowFactoryException) as caught:
-            self.build(config)
-        self.assertWrapped(caught, "managers.connections", "db", "boom")
+        self.assertPassedThrough(lambda: self.build(config))
 
-    def test_an_unknown_monitoring_level_is_a_factory_exception(self):
+    def test_an_unknown_monitoring_level_arrives_as_the_original_value_error(self):
         config = document()
         config.data["infrastructure"]["dev"]["monitoring"] = {"level": "bogus"}
-        with self.assertRaises(WorkflowFactoryException) as caught:
+        with self.assertRaises(ValueError):
             self.build(config)
-        self.assertIn("monitoring", str(caught.exception))
-        self.assertIsInstance(caught.exception.__cause__, ValueError)
 
     def test_an_error_the_factory_already_reported_is_not_wrapped_again(self):
         with self.assertRaises(WorkflowFactoryException) as caught:
-            self.build(document(processor_extra={"driver": "nowhere"}))
+            self.build(document(processor_extra={"type": "DriverProc", "driver": "nowhere"}))
         self.assertEqual(str(caught.exception).count("workflows.processors"), 1)
+
+
+class MonitoredRunTest(Isolated):
+    """The built workflow measures its drivers' write paths and runs under a real monitor."""
+
+    def built(self):
+        config = document(driver_entry={"name": "out", "type": "PathDriver", "configuration": {"write_path": "/tmp/out"}})
+        config.data["infrastructure"]["dev"]["monitoring"] = {"level": "SUMMARY"}
+        with patch.object(Proc, "register_blackboard"):
+            return WorkflowFactory.build(adapter=config, sections=SECTIONS)
+
+    def test_the_write_path_of_a_built_driver_is_measured(self):
+        self.assertEqual(self.built().measured_paths(), ["/tmp/out"])
+
+    def test_a_run_under_the_monitor_ends_it_and_freezes_the_composition(self):
+        flow = self.built()
+        for processor in flow.processors.all.values():
+            processor.start = lambda: None
+        self.assertIsNotNone(flow.monitor)
+        flow.run()
+        with self.assertRaises(WorkflowException):
+            flow.attach_monitor(None)
 
 
 class ComponentKwargsTest(Isolated):

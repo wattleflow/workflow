@@ -125,6 +125,10 @@ class Scheduler(Wattleflow, IScheduler, ABC):
             if not any(known is listener for known in self._listeners):
                 self._listeners.append(listener)
 
+    def unregister_listener(self, listener: IEventListener) -> None:
+        with self._lock:
+            self._listeners = [known for known in self._listeners if known is not listener]
+
     def emit_event(self, event: Event, **kwargs):
         with self._lock:
             listeners = list(self._listeners)

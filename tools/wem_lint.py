@@ -1558,6 +1558,7 @@ class AuditRuleBase(Wattleflow, IStrategy):
         "step_class_prefixes": [],
         "info_exempt": [],
         "import_guard": ["ImportError", "ModuleNotFoundError"],
+        "framework_boundary": [],
     }
 
     @classmethod
@@ -1619,6 +1620,7 @@ class AuditLevelRule(AuditRuleBase):
         escalated = set(cfg["escalated"])
         trace = cfg["trace"]
         guards = set(cfg["import_guard"])
+        boundary = set(cfg["framework_boundary"])
         sev_escalation = Criterion.severity(reg, "audit_level_vs_propagation", WARNING)
         sev_trace = Criterion.severity(reg, "audit_failure_trace", WARNING)
 
@@ -1629,7 +1631,17 @@ class AuditLevelRule(AuditRuleBase):
                 continue
             # module-level handlers are out of scope: no `self` exists there
             functions = (ast.FunctionDef, ast.AsyncFunctionDef)
+            # NFRQ-OBS-01, exception to c.1: the owner of the main process records a cardinal
+            # error once at ERROR and passes it on; its ERROR is the record, not a duplicate.
+            owners = {
+                id(fn): cls.name
+                for cls in ast.walk(tree)
+                if isinstance(cls, ast.ClassDef)
+                for fn in ast.walk(cls)
+                if isinstance(fn, functions)
+            }
             for fn in (n for n in ast.walk(tree) if isinstance(n, functions)):
+                at_boundary = owners.get(id(fn)) in boundary
                 # No `self` in scope, no audit call to make: a module-level function
                 # is in the same position as a module-level `try: import`.
                 first = (fn.args.posonlyargs + fn.args.args)[:1]
@@ -1653,6 +1665,8 @@ class AuditLevelRule(AuditRuleBase):
                     )
                     levels = [c.func.attr for c in self._audit_calls(handler, cfg["levels"])]
                     hit = sorted(escalated.intersection(levels))
+                    if at_boundary and hit:
+                        continue
                     if hit:
                         findings.append(
                             Finding(

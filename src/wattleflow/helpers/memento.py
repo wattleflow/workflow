@@ -54,6 +54,9 @@ class ObservableClass(IObservable):
     def subscribe(self, listener):
         self._listeners.append(listener)
 
+    def unsubscribe(self, listener):
+        self._listeners = [known for known in self._listeners if known is not listener]
+
 
 # --------------------------------------------------------------------------- #
 # endregion Classes                                                           #
