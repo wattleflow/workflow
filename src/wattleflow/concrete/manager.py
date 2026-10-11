@@ -148,12 +148,7 @@ class ConnectionManager(Wattleflow, IObserver):
             )
 
     def hot_swap(self, name: str, new_connection: Connection) -> None:
-        """Replace the registered connection `name` without losing its observers.
-
-        The new connection is connected first; if that fails the old one stays
-        registered and active. Observers move to the new connection and are
-        notified with `Event.Swap`; the old connection is disconnected last.
-        """
+        """Replace the registered connection `name` without losing its observers."""
         self.debug(msg=Event.Swap, step=Event.Started, name=name)
         if name not in self._connections:
             raise ManagerException(

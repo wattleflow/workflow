@@ -10,7 +10,7 @@ import unittest
 
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.exception import AttributeException
-from wattleflow.concrete.helpers import Attribute, NameHelper
+from wattleflow.concrete.helper import Attribute, NameHelper
 
 
 class Loadable:

@@ -8,7 +8,13 @@ import unittest
 from unittest import mock
 
 from wattleflow.concrete.base import Wattleflow
-from wattleflow.concrete.document import DocumentAdapter, DocumentFacade, DummyReadDocument
+from wattleflow.concrete.document import Document, DocumentAdapter, DocumentFacade
+
+
+class PlainDocument(Document[dict]):
+    @property
+    def size(self) -> int:
+        return len(self.content)
 
 
 class PlainFacade(DocumentFacade):
@@ -41,7 +47,7 @@ class RefusalOrderTest(unittest.TestCase):
 
 class AcceptedAdapteeTest(unittest.TestCase):
     def setUp(self):
-        self.document = DummyReadDocument(identifier="a")
+        self.document = PlainDocument({"a": 1})
 
     def test_adapter_wraps_and_returns_the_adaptee(self):
         self.assertIs(DocumentAdapter(self.document).request(), self.document)
@@ -57,7 +63,7 @@ class AcceptedAdapteeTest(unittest.TestCase):
             _ = PlainFacade(self.document)._missing
 
 
-class CountedDocument(DummyReadDocument):
+class CountedDocument(PlainDocument):
     reads = 0
 
     @property
@@ -70,11 +76,11 @@ class CountedDocument(DummyReadDocument):
         raise AttributeError("raised inside the property")
 
 
-class SwitchingDocument(DummyReadDocument):
+class SwitchingDocument(PlainDocument):
     """Hands out a different object on every request, as a lazily resolved adaptee may."""
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, content, **kwargs):
+        super().__init__(content, **kwargs)
         self.partner = None
         self.toggle = False
 
@@ -88,23 +94,23 @@ class DelegationTest(unittest.TestCase):
         CountedDocument.reads = 0
 
     def test_a_delegated_property_is_evaluated_once_per_read(self):
-        facade = PlainFacade(CountedDocument(identifier="a"))
+        facade = PlainFacade(CountedDocument({"a": 1}))
         self.assertEqual(facade.probe, 7)
         self.assertEqual(CountedDocument.reads, 1)
 
     def test_missing_attribute_is_reported_against_the_facade(self):
-        facade = PlainFacade(DummyReadDocument(identifier="a"))
+        facade = PlainFacade(PlainDocument({"a": 1}))
         with self.assertRaisesRegex(AttributeError, "PlainFacade.*nothing_here"):
             _ = facade.nothing_here
 
     def test_attribute_error_inside_a_property_stays_an_attribute_error(self):
-        facade = PlainFacade(CountedDocument(identifier="a"))
+        facade = PlainFacade(CountedDocument({"a": 1}))
         with self.assertRaises(AttributeError):
             _ = facade.broken
 
     def test_the_adaptee_is_resolved_on_every_miss_not_cached(self):
-        partner = DummyReadDocument(identifier="partner")
-        document = SwitchingDocument(identifier="own")
+        partner = PlainDocument({"p": 2})
+        document = SwitchingDocument({"o": 3})
         document.partner = partner
         facade = PlainFacade(document)
         first = facade.identifier

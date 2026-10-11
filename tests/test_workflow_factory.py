@@ -13,12 +13,12 @@ from unittest.mock import patch
 
 from wattleflow.concrete.manager import DriverManager
 from wattleflow.concrete.processor import GenericProcessor
-from wattleflow.concrete.workflow import (
-    GenericWorkflow,
+from wattleflow.concrete.factory import (
     WorkflowFactory,
     WorkflowFactoryException,
     logger as factory_logger,
 )
+from wattleflow.concrete.workflow import Workflow as BaseWorkflow
 from wattleflow.core import IConfig
 
 
@@ -41,7 +41,7 @@ class DictConfig(IConfig):
         return node
 
 
-class Workflow(GenericWorkflow):
+class Workflow(BaseWorkflow):
     def execute(self, **kwargs):
         pass
 
@@ -246,6 +246,29 @@ class DriverLookupTest(Isolated):
         built = self.build(config)
         self.assertIn("reader", built.processors.all)
         self.assertIsInstance(built.drivers, DriverManager)
+
+
+class ComponentKwargsTest(Isolated):
+    """The `component_kwargs` hook adds keywords per class; the factory does not interpret them (BR-OSCAL-21)."""
+
+    def built_driver(self, hook):
+        config = document(driver_entry={"name": "d", "type": "Fake"}, processor_extra={"driver": "d"})
+        with patch.object(Proc, "register_blackboard"):
+            built = WorkflowFactory.build(adapter=config, sections=SECTIONS, component_kwargs=hook)
+        return built.drivers.get_driver("d")
+
+    def test_the_hook_is_asked_with_the_class_and_its_keywords_arrive(self):
+        asked = []
+
+        def hook(component):
+            asked.append(component)
+            return {"extra": 1} if component is Fake else {}
+
+        self.assertEqual(self.built_driver(hook).kwargs["extra"], 1)
+        self.assertIn(Fake, asked)
+
+    def test_without_a_hook_nothing_is_added(self):
+        self.assertNotIn("extra", self.built_driver(None).kwargs)
 
 
 class CleanupTest(unittest.TestCase):

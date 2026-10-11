@@ -8,7 +8,7 @@ import unittest
 from enum import Enum
 
 from wattleflow.concrete.exception import AttributeException
-from wattleflow.concrete.helpers import Attribute
+from wattleflow.concrete.helper import Attribute
 
 
 class Colour(Enum):

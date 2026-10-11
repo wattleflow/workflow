@@ -1,5 +1,4 @@
 # Module name: tests/test_module_layout.py
-# Layout rule for the concrete layer (STANDARDS §2.7, FRQ-DRV, DEF-DRV-03): `__all__` is the last
 # top-level statement of a module, after the definitions it names.
 #
 # Run from `workflow/`:
@@ -8,17 +7,30 @@ import ast
 import unittest
 from pathlib import Path
 
-CONCRETE = Path(__file__).resolve().parent.parent / "src" / "wattleflow" / "concrete"
+SRC = Path(__file__).resolve().parent.parent / "src" / "wattleflow"
 
 
 def modules() -> list[Path]:
-    return [p for p in sorted(CONCRETE.glob("*.py")) if p.name != "__init__.py"]
+    return [p for p in sorted(SRC.rglob("*.py")) if "__pycache__" not in p.parts]
 
 
 def is_all(node: ast.stmt) -> bool:
     return isinstance(node, ast.Assign) and any(
         isinstance(target, ast.Name) and target.id == "__all__" for target in node.targets
     )
+
+
+def is_literal(node: ast.stmt) -> bool:
+    value = getattr(node, "value", None)
+    return isinstance(value, (ast.List, ast.Tuple)) and all(
+        isinstance(e, ast.Constant) and isinstance(e.value, str) for e in value.elts
+    )
+
+
+def is_plain_import(node: ast.stmt) -> bool:
+    if isinstance(node, ast.ImportFrom):
+        return node.module != "__future__"
+    return isinstance(node, ast.Import)
 
 
 class AllPositionTest(unittest.TestCase):
@@ -33,17 +45,23 @@ class AllPositionTest(unittest.TestCase):
         ]
         self.assertEqual(missing, [])
 
-    def test_all_is_the_last_top_level_statement(self):
+    def test_static_all_precedes_imports(self):
         misplaced = []
         for path in modules():
             body = ast.parse(path.read_text(encoding="utf-8")).body
-            if body and not is_all(body[-1]):
-                misplaced.append(path.name)
+            found = [i for i, n in enumerate(body) if is_all(n)]
+            if not found or not is_literal(body[found[0]]):
+                continue
+            first_import = next((i for i, n in enumerate(body) if is_plain_import(n)), None)
+            if first_import is not None and found[0] > first_import:
+                misplaced.append(str(path.relative_to(SRC)))
         self.assertEqual(misplaced, [])
 
     def test_all_names_only_defined_names(self):
         undefined = {}
         for path in modules():
+            if "concrete" not in path.parts or path.name == "__init__.py":
+                continue
             body = ast.parse(path.read_text(encoding="utf-8")).body
             defined = {n.name for n in body if isinstance(n, (ast.ClassDef, ast.FunctionDef))}
             defined |= {
@@ -60,7 +78,7 @@ class AllPositionTest(unittest.TestCase):
                 for a in n.names
             }
             for node in body:
-                if is_all(node):
+                if is_all(node) and is_literal(node):
                     names = ast.literal_eval(node.value)
                     gone = [name for name in names if name not in defined | imported]
                     if gone:

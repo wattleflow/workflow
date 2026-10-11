@@ -139,19 +139,28 @@ class ConnectionManagerTest(unittest.TestCase):
         with self.assertRaises(ManagerException):
             self.manager.connect("nope")
 
-    def test_operation_is_forwarded_and_connect_returns_the_connection(self):
+    def test_operation_is_forwarded_and_connect_returns_its_outcome(self):
         conn = Conn("db")
         self.manager.register_connection(conn)
-        self.assertIs(self.manager.connect("db"), conn)
+        self.assertIs(self.manager.connect("db"), True)
         self.assertEqual(conn.log, [Operation.Connect])
 
-    def test_disconnect_swallows_a_failure_and_answers_false(self):
+    def test_disconnect_is_forwarded_and_returns_its_outcome(self):
+        conn = Conn("db")
+        self.manager.register_connection(conn)
+        self.assertIs(self.manager.disconnect("db"), True)
+        self.assertEqual(conn.log, [Operation.Disconnect])
+
+    def test_disconnect_lets_a_failure_through(self):
         class Failing(Conn):
             def operation(self, action, **kwargs):
                 raise RuntimeError("down")
 
         self.manager.register_connection(Failing("db"))
-        self.assertFalse(self.manager.disconnect("db"))
+        with self.assertRaises(RuntimeError):
+            self.manager.disconnect("db")
+        with self.assertRaises(ManagerException):
+            self.manager.disconnect("nope")
 
     def test_unregister_removes_and_disconnects_a_connected_connection(self):
         conn = Conn("db")

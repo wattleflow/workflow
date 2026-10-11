@@ -113,12 +113,12 @@ class GenericParser(IParser[Content], ABC):
         return type(self).__name__
 
     @abstractmethod
-    def deserialise(self, reader: BinaryIO, **kwargs) -> Content: ...
+    def _deserialise(self, reader: BinaryIO, **kwargs) -> Content: ...
 
     def parse(self, **kwargs) -> Content:
         try:
             with self._reader(kwargs) as stream:
-                return self.deserialise(stream, **kwargs)
+                return self._deserialise(stream, **kwargs)
         except self.ERRORS:
             raise
         except Exception as e:
@@ -205,7 +205,7 @@ class GenericFormatter(IFormatter[Content], ABC):
             error = "%s.render error: %s" % (self.name, str(e))
             raise self.ERROR(caller=self, error=error) from e
 
-    def _check(self, content: Content) -> None:
+    def check(self, content: Content) -> None:
         """The content gate: `content` must be an instance of CONTENT."""
         if not isinstance(content, self.CONTENT):
             raise self.ERROR(
@@ -216,7 +216,7 @@ class GenericFormatter(IFormatter[Content], ABC):
                 ),
             )
 
-    def _stream(self, handle: BinaryIO, content: Content, **kwargs) -> None:
+    def stream(self, handle: BinaryIO, content: Content, **kwargs) -> None:
         encoding = self.encoding_of(**kwargs)
         payload = self.render(content=content, **kwargs)
         try:
@@ -227,7 +227,7 @@ class GenericFormatter(IFormatter[Content], ABC):
             error = "%s.stream error: %s" % (self.name, str(e))
             raise self.ERROR(caller=self, error=error) from e
 
-    def _encoding_of(self, **kwargs) -> str:
+    def encoding_of(self, **kwargs) -> str:
         return kwargs.get("encoding") or self.ENCODING
 
 
@@ -250,21 +250,25 @@ class ConversionStrategy(IStrategy, ABC):
 class GenericConverter(IStrategyContext, ABC):
     """GenericConverter - light context of a conversion strategy."""
 
-    STRATEGY: ClassVar[type[IStrategy]] = IStrategy
+    STRATEGY: ClassVar[type[ConversionStrategy]] = ConversionStrategy
     ERROR: ClassVar[type[Exception]] = ConverterError
     ERRORS: ClassVar[tuple[type[BaseException], ...]] = (ConverterError,)
 
-    __slots__ = "_strategy"
+    __slots__ = ("_strategy",)
 
-    def __init__(self, strategy: IStrategy | None = None):
+    def __init__(self, strategy: ConversionStrategy | None = None):
         super().__init__()
-        self._strategy: IStrategy | None = None
+        self._strategy: ConversionStrategy | None = None
         if strategy is not None:
             self.set_strategy(strategy)
 
     @property
     def name(self) -> str:
         return type(self).__name__
+
+    @property
+    def strategy(self) -> IStrategy | None:
+        return self._strategy
 
     def set_strategy(self, strategy: IStrategy) -> None:
         if not isinstance(strategy, self.STRATEGY):

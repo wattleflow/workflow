@@ -14,14 +14,20 @@ import timeit
 import unittest
 from typing import Callable
 
-from wattleflow.concrete.document import DummyReadDocument
-from wattleflow.concrete.helpers import Attribute, NameHelper
+from wattleflow.concrete.document import Document
+from wattleflow.concrete.helper import Attribute, NameHelper
+
+class PlainDocument(Document[dict]):
+    @property
+    def size(self) -> int:
+        return len(self.content)
+
 
 BUDGET_NS = 200_000  # median per call; the slowest method measures well below a tenth of this
 REPEATS = 5
 WINDOW_S = 0.02  # each repeat runs for about this long
 
-_document = DummyReadDocument(identifier="a")
+_document = PlainDocument({"a": 1})
 
 
 class Plain:

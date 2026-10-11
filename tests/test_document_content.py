@@ -6,7 +6,7 @@
 #   PYTHONPATH=src:../core/src python -m unittest tests.test_document_content -v
 import unittest
 
-from wattleflow.concrete.document import Document, DummyReadDocument
+from wattleflow.concrete.document import Document
 
 
 class PlainDocument(Document[dict]):
@@ -54,10 +54,6 @@ class ContentLifecycleTest(unittest.TestCase):
         self.document.clean()
         with self.assertRaises(ValueError):
             _ = self.document.content
-
-    def test_placeholder_document_is_unaffected(self):
-        placeholder = DummyReadDocument(identifier="x")
-        self.assertEqual(placeholder.size, len(placeholder.content))
 
 
 if __name__ == "__main__":

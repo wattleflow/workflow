@@ -7,8 +7,14 @@
 import unittest
 from unittest import mock
 
-from wattleflow.concrete.document import Document, DummyReadDocument
+from wattleflow.concrete.document import Document
 from wattleflow.helpers.moment import Moment, MomentAwareHelper, MomentHelper
+
+class PlainDocument(Document[dict]):
+    @property
+    def size(self) -> int:
+        return len(self.content)
+
 
 FIXED = Moment(1_767_323_045 * 10**9, True, "UTC")
 
@@ -18,7 +24,7 @@ class SingleRouteTest(unittest.TestCase):
         self.assertFalse(hasattr(Document, "utc_time_stamp"))
 
     def test_an_instance_has_no_clock_of_its_own_either(self):
-        self.assertFalse(hasattr(DummyReadDocument(identifier="a"), "utc_time_stamp"))
+        self.assertFalse(hasattr(PlainDocument({"a": 1}), "utc_time_stamp"))
 
     def test_now_is_an_aware_moment_in_the_workflow_zone(self):
         now = MomentAwareHelper.now()
@@ -29,7 +35,7 @@ class SingleRouteTest(unittest.TestCase):
 
 class AuditKeysFollowTheClockTest(unittest.TestCase):
     def setUp(self):
-        self.document = DummyReadDocument(identifier="a")
+        self.document = PlainDocument({"a": 1})
 
     def test_metadata_change_time_comes_from_now(self):
         with mock.patch.object(MomentAwareHelper, "now", return_value=FIXED):
@@ -43,7 +49,7 @@ class AuditKeysFollowTheClockTest(unittest.TestCase):
 
     def test_creation_time_comes_from_now(self):
         with mock.patch.object(MomentAwareHelper, "now", return_value=FIXED):
-            created = DummyReadDocument(identifier="b")
+            created = PlainDocument({"b": 2})
         self.assertEqual(created.metadata["created_at"], FIXED)
 
 

@@ -1,5 +1,5 @@
 # Module name: tests/test_workflow_memento.py
-# FRQ-MEM (DEF-MEM-01): a workflow needs no memento code of its own. GenericWorkflow snapshots and restores
+# FRQ-MEM (DEF-MEM-01): a workflow needs no memento code of its own. Workflow snapshots and restores
 # its processors by registered name, and the factory turns a `memento:` section into a store that every
 # processor of the workflow checkpoints to, keyed by its registered name.
 #
@@ -15,12 +15,8 @@ from wattleflow.concrete.manager import ConnectionManager, DriverManager, Proces
 from wattleflow.concrete.memento import GenericMemento
 from wattleflow.concrete.memento_store import FileMementoStore, MemoryMementoStore
 from wattleflow.concrete.processor import GenericProcessor, ProcessorState
-from wattleflow.concrete.workflow import (
-    GenericWorkflow,
-    WorkflowException,
-    WorkflowFactory,
-    WorkflowFactoryException,
-)
+from wattleflow.concrete.factory import WorkflowFactory, WorkflowFactoryException
+from wattleflow.concrete.workflow import Workflow as BaseWorkflow, WorkflowException
 from wattleflow.core import IConfig
 
 
@@ -41,7 +37,7 @@ class Create:
         pass
 
 
-class Workflow(GenericWorkflow):
+class Workflow(BaseWorkflow):
     """A workflow class with no memento code: only `execute`."""
 
     def execute(self, **kwargs):

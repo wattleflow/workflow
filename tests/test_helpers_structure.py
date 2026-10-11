@@ -1,5 +1,5 @@
 # Module name: tests/test_helpers_structure.py
-# Structure of concrete/helpers.py (NFRQ-ORG-05, FRQ-HLP DEF-HLP-03): a method that refers to its own
+# Structure of concrete/helper.py (NFRQ-ORG-05, FRQ-HLP DEF-HLP-03): a method that refers to its own
 # class goes through `cls` and is a classmethod; a staticmethod refers to no member of its class,
 # except the public methods whose signature binds `cls` as a domain type (exception c.1, deferred:
 # renaming that parameter is a public API decision, workflow scripts call it by keyword).
@@ -10,7 +10,7 @@ import ast
 import unittest
 from pathlib import Path
 
-SOURCE = Path(__file__).resolve().parent.parent / "src" / "wattleflow" / "concrete" / "helpers.py"
+SOURCE = Path(__file__).resolve().parent.parent / "src" / "wattleflow" / "concrete" / "helper.py"
 
 # NFRQ-ORG-05 exception c.1: the domain type is a parameter named `cls`
 DEFERRED = {

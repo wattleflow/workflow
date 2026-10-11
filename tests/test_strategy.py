@@ -1,21 +1,19 @@
 # Module name: tests/test_strategy.py
 # Tests for the strategy families (FRQ-STR): the method names that carry the intent, `execute` as the
 # one abstract method, write answering a bool, every failure carried as StrategyException with its
-# cause (a StrategyException from the specialisation passes through unchanged), and the stand-in read.
+# cause (a StrategyException from the specialisation passes through unchanged).
 #
 # Run from `workflow/`:
 #   PYTHONPATH=src:../core/src python -m unittest tests.test_strategy -v
 import logging
 import unittest
 
-from wattleflow.concrete.document import Document
 from wattleflow.concrete.exception import StrategyException
 from wattleflow.concrete.strategy import (
     Strategy,
     StrategyCreate,
     StrategyGenerate,
     StrategyRead,
-    StrategyReadDummy,
     StrategyWrite,
 )
 
@@ -58,7 +56,11 @@ class ContractTest(unittest.TestCase):
             (StrategyGenerate, lambda s: s.generate(caller, k=1), {"k": 1}),
             (StrategyCreate, lambda s: s.create(caller, k=1), {"k": 1}),
             (StrategyRead, lambda s: s.read(caller, "id-1", k=1), {"identifier": "id-1", "k": 1}),
-            (StrategyWrite, lambda s: s.write(caller, "facade", k=1), {"facade": "facade", "k": 1}),
+            (
+                StrategyWrite,
+                lambda s: s.write(caller, "facade", k=1),
+                {"facade": "facade", "k": 1},
+            ),
         )
         for base, call, expected in cases:
             with self.subTest(base=base.__name__):
@@ -117,49 +119,9 @@ class FailureTest(unittest.TestCase):
         self.assertEqual({r.levelno for r in logged.records} - {logging.DEBUG}, set())
 
 
-class StandInReadTest(unittest.TestCase):
-    def test_every_call_warns_and_returns_a_declared_stand_in(self):
-        strategy = StrategyReadDummy(level=logging.DEBUG)
-        with self.assertLogs(level=logging.WARNING) as logged:
-            first = strategy.read(Caller(), "doc-1")
-            second = strategy.read(Caller(), "doc-2")
-        self.assertEqual(len(logged.records), 2)
-        metadata = first.request().metadata
-        self.assertIs(metadata["implemented"], False)
-        self.assertEqual(metadata["declared_by"], "StrategyReadDummy")
-        self.assertEqual(metadata["identifier"], "doc-1")
-        self.assertEqual(second.request().metadata["identifier"], "doc-2")
-
-    def test_strict_raises_with_the_stand_in_attached(self):
-        strategy = StrategyReadDummy(strict=True, **QUIET)
-        with self.assertRaises(StrategyException) as caught:
-            strategy.read(Caller(), "doc-1")
-        self.assertIs(caught.exception.document.request().metadata["implemented"], False)
-        self.assertTrue(strategy.strict)
-
-    def test_the_configured_document_type_is_used_when_it_accepts_the_notice(self):
-        class Notice(Document[dict]):
-            @property
-            def size(self):
-                return len(self.content)
-
-        facade = StrategyReadDummy(document_type=Notice, **QUIET).read(Caller(), "x")
-        self.assertIsInstance(facade.request(), Notice)
-
-    def test_a_type_that_cannot_carry_the_notice_falls_back_to_the_placeholder(self):
-        class Strict(Document[dict]):
-            def __init__(self, content=None, **kwargs):
-                raise TypeError("no mapping content")
-
-        facade = StrategyReadDummy(document_type=Strict, **QUIET).read(Caller(), "x")
-        self.assertEqual(type(facade.request()).__name__, "DummyReadDocument")
-        self.assertEqual(StrategyReadDummy(document_type=Strict, **QUIET).expected, "Strict")
-
-
 class SlotsTest(unittest.TestCase):
-    def test_only_the_stand_in_holds_state(self):
+    def test_the_base_strategy_holds_no_state(self):
         self.assertEqual(Strategy.__slots__, ())
-        self.assertEqual(set(StrategyReadDummy.__slots__), {"_document_type", "_strict"})
 
 
 if __name__ == "__main__":
