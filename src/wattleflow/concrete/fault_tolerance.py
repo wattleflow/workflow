@@ -32,7 +32,7 @@ __all__ = [
     "RETRY_GAVE_UP",
     "CIRCUIT_STATE_CHANGED",
     "CIRCUIT_REJECTED",
-    "FaultToleranceEvent",
+    "FaultEvent",
     "EventEmitter",
     "RetryExhaustedError",
     "RetryPolicy",
@@ -60,9 +60,9 @@ CIRCUIT_REJECTED = "circuit.rejected"
 # --------------------------------------------------------------------------- #
 # region Events                                                               #
 # --------------------------------------------------------------------------- #
-class FaultToleranceEvent(IEvent):
+class FaultEvent(IEvent):
     """
-    FaultToleranceEvent - immutable IEvent emitted by fault tolerance invokers.
+    FaultEvent - immutable IEvent emitted by fault tolerance invokers.
 
     id is a random hex UUID, timestamp is UTC at construction, payload is
     copied on construction and on every read.
@@ -146,7 +146,7 @@ class EventEmitter(IEventSource[IEvent]):
             listener.on_event(event)
 
     def _publish(self, event_type: str, payload: dict[str, Any]) -> None:
-        self.emit_event(FaultToleranceEvent(event_type, payload, source=self._source))
+        self.emit_event(FaultEvent(event_type, payload, source=self._source))
 
 
 def _require(command: ICommand | None) -> ICommand:
