@@ -115,7 +115,8 @@ class UnexpectedTypeException(TypeError):
         except Exception:
             var_name = "Unknown Variable"
 
-        error = ERROR_UNEXPECTED_TYPE.format(
+        # ERROR_UNEXPECTED_TYPE is a %-style template; str.format would leave it unfilled.
+        error = ERROR_UNEXPECTED_TYPE % (
             NameHelper.nc(caller),
             var_name,
             NameHelper.nt(found),

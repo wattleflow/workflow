@@ -100,6 +100,34 @@ class WorkflowSnapshotTest(unittest.TestCase):
             with self.subTest(memento=memento), self.assertRaises(WorkflowException):
                 workflow.restore_state(memento)
 
+    def test_restore_is_all_or_nothing_when_a_later_processor_rejects_its_snapshot(self):
+        workflow = workflow_with("a", "b")
+        bad = GenericMemento(
+            processors={
+                "a": GenericMemento(cycle=2, state=ProcessorState.FAILED),
+                "b": GenericMemento(cycle=1, state=ProcessorState.RUNNING),
+            }
+        )
+        with self.assertRaises(ProcessorException):
+            workflow.restore_state(bad)
+        for processor in workflow.processors.all.values():
+            self.assertEqual(processor.cycle, 0)
+            self.assertIs(processor._fsm.state, ProcessorState.IDLE)
+
+    def test_restore_is_all_or_nothing_when_a_dataset_is_too_short(self):
+        workflow = workflow_with("a", "b")
+        short = GenericMemento(
+            processors={
+                "a": GenericMemento(cycle=2, state=ProcessorState.FAILED),
+                "b": GenericMemento(cycle=99, state=ProcessorState.FAILED),
+            }
+        )
+        with self.assertRaises(ProcessorException):
+            workflow.restore_state(short)
+        for processor in workflow.processors.all.values():
+            self.assertEqual(processor.cycle, 0)
+            self.assertIs(processor._fsm.state, ProcessorState.IDLE)
+
     def test_a_snapshot_a_processor_rejects_is_not_hidden(self):
         workflow = workflow_with("a")
         bad = GenericMemento(processors={"a": GenericMemento(cycle=1, state=ProcessorState.RUNNING)})

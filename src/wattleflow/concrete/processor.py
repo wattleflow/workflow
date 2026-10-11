@@ -16,7 +16,7 @@ import gc
 from abc import abstractmethod, ABC
 from enum import Enum
 from typing import Any
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from wattleflow.core import (
     IBlackboard,
     IOriginator,
@@ -286,10 +286,18 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         return GenericMemento(cycle=self._cycle, state=self._fsm.state)
 
     def restore_state(self, memento: GenericMemento) -> None:
+        self.prepare_restore(memento)()
+
+    def prepare_restore(self, memento: GenericMemento) -> Callable[[], None]:
+        """Check the snapshot and build everything it needs; change nothing.
+
+        Returns the commit that applies it. All that can fail (validation, the generator, the
+        skip over the saved cycles) happens here, so a caller restoring several processors can
+        prepare them all and commit only when every one is ready: restoring is all or nothing.
+        """
         saved_state = memento.get_state()
         saved_cycle = memento.to_dict().get("cycle")
 
-        # Validate the whole snapshot before mutating anything.
         if not isinstance(saved_state, ProcessorState):
             raise ProcessorException(
                 caller=self,
@@ -308,27 +316,32 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             )
 
         # StateMachine.state is read-only: restart the machine from the saved state.
-        self._fsm = StateMachine(TRANSITIONS, saved_state, name="ProcessorFSM")
-        self._fsm.apply(ProcessorAction.LOAD)
+        fsm = StateMachine(TRANSITIONS, saved_state, name="ProcessorFSM")
+        fsm.apply(ProcessorAction.LOAD)
 
-        self._cycle = saved_cycle
-        self._generator = self.create_generator()
-
+        generator = self.create_generator()
         skipped = 0
         try:
-            while skipped < self._cycle:
-                next(self._generator)
+            while skipped < saved_cycle:
+                next(generator)
                 skipped += 1
         except StopIteration:
             error = "Restore failed: dataset shorter than saved cycle"
             self.debug(
                 msg=Event.Restore,
                 step=Event.Failed,
-                cycle=self._cycle,
+                cycle=saved_cycle,
                 skipped=skipped,
                 error=error,
             )
             raise ProcessorException(caller=self, error=error) from None
+
+        def commit() -> None:
+            self._fsm = fsm
+            self._cycle = saved_cycle
+            self._generator = generator
+
+        return commit
 
     def _resume(self) -> None:
         """Continue after the cycle a previous run checkpointed, if there is one."""
@@ -374,7 +387,10 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
 
     def operation(self, action: Operation, **kwargs) -> bool:
         if action is Operation.Start:
-            self.start(**kwargs)
+            # The manager forwards its keywords without interpreting them; `start` takes none.
+            if kwargs:
+                self.debug(msg=Event.Operation, step=Event.Check, ignored=sorted(kwargs))
+            self.start()
             return True
         self.warning(
             msg=Event.Operation,

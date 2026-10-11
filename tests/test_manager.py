@@ -12,6 +12,7 @@ import unittest
 
 from wattleflow.concrete.exception import ManagerException
 from wattleflow.concrete.manager import ConnectionManager, DriverManager, ProcessorManager
+from wattleflow.concrete.connection import ConnectionState
 from wattleflow.enums.event import Event
 from wattleflow.enums.operation import Operation
 
@@ -31,6 +32,14 @@ class Conn:
     def operation(self, action, **kwargs):
         self.log.append(action)
         return True
+
+
+class StateConn(Conn):
+    """A connection with a state, like GenericConnection: it holds a link in every state but NEW and CLOSED."""
+
+    def __init__(self, name, state):
+        super().__init__(name, connected=state is ConnectionState.CONNECTED)
+        self.state = state
 
 
 class NamelessConn(Conn):
@@ -169,7 +178,27 @@ class ConnectionManagerTest(unittest.TestCase):
         self.assertNotIn("db", self.manager._connections)
         self.assertEqual(conn.log, [Operation.Disconnect])
 
-    def test_unregister_leaves_a_connection_that_is_not_connected_alone(self):
+    def test_unregister_closes_a_connection_that_holds_a_link_but_no_session(self):
+        # BR-CON-17: whatever its state, a connection that holds a link is closed.
+        for state in (ConnectionState.CREATING, ConnectionState.CREATED, ConnectionState.CONNECTING,
+                      ConnectionState.CONNECTED, ConnectionState.FAILED):
+            with self.subTest(state=state):
+                manager = ConnectionManager(**QUIET)
+                conn = StateConn("db", state)
+                manager.register_connection(conn)
+                manager.unregister_connection("db")
+                self.assertEqual(conn.log, [Operation.Disconnect])
+
+    def test_unregister_leaves_a_connection_that_holds_nothing_alone(self):
+        for state in (ConnectionState.NEW, ConnectionState.CLOSED):
+            with self.subTest(state=state):
+                manager = ConnectionManager(**QUIET)
+                conn = StateConn("db", state)
+                manager.register_connection(conn)
+                manager.unregister_connection("db")
+                self.assertEqual(conn.log, [])
+
+    def test_an_object_without_a_state_is_closed_only_when_it_reports_connected(self):
         conn = Conn("db", connected=False)
         self.manager.register_connection(conn)
         self.manager.unregister_connection("db")
@@ -186,10 +215,14 @@ class ConnectionManagerTest(unittest.TestCase):
 
     def test_discarding_disconnects_every_connected_connection_despite_a_failure(self):
         a, b, c = Conn("a", fail=True), Conn("b"), Conn("c", connected=False)
-        for conn in (a, b, c):
+        d, e = StateConn("d", ConnectionState.CREATED), StateConn("e", ConnectionState.CLOSED)
+        for conn in (a, b, c, d, e):
             self.manager.register_connection(conn)
         self.manager.__del__()
-        self.assertEqual((a.log, b.log, c.log), ([Operation.Disconnect], [Operation.Disconnect], []))
+        self.assertEqual(
+            (a.log, b.log, c.log, d.log, e.log),
+            ([Operation.Disconnect], [Operation.Disconnect], [], [Operation.Disconnect], []),
+        )
 
 
 class DriverManagerTest(unittest.TestCase):

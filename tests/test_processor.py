@@ -97,6 +97,11 @@ class PassTest(unittest.TestCase):
         with self.assertLogs(level=logging.WARNING):
             self.assertFalse(processor.operation(Operation.Stop))
 
+    def test_operation_start_accepts_the_keywords_a_manager_forwards(self):
+        processor, _, _, seen = build()
+        self.assertTrue(processor.operation(Operation.Start, anything=1))
+        self.assertEqual(len(seen), ITEMS)
+
     def test_operation_start_runs_the_pass(self):
         processor, *_ = build()
         self.assertTrue(processor.operation(Operation.Start))

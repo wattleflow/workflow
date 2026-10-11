@@ -248,6 +248,57 @@ class DriverLookupTest(Isolated):
         self.assertIsInstance(built.drivers, DriverManager)
 
 
+class Boom:
+    """A component whose constructor fails."""
+
+    def __init__(self, **kwargs):
+        raise RuntimeError("boom")
+
+
+class ConstructionFailureTest(Isolated):
+    """BR-FAC-17: a failure while a component is built names the section and the entry."""
+
+    def setUp(self):
+        super().setUp()
+        WorkflowFactory.register("Boom", Boom)
+
+    def assertWrapped(self, caught, *parts):
+        text = str(caught.exception)
+        for part in parts:
+            self.assertIn(part, text)
+        self.assertIsInstance(caught.exception.__cause__, RuntimeError)
+
+    def test_a_driver_constructor_failure_names_the_section_and_the_entry(self):
+        with self.assertRaises(WorkflowFactoryException) as caught:
+            self.build(document(driver_entry={"name": "slow", "type": "Boom"}))
+        self.assertWrapped(caught, "managers.drivers", "slow", "boom")
+
+    def test_a_processor_constructor_failure_names_the_section_and_the_entry(self):
+        with self.assertRaises(WorkflowFactoryException) as caught:
+            self.build(document(processor_extra={"type": "Boom"}))
+        self.assertWrapped(caught, "workflows.processors", "reader", "boom")
+
+    def test_a_connection_constructor_failure_names_the_section_and_the_entry(self):
+        config = document()
+        config.data["infrastructure"]["dev"]["managers"]["connections"] = [{"name": "db", "type": "Boom"}]
+        with self.assertRaises(WorkflowFactoryException) as caught:
+            self.build(config)
+        self.assertWrapped(caught, "managers.connections", "db", "boom")
+
+    def test_an_unknown_monitoring_level_is_a_factory_exception(self):
+        config = document()
+        config.data["infrastructure"]["dev"]["monitoring"] = {"level": "bogus"}
+        with self.assertRaises(WorkflowFactoryException) as caught:
+            self.build(config)
+        self.assertIn("monitoring", str(caught.exception))
+        self.assertIsInstance(caught.exception.__cause__, ValueError)
+
+    def test_an_error_the_factory_already_reported_is_not_wrapped_again(self):
+        with self.assertRaises(WorkflowFactoryException) as caught:
+            self.build(document(processor_extra={"driver": "nowhere"}))
+        self.assertEqual(str(caught.exception).count("workflows.processors"), 1)
+
+
 class ComponentKwargsTest(Isolated):
     """The `component_kwargs` hook adds keywords per class; the factory does not interpret them (BR-OSCAL-21)."""
 

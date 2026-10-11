@@ -193,8 +193,19 @@ class Workflow(Wattleflow, IOriginator, ABC):
                 raise WorkflowException(self, f"Cannot restore: no processor named {name!r}")
             if not isinstance(snapshot, GenericMemento):
                 raise WorkflowException(self, f"Invalid snapshot for processor {name!r}")
+        # All or nothing: every processor prepares (validates and builds) its restore first, and
+        # only when all are ready do they commit. A processor that rejects its snapshot leaves
+        # every processor as it was. A processor without `prepare_restore` is restored at commit.
+        commits = []
         for name, snapshot in saved.items():
-            known[name].restore_state(snapshot)
+            processor = known[name]
+            prepare = getattr(processor, "prepare_restore", None)
+            if callable(prepare):
+                commits.append(prepare(snapshot))
+            else:
+                commits.append(lambda p=processor, s=snapshot: p.restore_state(s))
+        for commit in commits:
+            commit()
 
     def execute(self, **kwargs: Any) -> None:
         processors = self.processors.all

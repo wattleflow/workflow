@@ -24,7 +24,7 @@ from wattleflow.core import (
 )
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.exception import ManagerException
-from wattleflow.concrete.connection import Connection
+from wattleflow.concrete.connection import Connection, ConnectionState
 from wattleflow.enums.event import Event
 from wattleflow.enums.operation import Operation
 
@@ -48,8 +48,17 @@ class ConnectionManager(Wattleflow, IObserver):
 
     @staticmethod
     def _release(conn: object) -> None:
-        """What a connection owes when it leaves the manager: a disconnect, if it is connected."""
-        if hasattr(conn, "connected") and conn.connected:
+        """What a connection owes when it leaves the manager: a close of everything it holds.
+
+        A connection is closed whatever its state, an open session or not, except when it holds
+        nothing (NEW, CLOSED). An object without a `state` is closed if it reports `connected`.
+        """
+        state = getattr(conn, "state", None)
+        if state is not None:
+            holds = state not in (ConnectionState.NEW, ConnectionState.CLOSED)
+        else:
+            holds = bool(getattr(conn, "connected", False))
+        if holds:
             conn.request(action=Operation.Disconnect)
 
     def __del__(self):

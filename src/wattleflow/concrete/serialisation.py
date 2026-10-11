@@ -250,15 +250,17 @@ class ConversionStrategy(IStrategy, ABC):
 class GenericConverter(IStrategyContext, ABC):
     """GenericConverter - light context of a conversion strategy."""
 
-    STRATEGY: ClassVar[type[ConversionStrategy]] = ConversionStrategy
+    STRATEGY: ClassVar[type[IStrategy]] = IStrategy
     ERROR: ClassVar[type[Exception]] = ConverterError
     ERRORS: ClassVar[tuple[type[BaseException], ...]] = (ConverterError,)
 
-    __slots__ = ("_strategy",)
+    # Empty slots: `_strategy` lives in the instance dictionary, so the converter can be mixed with
+    # other bases that declare slots (two non-empty slot layouts cannot be combined).
+    __slots__ = ()
 
-    def __init__(self, strategy: ConversionStrategy | None = None):
+    def __init__(self, strategy: IStrategy | None = None):
         super().__init__()
-        self._strategy: ConversionStrategy | None = None
+        self._strategy: IStrategy | None = None
         if strategy is not None:
             self.set_strategy(strategy)
 
