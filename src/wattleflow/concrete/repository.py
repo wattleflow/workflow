@@ -17,11 +17,10 @@ from typing import Any
 from wattleflow.core import IBlackboard, IRepository, ITarget
 from wattleflow.enums.event import Event
 from wattleflow.concrete.base import Wattleflow
-from wattleflow.concrete.driver import GenericDriver
+from wattleflow.concrete.driver import IDriver
 from wattleflow.concrete.exception import RepositoryException
 from wattleflow.concrete.strategy import StrategyRead, StrategyWrite
 from wattleflow.decorators.preset import PresetDecorator
-# from wattleflow.decorators.measure import measured  # retired
 
 
 # --------------------------------------------------------------------------- #
@@ -33,14 +32,8 @@ from wattleflow.decorators.preset import PresetDecorator
 # --------------------------------------------------------------------------- #
 
 
-# v0.0.1.14: retired — measurement now observes audit records; kept for the record.
-# @measured()
 class GenericRepository(Wattleflow, IRepository, ABC):
-    """Read and write documents through strategies, and count what was written.
-
-    A specialisation adds what its strategies need through `_strategy_context`;
-    it does not restate `read`, `write` or the audit records they emit.
-    """
+    """Read and write documents through strategies, and count what was written."""
 
     __slots__ = (
         "_write_counter",
@@ -147,7 +140,6 @@ class GenericRepository(Wattleflow, IRepository, ABC):
             return None
 
         try:
-            # caller=self: the strategy asserts an IRepository.
             facade: ITarget = self._strategy_read.read(
                 caller=self,
                 identifier=identifier,
@@ -162,8 +154,6 @@ class GenericRepository(Wattleflow, IRepository, ABC):
             )
         except Exception as e:
             reason = f"[{self.name}] Read strategy failed: {e}"
-            # v0.0.1.10: one cause, one ERROR — this layer only
-            # traces the step; the cause travels in the exception.
             self.debug(
                 msg=Event.Read,
                 step=Event.Failed,
@@ -180,8 +170,6 @@ class GenericRepository(Wattleflow, IRepository, ABC):
 
     def write(self, caller: IBlackboard, facade: ITarget, **kwargs) -> bool:
         context: dict[str, Any] = self._strategy_context()
-        # Checked before anything reads `caller.name` or `facade.identifier`, so a wrong object
-        # is answered with a RepositoryException and not with an AttributeError from the report.
         if not isinstance(caller, IBlackboard):
             raise RepositoryException(
                 caller=self, error="Expected IBlackboard. Found %s" % type(caller)
@@ -250,7 +238,6 @@ class GenericRepository(Wattleflow, IRepository, ABC):
 
 
 class RepositoryWithDriver(GenericRepository):
-    # v0.0.1.12: read and write live in GenericRepository; only the strategy context differs.
     __slots__ = ()
 
     ALLOWED = ["driver"]
@@ -262,10 +249,10 @@ class RepositoryWithDriver(GenericRepository):
         **kwargs,
     ):
         driver = kwargs.get("driver", None)
-        if not isinstance(driver, GenericDriver):
+        if not isinstance(driver, IDriver):
             raise RepositoryException(
                 caller=type(self),
-                error="Expected GenericDriver. Found %s" % type(driver),
+                error="Expected IDriver. Found %s" % type(driver),
             )
         super().__init__(**kwargs)
 

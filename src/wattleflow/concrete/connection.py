@@ -171,8 +171,6 @@ class ConnectionObserverInterface(Wattleflow, IObservable, ABC):
 
 
 class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
-    # DEF-CON-04, the generic class declares its own argument once; the preset unions
-    # `ALLOWED` across the MRO, so a specialisation lists only what it adds
     ALLOWED = ["lazy_loading"]
 
     __slots__ = (
@@ -276,11 +274,11 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
 
     def __getattr__(self, name: str) -> Any:
         cls = type(self)
-        # v0.0.1.23: DEF-CON-03, the slot set is constant per type; read from `__dict__` so a
-        # subclass never inherits its parent's set
         all_slots = cls.__dict__.get("_slot_names")
         if all_slots is None:
-            all_slots = frozenset(s for base in cls.__mro__ for s in getattr(base, "__slots__", ()))
+            all_slots = frozenset(
+                s for base in cls.__mro__ for s in getattr(base, "__slots__", ())
+            )
             cls._slot_names = all_slots
 
         if name in all_slots:
@@ -300,8 +298,6 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
     def connected(self) -> bool:
         return self._fsm.state is ConnectionState.CONNECTED
 
-    # v0.0.1.23: DEF-DRV-06, true exactly where `ensure_created` returns without acting, so a
-    # caller can skip a connect request that would only be audited (any other state acts or raises)
     @property
     def created(self) -> bool:
         return self._fsm.state in (
@@ -321,7 +317,6 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
     @property
     def version(self) -> str | None:
         """Version of the remote system as it reports it; `None` when unknown or not applicable."""
-        # v0.0.1.23: DEF-CON-02, a specialisation fills it only from the remote system's own answer
         return self._version
 
     # region FSM lifecycle

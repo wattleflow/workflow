@@ -16,6 +16,7 @@ from . import (
     document,
     driver,
     exception,
+    factory,
     helper,
     iterator,
     manager,
@@ -39,6 +40,7 @@ from .connection import *  # noqa: F403
 from .document import *  # noqa: F403
 from .driver import *  # noqa: F403
 from .exception import *  # noqa: F403
+from .factory import *  # noqa: F403
 from .helper import *  # noqa: F403
 from .iterator import *  # noqa: F403
 from .manager import *  # noqa: F403
@@ -63,6 +65,7 @@ __all__ = [
     *document.__all__,
     *driver.__all__,
     *exception.__all__,
+    *factory.__all__,
     *helper.__all__,
     *iterator.__all__,
     *manager.__all__,

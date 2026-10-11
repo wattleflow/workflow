@@ -309,7 +309,7 @@
       "StrategyWrite"
     ],
     "workflow": [
-      "GenericWorkflow"
+      "Workflow"
     ],
     "orchestrator": [
       "IEventSource",

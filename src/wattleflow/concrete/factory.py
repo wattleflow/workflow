@@ -43,7 +43,7 @@ from wattleflow.concrete.manager import (
 from wattleflow.decorators.preset import PresetGate
 
 if TYPE_CHECKING:
-    from wattleflow.concrete.workflow import GenericWorkflow
+    from wattleflow.concrete.workflow import Workflow
 
 
 # --------------------------------------------------------------------------- #
@@ -149,7 +149,7 @@ class WorkflowFactory:
     # ------------------------------------------------------------------ #
 
     @classmethod
-    def build(cls, **kwargs) -> GenericWorkflow:
+    def build(cls, **kwargs) -> Workflow:
         logger.debug(msg=Event.Build, **kwargs)
         adapter: IConfig = kwargs.pop("adapter", None)
         if not isinstance(adapter, IConfig):
@@ -260,7 +260,7 @@ class WorkflowFactory:
 
     @classmethod
     def _build_exporters(
-        cls, exporters: Any, built: GenericWorkflow, workflow_name: str | None = None
+        cls, exporters: Any, built: Workflow, workflow_name: str | None = None
     ) -> list:
         """`monitoring: exporters:` — `sink:` a registered sink class, `driver:` a driver
         under `managers.drivers`; the rest are the sink's own keywords. An exporter that
@@ -283,7 +283,7 @@ class WorkflowFactory:
         cls,
         adapter: IConfig,
         sections: tuple,
-        built: GenericWorkflow,
+        built: Workflow,
         workflow: dict | None = None,
     ) -> None:
         """v0.0.1.14 (FRQ-PTN-18.1 EV01): level, thresholds, extensions and limits at build.

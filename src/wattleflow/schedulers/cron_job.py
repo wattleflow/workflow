@@ -24,7 +24,7 @@ __all__ = ["SchedulerCronJob"]
 import time
 from typing import Any, Mapping
 from wattleflow.concrete.scheduler import Scheduler
-from wattleflow.concrete.workflow import WorkflowFactory
+from wattleflow.concrete.factory import WorkflowFactory
 from wattleflow.enums.event import Event
 
 # --------------------------------------------------------------------------- #
