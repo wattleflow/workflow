@@ -17,7 +17,6 @@ from enum import Enum, StrEnum
 # --------------------------------------------------------------------------- #
 
 
-
 class MetricKind(str, Enum):
     """How a series behaves, in Prometheus' own terms."""
 

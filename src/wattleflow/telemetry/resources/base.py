@@ -59,14 +59,10 @@ class Resource(ABC):
     """
 
     RESOURCE: ClassVar[str] = ""
-
-    #: Read once here rather than per resource: the narrowest source the
-    #: platform offers is the same file tree for all of them.
     CGROUP: ClassVar[Path] = Path("/sys/fs/cgroup")
 
     @classmethod
     def read(cls, path: Path) -> str | None:
-        """File contents, or None when the platform does not offer that file."""
         try:
             return path.read_text().strip()
         except OSError:
