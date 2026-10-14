@@ -28,7 +28,7 @@ class Write(StrategyWrite):
         super().__init__(**{**QUIET, **kwargs})
         self.result, self.fail, self.calls = result, fail, []
 
-    def execute(self, caller, facade, **kwargs):
+    def algorithm(self, caller, facade, **kwargs):
         self.calls.append((caller, facade, kwargs))
         if self.fail:
             raise RuntimeError("write down")
@@ -40,7 +40,7 @@ class Read(StrategyRead):
         super().__init__(**{**QUIET, **kwargs})
         self.fail, self.calls = fail, []
 
-    def execute(self, caller, identifier=None, **kwargs):
+    def algorithm(self, caller, identifier=None, **kwargs):
         self.calls.append((caller, identifier, kwargs))
         if self.fail:
             raise RuntimeError("read down")

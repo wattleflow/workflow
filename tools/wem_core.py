@@ -304,7 +304,7 @@ class Rule(ABC):
 
     # Migration targets (behaviour preserved, now over the shared graph):
     #   DependencyLocalityRule  → NFRQ-ORG-01   (helper→domain layering + fan-in)
-    #   DistributionLocalityRule→ NFRQ-SEC-03   (foreign import = FLAG, not exclude)
+    #   DistributionLocalityRule→ NFRQ-SCR-03   (foreign import = FLAG, not exclude)
     #   NomenclatureRule        → NFRQ-ORG-02   (AST name grammar; graph-independent)
     #   TypeVarRule             → NFRQ-ORG-03   (AST TypeVar roles; graph-independent)
 

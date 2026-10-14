@@ -14,7 +14,7 @@ from wattleflow.concrete.processor import GenericProcessor
 from wattleflow.concrete.workflow import Workflow, WorkflowException
 from wattleflow.core import IConfig
 from wattleflow.enums.event import Event
-from wattleflow.helpers.audit import Audit
+from wattleflow.audit import GenericAudit as Audit
 
 
 class Processor(GenericProcessor):
@@ -34,6 +34,12 @@ def build(*names):
         drivers=DriverManager(),
         processors=processors,
     )
+
+
+def stub_start(flow, behaviour):
+    """Replace `start` on the class (the instances are slotted): `behaviour(name)` runs per processor."""
+    names = {id(p): n for n, p in flow.processors.all.items()}
+    return patch.object(Processor, "start", lambda self: behaviour(names[id(self)]))
 
 
 class FinalTest(unittest.TestCase):
@@ -72,8 +78,9 @@ class StateErrorTest(unittest.TestCase):  # FR-WRK-11
     def test_a_processor_that_cannot_save_gives_one_error_and_the_same_exception(self):
         flow = build("a")
         boom = RuntimeError("no save")
-        flow.processors.all["a"].save_state = MagicMock(side_effect=boom)
-        with patch.object(Workflow, "error") as error, self.assertRaises(RuntimeError) as caught:
+        with patch.object(Processor, "save_state", side_effect=boom), patch.object(
+            Workflow, "error"
+        ) as error, self.assertRaises(RuntimeError) as caught:
             flow.save_state()
         self.assertIs(caught.exception, boom)
         self.assertEqual(error.call_count, 1)
@@ -83,9 +90,8 @@ class SuccessfulRunTest(unittest.TestCase):
     def test_processors_start_in_order_of_registration(self):  # FR-WRK-04 k.1
         flow = build("a", "b", "c")
         order = []
-        for name, processor in flow.processors.all.items():
-            processor.start = lambda n=name: order.append(n)
-        flow.run()
+        with stub_start(flow, order.append):
+            flow.run()
         self.assertEqual(order, ["a", "b", "c"])
 
     def test_a_workflow_without_processors_completes(self):  # FR-WRK-04 k.2
@@ -93,9 +99,7 @@ class SuccessfulRunTest(unittest.TestCase):
 
     def test_exactly_two_info_records_bound_the_run(self):  # FR-WRK-05, QR-WRK-04
         flow = build("a", "b")
-        for processor in flow.processors.all.values():
-            processor.start = lambda: None
-        with patch.object(Workflow, "info") as info:
+        with stub_start(flow, lambda name: None), patch.object(Workflow, "info") as info:
             flow.run()
         self.assertEqual(info.call_count, 2)
         first, last = info.call_args_list
@@ -110,9 +114,15 @@ class ProcessorErrorTest(unittest.TestCase):
         flow = build("a", "b", "c")
         boom = RuntimeError("boom")
         started = []
-        for name, processor in flow.processors.all.items():
-            processor.start = (lambda n=name: (started.append(n), (_ for _ in ()).throw(boom))[0]) if name == "b" else (lambda n=name: started.append(n))
-        with patch.object(Workflow, "error") as error, self.assertRaises(RuntimeError) as caught:
+
+        def behaviour(name):
+            started.append(name)
+            if name == "b":
+                raise boom
+
+        with stub_start(flow, behaviour), patch.object(
+            Workflow, "error"
+        ) as error, self.assertRaises(RuntimeError) as caught:
             flow._execute()
         self.assertIs(caught.exception, boom)
         self.assertEqual(started, ["a", "b"])

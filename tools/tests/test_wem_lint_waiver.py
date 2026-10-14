@@ -83,7 +83,7 @@ class DocumentedWaiverTest(unittest.TestCase):
         self.assertEqual((doc["rules"][0]["rq"], doc["rules"][0]["version"]), ("FRQ-CON-16.1", "v0.0.3"))
 
     def test_valid_rq_shapes(self) -> None:
-        for rq in ("NFRQ-ORG-01", "FRQ-CON-16.1", "HLRQ-PRC-16", "FRQ-DRV-16.2-BR-3", "NFRQ-SEC-03-BR3"):
+        for rq in ("NFRQ-ORG-01", "FRQ-CON-16.1", "HLRQ-PRC-16", "FRQ-DRV-16.2-BR-3", "NFRQ-SCR-03-BR3"):
             doc = reg()
             doc["rules"][0]["rq"] = rq
             wem.Criterion.validate_documentation(doc)
@@ -120,10 +120,10 @@ class DocumentedWaiverTest(unittest.TestCase):
         self.assertNotIn("rq", doc["rules"][0])
 
     def test_guarded_optional_ref_follows_the_same_shapes(self) -> None:
-        ok = reg(scope={"guarded_optional": [{"module": "a.py", "ref": "NFRQ-SEC-03", "packages": []}]})
+        ok = reg(scope={"guarded_optional": [{"module": "a.py", "ref": "NFRQ-SCR-03", "packages": []}]})
         wem.Criterion.validate_documentation(ok)
         self.assertEqual(ok["scope"]["guarded_optional"][0]["version"], "v0.0.5")
-        bad = reg(scope={"guarded_optional": [{"module": "a.py", "ref": "NFRQ-SEC-03 §1"}]})
+        bad = reg(scope={"guarded_optional": [{"module": "a.py", "ref": "NFRQ-SCR-03 §1"}]})
         with self.assertRaises(ValueError):
             wem.Criterion.validate_documentation(bad)
 

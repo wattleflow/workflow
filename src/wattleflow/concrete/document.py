@@ -94,11 +94,11 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
     @abstractmethod
     def size(self) -> int: ...  # noqa: E704
 
-    def clean(self) -> None:
-        self.debug(msg=Event.Clean, step=Event.Starting)
+    def clear(self) -> None:
+        self.debug(msg=Event.Clear, step=Event.Starting)
         self._content = None
         self._metadata.clear()
-        self.debug(msg=Event.Clean, step=Event.Completed)
+        self.debug(msg=Event.Clear, step=Event.Completed)
 
     def specific_request(self) -> "Document":
         return self
@@ -110,8 +110,8 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
             content=type(content),
         )
 
-        # v0.0.1.23: DEF-DOC-02, None is not content: it leaves a document only through `clean()`,
-        # so `content` can fail fast on use after cleaning and never in a state the class allowed
+        # v0.0.1.23: DEF-DOC-02, None is not content: it leaves a document only through `clear()`,
+        # so `content` can fail fast on use after clearing and never in a state the class allowed
         if content is None:
             raise ValueError(f"{self.name}.update_content: content must not be None")
 

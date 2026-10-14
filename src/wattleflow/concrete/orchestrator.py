@@ -189,7 +189,7 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
                     error=str(error),
                 )
 
-    def operation(self, action: Operation, **kwargs):
+    def dispatch(self, action: Operation, **kwargs):
         if action == Operation.Start:
             return self.start(**kwargs)
         if action == Operation.Stop:

@@ -42,6 +42,7 @@ global-exclude __pycache__/*
 # --- Clean core packages ---
 # Every package `[tool.setuptools.packages.find]` declares must appear here;
 # see the invariant in that file.
+recursive-include src/wattleflow/audit *.py
 recursive-include src/wattleflow/concrete *.py
 recursive-include src/wattleflow/constants *.py
 recursive-include src/wattleflow/decorators *.py
@@ -50,6 +51,7 @@ recursive-include src/wattleflow/helpers *.py
 recursive-include src/wattleflow/managers *.py
 recursive-include src/wattleflow/orchestrators *.py
 recursive-include src/wattleflow/schedulers *.py
+recursive-include src/wattleflow/telemetry *.py
 
 # --- Never ship the core (it ships via the separate `wattleflow` dependency) ---
 # Defensive: core/ is absent from a clean checkout but reappears as a dev symlink,
@@ -60,7 +62,7 @@ prune src/wattleflow/core
 # --- Documentation lives in its own repository ---
 # `documentation/` is a symlink to the separate wattleflow-documentation repo.
 # Pruning keeps another repository's content — and its C-snapshots — out of this
-# distribution (NFRQ-SEC-02, minimal surface). To ship the docs instead, drop the
+# distribution (NFRQ-SCR-02, minimal surface). To ship the docs instead, drop the
 # prune and write `recursive-include documentation *.md`: the directive takes a
 # DIRECTORY plus a PATTERN, so a glob path such as `documentation/*.md` matches
 # nothing and fails silently.

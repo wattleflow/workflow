@@ -1,6 +1,6 @@
 # Module name: tests/test_document_content.py
 # Tests for Document content (FRQ-DOC, DEF-DOC-02): None is not legal content; content leaves a
-# document only through clean(), and reading it afterwards fails fast.
+# document only through clear(), and reading it afterwards fails fast.
 #
 # Run from `workflow/`:
 #   PYTHONPATH=src:../core/src python -m unittest tests.test_document_content -v
@@ -50,8 +50,8 @@ class ContentLifecycleTest(unittest.TestCase):
         with self.assertRaises(TypeError):
             self.document.update_content([1])
 
-    def test_reading_content_after_clean_fails_fast(self):
-        self.document.clean()
+    def test_reading_content_after_clear_fails_fast(self):
+        self.document.clear()
         with self.assertRaises(ValueError):
             _ = self.document.content
 

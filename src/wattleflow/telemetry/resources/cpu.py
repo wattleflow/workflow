@@ -1,4 +1,4 @@
-# Module name: helpers/resources/cpu.py
+# Module name: telemetry/resources/cpu.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -15,7 +15,7 @@ __all__ = ["ResourceCpu"]
 
 import os
 from typing import ClassVar
-from wattleflow.helpers.resources.base import Resource
+from wattleflow.telemetry.resources.base import Resource
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #

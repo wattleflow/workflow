@@ -1,4 +1,4 @@
-# Module name: helpers/config.py
+# Module name: concrete/config.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -16,10 +16,10 @@ import json
 from pathlib import Path
 from abc import abstractmethod
 from typing import final, Any, ClassVar
-from .audit import Audit
+from wattleflow.concrete.base import Wattleflow
 from wattleflow.core import IConfig
 from wattleflow.enums.event import Event
-from wattleflow.helpers.exception import AuditException
+from wattleflow.audit.exception import AuditException
 from wattleflow.helpers.validation import SchemaValidator
 
 # --------------------------------------------------------------------------- #
@@ -39,7 +39,7 @@ _MISSING: Any = object()
 # --------------------------------------------------------------------------- #
 
 
-class Config(Audit, IConfig):
+class Config(Wattleflow, IConfig):
     """Format-independent lookup; the serialisation format is the only variant."""
 
     FORMAT: ClassVar[str] = ""

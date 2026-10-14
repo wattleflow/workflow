@@ -1,49 +1,40 @@
-# Module name: helpers/handlers.py
+# Module name: enums/log.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
 
-"""
-This module implements a trace handler for enhanced logging within the
-Wattleflow framework. It extends the standard logging handler to include
-detailed stack traces for captured exceptions, improving error visibility
-and debugging efficiency.
-"""
-
 # --------------------------------------------------------------------------- #
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
-
 from __future__ import annotations
 
-__all__ = ["TraceHandler"]
+__all__ = [
+    "LogFormat",
+]
 
-import logging
-import traceback
-
+from enum import Enum
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
 
+# --------------------------------------------------------------------------- #
+# region Enums                                                                #
+# --------------------------------------------------------------------------- #
+
+
+class LogFormat(Enum):
+    DEFAULT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+    Detailed = "%(asctime)s - %(levelname)s - %(name)s - %(message)s - %(filename)s:%(lineno)d"
+    Custom = (
+        "%(asctime)s - %(levelname)s - %(name)s - %(message)s - %(src_filename)s:%(src_lineno)d"
+    )
+    JSON = (
+        '{"time": "%(asctime)s", "name": "%(name)s", '
+        '"level": "%(levelname)s", "message": "%(message)s"}'
+    )
+
 
 # --------------------------------------------------------------------------- #
-# region Classes                                                              #
-# --------------------------------------------------------------------------- #
-
-
-class TraceHandler(logging.StreamHandler):
-    def emit(self, record):
-        error = getattr(record, "error", None)
-
-        if error and isinstance(error, Exception):
-            record.msg += "\n" + "".join(
-                traceback.format_exception(type(error), error, error.__traceback__)
-            )
-
-        super().emit(record)
-
-
-# --------------------------------------------------------------------------- #
-# endregion Classes                                                           #
+# endregion Enums                                                             #
 # --------------------------------------------------------------------------- #

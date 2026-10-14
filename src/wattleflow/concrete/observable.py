@@ -33,7 +33,7 @@ __license__ = "Apache 2 Licence"
 class ThreadSafeObservable(Wattleflow, IObservableReactive):
     """ThreadSafeObservable - canonical IObservableReactive policy."""
 
-    # Not `_lock`: a slot of that name shadows Audit._lock, which Audit.__init__ takes before this
+    # Not `_lock`: a slot of that name shadows GenericAudit._lock, which GenericAudit.__init__ takes before this
     # constructor could assign one, so the observable could not be built at all.
     __slots__ = ("_observers", "_observers_lock")
 

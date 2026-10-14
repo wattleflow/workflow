@@ -14,29 +14,18 @@ from typing import Any, ClassVar, Iterable
 from wattleflow.core import IWattleflow
 
 
-# NFRQ-ORG-05: declaration resolution and the unknown-key report are one class
-# holding its own constants; PresetDecorator only wires them.
 class PresetGate:
-    """Mechanics behind `PresetDecorator`: which keys are permitted, and what to
-    do with the ones that are not."""
+    """`PresetDecorator`: what to do with the ones that are not. (NFRQ-ORG-05)"""
 
     DECLARATION: ClassVar[str] = "ALLOWED"
-
-    # Consumed by the framework itself (Audit pops these from its own copy of
-    # kwargs), so they reach the preset and are never a configuration mistake.
     FRAMEWORK: ClassVar[frozenset[str]] = frozenset(
         {"allowed", "fmt", "formatting", "handler", "level", "name"}
     )
+    __slots__ = ()
 
     @classmethod
     def resolve(cls, target: type, override: Any = None) -> set[str]:
-        """Permitted keys for a class.
-
-        The class attribute is the declaration, an explicit `allowed=` is the
-        exception (NFRQ-ORG-07). Without an override the declaration is UNIONED
-        across the MRO, so a subclass declares only what it adds and never has
-        to name its parent.
-        """
+        """Permitted keys for a class. (NFRQ-ORG-07)."""
         if override is None:
             merged: set[str] = set()
             for klass in target.__mro__:
@@ -55,12 +44,6 @@ class PresetGate:
 
     @classmethod
     def report_unknown(cls, parent: IWattleflow, keys: Iterable[str], allowed: set[str]) -> None:
-        """Warn about keys the preset is about to drop.
-
-        A key that is neither declared nor consumed by the framework is a
-        configuration mistake — a typo or a block pasted from another component.
-        Dropping it silently is what made such mistakes invisible.
-        """
         unknown = sorted(k for k in keys if k not in allowed and k not in cls.FRAMEWORK)
         if not unknown or not hasattr(parent, "warning"):
             return
@@ -72,9 +55,7 @@ class PresetGate:
 
 
 class PresetDecorator:
-    # NFRQ-ORG-07: the permitted keys are declared by the configured class in a
-    # class attribute named exactly `ALLOWED`, and resolved by PresetGate — a
-    # subclass never has to pass `allowed=` up the constructor chain.
+    # NFRQ-ORG-07
     DECLARATION = PresetGate.DECLARATION
 
     __slots__ = ("_allowed", "_values", "_parent")

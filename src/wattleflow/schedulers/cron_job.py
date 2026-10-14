@@ -43,7 +43,7 @@ class SchedulerCronJob(Scheduler):
 
     # The adapter is injected rather than read from a path: the YAML adapter
     # lives in a downstream distribution, and this package must not import it
-    # (NFRQ-SEC-03, the dependency arrow points one way only).
+    # (NFRQ-SCR-03, the dependency arrow points one way only).
     def __init__(
         self,
         adapter: Any,

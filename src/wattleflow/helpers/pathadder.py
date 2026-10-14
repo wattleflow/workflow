@@ -4,8 +4,6 @@
 # License: Apache 2 Licence
 
 
-"""Runtime sys.path adjustment driven by the SOURCE_PATH environment variable."""
-
 # --------------------------------------------------------------------------- #
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
@@ -28,8 +26,7 @@ from typing import ClassVar
 # --------------------------------------------------------------------------- #
 
 
-# v0.0.0.97 (NFRQ-ORG-05): the environment key, the injection guard and the
-# search live in one class — the guard is not a module-level function.
+# NFRQ-ORG-05): the environment key
 class SourcePath:
     """Locates a source tree and prepends it to `sys.path`."""
 

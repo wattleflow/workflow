@@ -12,10 +12,11 @@ from __future__ import annotations
 
 __all__ = ["GenericMemento"]
 
+import copy
 from types import MappingProxyType
 from typing import Any
 from collections.abc import Mapping
-from wattleflow.core import IMemento
+from wattleflow.core import IMemento, IObservable
 from wattleflow.concrete.base import Wattleflow
 
 # --------------------------------------------------------------------------- #
@@ -27,25 +28,35 @@ from wattleflow.concrete.base import Wattleflow
 # --------------------------------------------------------------------------- #
 
 
+class MementoClass(IMemento):
+    def __init__(self, state):
+        self._state = copy.deepcopy(state)
+
+    def get_state(self):
+        return self._state
+
+
+class ObservableClass(IObservable):
+    def __init__(self):
+        self._listeners = []
+
+    def notify(self, **kwargs):
+        for listener in self._listeners:
+            listener.update(**kwargs)
+
+    def attach(self, listener):
+        self._listeners.append(listener)
+
+    def detach(self, listener):
+        self._listeners = [known for known in self._listeners if known is not listener]
+
+
 class GenericMemento(Wattleflow, IMemento):
-    """Immutable snapshot container.
-
-    Accepts arbitrary keyword payload and exposes it via attribute-style
-    access, ``get_state()`` (canonical "state" key), or ``to_dict()``.
-    Performs a shallow copy of the payload mapping; values are stored
-    by reference. Owners are responsible for snapshot integrity if the
-    referenced values are mutable.
-
-    Persistence is not this class's job: a ``MementoStore`` (concrete/memento_store.py)
-    holds the latest snapshot per key and GenericProcessor checkpoints to it.
-    """
+    """Immutable snapshot container."""
 
     __slots__ = ("_data",)
 
     def __init__(self, **payload: Any) -> None:
-        # Wattleflow reads the logging keywords off its own copy, so the payload
-        # this snapshot stores keeps every key the caller passed — including one
-        # that happens to be named `level` or `handler`.
         super().__init__(**payload)
         self._data: Mapping[str, Any] = MappingProxyType(dict(payload))
 
@@ -60,7 +71,7 @@ class GenericMemento(Wattleflow, IMemento):
 
     def __repr__(self) -> str:
         name = self.name or self.__class__.__name__
-        # Keys only: the payload is arbitrary and may carry secrets (NFRQ-SEC-06).
+        # Keys only: the payload is arbitrary and may carry secrets (NFRQ-SCR-06).
         return f"{name}(keys=[{', '.join(self._data)}])"
 
     def get_state(self) -> Any:

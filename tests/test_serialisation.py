@@ -292,7 +292,7 @@ class Plus(IStrategy):
     def name(self):
         return "Plus"
 
-    def execute(self, caller, **kwargs):
+    def algorithm(self, caller, **kwargs):
         self.calls.append((caller, kwargs))
         if self.fail:
             raise self.fail
@@ -323,7 +323,7 @@ class ConverterTest(unittest.TestCase):
         class Other(IStrategy):
             name = "Other"
 
-            def execute(self, caller, **kwargs):
+            def algorithm(self, caller, **kwargs):
                 return None
 
         for converter, bad in ((Adder(), object()), (Narrow(), Other())):

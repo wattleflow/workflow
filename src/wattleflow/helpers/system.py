@@ -6,9 +6,9 @@
 
 """
 Description: This module defines system-level classes and utilities for managing paths,
-loading classes dynamically, executing shell commands, and handling file
+executing shell commands, and handling file
 operations within the Wattleflow framework. It provides robust mechanisms
-for runtime class loading, project structure detection, temporary path
+for project structure detection, temporary path
 management, and process execution with integrated audit logging.
 """
 
@@ -20,7 +20,6 @@ from __future__ import annotations
 
 __all__ = [
     "KEY_CONFIG_FILE_NAME",
-    "ClassLoader",
     "FileStorage",
     "Project",
     "Proxy",
@@ -37,17 +36,12 @@ import shlex
 import shutil
 import subprocess
 
-from importlib import import_module
-from logging import NOTSET, Handler
 from os import PathLike
 from pathlib import Path
 from tempfile import gettempdir
 from typing import Any, final
 from collections.abc import Callable, Mapping, Sequence
 
-from wattleflow.core import IWattleflow
-from wattleflow.enums.event import Event
-from wattleflow.helpers.audit import Audit
 from wattleflow.helpers.normaliser import Normaliser
 
 # --------------------------------------------------------------------------- #
@@ -79,83 +73,6 @@ Command = str | Sequence[str]
 # --------------------------------------------------------------------------- #
 
 
-class ClassLoader(Audit, IWattleflow):
-    def __init__(
-        self,
-        class_path: str,
-        *args,
-        **kwargs,
-    ):
-
-        level: int | str = kwargs.pop("level", NOTSET)
-        handler: Handler | None = kwargs.pop("handler", None)
-
-        # v0.0.1.10: the audit sink lives in this same layer,
-        # so the loader records through the house vocabulary without importing a
-        # domain package. A falsy level is left unset — NOTSET here would reset
-        # a level someone else configured for this class.
-        super().__init__(**({"level": level} if level else {}), handler=handler)
-
-        self.debug(
-            msg=Event.Constructor,
-            step=Event.Started,
-            class_path=class_path,
-        )
-
-        module_path, _, class_name = class_path.rpartition(".")
-        if not module_path:
-            error = f"Invalid class path: {class_path}"
-            self.debug(msg=Event.Constructor, step=Event.Failed, error=error)
-            raise ValueError(error)
-
-        try:
-            module = import_module(module_path)
-        except ModuleNotFoundError as e:
-            self.debug(
-                msg=Event.Constructor,
-                step=Event.Failed,
-                component=module_path,
-                error=str(e),
-            )
-            raise
-
-        if not hasattr(module, class_name):
-            error = f"Class '{class_name}' not found in module '{module_path}'"
-            self.debug(msg=Event.Constructor, step=Event.Failed, error=error)
-            raise AttributeError(error)
-
-        cls = getattr(module, class_name)
-        self.cls = cls
-
-        self.debug(
-            msg=Event.Constructor,
-            step=Event.Validating,
-            component=module_path,
-            target=class_name,
-        )
-
-        try:
-            self.instance = cls(*args, **kwargs)
-        except Exception as e:
-            self.debug(
-                msg=Event.Constructor,
-                step=Event.Failed,
-                target=class_name,
-                error=str(e),
-            )
-            raise
-
-        self.debug(
-            msg=Event.Constructor,
-            step=Event.Completed,
-            target=cls.__name__,
-        )
-
-    @property
-    def name(self) -> str:
-        return type(self).__name__
-
-
 @final
 class FileStorage:
     def __init__(
@@ -168,11 +85,6 @@ class FileStorage:
         self.origin = Path(filename)
         self.path = Path(repository_path)
 
-        # FIX: original used `and` for all three conditions, meaning the guard was only
-        # triggered when the path was simultaneously not a directory AND not readable AND
-        # create was False — a path that exists as a directory but is unreadable would
-        # silently pass.  The correct intent is: raise if create is False AND the path
-        # is either not a directory OR not readable.
         if (
             not create  # noqa: W503
             and (not os.path.isdir(self.path) or not os.access(self.path, os.R_OK))  # noqa: W503
@@ -199,7 +111,9 @@ class FileStorage:
         resolved_base = self.path.resolve()
         resolved_out = out_dir.resolve()
         if not resolved_out.is_relative_to(resolved_base):
-            raise ValueError(f"Directory '{directory}' escapes the repository root: {resolved_out}")
+            raise ValueError(
+                f"Directory '{directory}' escapes the repository root: {resolved_out}"
+            )
 
         if mkdir:
             out_dir.mkdir(parents=True, exist_ok=True)

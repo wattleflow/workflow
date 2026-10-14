@@ -14,7 +14,7 @@ import unittest
 
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.core import IWattleflow
-from wattleflow.helpers.audit import Audit
+from wattleflow.audit import GenericAudit as Audit
 
 # Layers whose classes follow the root contract. `wattleflow.helpers` sits below the root (the root
 # imports it), so its classes name Audit directly and are not held to these rules.

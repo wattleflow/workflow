@@ -127,16 +127,16 @@ class FileStoreTest(StoreContract, unittest.TestCase):
 
 
 class ExecuteTest(unittest.TestCase):
-    def test_execute_dispatches_to_write_read_and_clear(self):
+    def test_algorithm_dispatches_to_write_read_and_clear(self):
         store = MemoryMementoStore()
-        store.execute(None, action="write", key="a", memento=GenericMemento(cycle=1))
-        self.assertEqual(store.execute(None, action="read", key="a").cycle, 1)
-        store.execute(None, action="clear", key="a")
-        self.assertIsNone(store.execute(None, action="read", key="a"))
+        store.algorithm(None, action="write", key="a", memento=GenericMemento(cycle=1))
+        self.assertEqual(store.algorithm(None, action="read", key="a").cycle, 1)
+        store.algorithm(None, action="clear", key="a")
+        self.assertIsNone(store.algorithm(None, action="read", key="a"))
 
     def test_an_unknown_action_is_rejected(self):
         with self.assertRaises(MementoStoreException):
-            MemoryMementoStore().execute(None, action="truncate", key="a")
+            MemoryMementoStore().algorithm(None, action="truncate", key="a")
 
 
 if __name__ == "__main__":

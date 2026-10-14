@@ -8,6 +8,24 @@
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
 
+__all__ = [
+    "RETRY_SCHEDULED",
+    "RETRY_GAVE_UP",
+    "CIRCUIT_STATE_CHANGED",
+    "CIRCUIT_REJECTED",
+    "FaultEvent",
+    "EventEmitter",
+    "RetryExhaustedError",
+    "RetryPolicy",
+    "RetryInvoker",
+    "BreakerState",
+    "BreakerAction",
+    "CircuitOpenError",
+    "CircuitStateMachine",
+    "CircuitBreakerInvoker",
+    "InvokerCommand",
+]
+
 import time
 import uuid
 from collections.abc import Callable
@@ -27,23 +45,6 @@ __author__ = "WattleFlow"
 __copyright__ = "© 2022–2026 WattleFlow. All rights reserved"
 __license__ = "Apache 2 Licence"
 
-__all__ = [
-    "RETRY_SCHEDULED",
-    "RETRY_GAVE_UP",
-    "CIRCUIT_STATE_CHANGED",
-    "CIRCUIT_REJECTED",
-    "FaultEvent",
-    "EventEmitter",
-    "RetryExhaustedError",
-    "RetryPolicy",
-    "RetryInvoker",
-    "BreakerState",
-    "BreakerAction",
-    "CircuitOpenError",
-    "CircuitStateMachine",
-    "CircuitBreakerInvoker",
-    "InvokerCommand",
-]
 
 # --------------------------------------------------------------------------- #
 # region Event types                                                          #
@@ -204,7 +205,7 @@ class RetryPolicy(IStrategy):
         self._max_delay = max_delay
         self._retry_on = retry_on
 
-    def execute(self, caller: IWattleflow, **kwargs: Any) -> float | None:
+    def algorithm(self, caller: IWattleflow, **kwargs: Any) -> float | None:
         attempt = int(kwargs["attempt"])
         error = kwargs["error"]
         if attempt >= self._max_attempts or not isinstance(error, self._retry_on):
@@ -251,7 +252,7 @@ class RetryInvoker(IInvoker, EventEmitter):
             try:
                 return command.execute(**kwargs)
             except Exception as error:
-                delay = self._policy.execute(self, attempt=attempt, error=error)
+                delay = self._policy.algorithm(self, attempt=attempt, error=error)
                 if delay is None:
                     self._publish(RETRY_GAVE_UP, {"attempts": attempt, "error": repr(error)})
                     if attempt == 1:

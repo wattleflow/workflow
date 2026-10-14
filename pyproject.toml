@@ -1,6 +1,6 @@
 [project]
 name = "wattleflow-workflow"
-version = "0.0.1.48"
+version = "0.0.1.49"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"
@@ -19,7 +19,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "wattleflow>=0.0.0.54",
+    "wattleflow>=0.0.0.60",
 ]
 
 [build-system]
@@ -43,10 +43,6 @@ include-package-data = false
 
 [tool.setuptools.packages.find]
 where = ["src"]
-# `wattleflow` is an implicit namespace package (no __init__.py) so that sibling
-# distributions can ship wattleflow.core, wattleflow.processors, etc. Without
-# `namespaces = true` the finder returns NOTHING over such a tree and the wheel
-# ships no modules at all, while the source tree looks healthy.
 namespaces = true
 
 # Allowlist, not denylist (mirrors the core distribution): what is not listed is
@@ -55,6 +51,7 @@ namespaces = true
 # INVARIANT: every entry here must be covered by MANIFEST.in, or it installs as
 # an empty directory and the consumer's import fails at runtime, not at install.
 include = [
+    "wattleflow.audit*",
     "wattleflow.concrete*",
     "wattleflow.constants*",
     "wattleflow.decorators*",
@@ -63,6 +60,7 @@ include = [
     "wattleflow.managers*",
     "wattleflow.orchestrators*",
     "wattleflow.schedulers*",
+    "wattleflow.telemetry*",
 ]
 
 [tool.ruff]

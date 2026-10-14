@@ -132,31 +132,28 @@ class ConnectionObserverInterface(Wattleflow, IObservable, ABC):
         super().__init__(**kwargs)
         self._observers: dict[str, IObserver] = {}
 
-    def subscribe(self, observer: IObserver) -> None:
+    def attach(self, observer: IObserver) -> None:
         if not isinstance(observer, IObserver):
             raise TypeError(f"Expected IObserver, got {type(observer).__name__}")
         if observer.name not in self._observers:
             self._observers[observer.name] = observer
 
-    def unsubscribe(self, observer: IObserver) -> None:
+    def detach(self, observer: IObserver) -> None:
         if self._observers.get(observer.name) is observer:
             del self._observers[observer.name]
 
-    def subscribe_observer(self, observer: IObserver) -> None:
-        self.subscribe(observer)
-
     def transfer_observers(self, target: IObservable) -> None:
-        """Subscribe every observer of this connection to `target`.
+        """Attach every observer of this connection to `target`.
 
         Used by `ConnectionManager.hot_swap`.
         """
         for observer in list(self._observers.values()):
-            target.subscribe(observer)
+            target.attach(observer)
 
-    def notify(self, owner, **kwargs) -> None:
+    def notify(self, event, **kwargs) -> None:
         for observer in self._observers.values():
             try:
-                observer.update(owner, **kwargs)
+                observer.update(event, **kwargs)
             except Exception as e:
                 logging.getLogger(__name__).warning(
                     "Observer '%s' raised an exception during notify: %s",

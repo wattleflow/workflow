@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 from wattleflow.core import IWattleflow
 from wattleflow.concrete.exception import AttributeException
+from wattleflow.concrete.loader import ClassLoader
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -190,10 +191,6 @@ class Attribute:
     def load_from_class(name: str, obj: object, cls: type, caller: object = None, **kwargs):
         if not isinstance(obj, str):
             raise TypeError(f"Expected class path as string for {name}, got {type(obj).__name__}")
-
-        from wattleflow.helpers.system import (
-            ClassLoader,
-        )  # pylint: disable=import-outside-toplevel
 
         try:
             klass = Attribute._class_at(obj)

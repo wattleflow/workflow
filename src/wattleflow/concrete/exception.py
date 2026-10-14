@@ -45,7 +45,7 @@ from wattleflow.constants.errors import ERROR_UNEXPECTED_TYPE
 
 # Taxonomy root lives one layer down; re-exported so it stays a
 # member of this module's public API.
-from wattleflow.helpers.exception import AuditException
+from wattleflow.audit.exception import AuditException
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #

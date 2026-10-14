@@ -2,7 +2,7 @@
   "_about": [
     "Criterion dictionary for tools/wem_lint.py — the controlled vocabulary of CODE",
     "IDENTIFIERS the NFR lint measures src/wattleflow against (NFRQ-ORG-01/02/03,",
-    "NFRQ-SEC-03). This file is the criterion of the `wattleflow-workflow` (clean",
+    "NFRQ-SCR-03). This file is the criterion of the `wattleflow-workflow` (clean",
     "core) distribution; `wattleflow-processors` carries its own next to its tools/.",
     "JSON, not YAML: the lint is stdlib-only by design (no PyYAML dependency) and",
     "json is the only structured format the standard library parses. Keys starting",
@@ -32,6 +32,13 @@
   "registry": "wattleflow-code-vocabulary",
   "distribution": "wattleflow-workflow",
   "_criterion_version": [
+    "0.11.0 (2026-10-14) — Measurement moved out of `audit` into its own package",
+    "`telemetry` (SyRS-MONITOR v0.0.7 s2.1, QR-MNT-07; SyRS-AUDIT v0.0.3, QR-",
+    "AUD-07). `telemetry` is a domain (it depends on `audit`); `audit`, `constants`",
+    "and `enums` import nothing above them, so they are foundation material the",
+    "lint skips. Authority: odluka autora 2026-10-14: razdvajanje audita i",
+    "telemetrije; SyRS-MNT-monitor v0.0.9 §2.1 (QR-MNT-07), SyRS-AUD-audit v0.0.4",
+    "(QR-AUD-07). Proven by wem_criterion 0.3.0: 0 finding(s) removed, none added.",
     "0.10.0 (2026-08-24) — rule semantics changed, so vectors are not",
     "comparable with 0.9.x on ORG-01: criterion 1 asks for ONE consumer outside the",
     "shelf instead of two domains, the population is every module on the shelf (not",
@@ -62,11 +69,11 @@
     "(waivers, without which `clean_core_imports` would turn a proven",
     "waiver into an ERROR); absent domains `audit`, `blackboards`, `mappers`",
     "removed (they are not in this tree — `mappers` moved to processors per",
-    "NFRQ-SEC-03); blind spots extended; presentation moved to messages.json.",
+    "NFRQ-SCR-03); blind spots extended; presentation moved to messages.json.",
     "PENDING: this revision must be enacted in the documentation — until then the criterion is a",
     "draft and its findings are conformant, not descriptive (D-08)."
   ],
-  "criterion_version": "0.10.0",
+  "criterion_version": "0.11.0",
   "documentation_version": "v0.0.5",
   "_python_reference": "Defines the 'stdlib' set for ORG-01; must track requires-python in pyproject.toml.",
   "python_reference": "3.11",
@@ -89,7 +96,7 @@
     "imports inside the shared namespace are not modelled as edges, so cycles and layering within helpers/ are unmeasured, and a helper consumed only by another helper counts as unconsumed (helpers->domain acyclicity IS measured)",
     "helper fan-in is counted within ONE distribution: this shelf mostly serves wattleflow-processors, whose imports are outside --src, so an unused-looking module here is usually consumed there. That is why criterion 1 states itself as one INFO statistic (`report: summary`) instead of a verdict per module — the verdict-bearing measurement belongs to the distribution that ships the shelf's consumers",
     "the ORG-02 name grammar (Subject/Operation) is inert in this distribution: no `subjects` block and no `pipelines` domain are declared, so only criterion 6 (prohibited_standalone) is enforced here",
-    "ORG-01 measures the import graph, never the runtime one: dynamic edges (ClassLoader, YAML-declared types) are invisible to the AST, so blast radius per NFRQ-SEC-01 is under-counted",
+    "ORG-01 measures the import graph, never the runtime one: dynamic edges (ClassLoader, YAML-declared types) are invisible to the AST, so blast radius per NFRQ-SCR-01 is under-counted",
     "a strategic adversary is beyond the reach of the lint",
     "NFRQ-OBS-01 criteria 4 and 5 (WARNING is never a failure; CRITICAL means the component cannot continue) need the semantics of the branch and are not machine-decidable — reviewed, not measured",
     "NFRQ-OBS-02 criterion 2 (entry and exit of one operation share `msg` and differ only in `step`) is reviewed: pairing two calls as one operation is not decidable from the AST alone",
@@ -104,7 +111,7 @@
   "rules": [
     {
       "id": "ORG-01a",
-      "nfr": "NFRQ-SEC-03",
+      "nfr": "NFRQ-SCR-03",
       "check": "clean_core_imports",
       "severity": "error",
       "waiver": "documented"
@@ -154,7 +161,7 @@
     },
     {
       "id": "SEC-03a",
-      "nfr": "NFRQ-SEC-03",
+      "nfr": "NFRQ-SCR-03",
       "check": "distribution_manifest",
       "severity": "warning",
       "waiver": "documented"
@@ -203,7 +210,7 @@
     "depend on (ORG-01 §3 misfiled-leaf, 2026-07-29).",
     "2026-07-31: `audit`, `blackboards` and `mappers` removed — no module under",
     "src/wattleflow belongs to them (mappers moved to wattleflow-processors per",
-    "NFRQ-SEC-03). The `absent-domain` check (K10) keeps this list honest from now on.",
+    "NFRQ-SCR-03). The `absent-domain` check (K10) keeps this list honest from now on.",
     "`enums` is absent for the same reason: it imports nothing intra-project,",
     "so every layer may depend on it (see the requirement records)."
   ],
@@ -212,7 +219,8 @@
     "decorators",
     "managers",
     "orchestrators",
-    "schedulers"
+    "schedulers",
+    "telemetry"
   ],
   "shared_namespace": "helpers",
   "_report_language": [
@@ -226,7 +234,7 @@
     "listed in `core_libraries` only (§7.1). A module importing anything outside",
     "(stdlib ∪ wattleflow ∪ core_libraries) belongs to another distribution and is",
     "skipped by the ORG rules — and, since v1.11.0, REPORTED as a K9 supply-chain",
-    "finding (NFRQ-SEC-03 criterion 1), because a silent skip is what the criterion",
+    "finding (NFRQ-SCR-03 criterion 1), because a silent skip is what the criterion",
     "forbids.",
     "`guarded_optional` is the only waiver: modules whose third-party reference sits",
     "behind a try/except branch with a FUNCTIONALLY COMPLETE fallback (see the requirement records).",
@@ -243,7 +251,7 @@
     "guarded_optional": []
   },
   "_distribution_manifest": [
-    "NFRQ-SEC-03 criteria 2/3 — the packaging manifest of this distribution, read by",
+    "NFRQ-SCR-03 criteria 2/3 — the packaging manifest of this distribution, read by",
     "the `distribution_manifest` check (stdlib tomllib). `pyproject` is relative to",
     "the repository root (the parent of tools/)."
   ],
@@ -500,5 +508,10 @@
     "framework_boundary": [
       "Workflow"
     ]
-  }
+  },
+  "foundation_packages": [
+    "audit",
+    "constants",
+    "enums"
+  ]
 }

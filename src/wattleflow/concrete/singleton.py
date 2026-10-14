@@ -40,7 +40,7 @@ class Singleton(IWattleflow):
     next call. Arguments of later calls are ignored, with a RuntimeWarning when
     they differ from the call that initialised the instance. `_instances` is
     process-global mutable state — ambient authority under zero-trust
-    (NFRQ-SEC-01).
+    (NFRQ-SCR-01).
     """
 
     # The base declares the init flag, so a subclass with __slots__ needs no extra slot.

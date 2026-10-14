@@ -1,17 +1,12 @@
-# Module name: helpers/exception.py
+# Module name: audit/exception.py
 # Author: (wattleflow@outlook.com)
-# Copyright: @ 2022-2026 WattleFlow. All rights reserved.
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-
-# Root of the framework's exception taxonomy. It sits in the foundation layer
-# because helpers raise it and helpers may not import an upper one;
-# concrete/exception.py re-exports it, so the taxonomy reads as one unit.
 
 
 # --------------------------------------------------------------------------- #
 # region Imports                                                              #
 # --------------------------------------------------------------------------- #
-
 from __future__ import annotations
 
 __all__ = ["AuditException"]
@@ -21,10 +16,10 @@ import linecache
 import logging
 import sys
 import traceback
-
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
+
 
 _logger = logging.getLogger("wattleflow.exception")
 
@@ -127,9 +122,7 @@ class AuditException(Exception):
     def __reduce__(self):
         return (type(self)._rebuild, (self.reason,))
 
-    # v0.0.0.97 (NFRQ-ORG-05): unpickling callable is a member of the class it
-    # rebuilds; `cls` carries the concrete subclass, so no type argument is
-    # threaded through the reduce tuple.
+    # (NFRQ-ORG-05)
     @classmethod
     def _rebuild(cls, reason):
         obj = cls.__new__(cls)

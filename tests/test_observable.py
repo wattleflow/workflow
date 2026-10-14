@@ -12,7 +12,7 @@ import unittest
 from wattleflow.concrete.exception import AttributeException
 from wattleflow.concrete.observable import ThreadSafeObservable
 from wattleflow.core.concurrent import IObserverReactive
-from wattleflow.helpers.audit import Audit
+from wattleflow.audit import GenericAudit as Audit
 
 
 class Recorder(IObserverReactive):

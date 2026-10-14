@@ -19,6 +19,7 @@ from . import (
     factory,
     helper,
     iterator,
+    loader,
     manager,
     memento,
     memento_store,
@@ -43,6 +44,7 @@ from .exception import *  # noqa: F403
 from .factory import *  # noqa: F403
 from .helper import *  # noqa: F403
 from .iterator import *  # noqa: F403
+from .loader import *  # noqa: F403
 from .manager import *  # noqa: F403
 from .memento import *  # noqa: F403
 from .memento_store import *  # noqa: F403

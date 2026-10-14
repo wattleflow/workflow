@@ -1,6 +1,6 @@
 # Module name: tests/test_document_lifetime.py
 # Tests for Document lifetime (FRQ-DOC c.16): collecting a document changes nothing others see;
-# only an explicit clean() empties the metadata.
+# only an explicit clear() empties the metadata.
 #
 # Run from `workflow/`:
 #   PYTHONPATH=src:../core/src python -m unittest tests.test_document_lifetime -v
@@ -26,10 +26,10 @@ class LifetimeTest(unittest.TestCase):
         self.assertEqual(view["filename"], "x.txt")
         self.assertIn("created_at", view)
 
-    def test_explicit_clean_still_empties_the_metadata(self):
+    def test_explicit_clear_still_empties_the_metadata(self):
         document = PlainDocument({"a": 1})
         view = document.metadata
-        document.clean()
+        document.clear()
         self.assertEqual(dict(view), {})
 
     def test_document_has_no_destructor(self):

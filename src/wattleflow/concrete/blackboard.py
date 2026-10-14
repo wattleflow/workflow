@@ -62,7 +62,7 @@ class BlackboardAction(str, Enum):
     FLUSH = "flush"  # broadcast to repositories
     LOAD = "load"  # restore from memento
     FAIL = "fail"
-    CLEAN = "clean"  # terminal reset
+    CLEAR = "clear"  # terminal reset
 
 
 TRANSITIONS = {
@@ -82,11 +82,11 @@ TRANSITIONS = {
     (BlackboardState.IDLE, BlackboardAction.FAIL): BlackboardState.FAILED,
     (BlackboardState.READY, BlackboardAction.FAIL): BlackboardState.FAILED,
     (BlackboardState.DIRTY, BlackboardAction.FAIL): BlackboardState.FAILED,
-    # --- CLEAN (terminal, from any state) ---
-    (BlackboardState.IDLE, BlackboardAction.CLEAN): BlackboardState.CLEARED,
-    (BlackboardState.READY, BlackboardAction.CLEAN): BlackboardState.CLEARED,
-    (BlackboardState.DIRTY, BlackboardAction.CLEAN): BlackboardState.CLEARED,
-    (BlackboardState.FAILED, BlackboardAction.CLEAN): BlackboardState.CLEARED,
+    # --- CLEAR (terminal, from any state) ---
+    (BlackboardState.IDLE, BlackboardAction.CLEAR): BlackboardState.CLEARED,
+    (BlackboardState.READY, BlackboardAction.CLEAR): BlackboardState.CLEARED,
+    (BlackboardState.DIRTY, BlackboardAction.CLEAR): BlackboardState.CLEARED,
+    (BlackboardState.FAILED, BlackboardAction.CLEAR): BlackboardState.CLEARED,
 }
 
 
@@ -159,14 +159,14 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
 
     def __del__(self):
         # __init__ may have raised before _preset was set — in that case any
-        # debug/clean call would hit __getattr__ and mask the real exception.
+        # debug/clear call would hit __getattr__ and mask the real exception.
         try:
             object.__getattribute__(self, "_preset")
         except AttributeError:
             return
         try:
             self.debug(msg=Event.Delete, step=Event.Started)
-            self.clean()
+            self.clear()
             self._strategy_create = None
             self._preset = None
             self.debug(msg=Event.Delete, step=Event.Completed)
@@ -265,7 +265,7 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
     def _try_transition(self, action: BlackboardAction) -> bool:
         """Apply `action` when allowed and answer whether it was; never raises.
 
-        Used for FAIL and CLEAN, which must stay safe to repeat and to call
+        Used for FAIL and CLEAR, which must stay safe to repeat and to call
         from a destructor.
         """
         if not self._fsm.can(action):
@@ -280,7 +280,7 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
 
     # region Abstract
     @abstractmethod
-    def clean(self): ...
+    def clear(self): ...
 
     @abstractmethod
     def create(self, caller: IProcessor, **kwargs) -> Item: ...

@@ -26,7 +26,7 @@ documentation/
 # distribution (mirrors `prune src/wattleflow/core` in MANIFEST.in).
 src/wattleflow/core
 
-# Secrets never enter git (P-23, NFRQ-SEC-09): ignore by pattern, at any depth.
+# Secrets never enter git (P-23, NFRQ-SCR-09): ignore by pattern, at any depth.
 .env
 .env.*
 !.env.example

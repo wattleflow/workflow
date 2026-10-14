@@ -13,7 +13,7 @@ prove  applies a patch to a temporary copy and compares wem_lint runs before and
 apply  prove, then write — minor version bump, changelog entry naming the authority,
        change record. Without an authority nothing is written (D-03).
 
-Stdlib only (NFRQ-SEC-03), like the lint it drives.
+Stdlib only (NFRQ-SCR-03), like the lint it drives.
 """
 
 # --------------------------------------------------------------------------- #
@@ -386,7 +386,7 @@ class Drift:
                     where[:5],
                     (
                         "a clean-core distribution declares no third-party tier: the module "
-                        "belongs to another distribution (NFRQ-SEC-03)"
+                        "belongs to another distribution (NFRQ-SCR-03)"
                         if clean
                         else "add to scope.core_libraries once the dependency is accepted"
                     ),

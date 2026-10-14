@@ -12,7 +12,6 @@ from __future__ import annotations
 
 __all__ = ["GenericProcessor", "ProcessorAction", "ProcessorState"]
 
-import gc
 from abc import abstractmethod, ABC
 from enum import Enum
 from typing import Any
@@ -201,42 +200,22 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         return f"{self.name}: [{len(self._pipelines)}]:[{self.levelname}]"
 
     def __del__(self):
-        # A construction that failed before the members were set has nothing to release.
+        # FR-PRC-11: the processor owns its blackboard and clears it; a failure is recorded, never raised.
         try:
             object.__getattribute__(self, "_pipelines")
         except AttributeError:
-            return
-        try:
-            self.debug(msg=Event.Delete, step=Event.Started)
-
-            if self._blackboard is not None:
-                try:
-                    self._blackboard.clean()
-                except Exception as e:
-                    name = self.__class__.__name__
-                    reason = f"{name} destructor error: {str(e)}"
-                    self.error(
-                        msg=Event.Delete,
-                        step=Event.Failed,
-                        member="_blackboard",
-                        reason=reason,
-                    )
-                self._blackboard = None
-
-            self._current = None
-            self._pipelines.clear()
-            self._generator = None
-            self._preset = None
-        except Exception as e:
-            reason = "%s.__del__ error: %s" % (self.__class__.__name__, str(e))
-            self.error(
-                msg=Event.Delete,
-                step=Event.Failed,
-                reason=reason,
-            )
-        finally:
-            self.debug(msg=Event.Delete, step=Event.Completed)
-            gc.collect()
+            return  # construction failed before the members were set
+        if self._blackboard is not None:
+            try:
+                self._blackboard.clear()
+            except Exception as e:
+                reason = "%s destructor error: %s" % (type(self).__name__, e)
+                self.error(msg=Event.Delete, member="_blackboard", reason=reason)
+            self._blackboard = None
+        self._current = None
+        self._pipelines.clear()
+        self._generator = None
+        self._preset = None
 
     # endregion Private
 
@@ -400,13 +379,14 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         return False
 
     def start(self) -> None:
-        self.debug(msg=Event.Start, step=Event.Started)
-
+        # Checked before `Started`: a refusal opens no span the monitor would wait to see closed.
         if self._blackboard is None:
             raise ProcessorException(self, f"Missing {self.name!r} blackboard!")
 
         if len(self._pipelines) < 1:
             raise ProcessorException(self, f"Missing {self.name!r} pipelines!")
+
+        self.debug(msg=Event.Start, step=Event.Started)
 
         self.info(
             msg=Event.Start,
@@ -498,24 +478,24 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         )
 
     def register_blackboard(self, blackboard: IBlackboard) -> None:
+        if not isinstance(blackboard, IBlackboard):
+            raise ProcessorException(
+                caller=self, error="Expected IBlackboard. Found %s" % type(blackboard)
+            )
         self.debug(
             msg=Event.Register,
             step=Event.Starting,
             blackboard=self._blackboard,
         )
-        if not isinstance(blackboard, IBlackboard):
-            raise ProcessorException(
-                caller=self, error="Expected IBlackboard. Found %s" % type(blackboard)
-            )
         self._blackboard = blackboard
         self.debug(msg=Event.Register, step=Event.Completed, added=self._blackboard)
 
     def register_pipeline(self, pipeline: IPipeline) -> None:
-        self.debug(msg=Event.Register, step=Event.Starting, pipeline=pipeline)
         if not isinstance(pipeline, IPipeline):
             raise ProcessorException(
                 caller=self, error="Expected IPipeline. Found %s" % type(pipeline)
             )
+        self.debug(msg=Event.Register, step=Event.Starting, pipeline=pipeline)
         self._pipelines.append(pipeline)
         self.debug(
             msg=Event.Register,

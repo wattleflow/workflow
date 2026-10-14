@@ -20,8 +20,8 @@ from wattleflow.core import IConfig, IOriginator
 from wattleflow.enums.event import Event
 from wattleflow.concrete.exception import AuditException
 from wattleflow.concrete.memento import GenericMemento
-from wattleflow.helpers.audit import Audit
-from wattleflow.helpers.monitor import Monitor
+from wattleflow.audit import GenericAudit
+from wattleflow.telemetry.monitor import Monitor
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.driver import LazyDriverProxy
 from wattleflow.concrete.manager import (
@@ -150,7 +150,7 @@ class Workflow(Wattleflow, IOriginator):
         try:
             monitor.begin(self.measured_paths())
             begun = True
-            previous = Audit.observe(monitor.hook)
+            previous = GenericAudit.observe(monitor.hook)
             observed = True
         except Exception as error:
             self.warning(msg=Event.Start, target="monitor", reason=str(error))
@@ -158,7 +158,7 @@ class Workflow(Wattleflow, IOriginator):
             return self._execute(**kwargs)
         finally:
             if observed:
-                Audit.observe(previous)
+                GenericAudit.observe(previous)
             if begun:
                 try:
                     monitor.end()

@@ -11,7 +11,7 @@ from __future__ import annotations
 __all__ = ["Wattleflow"]
 
 from wattleflow.core import IWattleflow
-from wattleflow.helpers.audit import Audit
+from wattleflow.audit import GenericAudit
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
@@ -24,8 +24,8 @@ __license__ = "Apache 2 Licence"
 # --------------------------------------------------------------------------- #
 # region Implementation                                                       #
 # --------------------------------------------------------------------------- #
-class Wattleflow(Audit, IWattleflow):
-    """See documentation for `IWattleflow` and `Audit`."""
+class Wattleflow(GenericAudit, IWattleflow):
+    """See documentation for `IWattleflow` and `GenericAudit`."""
 
     __slots__ = ()
 

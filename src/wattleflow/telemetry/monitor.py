@@ -1,25 +1,7 @@
-# Module name: helpers/monitor.py
+# Module name: telemetry/monitor.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-
-
-"""
-Central measurement — `FRQ-MET-01` (time, volume) and `FRQ-PTN-18.1` (resources).
-
-The audit record is the event (v0.0.1.14). Every component already
-writes `step=Started` / `step=Completed|Failed` around its operations and the
-processor writes one `Processed` record per document; `Audit._log_msg` hands
-those records to the monitor BEFORE the level gate, so measurement works at
-`INFO` and a component carries no measurement code at all. Nothing is wrapped.
-
-Hot path: one dict lookup per record without a monitor, one method call with
-one. Spans are aggregated on close — no object per call, memory does not grow
-with the volume of work. Resources are sampled by time, never per item.
-
-Standard library only (`NFRQ-SEC-03`); a fault in the measurement never
-reaches the work being measured (`HLRQ-18` BR-07).
-"""
 
 # --------------------------------------------------------------------------- #
 # region Imports                                                              #
@@ -37,18 +19,22 @@ from typing import Any, ClassVar, Iterable, Mapping
 from wattleflow.core import IBlackboard, IDriver, IPipeline, IProcessor, IRepository, IStrategy
 from wattleflow.enums.event import Event
 from wattleflow.enums.metric import Measure, MetricKind, MetricTarget
-from wattleflow.helpers.audit import Audit
-from wattleflow.helpers.metrics import MetricSample
-from wattleflow.helpers.resources import Resource, ResourceManager, ResourceSnapshot
-# The guarded `resource` import left with the probing it served: the peak RSS is
-# now ResourceMemory's, and the Windows fallback with it.
+from wattleflow.audit import GenericAudit
+from wattleflow.telemetry.metrics import MetricSample
+from wattleflow.telemetry.resources import Resource, ResourceManager, ResourceSnapshot
+
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
 
-# --------------------------------------------------------------------------- #
-# region Monitor                                                              #
-# --------------------------------------------------------------------------- #
+
+_OPENING: frozenset[str] = frozenset({Event.Started, Event.Starting})
+_CLOSING: frozenset[str] = frozenset({Event.Completed, Event.Failed})
+_FAILED: str = Event.Failed
+_BY_FIELD: Mapping[str, Measure] = Measure.by_field()
+
+# Aggregated row per (component, operation): calls, failed, ns, exclusive ns, max ns, units.
+_CALLS, _FAILS, _NS, _EXCLUSIVE, _MAX, _UNITS = range(6)
 
 
 class MonitorLevel:
@@ -72,16 +58,7 @@ class MonitorLevel:
         return level
 
 
-_OPENING: frozenset[str] = frozenset({Event.Started, Event.Starting})
-_CLOSING: frozenset[str] = frozenset({Event.Completed, Event.Failed})
-_FAILED: str = Event.Failed
-_BY_FIELD: Mapping[str, Measure] = Measure.by_field()
-
-# Aggregated row per (component, operation): calls, failed, ns, exclusive ns, max ns, units.
-_CALLS, _FAILS, _NS, _EXCLUSIVE, _MAX, _UNITS = range(6)
-
-
-class Monitor(Audit):
+class Monitor(GenericAudit):
     """Observer of audit records: spans, units, cycles, resource samples, one report per pass."""
 
     __slots__ = (
@@ -207,7 +184,7 @@ class Monitor(Audit):
 
     @property
     def hook(self) -> Any:
-        """What `Audit.observe` installs: the summary observer only looks at unit boundaries."""
+        """What `GenericAudit.observe` installs: the summary observer only looks at unit boundaries."""
         wants_operations = self._level >= MonitorLevel.OPERATIONS or any(
             value >= MonitorLevel.OPERATIONS for value in self._roles.values()
         )
@@ -248,8 +225,10 @@ class Monitor(Audit):
             except Exception:
                 self._faults += 1
 
-    def observe(self, owner: object, msg: str, step: str | None, fields: Mapping[str, Any]) -> None:
-        """One audit record, before its level gate. Called by `Audit._log_msg`."""
+    def observe(
+        self, owner: object, msg: str, step: str | None, fields: Mapping[str, Any]
+    ) -> None:
+        """One audit record, before its level gate. Called by `GenericAudit._log_msg`."""
         try:
             cls = type(owner)
             entry = self._levels.get(cls)
@@ -396,8 +375,13 @@ class Monitor(Audit):
             if usage:
                 free, total = usage
                 self._cross(
-                    f"storage:{path}", (total - free) / total, boundary,
-                    total - free, total, "file system", path=path,
+                    f"storage:{path}",
+                    (total - free) / total,
+                    boundary,
+                    total - free,
+                    total,
+                    "file system",
+                    path=path,
                 )
         extension = self._manager.resource("gpu")
         if extension and extension.available():
@@ -577,10 +561,14 @@ class Monitor(Audit):
             rss_end=end.rss,
             rss_peak=self._peak_rss,
             process_peak=end.peak_rss,
-            growth=(end.rss - start.rss) if end.rss is not None and start.rss is not None else None,
+            growth=(end.rss - start.rss)
+            if end.rss is not None and start.rss is not None
+            else None,
             growth_per_document=self._memory_growth_per_document(),
             share_of_limit=(
-                round(self._peak_rss / memory_limit, 4) if memory_limit and self._peak_rss else None
+                round(self._peak_rss / memory_limit, 4)
+                if memory_limit and self._peak_rss
+                else None
             ),
             limit=memory_limit,
             limit_source=memory_source,
@@ -644,7 +632,7 @@ class Monitor(Audit):
             for row in rows.values():
                 for measure, amount in row[_UNITS].items():
                     totals[measure.unit] += amount
-            # Named, never splatted (NFRQ-SEC-06 k.5): the units are the `Measure` vocabulary.
+            # Named, never splatted (NFRQ-SCR-06 k.5): the units are the `Measure` vocabulary.
             self.info(
                 msg=Event.Completed,
                 target=MetricTarget.Volume,
@@ -758,8 +746,9 @@ class Monitor(Audit):
 
         for (component, series, unit), amount in sorted(quantities.items()):
             out.append(
-                MetricSample(series, MetricKind.COUNTER, {"component": component},
-                             amount, unit=unit)
+                MetricSample(
+                    series, MetricKind.COUNTER, {"component": component}, amount, unit=unit
+                )
             )
         # The pass total is a gauge of the run; `wf_documents_total{component}` stays the
         # per-component counter read off the closing records.
@@ -778,8 +767,15 @@ class Monitor(Audit):
                     unit="bytes",
                 )
             )
-        out.append(MetricSample("wf_unpaired_spans_total", MetricKind.COUNTER, {},
-                                float(self._unpaired + self._dropped), unit="spans"))
+        out.append(
+            MetricSample(
+                "wf_unpaired_spans_total",
+                MetricKind.COUNTER,
+                {},
+                float(self._unpaired + self._dropped),
+                unit="spans",
+            )
+        )
         out.extend(self._run_samples())
         if not self._labels:
             return out
@@ -807,8 +803,11 @@ class Monitor(Audit):
         add("wf_cpu_seconds", end.cpu_user - start.cpu_user, "seconds", mode="user")
         add("wf_cpu_seconds", end.cpu_system - start.cpu_system, "seconds", mode="system")
         add("wf_cpu_utilisation", (end.cpu - start.cpu) / wall if wall > 0 else None, "ratio")
-        add("wf_cpu_seconds_per_document",
-            (end.cpu - start.cpu) / documents if documents else None, "seconds")
+        add(
+            "wf_cpu_seconds_per_document",
+            (end.cpu - start.cpu) / documents if documents else None,
+            "seconds",
+        )
         add("wf_rss_bytes", start.rss, "bytes", stat="start")
         add("wf_rss_bytes", end.rss, "bytes", stat="end")
         add("wf_rss_bytes", self._peak_rss, "bytes", stat="peak")
@@ -828,13 +827,13 @@ class Monitor(Audit):
                 add("wf_storage_total_bytes", total, "bytes", path=path)
         add("wf_alerts_total", self._alerts, "alerts")
         for (component, operation), row in sorted(self.rows().items()):
-            add("wf_operation_seconds_max", row[_MAX] / 1e9, "seconds",
-                component=component, operation=operation)
+            add(
+                "wf_operation_seconds_max",
+                row[_MAX] / 1e9,
+                "seconds",
+                component=component,
+                operation=operation,
+            )
         return out
 
     # endregion Report
-
-
-# --------------------------------------------------------------------------- #
-# endregion Monitor                                                           #
-# --------------------------------------------------------------------------- #

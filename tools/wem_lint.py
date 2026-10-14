@@ -10,7 +10,7 @@ Implements the machine-verifiable acceptance criteria of:
   * NFRQ-ORG-02 — Class Nomenclature (name-grammar checks)
   * NFRQ-ORG-03 — TypeVar Nomenclature (generic-parameter role names)
   * NFRQ-ORG-07 — Preset whitelist declaration (`ALLOWED` as a class attribute)
-  * NFRQ-SEC-03 — Supply-chain trust & distribution locality (tier + manifest)
+  * NFRQ-SCR-03 — Supply-chain trust & distribution locality (tier + manifest)
 
 The checks themselves are purely AST/import-graph based — a measured module is
 never imported *to be checked*, so a syntactically broken target yields findings
@@ -540,7 +540,7 @@ class NomenclatureRule(Wattleflow, IStrategy):
         tool carries no distribution's package name (v1.19.0).
     """
 
-    def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
+    def algorithm(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
         findings: list[Finding] = []
         family = self._family(reg, source)
         for path in source.create_iterator():
@@ -920,7 +920,7 @@ class DependencyLocalityRule(Wattleflow, IStrategy):
 
     @staticmethod
     def _shelf_modules(src, shared) -> list[str]:
-        # Top-level names on the shelf: `helpers/audit.py` -> audit, `helpers/moment/`
+        # Top-level names on the shelf: `helpers/digest.py` -> digest, `helpers/moment/`
         # -> moment. Enumerated from the tree, not from the import graph, so a module
         # nobody imports is still part of the population.
         root = src / shared
@@ -936,7 +936,7 @@ class DependencyLocalityRule(Wattleflow, IStrategy):
                 names.add(entry.stem)
         return sorted(names)
 
-    def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
+    def algorithm(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
         shared = reg["shared_namespace"]
         builder = ImportGraphBuilder(src, reg)
         for path in source.create_iterator():
@@ -1004,7 +1004,7 @@ class DependencyLocalityRule(Wattleflow, IStrategy):
 class TypeVarRule(Wattleflow, IStrategy):
     """NFRQ-ORG-03 — a TypeVar name must name a semantic role, not a mechanism."""
 
-    def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
+    def algorithm(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
         cfg = reg.get("type_vars", {})
         roles = set(cfg.get("roles", []))
         synonyms = cfg.get("synonyms", {})
@@ -1186,7 +1186,7 @@ class TypeVarRule(Wattleflow, IStrategy):
 class PresetAllowedRule(Wattleflow, IStrategy):
     """NFRQ-ORG-07 — see documentation/requirements/03-NFRQ/NFRQ-ORG-07-preset-allowed-declaration.md."""
 
-    def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
+    def algorithm(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
         cfg = reg.get("preset_allowed", {}) or {}
         canonical = cfg.get("declaration", "ALLOWED")
         synonyms = set(cfg.get("synonyms", []))
@@ -1320,16 +1320,16 @@ class PresetAllowedRule(Wattleflow, IStrategy):
 
 
 # --------------------------------------------------------------------------- #
-# region NFRQ-SEC-03 — Supply chain & distribution manifest                    #
+# region NFRQ-SCR-03 — Supply chain & distribution manifest                    #
 # --------------------------------------------------------------------------- #
 class SupplyChainRule(Wattleflow, IStrategy):
-    """NFRQ-SEC-03 — the tier a module imports from, and the manifest that ships it.
+    """NFRQ-SCR-03 — the tier a module imports from, and the manifest that ships it.
 
     Two checks, one requirement:
 
     * `clean_core_imports` (criterion 1) — a module's home distribution is fixed
       by its import closure. The tool already computed that fact, but spent it
-      only on EXCLUDING the module from the ORG rules; NFRQ-SEC-03's implementation
+      only on EXCLUDING the module from the ORG rules; NFRQ-SCR-03's implementation
       note says the same edge must be *reported*, because a shared third-party
       dependency correlates breaches across every module that carries it (log4j).
       A silent exclusion turns 47% of a tree into a green vector.
@@ -1343,7 +1343,7 @@ class SupplyChainRule(Wattleflow, IStrategy):
     built wheel's RECORD (criterion 5); these findings say where to look.
     """
 
-    def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
+    def algorithm(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
         return self._tier(caller, src, reg) + self._manifest(caller, src, reg)
 
     # region tier
@@ -1524,7 +1524,7 @@ class SupplyChainRule(Wattleflow, IStrategy):
 
 
 # --------------------------------------------------------------------------- #
-# endregion NFRQ-SEC-03 — Supply chain & distribution manifest                 #
+# endregion NFRQ-SCR-03 — Supply chain & distribution manifest                 #
 # --------------------------------------------------------------------------- #
 
 
@@ -1615,7 +1615,7 @@ class AuditLevelRule(AuditRuleBase):
     nothing the raiser did not already record.
     """
 
-    def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
+    def algorithm(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
         cfg = self._cfg(reg)
         escalated = set(cfg["escalated"])
         trace = cfg["trace"]
@@ -1706,11 +1706,11 @@ class AuditFieldRule(AuditRuleBase):
     vocabulary stays in one registry; `.name` and not `.value` because the member
     name is the identifier while the value is presentation (D-13). `step` is the
     phase axis and draws from the phase subset — a free literal reopens the
-    vocabulary the registry closed. The splat check is `NFRQ-SEC-06` criterion 1,
+    vocabulary the registry closed. The splat check is `NFRQ-SCR-06` criterion 1,
     cited here because the same call site fails both.
     """
 
-    def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
+    def algorithm(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
         cfg = self._cfg(reg)
         enum = cfg["event_enum"]
         phases = set(cfg["phase_steps"])
@@ -1734,7 +1734,7 @@ class AuditFieldRule(AuditRuleBase):
                             call.lineno,
                             name,
                             "caller kwargs splatted into an audit call — a key named `msg` or "
-                            "`exc_info` becomes a control argument (criterion 5; NFRQ-SEC-06 k.1)",
+                            "`exc_info` becomes a control argument (criterion 5; NFRQ-SCR-06 k.1)",
                             kind="audit-kwargs-splat",
                             detail=f"self.{name}(**kwargs)",
                         )
@@ -1789,7 +1789,7 @@ class AuditVolumeRule(AuditRuleBase):
     says so in the registry rather than in a comment.
     """
 
-    def execute(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
+    def algorithm(self, caller: IWattleflow, *, src, reg, source, **kwargs) -> list[Finding]:
         cfg = self._cfg(reg)
         exempt = set(cfg["info_exempt"])
         severity = Criterion.severity(reg, "audit_info_placement", WARNING)
@@ -1976,7 +1976,7 @@ class WemLint(Wattleflow, IStrategyContext):
     def execute_strategy(self, caller: IWattleflow, **kwargs) -> list[Finding]:
         # `caller` is part of the IStrategyContext contract since core v0.0.0.46;
         # it is forwarded verbatim so a rule can attribute its findings.
-        return self._strategy.execute(caller, src=self._src, reg=self._reg, source=self._source, **kwargs)
+        return self._strategy.algorithm(caller, src=self._src, reg=self._reg, source=self._source, **kwargs)
 
     def run(self, rules) -> list[Finding]:
         findings: list[Finding] = []

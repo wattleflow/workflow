@@ -115,7 +115,7 @@
           "declares, so the ORG-01/02/03 rules skipped it. Nothing here was",
           "checked by those rules — clean is not the same as unmeasured.",
           "Since v1.11.0 the same fact is ALSO raised as a K9 supply-chain",
-          "finding (NFRQ-SEC-03 criterion 1), so the skip is never silent."
+          "finding (NFRQ-SCR-03 criterion 1), so the skip is never silent."
         ],
         "fix": [
           "Not a defect to fix here: a declared blind spot, listed so the vector",
@@ -129,7 +129,7 @@
           "deklarira, pa su ga ORG-01/02/03 preskočili. Ta ga pravila nisu",
           "provjerila — čisto nije isto što i nemjereno.",
           "Od v1.11.0 ista se činjenica prijavljuje i kao K9 nalaz lanca",
-          "opskrbe (NFRQ-SEC-03 krit. 1), pa preskakanje više nije nijemo."
+          "opskrbe (NFRQ-SCR-03 krit. 1), pa preskakanje više nije nijemo."
         ],
         "fix": [
           "Nije kvar za popravak ovdje: deklarirana slijepa pjega, navedena da",
@@ -221,7 +221,7 @@
     },
     "foreign-import": {
       "code": "K9",
-      "ref": "NFRQ-SEC-03",
+      "ref": "NFRQ-SCR-03",
       "en": {
         "title": "import outside the distribution tier (supply chain)",
         "why": [
@@ -230,7 +230,7 @@
           "of this distribution. A lazy, in-function import counts exactly like",
           "a module-level one.",
           "Until v1.11.0 this fact only removed the module from the ORG rules;",
-          "NFRQ-SEC-03 requires it to be REPORTED, because a shared third-party",
+          "NFRQ-SCR-03 requires it to be REPORTED, because a shared third-party",
           "dependency correlates breaches across every module that carries it."
         ],
         "fix": [
@@ -247,7 +247,7 @@
           "ulogom: uvoz biblioteke izvan deklariranog tiera izmješta ga iz ove",
           "distribucije. Lijeni uvoz unutar funkcije broji se jednako kao onaj",
           "na razini modula.",
-          "Do v1.11.0 ta je činjenica samo micala modul iz ORG pravila; NFRQ-SEC-03",
+          "Do v1.11.0 ta je činjenica samo micala modul iz ORG pravila; NFRQ-SCR-03",
           "traži da se PRIJAVI, jer dijeljena third-party ovisnost korelira",
           "proboje kroz sve module koji je nose."
         ],
@@ -292,7 +292,7 @@
     },
     "manifest-no-namespaces": {
       "code": "K11",
-      "ref": "NFRQ-SEC-03",
+      "ref": "NFRQ-SCR-03",
       "en": {
         "title": "packaging finds no packages — PEP 420 tree without `namespaces`",
         "why": [
@@ -516,7 +516,7 @@
     },
     "manifest-excluded-package": {
       "code": "K12",
-      "ref": "NFRQ-SEC-03",
+      "ref": "NFRQ-SCR-03",
       "en": {
         "title": "manifest excludes a package this distribution's code imports",
         "why": [
@@ -528,7 +528,7 @@
         "fix": [
           "Fix: narrow the glob to the subtrees another distribution owns, or",
           "re-include this one; every `wattleflow.*` subtree must have exactly",
-          "one owning distribution (NFRQ-SEC-03 criterion 2)."
+          "one owning distribution (NFRQ-SCR-03 criterion 2)."
         ]
       },
       "hr": {
@@ -542,7 +542,7 @@
         "fix": [
           "Popravak: suzi glob na podstabla koja su u vlasništvu druge",
           "distribucije, ili ovo vrati natrag; svako `wattleflow.*` podstablo",
-          "mora imati točno jednog vlasnika (NFRQ-SEC-03 krit. 2)."
+          "mora imati točno jednog vlasnika (NFRQ-SCR-03 krit. 2)."
         ]
       }
     },

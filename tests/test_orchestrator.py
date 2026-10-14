@@ -245,12 +245,12 @@ class ParallelTest(unittest.TestCase):
                 super().start()
 
         orchestrator = make(Meet("a", log), Meet("b", log))
-        orchestrator.operation(Operation.Start, parallel=True)
+        orchestrator.dispatch(Operation.Start, parallel=True)
         self.assertEqual(sorted(log), ["a", "b"])
 
     def test_operation_rejects_an_unknown_action(self):
         with self.assertRaises(OrchestratorException):
-            make().operation("restart")
+            make().dispatch("restart")
 
 
 class StartGuardTest(unittest.TestCase):

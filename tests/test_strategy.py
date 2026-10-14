@@ -1,5 +1,5 @@
 # Module name: tests/test_strategy.py
-# Tests for the strategy families (FRQ-STR): the method names that carry the intent, `execute` as the
+# Tests for the strategy families (FRQ-STR): the method names that carry the intent, `algorithm` as the
 # one abstract method, write answering a bool, every failure carried as StrategyException with its
 # cause (a StrategyException from the specialisation passes through unchanged).
 #
@@ -24,7 +24,7 @@ def build(base, result=None, error=None):
     class Concrete(base):
         calls = []
 
-        def execute(self, caller, **kwargs):
+        def algorithm(self, caller, **kwargs):
             type(self).calls.append((caller, kwargs))
             if error is not None:
                 raise error
@@ -38,19 +38,19 @@ class Caller:
 
 
 class ContractTest(unittest.TestCase):
-    def test_execute_is_the_only_abstract_method(self):
+    def test_algorithm_is_the_only_abstract_method(self):
         for base in (Strategy, StrategyGenerate, StrategyCreate, StrategyRead, StrategyWrite):
             with self.subTest(base=base.__name__):
-                self.assertEqual(base.__abstractmethods__, frozenset({"execute"}))
+                self.assertEqual(base.__abstractmethods__, frozenset({"algorithm"}))
 
-    def test_a_family_without_execute_cannot_be_built(self):
-        class NoExecute(StrategyCreate):
+    def test_a_family_without_algorithm_cannot_be_built(self):
+        class NoAlgorithm(StrategyCreate):
             pass
 
         with self.assertRaises(TypeError):
-            NoExecute()
+            NoAlgorithm()
 
-    def test_each_family_forwards_its_arguments_to_execute(self):
+    def test_each_family_forwards_its_arguments_to_algorithm(self):
         caller = Caller()
         cases = (
             (StrategyGenerate, lambda s: s.generate(caller, k=1), {"k": 1}),
@@ -68,7 +68,7 @@ class ContractTest(unittest.TestCase):
                 call(strategy)
                 self.assertEqual(type(strategy).calls, [(caller, expected)])
 
-    def test_the_result_of_execute_is_returned(self):
+    def test_the_result_of_algorithm_is_returned(self):
         caller = Caller()
         self.assertEqual(build(StrategyCreate, result="made").create(caller), "made")
         self.assertEqual(build(StrategyRead, result="doc").read(caller, "id"), "doc")
@@ -91,7 +91,7 @@ class FailureTest(unittest.TestCase):
         ("write", StrategyWrite, lambda s, c: s.write(c, "f")),
     )
 
-    def test_a_failure_in_execute_is_a_strategy_exception_with_its_cause(self):
+    def test_a_failure_in_algorithm_is_a_strategy_exception_with_its_cause(self):
         for operation, base, call in self.CASES:
             with self.subTest(operation=operation):
                 strategy = build(base, error=ValueError("source down"))

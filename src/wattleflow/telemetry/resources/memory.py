@@ -1,4 +1,4 @@
-# Module name: helpers/resources/memory.py
+# Module name: telemetry/resources/memory.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -17,7 +17,7 @@ import os
 import sys
 from pathlib import Path
 from typing import ClassVar
-from wattleflow.helpers.resources.base import Resource
+from wattleflow.telemetry.resources.base import Resource
 
 # Absent on Windows, where the peak is then reported unmeasured. The name is the
 # standard library's, not this package: an absolute import reaches past us.

@@ -335,11 +335,10 @@ class MonitoredRunTest(Isolated):
         self.assertEqual(self.built().measured_paths(), ["/tmp/out"])
 
     def test_a_run_under_the_monitor_ends_it_and_freezes_the_composition(self):
-        flow = self.built()
-        for processor in flow.processors.all.values():
-            processor.start = lambda: None
-        self.assertIsNotNone(flow.monitor)
-        flow.run()
+        with patch.object(Proc, "start", lambda self: None):
+            flow = self.built()
+            self.assertIsNotNone(flow.monitor)
+            flow.run()
         with self.assertRaises(WorkflowException):
             flow.attach_monitor(None)
 

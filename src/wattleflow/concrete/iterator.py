@@ -57,7 +57,7 @@ class LazyIterator(Wattleflow, IIterator[Element]):
 class ThreadSafeLazyIterator(LazyIterator[Element]):
     """ThreadSafeLazyIterator - LazyIterator whose source is built once under concurrent first fetches."""
 
-    # The lock is not named _lock: a slot of that name would shadow Audit._lock.
+    # The lock is not named _lock: a slot of that name would shadow GenericAudit._lock.
     __slots__ = ("_build_lock",)
 
     def __init__(self, **kwargs) -> None:

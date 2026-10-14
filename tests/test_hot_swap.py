@@ -44,7 +44,7 @@ class HotSwapTest(unittest.TestCase):
         self.old = FakeConnection()
         self.manager._connections["db"] = self.old
         self.watcher = Watcher()
-        self.old.subscribe(self.watcher)
+        self.old.attach(self.watcher)
 
     def test_swap_replaces_registered_connection(self):
         new = FakeConnection()

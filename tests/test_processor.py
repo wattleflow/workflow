@@ -67,6 +67,26 @@ class PreconditionTest(unittest.TestCase):
         with self.assertNoLogs(level=logging.INFO), self.assertRaises(ProcessorException):
             processor.start()
 
+    def test_a_refused_blackboard_opens_no_registration_span(self):
+        processor, *_ = build()
+        with self.assertNoLogs(level=logging.DEBUG), self.assertRaises(ProcessorException):
+            processor.register_blackboard(object())
+
+    def test_a_refused_pipeline_opens_no_registration_span(self):
+        processor, *_ = build()
+        with self.assertNoLogs(level=logging.DEBUG), self.assertRaises(ProcessorException):
+            processor.register_pipeline(object())
+
+    def test_an_accepted_registration_opens_and_closes_its_span(self):
+        processor, *_ = build()
+        pipeline = MagicMock(spec=IPipeline)
+        with self.assertLogs(level=logging.DEBUG) as logged:
+            processor.register_pipeline(pipeline)
+        steps = [line for line in logged.output if "Register" in line]
+        self.assertEqual(len(steps), 2)
+        self.assertIn("Starting", steps[0])
+        self.assertIn("Completed", steps[1])
+
     def test_create_generator_is_the_only_abstract_method(self):
         self.assertEqual(GenericProcessor.__abstractmethods__, frozenset({"create_generator"}))
 
@@ -199,6 +219,18 @@ class DestructorTest(unittest.TestCase):
         processor.start()
         processor.__del__()
         processor.__del__()  # a second call finds nothing and still does not raise
+
+    def test_discarding_a_processor_clears_its_blackboard(self):  # FR-PRC-11 k.3
+        processor, blackboard, *_ = build()
+        processor.__del__()
+        blackboard.clear.assert_called_once_with()
+
+    def test_a_blackboard_that_cannot_clear_is_recorded_not_raised(self):  # FR-PRC-11 k.4
+        processor, blackboard, *_ = build()
+        blackboard.clear.side_effect = RuntimeError("canvas down")
+        with self.assertLogs(type(processor).__name__, level="ERROR") as logs:
+            processor.__del__()
+        self.assertIn("canvas down", logs.output[0])
 
     def test_discarding_a_processor_that_never_finished_construction_does_not_raise(self):
         bare = Processor.__new__(Processor)

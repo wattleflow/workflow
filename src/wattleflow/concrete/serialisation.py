@@ -241,10 +241,10 @@ class ConversionStrategy(IStrategy, ABC):
         return type(self).__name__
 
     def convert(self, caller: IWattleflow, source: Any, **kwargs) -> str | bytes:
-        return self.execute(caller=caller, source=source, **kwargs)
+        return self.algorithm(caller=caller, source=source, **kwargs)
 
     @abstractmethod
-    def execute(self, caller: IWattleflow, **kwargs) -> str | bytes: ...
+    def algorithm(self, caller: IWattleflow, **kwargs) -> str | bytes: ...
 
 
 class GenericConverter(IStrategyContext, ABC):
@@ -284,7 +284,7 @@ class GenericConverter(IStrategyContext, ABC):
         if self._strategy is None:
             raise self.ERROR(caller=self, error="no conversion strategy set")
         try:
-            return self._strategy.execute(caller, **kwargs)
+            return self._strategy.algorithm(caller, **kwargs)
         except self.ERRORS:
             raise
         except Exception as e:

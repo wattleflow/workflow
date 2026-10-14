@@ -40,13 +40,13 @@ class Strategy(Wattleflow, IStrategy, ABC):
     __slots__ = ()
 
     @abstractmethod
-    def execute(self, caller: IWattleflow, **kwargs) -> ITarget | None:
+    def algorithm(self, caller: IWattleflow, **kwargs) -> ITarget | None:
         pass
 
     def _run(self, operation: str, **kwargs):
-        """`execute` with every failure carried as StrategyException (BR-PTN-05)."""
+        """`algorithm` with every failure carried as StrategyException (BR-PTN-05)."""
         try:
-            return self.execute(**kwargs)
+            return self.algorithm(**kwargs)
         except StrategyException:
             raise
         except Exception as e:

@@ -20,12 +20,12 @@ from wattleflow.decorators.preset import PresetGate
 
 
 class Create(StrategyCreate):
-    def execute(self, caller, **kwargs):
+    def algorithm(self, caller, **kwargs):
         return None
 
 
 class Write(StrategyWrite):
-    def execute(self, caller, **kwargs):
+    def algorithm(self, caller, **kwargs):
         return True
 
 
@@ -41,7 +41,7 @@ class Board(GenericBlackboard[dict]):
     def count(self) -> int:
         return len(self._canvas)
 
-    def clean(self):
+    def clear(self):
         self._canvas.clear()
         self._repositories.clear()
 
@@ -156,12 +156,12 @@ class ModuleContractTest(unittest.TestCase):
             {"_canvas", "_fsm", "_preset", "_repositories", "_strategy_create"},
         )
 
-    def test_fail_from_every_non_terminal_state_and_clean_from_every_state(self):
+    def test_fail_from_every_non_terminal_state_and_clear_from_every_state(self):
         S, A = module.BlackboardState, module.BlackboardAction
         for state in (S.IDLE, S.READY, S.DIRTY):
             self.assertEqual(TRANSITIONS[(state, A.FAIL)], S.FAILED)
         for state in (S.IDLE, S.READY, S.DIRTY, S.FAILED):
-            self.assertEqual(TRANSITIONS[(state, A.CLEAN)], S.CLEARED)
+            self.assertEqual(TRANSITIONS[(state, A.CLEAR)], S.CLEARED)
         self.assertFalse(hasattr(A, "READ"))
 
 
@@ -193,9 +193,9 @@ class AutomatonTest(unittest.TestCase):
             board._transition(self.A.WRITE)
         self.assertIs(board.state, self.S.IDLE)
 
-    def test_register_is_refused_after_clean(self):
+    def test_register_is_refused_after_clear(self):
         board = Board()
-        self.assertTrue(board._try_transition(self.A.CLEAN))
+        self.assertTrue(board._try_transition(self.A.CLEAR))
         with self.assertRaises(BlackboardException):
             board.register(Repo())
         self.assertEqual(board.repositories, [])
@@ -208,8 +208,8 @@ class AutomatonTest(unittest.TestCase):
 
     def test_try_transition_never_raises_and_is_repeatable(self):
         board = Board()
-        self.assertTrue(board._try_transition(self.A.CLEAN))
-        self.assertFalse(board._try_transition(self.A.CLEAN))
+        self.assertTrue(board._try_transition(self.A.CLEAR))
+        self.assertFalse(board._try_transition(self.A.CLEAR))
         self.assertFalse(board._try_transition(self.A.FAIL))
         self.assertIs(board.state, self.S.CLEARED)
 

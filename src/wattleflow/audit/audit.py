@@ -1,4 +1,4 @@
-# Module name: helpers/audit.py
+# Module name: audit/audit.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -8,12 +8,10 @@
 # --------------------------------------------------------------------------- #
 from __future__ import annotations
 
-__all__ = ["AsyncHandler", "Audit", "ContextFilter", "MeasurementFilter"]
+__all__ = ["GenericAudit"]
 
-from enum import Enum
 import logging
 from logging import (
-    Filter,
     Formatter,
     getLogger,
     Handler,
@@ -22,59 +20,14 @@ from logging import (
 )
 from threading import RLock
 from typing import Any
+from wattleflow.audit.filters import ContextFilter
+from wattleflow.constants.audit import TARGET_ATTRIBUTE
 from wattleflow.core import ILogger, IObserver
 from wattleflow.enums.event import Event
-from wattleflow.enums.metric import MetricTarget
+from wattleflow.enums.log import LogFormat
+
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
-# --------------------------------------------------------------------------- #
-
-# --------------------------------------------------------------------------- #
-# region Handlers                                                             #
-# --------------------------------------------------------------------------- #
-
-TARGET_ATTRIBUTE = "wf_target"
-
-
-class AsyncHandler(Handler):
-    def __init__(self, queue):
-        super().__init__()
-        self.queue = queue
-
-    def emit(self, record):
-        try:
-            self.queue.put_nowait(self.format(record))
-        except Exception:
-            self.handleError(record)
-
-
-# --------------------------------------------------------------------------- #
-# endregion Handlers                                                          #
-# --------------------------------------------------------------------------- #
-
-# --------------------------------------------------------------------------- #
-# region Filters                                                              #
-# --------------------------------------------------------------------------- #
-
-
-class ContextFilter(Filter):
-    def filter(self, record):
-        record.filename = getattr(record, "src_filename", record.filename)
-        record.lineno = getattr(record, "src_lineno", record.lineno)
-        return True
-
-
-class MeasurementFilter(Filter):
-    """Pass only records that carry a measured result (`MetricTarget`)."""
-
-    TARGETS = MetricTarget.measurements()
-
-    def filter(self, record):
-        return getattr(record, TARGET_ATTRIBUTE, None) in self.TARGETS
-
-
-# --------------------------------------------------------------------------- #
-# endregion Filters                                                           #
 # --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
@@ -86,45 +39,24 @@ class MeasurementFilter(Filter):
 _UNIT_CLOSED: str = Event.Processed
 
 
-# Logging format
-class LogFormat(Enum):
-    DEFAULT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
-    Detailed = "%(asctime)s - %(levelname)s - %(name)s - %(message)s - %(filename)s:%(lineno)d"
-    Custom = (
-        "%(asctime)s - %(levelname)s - %(name)s - %(message)s - %(src_filename)s:%(src_lineno)d"
-    )
-    JSON = (
-        '{"time": "%(asctime)s", "name": "%(name)s", '
-        '"level": "%(levelname)s", "message": "%(message)s"}'
-    )
-
-
-# Terminal link of the cooperative __init__ chain: it consumes the logging
-# keywords and swallows the rest, so nothing reaches object.__init__.
-class Audit(ILogger, IObserver):
+class GenericAudit(ILogger, IObserver):
     __slots__ = ("_level", "_logger", "_handler")
 
     _lock = RLock()
     _instances: set[type] = set()
-    # v0.0.1.14: the audit record is the measurement event. One
-    # observer per process, installed for the duration of a workflow pass;
-    # it receives records that carry a `step` (or close a unit of work)
-    # BEFORE the level gate, so measurement does not depend on DEBUG.
+    _handlers: dict[str, Handler] = {}  # one shared handler per logger name
     _observer: Any = None
 
     def __init__(self, **kwargs):
         super().__init__()
 
-        # `fmt` is an alias of `formatting`; the one place that knows it, so no subclass has to.
         if "fmt" in kwargs:
             kwargs.setdefault("formatting", kwargs.pop("fmt"))
+
         formatting: str = kwargs.pop("formatting", LogFormat.DEFAULT.value)
         propagate: bool | None = kwargs.pop("propagate", None)
         logger: Logger | None = kwargs.pop("logger", None)
 
-        # `None` means the caller said nothing about the level, which is not the
-        # same as asking for NOTSET: an instantiation that omits `level=` must not
-        # reset a level someone else configured for this class.
         requested = kwargs.pop("level", None)
         self._level: int = (
             self._resolve_level(requested) if requested is not None else logging.NOTSET
@@ -135,32 +67,29 @@ class Audit(ILogger, IObserver):
         cls = type(self)
 
         with self._lock:
-            first = cls not in self._instances
+            key = self._logger.name
 
-            # An explicit level applies whenever it arrives, not only on the first
-            # instance of the class. The logger is shared per class, so keeping the
-            # first value made every later `level=` a silent no-op — a setting the
-            # caller could pass and the YAML could carry while nothing honoured it.
-            # Last explicit writer wins; that is a property of sharing one logger
-            # per class, not a defect of the caller.
+            if self._handler is None:
+                self._handler = self._handlers.get(key)
+
+            if self._handler is None:
+                self._handler = StreamHandler()
+                self._handler.addFilter(ContextFilter())
+                self._handler.setLevel(self._level)
+                self._handler.setFormatter(Formatter(formatting))
+
+            self._handlers.setdefault(key, self._handler)
+
+            if self._handler not in self._logger.handlers:
+                self._logger.addHandler(self._handler)
+
             if requested is not None:
                 self._apply_level(self._level)
 
             if propagate is not None:
                 self._logger.propagate = propagate
 
-            # The default stream handler is built once per class: one per instance
-            # would attach a handler per object and multiply every record.
-            if self._handler is None and first:
-                self._handler = StreamHandler()
-                self._handler.addFilter(ContextFilter())
-                self._handler.setLevel(self._level)
-                self._handler.setFormatter(Formatter(formatting))
-
-            if self._handler is not None and self._handler not in self._logger.handlers:
-                self._logger.addHandler(self._handler)
-
-            if first:
+            if cls not in self._instances:
                 self._instances.add(cls)
                 self._configure_once()
 
@@ -210,9 +139,8 @@ class Audit(ILogger, IObserver):
 
     @classmethod
     def observe(cls, observer: Any) -> Any:
-        """Install (or remove with None) the process-wide record observer — a callable
-        `(owner, msg, step, fields)`; returns the previous one."""
-        previous, cls._observer = cls._observer, observer
+        # Single observer shared by every subclass; _log_msg reads it here.
+        previous, GenericAudit._observer = GenericAudit._observer, observer
         return previous
 
     def subscribe_handler(self, subscriber: Handler) -> None:
@@ -222,17 +150,7 @@ class Audit(ILogger, IObserver):
             if subscriber not in self._logger.handlers:
                 self._logger.addHandler(subscriber)
 
-    def subscribe(self, observer):
-        raise NotImplementedError(f"{self.name}.subscribe is not implemented!")
-
-    def unsubscribe(self, observer):
-        raise NotImplementedError(f"{self.name}.unsubscribe is not implemented!")
-
     def update(self, event: Any, **kwargs) -> None:
-        # IObserver end of the sink: an observed event is an audit record. One
-        # frame deeper than the level methods, hence stacklevel 4.
-        # v0.0.1.10: the observed value is a named field, so a
-        # caller key can no longer land in this call's own namespace.
         self.info(
             msg=Event.Notify,
             event=getattr(event, "name", str(event)),
@@ -240,53 +158,22 @@ class Audit(ILogger, IObserver):
             kwargs=kwargs,
         )
 
-    # --------------------------------------------------------------------------- #
-    # region Private Methods
-    # --------------------------------------------------------------------------- #
-
     def _apply_level(self, level: int) -> None:
-        """Put `level` on the logger and on the handler this class owns.
-
-        A handler is built once per class, with the level of the FIRST instance,
-        and a handler filters independently of its logger. Setting only the
-        logger therefore left the first instance's threshold in force, so a
-        later `level=` (or a level raised after construction) silently changed
-        nothing.
-
-        A SUBSCRIBED handler is left alone. It arrived through
-        `subscribe_handler` carrying the level its subscriber chose, and that
-        choice is the reason for a second destination: it is what lets a console
-        stay at INFO while a forwarder takes DEBUG. Setting every attached
-        handler overwrote that, so the two destinations could never differ.
-        Note the logger still gates first — a forwarder cannot see DEBUG unless
-        the logger is at DEBUG and the console handler is the one raised.
-        """
         self._logger.setLevel(level)
         if self._handler is not None:
             self._handler.setLevel(level)
 
     def set_level(self, level: int | str) -> None:
-        """Change this component's level after construction.
-
-        Used by a caller that learns the level later than the object — the
-        factory reads it from the YAML after its own logger already exists.
-        """
         self._level = self._resolve_level(level)
         with self._lock:
             self._apply_level(self._level)
 
     @classmethod
     def resolve_level(cls, level: int | str) -> int:
-        """The level lookup, for a caller configuring a logger it does not own.
-
-        The factory sets the workflow default on the root logger and needs the
-        same mapping the constructor applies to `level=`.
-        """
         return cls._resolve_level(level)
 
     @staticmethod
     def _resolve_level(level: int | str) -> int:
-        # Accept an int directly, or map a name through the public logging API.
         if isinstance(level, int):
             return level
         if isinstance(level, str):
@@ -299,28 +186,21 @@ class Audit(ILogger, IObserver):
     def _configure_once(self) -> None:
         pass
 
-    # Positional-only: a caller's `level=` or `msg=` field must stay a field.
     def _log_msg(self, level: int, msg: str, /, *args, **kwargs) -> None:
-        observer = Audit._observer
+        observer = GenericAudit._observer
         if observer is not None:
             step = kwargs.get("step")
             if step is not None or msg == _UNIT_CLOSED:
-                observer(self, msg, step, kwargs)
-        # v0.0.1.14: the level gate comes before the formatting. Formatting the
-        # fields for a record nobody will see cost ~4 µs per call (measured
-        # 2026-09-17), more than the work some callers do between two records.
+                try:
+                    observer(self, msg, step, kwargs)
+                except Exception:
+                    # An observer failure must never suppress the audit record.
+                    self._logger.exception("Audit observer failed.")
+
         if not self._logger.isEnabledFor(level):
             return
 
         def is_frame_like(obj: object) -> bool:
-            # Frame-like objects (pandas/polars) have huge reprs; show the type
-            # name instead. Detected structurally to avoid a third-party import,
-            # but the probe must never touch the INSTANCE: hasattr() on a live
-            # object runs whatever __getattr__ hook it carries — rdflib
-            # namespaces emit a UserWarning for every unknown term, and a lazy
-            # proxy would open a connection just to be logged. Scanning the
-            # class dicts along the MRO is a plain dict lookup: no descriptor
-            # is invoked and no fallback hook fires.
             mro = getattr(type(obj), "__mro__", ())
             return any("shape" in vars(b) for b in mro) and any("columns" in vars(b) for b in mro)
 
@@ -338,8 +218,6 @@ class Audit(ILogger, IObserver):
         pass_through = {k: kwargs[k] for k in LOG_KW if k in kwargs}
         data = {k: v for k, v in kwargs.items() if k not in LOG_KW}
 
-        # The target also travels as an attribute, so a handler can select
-        # records by kind without parsing the message text.
         target = data.get("target")
         if target is not None:
             extra = dict(pass_through.get("extra") or {})

@@ -28,8 +28,7 @@ from typing import Any
 # --------------------------------------------------------------------------- #
 
 
-# v0.0.0.97 (NFRQ-ORG-05): the month table, the pattern list and the match
-# formatter are members of the class that applies them.
+# NFRQ-ORG-05
 class Normaliser(str):
     """`str` subclass whose transformations return a new instance, so calls chain."""
 

@@ -1,4 +1,4 @@
-# Module name: helpers/resources/storage.py
+# Module name: telemetry/resources/storage.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -16,7 +16,7 @@ __all__ = ["ResourceStorage"]
 import shutil
 from pathlib import Path
 from typing import ClassVar
-from wattleflow.helpers.resources.base import Resource
+from wattleflow.telemetry.resources.base import Resource
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #

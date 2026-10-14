@@ -29,10 +29,10 @@ from wattleflow.concrete.memento_store import (
     MementoStoreException,
     MemoryMementoStore,
 )
-from wattleflow.helpers.audit import Audit
+from wattleflow.audit import GenericAudit
 from wattleflow.helpers.moment import MomentHelper
-from wattleflow.helpers.monitor import Monitor, MonitorLevel
-from wattleflow.helpers.resources import ResourceManager
+from wattleflow.telemetry.monitor import Monitor, MonitorLevel
+from wattleflow.telemetry.resources import ResourceManager
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.manager import (
     ConnectionManager,
@@ -191,7 +191,7 @@ class WorkflowFactory:
 
         declared_level = adapter.find(*sections, "logging", "level", default=None)
         if declared_level is not None:
-            resolved = Audit.resolve_level(declared_level)
+            resolved = GenericAudit.resolve_level(declared_level)
             getLogger().setLevel(resolved)
 
             logger.set_level(resolved)

@@ -96,7 +96,7 @@ class MementoStore(Wattleflow, IStrategy, ABC):
     @abstractmethod
     def clear(self, key: str) -> None: ...
 
-    def execute(self, caller: IWattleflow, **kwargs) -> Any:
+    def algorithm(self, caller: IWattleflow, **kwargs) -> Any:
         action = kwargs.get("action")
         if action == "write":
             return self.write(kwargs.get("key"), kwargs.get("memento"))

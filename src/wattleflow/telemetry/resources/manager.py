@@ -1,4 +1,4 @@
-# Module name: helpers/resources/manager.py
+# Module name: telemetry/resources/manager.py
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
@@ -23,13 +23,13 @@ __all__ = ["ResourceManager"]
 import os
 import time
 from typing import Any, Iterable, Mapping
-from wattleflow.helpers.audit import Audit
+from wattleflow.audit import GenericAudit
 from wattleflow.enums.event import Event
 from wattleflow.enums.metric import MetricTarget
-from wattleflow.helpers.resources.base import Resource, ResourceSnapshot
-from wattleflow.helpers.resources.cpu import ResourceCpu
-from wattleflow.helpers.resources.memory import ResourceMemory
-from wattleflow.helpers.resources.storage import ResourceStorage
+from wattleflow.telemetry.resources.base import Resource, ResourceSnapshot
+from wattleflow.telemetry.resources.cpu import ResourceCpu
+from wattleflow.telemetry.resources.memory import ResourceMemory
+from wattleflow.telemetry.resources.storage import ResourceStorage
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
@@ -40,7 +40,7 @@ from wattleflow.helpers.resources.storage import ResourceStorage
 # --------------------------------------------------------------------------- #
 
 
-class ResourceManager(Audit):  # below the root, as FRQ-PTN-root-base §07 t.5
+class ResourceManager(GenericAudit):  # below the root, as FRQ-PTN-root-base §07 t.5
     """Resolve and announce the limits a pass will be measured against."""
 
     def __init__(

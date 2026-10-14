@@ -51,7 +51,7 @@ class DocumentHashTest(unittest.TestCase):
         before = hash(self.document)
         self.document.update_metadata("note", "changed")
         self.document.update_content({"notice": "other"})
-        self.document.clean()
+        self.document.clear()
         self.assertEqual(hash(self.document), before)
 
 

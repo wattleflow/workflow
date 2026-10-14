@@ -57,7 +57,7 @@ class Scheduler(Wattleflow, IScheduler, ABC):
 
     def __init__(self, level: int, handler: Handler | None = None, **kwargs):
         # The base constructor audits under `self._lock`, and `__slots__` above
-        # shadows the class-level lock it would otherwise inherit from Audit, so
+        # shadows the class-level lock it would otherwise inherit from GenericAudit, so
         # the instance lock has to exist before the base runs. Reentrant because
         # start_orchestration/stop_orchestration hold it and then call emit_event,
         # which takes it again.
