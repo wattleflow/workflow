@@ -350,7 +350,7 @@ class EventTest(unittest.TestCase):
         emitter.emit_event(FaultEvent("a"))
         self.assertEqual(seen, [1, 2])
 
-    @unittest.expectedFailure  # BR-FTL-26: StRS-FAULT-TOLERANCE section 6 item 9
+    # BR-FTL-26
     def test_a_failing_listener_never_stops_the_others_or_the_operation(self):
         emitter, good = EventEmitter(), Recorder()
 
@@ -362,8 +362,10 @@ class EventTest(unittest.TestCase):
 
         emitter.register_listener(Broken())
         emitter.register_listener(good)
-        emitter.emit_event(FaultEvent("a"))
+        with self.assertLogs(ft.__name__, level="WARNING") as logs:
+            emitter.emit_event(FaultEvent("a"))
         self.assertEqual(len(good.events), 1)
+        self.assertEqual(len(logs.records), 1)
 
 
 if __name__ == "__main__":

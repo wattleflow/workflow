@@ -20,6 +20,7 @@ __all__ = [
     "InvokerCommand",
 ]
 
+import logging
 import time
 import uuid
 from collections.abc import Callable
@@ -43,6 +44,8 @@ from wattleflow.enums.fault_tolerance import BreakerAction, BreakerState
 __author__ = "WattleFlow"
 __copyright__ = "© 2022–2026 WattleFlow. All rights reserved"
 __license__ = "Apache 2 Licence"
+
+_log = logging.getLogger(__name__)
 
 
 # --------------------------------------------------------------------------- #
@@ -121,8 +124,8 @@ class EventEmitter(IEventSource[IEvent]):
 
     Registering the same listener twice has no effect; unregistering an
     unknown listener is ignored. emit_event() calls listeners synchronously
-    in registration order and ignores **kwargs. A listener exception
-    propagates to the caller of emit_event().
+    in registration order and ignores **kwargs. A listener exception is logged
+    as a warning and never reaches the other listeners or the caller (BR-FTL-26).
     """
 
     __slots__ = ("_listeners", "_source")
@@ -154,7 +157,10 @@ class EventEmitter(IEventSource[IEvent]):
 
     def emit_event(self, event: IEvent, **kwargs: Any) -> None:
         for listener in tuple(self._listeners):
-            listener.on_event(event)
+            try:
+                listener.on_event(event)
+            except Exception as error:
+                _log.warning("Listener %r failed on %s: %r", listener, event.type, error)
 
 
 def _require(command: ICommand | None) -> ICommand:
@@ -419,6 +425,7 @@ class CircuitBreakerInvoker(IInvoker, EventEmitter):
         fallback: IStrategy | None = None,
         source: str | None = None,
     ) -> None:
+        IInvoker.__init__(self)
         EventEmitter.__init__(self, source)
         self._machine = machine
         self._command = command
