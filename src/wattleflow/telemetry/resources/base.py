@@ -5,7 +5,7 @@
 
 
 """
-What a resource is, and a moment of them — `HLRQ-18`, `FRQ-PTN-18.1`.
+What a resource is, and a moment of them.
 
 Three questions answer for every resource alike: is it measurable, what is its
 limit and where did that come from, and how much is in use. A resource the
