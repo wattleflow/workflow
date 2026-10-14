@@ -32,6 +32,10 @@
   "registry": "wattleflow-code-vocabulary",
   "distribution": "wattleflow-workflow",
   "_criterion_version": [
+    "0.12.0 (2026-10-15) — python_reference tracks requires-python (>=3.12.14); all",
+    "projects run on CPython 3.12.14. Authority: odluka autora 2026-10-15: Python",
+    "3.12.14 za sve projekte; pyproject requires-python >=3.12.14. Proven by",
+    "wem_criterion 0.3.0: 0 finding(s) removed, none added.",
     "0.11.0 (2026-10-14) — Measurement moved out of `audit` into its own package",
     "`telemetry` (SyRS-MONITOR v0.0.7 s2.1, QR-MNT-07; SyRS-AUDIT v0.0.3, QR-",
     "AUD-07). `telemetry` is a domain (it depends on `audit`); `audit`, `constants`",
@@ -73,10 +77,10 @@
     "PENDING: this revision must be enacted in the documentation — until then the criterion is a",
     "draft and its findings are conformant, not descriptive (D-08)."
   ],
-  "criterion_version": "0.11.0",
+  "criterion_version": "0.12.0",
   "documentation_version": "v0.0.5",
   "_python_reference": "Defines the 'stdlib' set for ORG-01; must track requires-python in pyproject.toml.",
-  "python_reference": "3.11",
+  "python_reference": "3.12",
   "_acronym_identifier_casing": [
     "Enforcement level of the acronym-casing criterion — a registry fact under documentation",
     "governance rather than a constant in the tool: `adopted` makes the check an",
