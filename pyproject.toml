@@ -1,6 +1,6 @@
 [project]
 name = "wattleflow-workflow"
-version = "0.0.1.49"
+version = "0.0.1.50"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"
@@ -19,18 +19,12 @@ classifiers = [
 ]
 
 dependencies = [
-    "wattleflow>=0.0.0.60",
+    "wattleflow>=0.0.0.61",
 ]
 
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
-
-#[project.optional-dependencies]
-#dev = [
-#    "ruff",
-#    "twine>=6.1",   # older twine rejects Metadata-Version 2.4
-#]
 
 [project.urls]
 homepage = "https://github.com/wattleflow/workflow.git"
@@ -45,11 +39,6 @@ include-package-data = false
 where = ["src"]
 namespaces = true
 
-# Allowlist, not denylist (mirrors the core distribution): what is not listed is
-# not shipped, so a new directory under src/wattleflow cannot leak into the wheel
-# by being forgotten — and non-package assets never become packages.
-# INVARIANT: every entry here must be covered by MANIFEST.in, or it installs as
-# an empty directory and the consumer's import fails at runtime, not at install.
 include = [
     "wattleflow.audit*",
     "wattleflow.concrete*",

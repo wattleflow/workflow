@@ -9,17 +9,11 @@
 from __future__ import annotations
 
 __all__ = [
-    "RETRY_SCHEDULED",
-    "RETRY_GAVE_UP",
-    "CIRCUIT_STATE_CHANGED",
-    "CIRCUIT_REJECTED",
     "FaultEvent",
     "EventEmitter",
     "RetryExhaustedError",
     "RetryPolicy",
     "RetryInvoker",
-    "BreakerState",
-    "BreakerAction",
     "CircuitOpenError",
     "CircuitStateMachine",
     "CircuitBreakerInvoker",
@@ -30,12 +24,17 @@ import time
 import uuid
 from collections.abc import Callable
 from datetime import datetime, timezone
-from enum import Enum
 from typing import Any
-
+from wattleflow.constants.fault_tolerance import (
+    CIRCUIT_REJECTED,
+    CIRCUIT_STATE_CHANGED,
+    RETRY_GAVE_UP,
+    RETRY_SCHEDULED,
+)
 from wattleflow.core.behavioural import ICommand, IInvoker, IStateMachine, IStrategy
 from wattleflow.core.framework import IWattleflow
 from wattleflow.core.transactional import IEvent, IEventListener, IEventSource
+from wattleflow.enums.fault_tolerance import BreakerAction, BreakerState
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -44,18 +43,6 @@ from wattleflow.core.transactional import IEvent, IEventListener, IEventSource
 __author__ = "WattleFlow"
 __copyright__ = "© 2022–2026 WattleFlow. All rights reserved"
 __license__ = "Apache 2 Licence"
-
-
-# --------------------------------------------------------------------------- #
-# region Event types                                                          #
-# --------------------------------------------------------------------------- #
-RETRY_SCHEDULED = "retry.scheduled"
-RETRY_GAVE_UP = "retry.gave_up"
-CIRCUIT_STATE_CHANGED = "circuit.state_changed"
-CIRCUIT_REJECTED = "circuit.rejected"
-# --------------------------------------------------------------------------- #
-# endregion Event types                                                       #
-# --------------------------------------------------------------------------- #
 
 
 # --------------------------------------------------------------------------- #
@@ -77,6 +64,16 @@ class FaultEvent(IEvent):
         "_timestamp",
         "_type",
     )
+
+    @property
+    def name(self) -> str:
+        return type(self).__name__
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}()"
 
     def __init__(
         self,
@@ -130,9 +127,22 @@ class EventEmitter(IEventSource[IEvent]):
 
     __slots__ = ("_listeners", "_source")
 
+    @property
+    def name(self) -> str:
+        return type(self).__name__
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}()"
+
     def __init__(self, source: str | None = None) -> None:
         self._listeners: list[IEventListener[IEvent]] = []
         self._source = source
+
+    def _publish(self, event_type: str, payload: dict[str, Any]) -> None:
+        self.emit_event(FaultEvent(event_type, payload, source=self._source))
 
     def register_listener(self, listener: IEventListener[IEvent]) -> None:
         if listener not in self._listeners:
@@ -145,9 +155,6 @@ class EventEmitter(IEventSource[IEvent]):
     def emit_event(self, event: IEvent, **kwargs: Any) -> None:
         for listener in tuple(self._listeners):
             listener.on_event(event)
-
-    def _publish(self, event_type: str, payload: dict[str, Any]) -> None:
-        self.emit_event(FaultEvent(event_type, payload, source=self._source))
 
 
 def _require(command: ICommand | None) -> ICommand:
@@ -164,6 +171,8 @@ def _require(command: ICommand | None) -> ICommand:
 # --------------------------------------------------------------------------- #
 # region Retry                                                                #
 # --------------------------------------------------------------------------- #
+
+
 class RetryExhaustedError(Exception):
     """Raised when a command failed and at least one retry was performed."""
 
@@ -177,13 +186,23 @@ class RetryPolicy(IStrategy):
     """
     RetryPolicy - exponential backoff as an IStrategy.
 
-    execute(caller, attempt=int, error=BaseException) returns the delay in
+    algorithm(caller, attempt=int, error=BaseException) returns the delay in
     seconds before the next attempt, or None when no further attempt is
     allowed (attempt limit reached, or error is not an instance of retry_on).
     Delay = min(base_delay * multiplier ** (attempt - 1), max_delay).
     """
 
     __slots__ = ("_base_delay", "_max_attempts", "_max_delay", "_multiplier", "_retry_on")
+
+    @property
+    def name(self) -> str:
+        return type(self).__name__
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}()"
 
     def __init__(
         self,
@@ -193,6 +212,8 @@ class RetryPolicy(IStrategy):
         max_delay: float = 30.0,
         retry_on: tuple[type[BaseException], ...] = (Exception,),
     ) -> None:
+        super().__init__()
+
         if max_attempts < 1:
             raise ValueError("max_attempts must be >= 1")
         if base_delay < 0 or max_delay < 0:
@@ -236,6 +257,7 @@ class RetryInvoker(IInvoker, EventEmitter):
         sleep: Callable[[float], None] = time.sleep,
         source: str | None = None,
     ) -> None:
+        IInvoker.__init__(self)
         EventEmitter.__init__(self, source)
         self._policy = policy
         self._command = command
@@ -273,16 +295,6 @@ class RetryInvoker(IInvoker, EventEmitter):
 # --------------------------------------------------------------------------- #
 # region Circuit Breaker                                                      #
 # --------------------------------------------------------------------------- #
-class BreakerState(str, Enum):
-    CLOSED = "closed"
-    OPEN = "open"
-    HALF_OPEN = "half_open"
-
-
-class BreakerAction(str, Enum):
-    CALL = "call"
-    SUCCESS = "success"
-    FAILURE = "failure"
 
 
 class CircuitOpenError(Exception):
@@ -308,6 +320,16 @@ class CircuitStateMachine(IStateMachine[BreakerAction]):
 
     __slots__ = ("_clock", "_failures", "_opened_at", "_reset_timeout", "_state", "_threshold")
 
+    @property
+    def name(self) -> str:
+        return type(self).__name__
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}()"
+
     def __init__(
         self,
         failure_threshold: int = 5,
@@ -315,6 +337,8 @@ class CircuitStateMachine(IStateMachine[BreakerAction]):
         *,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
+        super().__init__()
+
         if failure_threshold < 1:
             raise ValueError("failure_threshold must be >= 1")
         if reset_timeout < 0:
@@ -369,13 +393,23 @@ class CircuitBreakerInvoker(IInvoker, EventEmitter):
     CircuitBreakerInvoker - IInvoker guarded by a CircuitStateMachine.
 
     invoke(**kwargs): if the machine rejects CALL, emits CIRCUIT_REJECTED and
-    returns fallback.execute(self, **kwargs), or raises CircuitOpenError when
+    returns fallback.algorithm(self, **kwargs), or raises CircuitOpenError when
     no fallback is set. Otherwise applies CALL, runs command.execute(**kwargs),
     then applies SUCCESS or FAILURE; a failure's exception is re-raised. Every
     state change emits CIRCUIT_STATE_CHANGED with "from" and "to".
     """
 
     __slots__ = ("_command", "_fallback", "_machine")
+
+    @property
+    def name(self) -> str:
+        return type(self).__name__
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}()"
 
     def __init__(
         self,
@@ -390,6 +424,13 @@ class CircuitBreakerInvoker(IInvoker, EventEmitter):
         self._command = command
         self._fallback = fallback
 
+    def _transition(self, action: BreakerAction) -> None:
+        before = self._machine.state
+        self._machine.apply(action)
+        after = self._machine.state
+        if after is not before:
+            self._publish(CIRCUIT_STATE_CHANGED, {"from": before.value, "to": after.value})
+
     def set_command(self, command: ICommand) -> None:
         self._command = command
 
@@ -398,7 +439,7 @@ class CircuitBreakerInvoker(IInvoker, EventEmitter):
         if not self._machine.can(BreakerAction.CALL):
             self._publish(CIRCUIT_REJECTED, {"state": self._machine.state.value})
             if self._fallback is not None:
-                return self._fallback.execute(self, **kwargs)
+                return self._fallback.algorithm(self, **kwargs)
             raise CircuitOpenError("Circuit is open; call rejected.")
         self._transition(BreakerAction.CALL)
         try:
@@ -409,13 +450,6 @@ class CircuitBreakerInvoker(IInvoker, EventEmitter):
         self._transition(BreakerAction.SUCCESS)
         return result
 
-    def _transition(self, action: BreakerAction) -> None:
-        before = self._machine.state
-        self._machine.apply(action)
-        after = self._machine.state
-        if after is not before:
-            self._publish(CIRCUIT_STATE_CHANGED, {"from": before.value, "to": after.value})
-
 
 # --------------------------------------------------------------------------- #
 # endregion Circuit Breaker                                                   #
@@ -425,17 +459,29 @@ class CircuitBreakerInvoker(IInvoker, EventEmitter):
 # --------------------------------------------------------------------------- #
 # region Composition                                                          #
 # --------------------------------------------------------------------------- #
+
+
 class InvokerCommand(ICommand):
     """
     InvokerCommand - adapts an IInvoker to ICommand.
-
     execute(**kwargs) returns invoker.invoke(**kwargs), so invokers can be
     stacked, e.g. CircuitBreakerInvoker -> RetryInvoker -> operation.
     """
 
     __slots__ = ("_invoker",)
 
+    @property
+    def name(self) -> str:
+        return type(self).__name__
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}()"
+
     def __init__(self, invoker: IInvoker) -> None:
+        super().__init__()
         self._invoker = invoker
 
     def execute(self, **kwargs: Any) -> Any:
