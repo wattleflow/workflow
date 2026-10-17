@@ -3,7 +3,7 @@
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
-"""`GenericAudit` against SyRS-AUDIT (FR-AUD-01…18, QR-AUD-01…03).
+"""`GenericAudit` against SyRS-AUD-audit (FR-AUD-01…18, QR-AUD-01…03).
 
 Each test owns its logger name, so the shared handler registry never leaks between tests.
 Run from `workflow/`: PYTHONPATH=src python -m unittest tests.test_audit -v
@@ -124,7 +124,7 @@ class LevelTest(AuditCase):  # FR-AUD-02, FR-AUD-08
             audit.set_level("xyz")
         self.assertEqual(audit._logger.level, logging.ERROR)
 
-    @unittest.expectedFailure  # k.25: SyRS-AUDIT section 8 item 7
+    @unittest.expectedFailure  # k.25: SyRS-AUD-audit section 8 item 7
     def test_a_threshold_reaches_every_handler_of_the_name(self):
         name = self.logger_name()
         first, h1 = self.make(name=name, level="ERROR")
@@ -450,7 +450,7 @@ class ObserverTest(AuditCase):  # FR-AUD-13…16
             (failure.levelno, failure.exc_info[0]), (logging.ERROR, ZeroDivisionError)
         )
 
-    @unittest.expectedFailure  # k.54: SyRS-AUDIT section 8 item 9
+    @unittest.expectedFailure  # k.54: SyRS-AUD-audit section 8 item 9
     def test_a_failing_observer_is_written_at_critical_threshold(self):
         GenericAudit.observe(lambda *a: 1 / 0)
         audit, sink = self.make(level="CRITICAL")

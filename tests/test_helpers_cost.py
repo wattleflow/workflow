@@ -1,5 +1,5 @@
 # Module name: tests/test_helpers_cost.py
-# Time cost of every public method of Attribute and NameHelper (FRQ-HLP): each method is run on a
+# Time cost of every public method of Attribute and NameHelper (SyRS-HLP-helpers): each method is run on a
 # representative input, its median cost per call is computed, and it must stay within a budget.
 # The budget is deliberately generous (it catches an accidental order-of-magnitude regression,
 # not a few nanoseconds); the table is printed when WF_TIMING=1.

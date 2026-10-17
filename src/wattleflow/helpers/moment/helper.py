@@ -39,17 +39,17 @@ class MomentHelper:
     _E_NA = datetime(1970, 1, 1)
     _G = 1_000_000_000
     _PK = Struct(">qIB")  # seconds int64, nanoseconds uint32, aware uint8 (13 B)
-    #: The int64 ns of numpy, pandas and Arrow; -2**63 is their NaT, not a value (BR-MMN-07).
+    #: The int64 ns of numpy, pandas and Arrow; -2**63 is their NaT, not a value.
     INT64_MIN_NS = -(2**63) + 1
     INT64_MAX_NS = 2**63 - 1
-    #: The global setting of the workflow zone (BR-MMN-12).
+    #: The global setting of the workflow zone (NFRQ-DFN-04).
     ENV_ZONE = "WATTLEFLOW_TIME_ZONE"
     _workflow_zone: str | None = None
 
     # ---------- workflow zone ----------
     @classmethod
     def configure(cls, zone=None) -> str:
-        """Sets the workflow zone once, at the start of a workflow (BR-MMN-12).
+        """Sets the workflow zone once, at the start of a workflow (NFRQ-DFN-04).
 
         `zone`, else ENV_ZONE, else the system zone, else UTC with one warning.
         """
@@ -207,7 +207,7 @@ class MomentHelper:
 
     @staticmethod
     def _shown(make):
-        # Past years 1-9999 (zone edge, inf) datetime fails; it is named a range error (BR-MMN-06).
+        # Past years 1-9999 (zone edge, inf) datetime fails; it is named a range error.
         try:
             return make()
         except (OverflowError, ValueError) as e:
@@ -258,7 +258,7 @@ class MomentAwareHelper(MomentHelper):
 
     @classmethod
     def now(cls, tz=None) -> Moment:
-        """This moment, shown in `tz`, else in the workflow zone (BR-MMN-12)."""
+        """This moment, shown in `tz`, else in the workflow zone (NFRQ-DFN-04)."""
         return Moment._raw(time_ns(), True, cls.key(tz) if tz is not None else cls.workflow_zone())
 
     # ================= output =================
@@ -394,7 +394,7 @@ class MomentAwareHelper(MomentHelper):
 class MomentNaiveHelper(MomentHelper):
     """Naive time: a wall time without a zone. A bare int = wall-time ns.
 
-    No unix/http/jd/zone operations, no RFC 5322 form (its '-0000' means UTC, BR-MMN-09) and NO
+    No unix/http/jd/zone operations, no RFC 5322 form (its '-0000' means UTC, NFRQ-DFN-05) and NO
     conversion to aware (a zone is never invented).
     """
 
@@ -426,7 +426,7 @@ class MomentNaiveHelper(MomentHelper):
     @classmethod
     def localize(cls, x, zone) -> Moment:
         """The wall time read in `zone`: the one crossing into a moment, and the zone is always
-        named by the caller (BR-MMN-13, BR-MMN-14)."""
+        named by the caller (NFRQ-DFN-05, NFRQ-DFN-05)."""
         m = cls.moment(x)
         z = MomentHelper.zone(zone) if isinstance(zone, str) else zone
         # The offset comes from datetime (µs); the nanoseconds stay those of the Moment.

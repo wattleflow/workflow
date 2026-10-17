@@ -1,5 +1,5 @@
 # Module name: tests/test_driver_metadata.py
-# Tests for DriverMetadata.capabilities (FRQ-DRV, DEF-DRV-05): a driver's self-description is
+# Tests for DriverMetadata.capabilities (SyRS-DRV-driver): a driver's self-description is
 # checked against a controlled vocabulary when it is built (NFRQ-ORG-12, D-05).
 #
 # Run from `workflow/`:

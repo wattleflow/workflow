@@ -1,5 +1,5 @@
 # Module name: tests/test_processor_checkpoint.py
-# FRQ-MEM (DEF-MEM-01): a processor given a memento store checkpoints after each cycle, resumes after the
+# SyRS-MST-memento-store : a processor given a memento store checkpoints after each cycle, resumes after the
 # saved cycle when it starts again under the same name, and clears the checkpoint once the run completes.
 # Without a store nothing is saved, read or cleared.
 #

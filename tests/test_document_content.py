@@ -1,5 +1,5 @@
 # Module name: tests/test_document_content.py
-# Tests for Document content (FRQ-DOC, DEF-DOC-02): None is not legal content; content leaves a
+# Tests for Document content (SyRS-DCM-document): None is not legal content; content leaves a
 # document only through clear(), and reading it afterwards fails fast.
 #
 # Run from `workflow/`:

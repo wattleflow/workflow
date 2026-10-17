@@ -1,5 +1,5 @@
 # Module name: tests/test_workflow_memento.py
-# FRQ-MEM (DEF-MEM-01): a workflow needs no memento code of its own. Workflow snapshots and restores
+# SyRS-MST-memento-store : a workflow needs no memento code of its own. Workflow snapshots and restores
 # its processors by registered name, and the factory turns a `memento:` section into a store that every
 # processor of the workflow checkpoints to, keyed by its registered name.
 #
@@ -37,7 +37,7 @@ class Create:
         pass
 
 
-Workflow = BaseWorkflow  # final (BR-WFL-17): there is no subclass to test with
+Workflow = BaseWorkflow  # final (BR-WRK-17): there is no subclass to test with
 
 
 def workflow_with(*names):

@@ -1,5 +1,5 @@
 # Module name: tests/test_connection_request.py
-# Tests for GenericConnection.request (FRQ-CON, DEF-CON-01): an unknown or missing
+# Tests for GenericConnection.request (SyRS-CNC-connection): an unknown or missing
 # action is a ConnectionException, Connect and Disconnect drive the engine level.
 #
 # Run from `workflow/`:
@@ -57,7 +57,7 @@ class RequestTest(unittest.TestCase):
 
 
 class VersionContractTest(unittest.TestCase):
-    """DEF-CON-02: `version` is the remote system's version, or None when unknown."""
+    """: `version` is the remote system's version, or None when unknown."""
 
     def setUp(self):
         self.connection = StubConnection(connection_name="stub", lazy_loading=True)
@@ -80,7 +80,7 @@ class VersionContractTest(unittest.TestCase):
 
 
 class CreatedPropertyTest(unittest.TestCase):
-    """DEF-DRV-06: `created` is true exactly where `request(Connect)` has nothing to do."""
+    """: `created` is true exactly where `request(Connect)` has nothing to do."""
 
     def connection_in(self, state: ConnectionState) -> StubConnection:
         connection = StubConnection(connection_name="stub", lazy_loading=True)

@@ -1,7 +1,7 @@
 # Module name: tests/test_scheduler.py
-# Tests for Scheduler (FRQ-SCH): lifecycle events around the orchestrator, a stop that is not blocked by a
+# Tests for Scheduler (SyRS-SCH-scheduler): lifecycle events around the orchestrator, a stop that is not blocked by a
 # running start, closure of the Started event on failure, listener isolation and delivery outside the lock,
-# the orchestration counter and running flag, and slots (BR-PTN-07).
+# the orchestration counter and running flag, and slots (BR-PTR-07).
 #
 # Run from `workflow/`:
 #   PYTHONPATH=src:../core/src python -m unittest tests.test_scheduler -v

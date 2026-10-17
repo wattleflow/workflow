@@ -1,5 +1,5 @@
 # Module name: tests/test_connection_getattr.py
-# Tests for GenericConnection.__getattr__ (FRQ-CON, DEF-CON-03): the slot set is computed once
+# Tests for GenericConnection.__getattr__ (SyRS-CNC-connection): the slot set is computed once
 # per type, and attribute resolution (slots, preset, unknown names) behaves as before.
 #
 # Run from `workflow/`:

@@ -17,6 +17,7 @@ from . import (
     driver,
     exception,
     factory,
+    fault_tolerance,
     helper,
     iterator,
     loader,
@@ -42,6 +43,7 @@ from .document import *  # noqa: F403
 from .driver import *  # noqa: F403
 from .exception import *  # noqa: F403
 from .factory import *  # noqa: F403
+from .fault_tolerance import *  # noqa: F403
 from .helper import *  # noqa: F403
 from .iterator import *  # noqa: F403
 from .loader import *  # noqa: F403
@@ -68,8 +70,10 @@ __all__ = [
     *driver.__all__,
     *exception.__all__,
     *factory.__all__,
+    *fault_tolerance.__all__,
     *helper.__all__,
     *iterator.__all__,
+    *loader.__all__,
     *manager.__all__,
     *memento.__all__,
     *memento_store.__all__,

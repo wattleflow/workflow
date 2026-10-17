@@ -1,5 +1,5 @@
 # Module name: tests/test_manager.py
-# Tests for ConnectionManager, DriverManager and ProcessorManager (FRQ-MGR): registration, lookup,
+# Tests for ConnectionManager, DriverManager and ProcessorManager (SyRS-MNG-managers): registration, lookup,
 # operations, release on unregister and on discard, hashing, slots and the observer hook.
 # hot_swap is covered by test_hot_swap.py.
 #
@@ -179,7 +179,7 @@ class ConnectionManagerTest(unittest.TestCase):
         self.assertEqual(conn.log, [Operation.Disconnect])
 
     def test_unregister_closes_a_connection_that_holds_a_link_but_no_session(self):
-        # BR-CON-17: whatever its state, a connection that holds a link is closed.
+        # BR-CNC-17: whatever its state, a connection that holds a link is closed.
         for state in (ConnectionState.CREATING, ConnectionState.CREATED, ConnectionState.CONNECTING,
                       ConnectionState.CONNECTED, ConnectionState.FAILED):
             with self.subTest(state=state):

@@ -1,5 +1,5 @@
 # Module name: tests/test_driver_contract.py
-# Tests for the GenericDriver contract (FRQ-DRV, DEF-DRV-01): load, close, read, write and metadata
+# Tests for the GenericDriver contract (SyRS-DRV-driver): load, close, read, write and metadata
 # are abstract through IDriver, so a driver that omits one cannot be instantiated.
 #
 # Run from `workflow/`:

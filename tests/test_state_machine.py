@@ -1,5 +1,5 @@
 # Module name: tests/test_state_machine.py
-# Tests for StateMachine and GuardedStateMachine (FRQ-SMC): only the transitions in the table, a table
+# Tests for StateMachine and GuardedStateMachine (SyRS-SMC-state-machine): only the transitions in the table, a table
 # the owner cannot change from outside, check-and-apply that is atomic under threads, a start state that
 # belongs to the table, and a guard that runs once before the first transition.
 #

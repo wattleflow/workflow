@@ -110,7 +110,7 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
             content=type(content),
         )
 
-        # v0.0.1.23: DEF-DOC-02, None is not content: it leaves a document only through `clear()`,
+        # v0.0.1.23:, None is not content: it leaves a document only through `clear()`,
         # so `content` can fail fast on use after clearing and never in a state the class allowed
         if content is None:
             raise ValueError(f"{self.name}.update_content: content must not be None")
@@ -125,7 +125,7 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
 
         self._content = content
         self._metadata["last_change_key"] = "content"
-        # FRQ-DOC c.12: one route to the time, MomentAwareHelper.now() (no per-document clock)
+        # SyRS-DCM-document: one route to the time, MomentAwareHelper.now() (no per-document clock)
         self._metadata["last_change_time"] = MomentAwareHelper.now()
 
     def update_metadata(self, key: str, value: object) -> None:
@@ -155,7 +155,7 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
             and type(self) is type(other)  # noqa: W503
         )
 
-    # v0.0.1.23: DEF-DOC-01, defining `__eq__` alone sets `__hash__` to None; the hash uses the
+    # v0.0.1.23:, defining `__eq__` alone sets `__hash__` to None; the hash uses the
     # same two facets as `__eq__` and the identifier never changes after construction
     def __hash__(self) -> int:
         return hash((type(self), self.identifier))
@@ -189,7 +189,7 @@ class DocumentFacade(Wattleflow, ITarget, Generic[Adaptee], ABC):
     __slots__ = ("_adapter",)
 
     def __init__(self, adaptee: IAdaptee, **kwargs):
-        # v0.0.1.23: DEF-DOC-05, refuse before any base initialisation, as DocumentAdapter does
+        # v0.0.1.23:, refuse before any base initialisation, as DocumentAdapter does
         if not isinstance(adaptee, IAdaptee):
             raise TypeError("IAdaptee must be used.")
         super().__init__(**kwargs)
@@ -206,7 +206,7 @@ class DocumentFacade(Wattleflow, ITarget, Generic[Adaptee], ABC):
     def __getattr__(self, attr: str):
         if attr.startswith("_"):
             raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
-        # v0.0.1.23: DEF-DOC-06, one lookup: `hasattr` followed by `getattr` evaluated a property
+        # v0.0.1.23:, one lookup: `hasattr` followed by `getattr` evaluated a property
         # twice. The adaptee is still resolved on every miss; the adapter may resolve it lazily.
         adaptee = self._adapter.request()
         try:

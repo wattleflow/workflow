@@ -1,5 +1,5 @@
 # Module name: tests/test_strategy.py
-# Tests for the strategy families (FRQ-STR): the method names that carry the intent, `algorithm` as the
+# Tests for the strategy families (SyRS-STR-strategy): the method names that carry the intent, `algorithm` as the
 # one abstract method, write answering a bool, every failure carried as StrategyException with its
 # cause (a StrategyException from the specialisation passes through unchanged).
 #

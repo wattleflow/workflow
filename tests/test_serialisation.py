@@ -1,6 +1,6 @@
 # Module name: tests/test_serialisation.py
-# Tests for GenericParser, GenericFormatter and GenericConverter (FRQ-SER-PAR, FRQ-SER-FMT,
-# FRQ-SER-CNV): one declared source per parse, sources checked for what they are, a formatter that
+# Tests for GenericParser, GenericFormatter and GenericConverter (SyRS-SRL-PAR-parser, SyRS-SRL-FMT-formatter,
+# SyRS-SRL-CNV-converter): one declared source per parse, sources checked for what they are, a formatter that
 # answers bytes or str, every failure carried as the layer's own error with its cause, and a
 # converter that runs its strategy as the strategy's caller.
 #
@@ -371,7 +371,7 @@ class SlotsTest(unittest.TestCase):
 
 
 class PublicSurfaceTest(unittest.TestCase):
-    """FRQ-SER-PAR c.8: `parse` is the only entry; the hooks are protected (NFRQ-ORG-13 c.2)."""
+    """SyRS-SRL-CNV-converter-PAR c.8: `parse` is the only entry; the hooks are protected (NFRQ-ORG-13 c.2)."""
 
     def test_only_parse_and_name_are_public(self):
         public = {n for n in vars(GenericParser) if not n.startswith("_") and not n.isupper()}

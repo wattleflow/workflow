@@ -1,5 +1,5 @@
 # Module name: tests/test_lazy_iterator_build.py
-# Tests for the build step of LazyIterator (FRQ-ITR, DEF-ITR-03, DEF-ITR-04): the source is audited as
+# Tests for the build step of LazyIterator (SyRS-ITR-lazy-iterators): the source is audited as
 # Event.Create (Started, Completed or Failed) and its type is checked with Attribute.evaluate.
 #
 # Run from `workflow/`:

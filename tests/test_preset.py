@@ -78,7 +78,7 @@ class PresetGateResolveTest(unittest.TestCase):
     def test_framework_keys_are_a_closed_set(self):
         self.assertEqual(
             PresetGate.FRAMEWORK,
-            frozenset({"allowed", "fmt", "formatting", "handler", "level", "name"}),  # fmt: alias of formatting, split by Audit
+            frozenset({"allowed", "fmt", "formatting", "handler", "level", "name"}),
         )
 
 
@@ -101,7 +101,7 @@ class PresetDecoratorTest(unittest.TestCase):
 
     def test_undeclared_attribute_is_not_permitted(self):
         with self.assertRaisesRegex(AttributeError, "is not permitted"):
-            Parent(a=1).preset.zzz
+            _ = Parent(a=1).preset.zzz
 
     def test_declared_key_can_be_set_and_an_undeclared_one_cannot(self):
         preset = Parent(a=1).preset

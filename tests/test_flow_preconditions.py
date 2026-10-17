@@ -1,5 +1,5 @@
 # Module name: tests/test_flow_preconditions.py
-# FRQ-PRC-01.22: the preconditions of the document flow are checks, not assertions. A blackboard needs a
+# SyRS-PRC-processor: the preconditions of the document flow are checks, not assertions. A blackboard needs a
 # create strategy, takes only repositories; a processor takes only a blackboard, a list of pipelines and
 # pipelines. Each refusal is the layer's own exception, and it survives `python -O`.
 #

@@ -1374,7 +1374,7 @@ class SupplyChainRule(Wattleflow, IStrategy):
                     # be if the waived state was never reported.
                     out.append(
                         Finding(
-                            "SEC-03",
+                            "SCR-03",
                             INFO,
                             path,
                             0,
@@ -1392,7 +1392,7 @@ class SupplyChainRule(Wattleflow, IStrategy):
                 foreign = beyond
             out.append(
                 Finding(
-                    "SEC-03",
+                    "SCR-03",
                     severity,
                     path,
                     0,
@@ -1420,7 +1420,7 @@ class SupplyChainRule(Wattleflow, IStrategy):
         if not pyproject.is_file():
             return [
                 Finding(
-                    "SEC-03",
+                    "SCR-03",
                     INFO,
                     caller.home,
                     0,
@@ -1437,7 +1437,7 @@ class SupplyChainRule(Wattleflow, IStrategy):
         except (OSError, tomllib.TOMLDecodeError) as e:
             return [
                 Finding(
-                    "SEC-03",
+                    "SCR-03",
                     INFO,
                     pyproject,
                     0,
@@ -1457,7 +1457,7 @@ class SupplyChainRule(Wattleflow, IStrategy):
         if not find.get("namespaces") and not (src / "__init__.py").is_file():
             out.append(
                 Finding(
-                    "SEC-03",
+                    "SCR-03",
                     severity,
                     pyproject,
                     0,
@@ -1506,7 +1506,7 @@ class SupplyChainRule(Wattleflow, IStrategy):
             more = f" (+{len(importers) - 3} more)" if len(importers) > 3 else ""
             out.append(
                 Finding(
-                    "SEC-03",
+                    "SCR-03",
                     severity,
                     pyproject,
                     0,
@@ -1873,7 +1873,7 @@ class WemLint(Wattleflow, IStrategyContext):
     @staticmethod
     def _waived_modules(src: Path, scope: dict, files) -> frozenset[Path]:
         # A guarded reference whose fallback is functionally complete
-        # does NOT displace the module from the tier. SEC-03 read that waiver, the
+        # does NOT displace the module from the tier. SCR-03 read that waiver, the
         # scope filter did not, so the ORG rules skipped three in-tier modules
         # while the same run printed "waived" about them.
         declared = {str(entry.get("module")) for entry in (scope.get("guarded_optional") or ()) if entry.get("module")}
@@ -1897,7 +1897,7 @@ class WemLint(Wattleflow, IStrategyContext):
         """Modules that could not be parsed — a measurement that did not happen.
 
         Every rule reads the same AST, so a file that does not parse is skipped
-        by all of them; SEC-03 additionally saw an empty import list and read it
+        by all of them; SCR-03 additionally saw an empty import list and read it
         as "imports nothing foreign", i.e. as in-tier. Raised here, once per run
         and outside any rule, so no `--select` can make the gap invisible.
         """
@@ -1933,12 +1933,12 @@ class WemLint(Wattleflow, IStrategyContext):
         out: list[Finding] = []
         for path in sorted(self.excluded):
             foreign = ", ".join(sorted(Naming.foreign_imports(path, self._core_libs)))
-            # Only the tier reason is echoed by SEC-03; a path dropped by an
+            # Only the tier reason is echoed by SCR-03; a path dropped by an
             # exclude_paths glob raises nothing there, and claiming otherwise made
             # this message assert a second record that was never written.
             reason = f"imports {foreign}" if foreign else "matched an exclude_paths glob"
             echo = (
-                "the same fact is raised as a SEC-03 finding, so the skip is recorded "
+                "the same fact is raised as a SCR-03 finding, so the skip is recorded "
                 "twice on purpose and silenced nowhere"
                 if foreign
                 else "the criterion itself put this path out of scope, so this INFO is the only record of the skip"
@@ -2009,7 +2009,7 @@ class RuleFactory(Wattleflow, IFactory):
         "ORG-02": NomenclatureRule,
         "ORG-03": TypeVarRule,
         "ORG-07": PresetAllowedRule,
-        "SEC-03": SupplyChainRule,
+        "SCR-03": SupplyChainRule,
         "OBS-01": AuditLevelRule,
         "OBS-02": AuditFieldRule,
         "OBS-03": AuditVolumeRule,

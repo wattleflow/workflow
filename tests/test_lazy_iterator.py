@@ -1,5 +1,5 @@
 # Module name: tests/test_lazy_iterator.py
-# Tests for LazyIterator and LazyAsyncIterator (FRQ-ITR, DEF-ITR-01): the source is built on the first
+# Tests for LazyIterator and LazyAsyncIterator (SyRS-ITR-lazy-iterators): the source is built on the first
 # fetch and kept; an instance is a single-pass iterator (iter(x) is x), and a new pass comes from the
 # aggregate that creates a new iterator (ISyncAggregate), as Catalog does.
 #

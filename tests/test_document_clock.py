@@ -1,5 +1,5 @@
 # Module name: tests/test_document_clock.py
-# Tests for the clock behind a document's audit keys (FRQ-DOC c.12): there is one route to the time,
+# Tests for the clock behind a document's audit keys (SyRS-DCM-document): there is one route to the time,
 # `MomentAwareHelper.now()`, and `Document` has no second one of its own.
 #
 # Run from `workflow/`:

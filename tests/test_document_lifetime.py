@@ -1,5 +1,5 @@
 # Module name: tests/test_document_lifetime.py
-# Tests for Document lifetime (FRQ-DOC c.16): collecting a document changes nothing others see;
+# Tests for Document lifetime (SyRS-DCM-document): collecting a document changes nothing others see;
 # only an explicit clear() empties the metadata.
 #
 # Run from `workflow/`:

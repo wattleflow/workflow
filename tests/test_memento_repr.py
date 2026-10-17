@@ -1,6 +1,6 @@
 # Module name: tests/test_memento_repr.py
-# FRQ-MEM (DEF-MEM-02): repr(GenericMemento) names the snapshot and its keys, never the values
-# (BR-PTN-04, NFRQ-SCR-06); the values stay reachable through get_state() and to_dict().
+# SyRS-MST-memento-store : repr(GenericMemento) names the snapshot and its keys, never the values
+# (BR-PTR-04, NFRQ-SCR-06); the values stay reachable through get_state() and to_dict().
 #
 # Run from `workflow/`:
 #   PYTHONPATH=src:../core/src python -m unittest tests.test_memento_repr -v

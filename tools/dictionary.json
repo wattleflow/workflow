@@ -32,6 +32,15 @@
   "registry": "wattleflow-code-vocabulary",
   "distribution": "wattleflow-workflow",
   "_criterion_version": [
+    "0.14.0 (2026-10-17) — rule id SEC-03a becomes SCR-03a: the NFRQ family is SCR",
+    "since 2026-10-12. Authority: odluka autora 2026-10-17: uskladiti imena pravila",
+    "wem_lint s obitelji NFRQ-SCR (SEC-03a → SCR-03a). Proven by wem_criterion",
+    "0.3.0: 0 finding(s) removed, none added.",
+    "0.13.0 (2026-10-17) — identifier_acronyms gains AES, OCR, PDF, PDFJSON, PII,",
+    "RC, XMP, XY; domains gains converters (author instruction 2026-10-17).",
+    "Authority: odluka autora 2026-10-17: registrirati akronime AES, OCR, PDF,",
+    "PDFJSON, PII, RC, XMP, XY i deklarirati paket converters (sesija wattleflow-",
+    "tools-wem). Proven by wem_criterion 0.3.0: 0 finding(s) removed, none added.",
     "0.12.0 (2026-10-15) — python_reference tracks requires-python (>=3.12.14); all",
     "projects run on CPython 3.12.14. Authority: odluka autora 2026-10-15: Python",
     "3.12.14 za sve projekte; pyproject requires-python >=3.12.14. Proven by",
@@ -77,7 +86,7 @@
     "PENDING: this revision must be enacted in the documentation — until then the criterion is a",
     "draft and its findings are conformant, not descriptive (D-08)."
   ],
-  "criterion_version": "0.12.0",
+  "criterion_version": "0.14.0",
   "documentation_version": "v0.0.5",
   "_python_reference": "Defines the 'stdlib' set for ORG-01; must track requires-python in pyproject.toml.",
   "python_reference": "3.12",
@@ -164,7 +173,7 @@
       "waiver": "declared"
     },
     {
-      "id": "SEC-03a",
+      "id": "SCR-03a",
       "nfr": "NFRQ-SCR-03",
       "check": "distribution_manifest",
       "severity": "warning",
@@ -224,7 +233,8 @@
     "managers",
     "orchestrators",
     "schedulers",
-    "telemetry"
+    "telemetry",
+    "converters"
   ],
   "shared_namespace": "helpers",
   "_report_language": [
@@ -393,7 +403,15 @@
     "SQL",
     "FSM",
     "SFTP",
-    "OSCAL"
+    "OSCAL",
+    "AES",
+    "OCR",
+    "PDF",
+    "PDFJSON",
+    "PII",
+    "RC",
+    "XMP",
+    "XY"
   ],
   "_type_vars": [
     "NFRQ-ORG-03 — a TypeVar names the SEMANTIC ROLE the type plays in the generic",

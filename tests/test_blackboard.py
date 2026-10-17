@@ -1,5 +1,5 @@
 # Module name: tests/test_blackboard.py
-# Tests for concrete/blackboard.py — FRQ-BBD §9 criteria 1–5 and the closed §12 findings:
+# Tests for concrete/blackboard.py — SyRS-BLC-blackboard criteria 1–5 and the closed §12 findings:
 # the generic layer declares the key it injects (`defer_flush`), `TRANSITIONS`
 # is exported, and the constructor/destructor contract holds.
 #
@@ -112,14 +112,14 @@ class DeferFlushDeclarationTest(unittest.TestCase):
         warning.assert_called_once()
         self.assertEqual(warning.call_args.kwargs["discarded"], ["bogus"])
         with self.assertRaises(AttributeError):
-            board.bogus
+            _ = board.bogus
 
     def test_fmt_is_an_alias_for_formatting(self):
         with patch.object(Board, "warning") as warning:
             board = Board(fmt="%(message)s")
         warning.assert_not_called()
         with self.assertRaises(AttributeError):
-            board.fmt
+            _ = board.fmt
 
 
 class ModuleContractTest(unittest.TestCase):

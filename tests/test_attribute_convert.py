@@ -1,5 +1,5 @@
 # Module name: tests/test_attribute_convert.py
-# Tests for Attribute.convert (FRQ-HLP, DEF-HLP-01): the method returns the converted value and
+# Tests for Attribute.convert (SyRS-HLP-helpers): the method returns the converted value and
 # leaves the caller's keyword arguments alone.
 #
 # Run from `workflow/`:

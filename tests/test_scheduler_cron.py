@@ -1,5 +1,5 @@
 # Module name: tests/test_scheduler_cron.py
-# SchedulerCronJob (the consumer of Scheduler, FRQ-SCH): a failed pass never stops the loop, not even
+# SchedulerCronJob (the consumer of Scheduler, SyRS-SCH-scheduler): a failed pass never stops the loop, not even
 # when a listener of its error event fails.
 #
 # Run from `workflow/`:

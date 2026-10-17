@@ -1,5 +1,5 @@
 # Module name: tests/test_singleton.py
-# Tests for Singleton (FRQ-SGT): one instance per concrete class, abstract classes never cached,
+# Tests for Singleton (SyRS-SGT-singleton): one instance per concrete class, abstract classes never cached,
 # __init__ once (also under threads, and nobody sees a half-built object), arguments of later calls
 # reported rather than lost, a failed __init__ retried, and subclasses with __slots__ without ceremony.
 #

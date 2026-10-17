@@ -21,7 +21,6 @@ __all__ = [
 from abc import abstractmethod, ABC
 from wattleflow.core import IWattleflow, IStrategy, ITarget
 from wattleflow.concrete.base import Wattleflow
-from wattleflow.concrete.document import DocumentFacade
 from wattleflow.concrete.exception import StrategyException
 from wattleflow.enums.event import Event
 # from wattleflow.decorators.measure import measured  # retired
@@ -44,7 +43,7 @@ class Strategy(Wattleflow, IStrategy, ABC):
         pass
 
     def _run(self, operation: str, **kwargs):
-        """`algorithm` with every failure carried as StrategyException (BR-PTN-05)."""
+        """`algorithm` with every failure carried as StrategyException (BR-PTR-05)."""
         try:
             return self.algorithm(**kwargs)
         except StrategyException:

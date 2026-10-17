@@ -1,5 +1,5 @@
 # Module name: tests/test_document_hash.py
-# Tests for Document hashing (FRQ-DOC, DEF-DOC-01): a document is hashable, and the hash
+# Tests for Document hashing (SyRS-DCM-document): a document is hashable, and the hash
 # agrees with __eq__ (same type and identifier).
 #
 # Run from `workflow/`:

@@ -9,13 +9,13 @@ Separates the three concerns the current ORG-01 rule fuses into one class:
 
   * DependencyGraph — ONE shared model (static + relative + dynamic edges)
   * Metric          — diagnostics over the graph (NFR `[M]`; ANALIZA §5.8), never a gate
-  * Rule            — conformance checks (ORG-01/02/03, SEC-03), pass/fail
+  * Rule            — conformance checks (ORG-01/02/03, SCR-03), pass/fail
 
 Diagnostic (Metric) and managerial (Rule) are distinct types by construction — the
 Goodhart wall of NFR `[M]` criterion 5 / ANALIZA §4.1. A Metric becomes a gate only via ADR.
 
 This also dissolves the "same edge, opposite sign" defect: a foreign-import edge is read by
-a Rule (SEC-03 → flag) and by a Metric (attack surface → count), never used to *exclude*.
+a Rule (SCR-03 → flag) and by a Metric (attack surface → count), never used to *exclude*.
 
 Status: SCAFFOLD. Existing wem_lint.py rules migrate onto `Rule`; metrics are new. On
 integration this maps onto the framework's IStrategy/IFactory dogfooding.
@@ -251,7 +251,7 @@ class PropagationCost(Metric):
 
 class BlastRadius(Metric):
     """§5.8 Izloženost (structural). Max reverse-reachability share over nodes —
-    supply-chain blast (SEC-01/03): a compromised shared module reaches its
+    supply-chain blast (SCR-01/03): a compromised shared module reaches its
     importers (log4j). Reverse, not forward, is deliberate."""
 
     name, scale, unit = "blast_radius_max", Scale.RATIO, "fraction"
@@ -274,7 +274,7 @@ class AttackSurface(Metric):
     name, scale, unit = "attack_surface", Scale.INTERVAL, "weighted-count"
 
     def compute(self, g: DependencyGraph) -> Measurement:
-        raise NotImplementedError("SEC-02: interface/channel/data extraction pending")
+        raise NotImplementedError("SCR-02: interface/channel/data extraction pending")
 
 
 class StructureCochangeNMI(Metric):
@@ -405,7 +405,7 @@ def main(argv: list[str] | None = None) -> int:
         for bs in r.blind_spots:
             print(f"  {'':<20}   slijepa točka: {bs}")
 
-    # Per-node diagnostic (SEC-01 blast + fan-out reach) — surfaces the hubs, not
+    # Per-node diagnostic (SCR-01 blast + fan-out reach) — surfaces the hubs, not
     # just the max. blast = share of tree that transitively imports the node; reach
     # = share it transitively imports.
     n = len(g.nodes)

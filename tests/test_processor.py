@@ -1,5 +1,5 @@
 # Module name: tests/test_processor.py
-# Tests for GenericProcessor (FRQ-PRC): preconditions, the state machine across a pass, the flush
+# Tests for GenericProcessor (SyRS-PRC-processor): preconditions, the state machine across a pass, the flush
 # schedule, failure handling and its state, the audit volume (2 + N INFO records), the write context
 # and the destructor. Snapshots are in test_processor_restore.py and test_processor_checkpoint.py.
 #
@@ -11,8 +11,15 @@ from unittest.mock import MagicMock
 
 from wattleflow.concrete.blackboard import GenericBlackboard
 from wattleflow.concrete.exception import PipelineException, ProcessorException
+from wattleflow.concrete.fault_tolerance import (
+    CircuitBreakerInvoker,
+    CircuitOpenError,
+    CircuitStateMachine,
+)
 from wattleflow.concrete.processor import GenericProcessor, ProcessorState
 from wattleflow.core import IPipeline
+from wattleflow.core.behavioural import ICommand
+from wattleflow.enums.fault_tolerance import BreakerAction
 from wattleflow.enums.operation import Operation
 
 ITEMS = 4
@@ -186,6 +193,21 @@ class FailureTest(unittest.TestCase):
             processor.start()
         self.assertIsInstance(caught.exception.__cause__, RuntimeError)
         self.assertEqual(processor.cycle, 2)
+
+    def test_an_open_circuit_without_a_fallback_stops_the_pass_with_its_cause_chain(self):  # BR-FTL-24, BR-FTL-29
+        machine = CircuitStateMachine(failure_threshold=1, reset_timeout=3600)
+        machine.apply(BreakerAction.CALL)
+        machine.apply(BreakerAction.FAILURE)
+        command = MagicMock(spec=ICommand)
+        invoker = CircuitBreakerInvoker(machine, command=command)
+        processor, _, pipeline, seen = build()
+        pipeline.process.side_effect = lambda processor, facade: invoker.invoke()
+        with self.assertRaises(PipelineException) as caught:
+            processor.start()
+        self.assertIsInstance(caught.exception.__cause__, CircuitOpenError)
+        self.assertIs(processor._fsm.state, ProcessorState.FAILED)
+        self.assertEqual(processor.cycle, 0)
+        command.execute.assert_not_called()
 
     def test_it_is_not_wrapped_twice(self):
         processor, *_ = build(fail_on=1)

@@ -11,7 +11,7 @@
 # not merge with a same-named directory another ships (CLAUDE.md 2.6, 2.7 t.1).
 # Nothing here needs an optional library today; the deferred form is
 # kept because the GPU resource that will join arrives from a distribution that
-# does (`HLRQ-18` BR-08).
+# does (`StRS-RESOURCE`).
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 # Module name: tests/test_repository.py
-# Tests for GenericRepository and RepositoryWithDriver (FRQ-REP): construction checks that survive
+# Tests for GenericRepository and RepositoryWithDriver (SyRS-RPS-repository): construction checks that survive
 # `python -O`, read and write through strategies with the caller handed over as the repository, the
 # counter, failures as RepositoryException with the cause, bad input answered with the same exception
 # (not an AttributeError from the report itself), and identity-based equality and hashing.

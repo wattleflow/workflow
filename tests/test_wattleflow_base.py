@@ -1,7 +1,7 @@
 # Module name: tests/test_wattleflow_base.py
-# Tests for the Wattleflow root (FRQ-PTN): identity that cannot be changed, audit by contract, the one
+# Tests for the Wattleflow root (SyRS-PTR-root-base): identity that cannot be changed, audit by contract, the one
 # place that splits the constructor keywords, and the structural rules every framework class follows
-# (BR-PTN-02 Audit only through the root, BR-PTN-07 declared slots, no repeated slots, root first in
+# (BR-PTR-02 Audit only through the root, BR-PTR-07 declared slots, no repeated slots, root first in
 # the bases). Helpers sit below the root and name Audit themselves; they are the stated exemption.
 #
 # Run from `workflow/`:

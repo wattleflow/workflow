@@ -1,5 +1,5 @@
 # Module name: tests/test_memento_store.py
-# FRQ-MEM (DEF-MEM-01): the memento stores. MemoryMementoStore keeps snapshots in the process,
+# SyRS-MST-memento-store : the memento stores. MemoryMementoStore keeps snapshots in the process,
 # FileMementoStore writes one JSON file per key, atomically, so the same path resumes a restarted run.
 #
 # Run from `workflow/`:

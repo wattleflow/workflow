@@ -1,5 +1,5 @@
 # Module name: tests/test_connection_preset.py
-# Tests for the preset surface of GenericConnection (FRQ-CON, DEF-CON-04): `lazy_loading` is the
+# Tests for the preset surface of GenericConnection (SyRS-CNC-connection): `lazy_loading` is the
 # generic class's own argument, so it is declared once there and never reported as unknown.
 #
 # Run from `workflow/`:

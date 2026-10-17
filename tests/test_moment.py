@@ -128,7 +128,7 @@ class TestNaive(unittest.TestCase):
         for name in ("to_unix_ns", "to_http", "to_jd", "with_tz", "strip"):
             self.assertFalse(hasattr(N, name), name)
 
-    def test_a_wall_time_has_no_rfc_5322_form(self):  # FRQ-MMN c.11
+    def test_a_wall_time_has_no_rfc_5322_form(self):  # NFRQ-DFN-05
         # RFC 5322 section 3.3: "-0000" means UT, and a wall time is not UT.
         self.assertFalse(hasattr(N, "to_rfc2822"))
 
@@ -168,7 +168,7 @@ class TestCommon(unittest.TestCase):
 
 
 class TestDomain(unittest.TestCase):
-    """FRQ-MMN c.7-9: years 1-9999 on creation, named errors at zone edges, one bridge to int64."""
+    """NFRQ-DFN-05: years 1-9999 on creation, named errors at zone edges, one bridge to int64."""
 
     def test_the_bounds_are_the_years_of_datetime(self):
         self.assertEqual(Moment.MIN_NS, -62_135_596_800 * 10**9)
@@ -226,7 +226,7 @@ class TestDomain(unittest.TestCase):
 
 
 class TestWorkflowZone(unittest.TestCase):
-    """FRQ-MMN c.13-14 (BR-MMN-12): now() carries the workflow zone, resolved once."""
+    """NFRQ-DFN-05 (NFRQ-DFN-04): now() carries the workflow zone, resolved once."""
 
     def setUp(self):
         saved = {k: os.environ.get(k) for k in ("WATTLEFLOW_TIME_ZONE", "TZ")}
@@ -280,7 +280,7 @@ class TestWorkflowZone(unittest.TestCase):
 
 
 class TestTextOfEitherKind(unittest.TestCase):
-    """FRQ-MMN c.15-17: text whose kind the source decides; the one crossing into a moment."""
+    """NFRQ-DFN-05: text whose kind the source decides; the one crossing into a moment."""
 
     def test_text_keeps_the_kind_in_the_default_form(self):
         self.assertEqual(MomentHelper.text(A.moment(SYDNEY_NOON)), "2026-10-06T12:00:00.000000+11:00")

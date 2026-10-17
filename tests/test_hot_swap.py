@@ -1,5 +1,5 @@
 # Module name: tests/test_hot_swap.py
-# Tests for ConnectionManager.hot_swap (FRQ-MGR, FRQ-CON): observers survive the swap,
+# Tests for ConnectionManager.hot_swap (SyRS-MNG-managers, SyRS-CNC-connection): observers survive the swap,
 # a failed swap leaves the old connection active, drivers react to Event.Swap.
 #
 # Run from `workflow/`:

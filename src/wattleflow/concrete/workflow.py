@@ -66,7 +66,7 @@ class Workflow(Wattleflow, IOriginator):
     # `attach_monitor` or `run` (FR-WRK-09), and no extra slot is needed to remember it.
     _UNATTACHED: ClassVar[Any] = object()
 
-    # Final (BR-WFL-17): flows differ by configuration; no subclass can change the run and error rules.
+    # Final (BR-WRK-17): flows differ by configuration; no subclass can change the run and error rules.
     def __init_subclass__(cls, **kwargs: Any) -> None:
         raise TypeError(f"{cls.__name__}: Workflow is final and cannot be subclassed")
 
@@ -143,7 +143,7 @@ class Workflow(Wattleflow, IOriginator):
         monitor = self._monitor
         if monitor is None:
             return self._execute(**kwargs)
-        # A monitor failure is a minor error (BR-WFL-14): the flow runs without it and a
+        # A monitor failure is a minor error (BR-WRK-14): the flow runs without it and a
         # failing `end` never hides the error of a processor.
         begun = observed = False
         previous = None
@@ -270,7 +270,7 @@ class Workflow(Wattleflow, IOriginator):
             processors=", ".join(processors.keys()),
         )
 
-        # The workflow owns the main process (BR-WFL-11, BR-WFL-12): a processor error is recorded
+        # The workflow owns the main process (BR-WRK-11, BR-WRK-12): a processor error is recorded
         # here once, as an error, and goes on to the runner unchanged.
         for name, processor in processors.items():
             try:

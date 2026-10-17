@@ -3,7 +3,7 @@
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
-"""Audit is a leaf and measurement sits above it (QR-AUD-07, QR-MNT-07, SyRS-MONITOR section 2.1).
+"""Audit is a leaf and measurement sits above it (QR-AUD-07, QR-MNT-07, SyRS-MNT-monitor section 2.1).
 
 Run from `workflow/`: PYTHONPATH=src python -m unittest tests.test_telemetry_layout -v
 """

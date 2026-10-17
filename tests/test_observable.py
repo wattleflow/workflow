@@ -1,5 +1,5 @@
 # Module name: tests/test_observable.py
-# Tests for ThreadSafeObservable (FRQ-OBS): the observer list, delivery outside the lock over a snapshot,
+# Tests for ThreadSafeObservable (SyRS-OBS-observable): the observer list, delivery outside the lock over a snapshot,
 # observer failures logged without stopping the others, and construction (the lock slot must not shadow
 # Audit._lock, which Audit.__init__ takes before the subclass could assign its own).
 #

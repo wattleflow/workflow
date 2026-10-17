@@ -1,5 +1,5 @@
 # Module name: tests/test_processor_restore.py
-# FRQ-MEM (DEF-MEM-04): restore_state rejects a snapshot whose `state` or `cycle` is missing or of the wrong
+# SyRS-MST-memento-store : restore_state rejects a snapshot whose `state` or `cycle` is missing or of the wrong
 # type with ProcessorException, before anything is changed.
 #
 # Run from `workflow/`:

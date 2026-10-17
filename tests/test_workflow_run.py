@@ -1,7 +1,7 @@
 # Module name: tests/test_workflow_run.py
-# StRS-WORKFLOW: Workflow is final (BR-WFL-17); it records a processor error once and passes it on
-# unchanged (BR-WFL-11, BR-WFL-12); a monitor or driver report that fails is a minor error that
-# stops nothing (BR-WFL-10, BR-WFL-14).
+# StRS-WORKFLOW: Workflow is final (BR-WRK-17); it records a processor error once and passes it on
+# unchanged (BR-WRK-11, BR-WRK-12); a monitor or driver report that fails is a minor error that
+# stops nothing (BR-WRK-10, BR-WRK-14).
 #
 # Run from `workflow/`:
 #   PYTHONPATH=src:../core/src python -m unittest tests.test_workflow_run -v
@@ -43,7 +43,7 @@ def stub_start(flow, behaviour):
 
 
 class FinalTest(unittest.TestCase):
-    def test_a_subclass_is_refused(self):  # BR-WFL-17
+    def test_a_subclass_is_refused(self):  # BR-WRK-17
         with self.assertRaises(TypeError):
             type("Flow", (Workflow,), {})
 
@@ -110,7 +110,7 @@ class SuccessfulRunTest(unittest.TestCase):
 
 
 class ProcessorErrorTest(unittest.TestCase):
-    def test_the_error_is_recorded_once_and_passed_on_unchanged(self):  # BR-WFL-11, BR-WFL-12
+    def test_the_error_is_recorded_once_and_passed_on_unchanged(self):  # BR-WRK-11, BR-WRK-12
         flow = build("a", "b", "c")
         boom = RuntimeError("boom")
         started = []
@@ -136,7 +136,7 @@ class MonitorTest(unittest.TestCase):
         flow.attach_monitor(monitor)
         return flow
 
-    def test_a_monitor_that_fails_to_begin_does_not_stop_the_flow(self):  # BR-WFL-14
+    def test_a_monitor_that_fails_to_begin_does_not_stop_the_flow(self):  # BR-WRK-14
         monitor = MagicMock()
         monitor.begin.side_effect = RuntimeError("no begin")
         flow = self.flow_with(monitor)
@@ -147,7 +147,7 @@ class MonitorTest(unittest.TestCase):
         monitor.end.assert_not_called()
         self.assertIs(Audit._observer, before)
 
-    def test_a_monitor_that_fails_to_end_does_not_hide_the_processor_error(self):  # BR-WFL-14
+    def test_a_monitor_that_fails_to_end_does_not_hide_the_processor_error(self):  # BR-WRK-14
         monitor = MagicMock()
         monitor.end.side_effect = RuntimeError("no end")
         flow = self.flow_with(monitor)
@@ -160,7 +160,7 @@ class MonitorTest(unittest.TestCase):
         warning.assert_called_once()
         self.assertIs(Audit._observer, before)
 
-    def test_a_monitor_that_fails_to_end_does_not_fail_a_good_run(self):  # BR-WFL-14
+    def test_a_monitor_that_fails_to_end_does_not_fail_a_good_run(self):  # BR-WRK-14
         monitor = MagicMock()
         monitor.end.side_effect = RuntimeError("no end")
         flow = self.flow_with(monitor)
@@ -176,7 +176,7 @@ class DriverReportTest(unittest.TestCase):
         self.addCleanup(patcher.stop)
         return flow
 
-    def test_a_report_that_fails_does_not_stop_the_others(self):  # BR-WFL-10
+    def test_a_report_that_fails_does_not_stop_the_others(self):  # BR-WRK-10
         bad, good = MagicMock(), MagicMock()
         bad.report.side_effect = RuntimeError("no report")
         flow = self.flow_with({"bad": bad, "good": good})
@@ -184,15 +184,17 @@ class DriverReportTest(unittest.TestCase):
             flow.audit_drivers()
         good.report.assert_called_once()
         warning.assert_called_once()
-        self.assertEqual((warning.call_args.kwargs["msg"], warning.call_args.kwargs["step"]), (Event.Audit, Event.Failed))
+        kwargs = warning.call_args.kwargs
+        self.assertEqual((kwargs["msg"], kwargs["step"]), (Event.Audit, Event.Failed))
 
-    def test_a_driver_without_a_report_is_not_an_info_record(self):  # BR-WFL-10, NFRQ-OBS-03
+    def test_a_driver_without_a_report_is_not_an_info_record(self):  # BR-WRK-10, NFRQ-OBS-03
         flow = self.flow_with({"mute": object()})
         with patch.object(Workflow, "info") as info, patch.object(Workflow, "debug") as debug:
             flow.audit_drivers()
         info.assert_not_called()
         debug.assert_called_once()
-        self.assertEqual((debug.call_args.kwargs["msg"], debug.call_args.kwargs["step"]), (Event.Audit, Event.Completed))
+        kwargs = debug.call_args.kwargs
+        self.assertEqual((kwargs["msg"], kwargs["step"]), (Event.Audit, Event.Completed))
         self.assertIs(debug.call_args.kwargs["reported"], False)
 
     def test_the_write_paths_of_built_drivers_are_listed(self):  # the factory announces them to the monitor
@@ -208,7 +210,7 @@ class DriverReportTest(unittest.TestCase):
         lazy._factory.assert_not_called()
         lazy._conn_mgr.get_connection.assert_not_called()
 
-    def test_a_write_path_that_cannot_be_read_is_recorded_not_swallowed(self):  # BR-WFL-13
+    def test_a_write_path_that_cannot_be_read_is_recorded_not_swallowed(self):  # BR-WRK-13
         class Broken:
             @property
             def write_path(self):

@@ -1,5 +1,5 @@
 # Module name: tests/test_driver_proxy.py
-# Tests for LazyDriverProxy state queries (FRQ-DRV, DEF-DRV-04): asking a lazy proxy for its state,
+# Tests for LazyDriverProxy state queries (SyRS-DRV-driver): asking a lazy proxy for its state,
 # whether an action is allowed, or to pause never connects or builds the driver.
 #
 # Run from `workflow/`:
@@ -115,7 +115,7 @@ class LoadedDelegationTest(unittest.TestCase):
 
 
 class RequestPerCallTest(unittest.TestCase):
-    """DEF-DRV-06: a connect request is made when it has something to do, not on every call."""
+    """: a connect request is made when it has something to do, not on every call."""
 
     def test_first_call_connects(self):
         lazy, manager = proxy()

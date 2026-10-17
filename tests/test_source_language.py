@@ -1,5 +1,5 @@
 # Module name: tests/test_source_language.py
-# Guard for the source language rule (CLAUDE.md §2.4, FRQ-DRV, DEF-DRV-02): code, comments and
+# Guard for the source language rule (CLAUDE.md §2.4, SyRS-DRV-driver): code, comments and
 # messages in `workflow/src` are English, so no Croatian letters appear in it.
 #
 # Limit (D-11): this finds Croatian diacritics only; a Croatian word without one (for example

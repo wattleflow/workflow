@@ -5,12 +5,8 @@
 
 
 """
-JSON Schema subset validator, stdlib only. Stands in for `jsonschema.validate` and is the schema check every configuration format uses — it
-belongs to no single format, so it lives as a capability rather than inside a
-parser (NFRQ-ORG-01).
-
-Unsupported keywords raise rather than pass quietly: a validator that cannot
-see a constraint must not report conformance to it.
+JSON Schema subset validator, stdlib only, shared by all configuration formats (NFRQ-ORG-01).
+Unsupported keywords raise rather than pass.
 """
 
 

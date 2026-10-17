@@ -153,9 +153,7 @@ class WorkflowFactory:
         logger.debug(msg=Event.Build, **kwargs)
         adapter: IConfig = kwargs.pop("adapter", None)
         if not isinstance(adapter, IConfig):
-            raise WorkflowFactoryException(
-                cls, f"`adapter` must implement IConfig, got {type(adapter).__name__}."
-            )
+            raise WorkflowFactoryException(cls, f"`adapter` must implement IConfig, got {type(adapter).__name__}.")
 
         sections = kwargs.pop("sections", None)
 
@@ -164,9 +162,7 @@ class WorkflowFactory:
         component_kwargs = kwargs.pop("component_kwargs", None)
 
         if sections is None:
-            raise WorkflowFactoryException(
-                cls, "`yaml` must be scoped to a specific path, got None."
-            )
+            raise WorkflowFactoryException(cls, "`yaml` must be scoped to a specific path, got None.")
 
         # Workflow class ----------------------------------------------- #
         workflow_name = kwargs.pop("workflow_name", None)
@@ -179,9 +175,7 @@ class WorkflowFactory:
                 workflow = workflow[0]
 
         if not isinstance(workflow, dict):
-            raise WorkflowFactoryException(
-                cls, f"Workflow {workflow_name!r} not found under `workflows`."
-            )
+            raise WorkflowFactoryException(cls, f"Workflow {workflow_name!r} not found under `workflows`.")
 
         workflow_class = cls._resolve_section("workflows", workflow)
         cls._report_inline("workflows", workflow, {"processors", "runtime", "memento"})
@@ -205,9 +199,7 @@ class WorkflowFactory:
         }
 
         connections = cls._build_connections(adapter, sections, component_kwargs, **global_audit)
-        drivers = cls._build_drivers(
-            adapter, sections, connections, component_kwargs, **global_audit
-        )
+        drivers = cls._build_drivers(adapter, sections, connections, component_kwargs, **global_audit)
         processors = cls._build_processors(workflow, drivers, component_kwargs, **global_audit)
         logger.debug(
             msg=Event.Build,
@@ -259,9 +251,7 @@ class WorkflowFactory:
         return store, section.get("checkpoint_every")
 
     @classmethod
-    def _build_exporters(
-        cls, exporters: Any, built: Workflow, workflow_name: str | None = None
-    ) -> list:
+    def _build_exporters(cls, exporters: Any, built: Workflow, workflow_name: str | None = None) -> list:
         """`monitoring: exporters:` — `sink:` a registered sink class, `driver:` a driver
         under `managers.drivers`; the rest are the sink's own keywords. An exporter that
         names no `instance` is grouped under the workflow's name."""
@@ -286,8 +276,7 @@ class WorkflowFactory:
         built: Workflow,
         workflow: dict | None = None,
     ) -> None:
-        """v0.0.1.14 (FRQ-PTN-18.1 EV01): level, thresholds, extensions and limits at build.
-        Without a `monitoring:` section, or with `level: OFF`, no monitor exists at all."""
+        """Without a `monitoring:` section, or with `level: OFF`, no monitor exists at all."""
         monitoring = adapter.find(*sections, "monitoring", default=None) or {}
         if not isinstance(monitoring, dict):
             cls._fail("monitoring", monitoring, "must be a mapping")
@@ -298,7 +287,7 @@ class WorkflowFactory:
         if level == MonitorLevel.OFF:
             return
         workflow_name = (workflow or {}).get("name")
-        # never accept (FRQ-PTN-18.1 §11 t.3).
+        # never accept.
         manager = ResourceManager(
             limits=monitoring.get("limits"),
             thresholds=monitoring.get("thresholds"),
@@ -415,9 +404,7 @@ class WorkflowFactory:
         nested = config.get("configuration") or {}
         audit = {
             "handler": config.get("handler", nested.get("handler", default["handler"])),
-            "formatting": config.get(
-                "formatting", nested.get("formatting", default["formatting"])
-            ),
+            "formatting": config.get("formatting", nested.get("formatting", default["formatting"])),
         }
         level = config.get("level", nested.get("level"))
         if level is not None:
@@ -444,11 +431,7 @@ class WorkflowFactory:
     @classmethod
     def _configuration(cls, config: dict) -> dict:
         """An entry's constructor settings, with the audit keys removed."""
-        return {
-            key: value
-            for key, value in (config.get("configuration") or {}).items()
-            if key not in cls.AUDIT_KEYS
-        }
+        return {key: value for key, value in (config.get("configuration") or {}).items() if key not in cls.AUDIT_KEYS}
 
     @classmethod
     def _settings(cls, config: dict) -> dict:
@@ -457,9 +440,7 @@ class WorkflowFactory:
         return {**inline, **nested}
 
     @classmethod
-    def _fail(
-        cls, section: str, item: dict, error: str, cause: Exception | None = None
-    ) -> NoReturn:
+    def _fail(cls, section: str, item: dict, error: str, cause: Exception | None = None) -> NoReturn:
         """Report a configuration failure with the offending section and item name."""
         item_name = item.get("name", "<no-name>") if isinstance(item, dict) else "<not-a-dict>"
         reason = f"{section}[name={item_name!r}]: {error}"
@@ -568,9 +549,7 @@ class WorkflowFactory:
                 configuration.setdefault("connection_manager", connections)
 
             manager.register_driver(
-                driver=driver_class(
-                    **configuration, **driver_audit, **cls._extra(component_kwargs, driver_class)
-                ),
+                driver=driver_class(**configuration, **driver_audit, **cls._extra(component_kwargs, driver_class)),
                 name=driver_name,
                 **driver_audit,
             )
@@ -605,9 +584,7 @@ class WorkflowFactory:
             if driver_name:
                 configuration["driver"] = driver_name
             configuration.update(
-                cls._driver_context(
-                    "workflows.processors", config, processor_class, configuration, drivers
-                )
+                cls._driver_context("workflows.processors", config, processor_class, configuration, drivers)
             )
 
             if memento_store is not None:
@@ -622,9 +599,7 @@ class WorkflowFactory:
                 if checkpoint_every is not None:
                     configuration.setdefault("checkpoint_every", checkpoint_every)
 
-            processor = processor_class(
-                **proc_audit, **configuration, **cls._extra(component_kwargs, processor_class)
-            )
+            processor = processor_class(**proc_audit, **configuration, **cls._extra(component_kwargs, processor_class))
 
             # pipeline classes ---------------------------------------------- #
             pipelines_config = config.get("pipelines", [])
@@ -633,9 +608,7 @@ class WorkflowFactory:
                 cls._report_inline("processors.pipelines", pipeline)
                 pipeline_audit = cls._audit(pipeline, global_audit)
                 pipeline_configuration = cls._configuration(pipeline)
-                processor.register_pipeline(
-                    pipeline=pipeline_class(**pipeline_audit, **pipeline_configuration)
-                )
+                processor.register_pipeline(pipeline=pipeline_class(**pipeline_audit, **pipeline_configuration))
 
             # Blackboard & strategy_create class ---------------------------- #
             blackboard_config = config.get("blackboard", {}) or {}

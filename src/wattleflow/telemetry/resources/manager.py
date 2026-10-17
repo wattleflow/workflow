@@ -7,7 +7,7 @@
 """
 ResourceManager — what each resource's limit is, and where it came from.
 
-The construction-time half of `FRQ-PTN-18.1`: this settles the boundaries once,
+The construction-time half of `SyRS-PTR-root-base`: this settles the boundaries once,
 when the workflow is built, and the Monitor watches against them for the rest of
 the pass. Separating them is what lets a limit be DECLARED at all — a monitor
 that discovers its own limits has nowhere to receive one.
@@ -40,7 +40,7 @@ from wattleflow.telemetry.resources.storage import ResourceStorage
 # --------------------------------------------------------------------------- #
 
 
-class ResourceManager(GenericAudit):  # below the root, as FRQ-PTN-root-base §07 t.5
+class ResourceManager(GenericAudit):  # below the root, as SyRS-PTR-root-base
     """Resolve and announce the limits a pass will be measured against."""
 
     def __init__(

@@ -1,5 +1,5 @@
 # Module name: tests/test_orchestrator.py
-# Tests for Orchestrator (FRQ-ORC): processors in order or in parallel, events to listeners, failures,
+# Tests for Orchestrator (SyRS-ORC-orchestrator): processors in order or in parallel, events to listeners, failures,
 # stop, and the guards a facade over threads needs (atomic start, isolated listeners, exact signature
 # fallback, duplicates).
 #

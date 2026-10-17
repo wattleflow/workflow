@@ -1,5 +1,5 @@
 # Module name: tests/test_document_facade.py
-# Tests for DocumentAdapter and DocumentFacade construction (FRQ-DOC, DEF-DOC-05): both refuse a
+# Tests for DocumentAdapter and DocumentFacade construction (SyRS-DCM-document): both refuse a
 # non-IAdaptee before any base initialisation, so a refused object leaves nothing half-built.
 #
 # Run from `workflow/`:

@@ -1,5 +1,5 @@
 # Module name: tests/test_lazy_iterator_cost.py
-# Time cost of every method LazyIterator and LazyAsyncIterator define (FRQ-ITR): each is measured as a
+# Time cost of every method LazyIterator and LazyAsyncIterator define (SyRS-ITR-lazy-iterators): each is measured as a
 # median per call and must stay within a generous budget (it catches an order-of-magnitude regression,
 # not a few nanoseconds); the table is printed when WF_TIMING=1.
 #

@@ -1,5 +1,5 @@
 # Module name: tests/test_pipeline.py
-# Tests for GenericPipeline (FRQ-PIP): process is the frame around transform (input check, DEBUG trace
+# Tests for GenericPipeline (SyRS-PPL-pipeline): process is the frame around transform (input check, DEBUG trace
 # only, every failure carried as PipelineError with its cause), and the object is safe to build, fail
 # to build, and discard.
 #

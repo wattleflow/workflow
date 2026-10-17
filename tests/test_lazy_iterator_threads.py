@@ -1,5 +1,5 @@
 # Module name: tests/test_lazy_iterator_threads.py
-# Tests for ThreadSafeLazyIterator (FRQ-ITR, DEF-ITR-02): concurrent first fetches build the source once.
+# Tests for ThreadSafeLazyIterator (SyRS-ITR-lazy-iterators): concurrent first fetches build the source once.
 # LazyIterator itself stays lock-free; the race is shown on it as the reason for the thread-safe variant.
 #
 # Run from `workflow/`:

@@ -1,5 +1,5 @@
 # Module name: tests/test_workflow_factory.py
-# Tests for WorkflowFactory (FRQ-WFL): registration that cannot be undone silently, a build whose own
+# Tests for WorkflowFactory (SyRS-WRK-workflow): registration that cannot be undone silently, a build whose own
 # records follow the level the operator can see, entries whose inline keys do not vanish unreported,
 # runtime values that never reach the audit trail, and one factory exception for a missing driver.
 #
@@ -41,7 +41,7 @@ class DictConfig(IConfig):
         return node
 
 
-Workflow = BaseWorkflow  # final (BR-WFL-17): there is no subclass to test with
+Workflow = BaseWorkflow  # final (BR-WRK-17): there is no subclass to test with
 
 
 class Proc(GenericProcessor):
@@ -177,7 +177,7 @@ class LevelTest(Isolated):
             self.build(document())
         self.assertTrue(any("Build" in m for m in self.messages(records, logging.DEBUG)))
 
-    def test_the_build_is_recorded_at_debug_not_info(self):  # FR-FAC-08 k.1
+    def test_the_build_is_recorded_at_debug_not_info(self):  # FR-FCT-08 k.1
         logging.getLogger().setLevel(logging.INFO)
         with captured() as records:
             self.build(document())
@@ -241,7 +241,7 @@ class RuntimeEnvTest(Isolated):
         self.assertIn("API_TOKEN", text)
         self.assertNotIn("s3cret-value", text)
 
-    def test_time_zone_sets_the_workflow_zone_once(self):  # FRQ-WFL c.15, HLRQ-MMN BR-MMN-12
+    def test_time_zone_sets_the_workflow_zone_once(self):  # SyRS-WRK-workflow, NFRQ-DFN-04
         from wattleflow.helpers.moment import MomentAwareHelper, MomentHelper
 
         self.addCleanup(MomentHelper.configure)  # runs after the environment is restored below
@@ -287,7 +287,7 @@ class Boom:
 
 
 class ConstructionFailureTest(Isolated):
-    """BR-FAC-17, NFRQ-ORG-15 c.3: a component's own error reaches the caller as it raised it."""
+    """BR-FCT-17, NFRQ-ORG-15 c.3: a component's own error reaches the caller as it raised it."""
 
     def setUp(self):
         super().setUp()
@@ -326,7 +326,8 @@ class MonitoredRunTest(Isolated):
     """The built workflow measures its drivers' write paths and runs under a real monitor."""
 
     def built(self):
-        config = document(driver_entry={"name": "out", "type": "PathDriver", "configuration": {"write_path": "/tmp/out"}})
+        entry = {"name": "out", "type": "PathDriver", "configuration": {"write_path": "/tmp/out"}}
+        config = document(driver_entry=entry)
         config.data["infrastructure"]["dev"]["monitoring"] = {"level": "SUMMARY"}
         with patch.object(Proc, "register_blackboard"):
             return WorkflowFactory.build(adapter=config, sections=SECTIONS)

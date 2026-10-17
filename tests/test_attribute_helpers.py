@@ -1,5 +1,5 @@
 # Module name: tests/test_attribute_helpers.py
-# Tests for Attribute and NameHelper (FRQ-HLP, DEF-HLP-02 … DEF-HLP-07): what each method
+# Tests for Attribute and NameHelper (SyRS-HLP-helpers): what each method
 # promises, written before the corrections.
 #
 # Run from `workflow/`:

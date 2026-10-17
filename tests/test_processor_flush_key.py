@@ -1,5 +1,5 @@
 # Module name: tests/test_processor_flush_key.py
-# FRQ-BBD §12 (resolved t.5) and FRQ-PRC: the processor knows `flush_per_cycle` only;
+# SyRS-BLC-blackboard (resolved t.5) and SyRS-PRC-processor: the processor knows `flush_per_cycle` only;
 # the retired `defer_flush` is an unknown key like any other.
 #
 # Run from `workflow/`:

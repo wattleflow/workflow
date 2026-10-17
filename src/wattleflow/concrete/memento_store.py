@@ -51,7 +51,7 @@ class MementoStoreException(AuditException):
 
 
 class MementoStore(Wattleflow, IStrategy, ABC):
-    """Where a memento survives between runs: the persistence strategy of FRQ-MEM.
+    """Where a memento survives between runs: the persistence strategy of SyRS-MST-memento-store.
 
     A store holds the latest snapshot per key. It never interprets the payload;
     turning a stored value back into a domain type is the originator's job.
@@ -78,7 +78,7 @@ class MementoStore(Wattleflow, IStrategy, ABC):
 
     @classmethod
     def _plain(cls, value: Any) -> Any:
-        # Stores hold plain data, so every backend returns the same values. json writes a `str` Enum by value and never reaches `default`, so the names are set here.
+        # SyRS-MST-memento-store: plain data for every backend.
         if isinstance(value, Enum):
             return value.name
         if isinstance(value, dict):
