@@ -211,7 +211,7 @@ class MomentHelper:
         try:
             return make()
         except (OverflowError, ValueError) as e:
-            raise MomentRangeError(f"outside years 1-9999 in this form ({e})") from e
+            raise MomentRangeError(f"outside years 1-9999 in this form ({type(e).__name__})") from e
 
 
 class MomentAwareHelper(MomentHelper):

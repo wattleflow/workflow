@@ -199,7 +199,7 @@ class Attribute:
                 f"Class {obj!r} could not be loaded: module {e.name!r} not found."
             ) from e
         except Exception as e:
-            raise ValueError(f"Failed to load {obj}: {e}") from e
+            raise ValueError(f"Failed to load {obj}: {type(e).__name__}") from e
 
         if not (isinstance(klass, type) and issubclass(klass, cls)):
             error = f"Loaded class {obj} is not a subclass of {cls.__name__}"
@@ -215,7 +215,7 @@ class Attribute:
         try:
             return ClassLoader(obj, **kwargs).instance
         except Exception as e:
-            raise ValueError(f"Failed to instantiate {obj}: {e}") from e
+            raise ValueError(f"Failed to instantiate {obj}: {type(e).__name__}") from e
 
     @classmethod
     def _resolve(
@@ -245,7 +245,7 @@ class Attribute:
             except Exception as e:
                 raise AttributeException(
                     caller=caller,
-                    error=f"Error loading class: kwargs[{name!r}]: {e}",
+                    error=f"Error loading class: kwargs[{name!r}]: {type(e).__name__}",
                     name=name,
                     cls=expected,
                     **_extra(params),

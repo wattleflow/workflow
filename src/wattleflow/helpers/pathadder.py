@@ -74,7 +74,7 @@ class SourcePath:
                     source_path = cls._validate(source_path)
                 except ValueError as e:
                     if show:
-                        print(f"[WARN] : {e}")
+                        print(f"[WARN] : {type(e).__name__}")
                     break
                 sys.path.insert(0, source_path)
                 if show:

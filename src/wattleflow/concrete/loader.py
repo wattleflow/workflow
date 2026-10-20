@@ -57,7 +57,7 @@ class ClassLoader(Wattleflow):
                 msg=Event.Constructor,
                 step=Event.Failed,
                 component=module_path,
-                error=str(e),
+                error=type(e).__name__,
             )
             raise
 
@@ -83,7 +83,7 @@ class ClassLoader(Wattleflow):
                 msg=Event.Constructor,
                 step=Event.Failed,
                 target=class_name,
-                error=str(e),
+                error=type(e).__name__,
             )
             raise
 

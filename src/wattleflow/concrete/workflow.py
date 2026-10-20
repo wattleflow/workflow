@@ -153,7 +153,7 @@ class Workflow(Wattleflow, IOriginator):
             previous = GenericAudit.observe(monitor.hook)
             observed = True
         except Exception as error:
-            self.warning(msg=Event.Start, target="monitor", reason=str(error))
+            self.warning(msg=Event.Start, target="monitor", reason=type(error).__name__)
         try:
             return self._execute(**kwargs)
         finally:
@@ -163,7 +163,7 @@ class Workflow(Wattleflow, IOriginator):
                 try:
                     monitor.end()
                 except Exception as error:
-                    self.warning(msg=Event.Stop, target="monitor", reason=str(error))
+                    self.warning(msg=Event.Stop, target="monitor", reason=type(error).__name__)
 
     def measured_paths(self) -> list[str]:
         """Write paths of the drivers already built; a lazy driver is not woken."""
@@ -176,7 +176,7 @@ class Workflow(Wattleflow, IOriginator):
                 )
             except Exception as error:
                 self.warning(
-                    msg=Event.Check, target="driver", name=name, reason=str(error)
+                    msg=Event.Check, target="driver", name=name, reason=type(error).__name__
                 )
                 path = None
             if path:
@@ -206,21 +206,21 @@ class Workflow(Wattleflow, IOriginator):
                     target="driver",
                     name=name,
                     type=type(driver).__name__,
-                    reason=str(error),
+                    reason=type(error).__name__,
                 )
 
     def save_state(self) -> GenericMemento:
         try:
             return self._save_state()
         except Exception as error:
-            self.error(msg=Event.Save, step=Event.Failed, error=str(error))
+            self.error(msg=Event.Save, step=Event.Failed, error=type(error).__name__)
             raise
 
     def restore_state(self, memento: GenericMemento) -> None:
         try:
             self._restore_state(memento)
         except Exception as error:
-            self.error(msg=Event.Restore, step=Event.Failed, error=str(error))
+            self.error(msg=Event.Restore, step=Event.Failed, error=type(error).__name__)
             raise
 
     def _save_state(self) -> GenericMemento:
@@ -280,7 +280,7 @@ class Workflow(Wattleflow, IOriginator):
                     msg=Event.Execute,
                     step=Event.Failed,
                     processor=name,
-                    error=str(error),
+                    error=type(error).__name__,
                 )
                 raise
 

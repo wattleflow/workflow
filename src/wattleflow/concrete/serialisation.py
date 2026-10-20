@@ -122,7 +122,7 @@ class GenericParser(IParser[Content], ABC):
         except self.ERRORS:
             raise
         except Exception as e:
-            error = "%s.parse error: %s" % (self.name, str(e))
+            error = "%s.parse error: %s" % (self.name, type(e).__name__)
             raise self.ERROR(caller=self, error=error) from e
 
     @contextmanager
@@ -202,7 +202,7 @@ class GenericFormatter(IFormatter[Content], ABC):
         except self.ERRORS:
             raise
         except Exception as e:
-            error = "%s.render error: %s" % (self.name, str(e))
+            error = "%s.render error: %s" % (self.name, type(e).__name__)
             raise self.ERROR(caller=self, error=error) from e
 
     def check(self, content: Content) -> None:
@@ -224,7 +224,7 @@ class GenericFormatter(IFormatter[Content], ABC):
         except self.ERRORS:
             raise
         except Exception as e:
-            error = "%s.stream error: %s" % (self.name, str(e))
+            error = "%s.stream error: %s" % (self.name, type(e).__name__)
             raise self.ERROR(caller=self, error=error) from e
 
     def encoding_of(self, **kwargs) -> str:
@@ -288,7 +288,7 @@ class GenericConverter(IStrategyContext, ABC):
         except self.ERRORS:
             raise
         except Exception as e:
-            error = "%s.convert error: %s" % (self.name, str(e))
+            error = "%s.convert error: %s" % (self.name, type(e).__name__)
             raise self.ERROR(caller=self, error=error) from e
 
     def convert(self, source: Any, **kwargs) -> Any:

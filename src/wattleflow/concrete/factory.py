@@ -162,7 +162,7 @@ class WorkflowFactory:
         component_kwargs = kwargs.pop("component_kwargs", None)
 
         if sections is None:
-            raise WorkflowFactoryException(cls, "`yaml` must be scoped to a specific path, got None.")
+            raise WorkflowFactoryException(cls, "`sections` must be scoped to a specific path, got None.")
 
         # Workflow class ----------------------------------------------- #
         workflow_name = kwargs.pop("workflow_name", None)
@@ -247,7 +247,7 @@ class WorkflowFactory:
         try:
             store = store_class(**options)
         except Exception as error:
-            cls._fail("workflows.memento", workflow, str(error), cause=error)
+            cls._fail("workflows.memento", workflow, type(error).__name__, cause=error)
         return store, section.get("checkpoint_every")
 
     @classmethod
@@ -461,7 +461,7 @@ class WorkflowFactory:
         try:
             return cls.resolve(item.get(key, None) if isinstance(item, dict) else None)
         except WorkflowFactoryException as e:
-            cls._fail(section, item, str(e), cause=e)
+            cls._fail(section, item, type(e).__name__, cause=e)
 
     @classmethod
     def _driver_context(
@@ -593,7 +593,7 @@ class WorkflowFactory:
                 try:
                     MementoStore._check_key(key)
                 except MementoStoreException as error:
-                    cls._fail("workflows.processors", config, str(error), cause=error)
+                    cls._fail("workflows.processors", config, type(error).__name__, cause=error)
                 configuration.setdefault("memento_store", memento_store)
                 configuration.setdefault("memento_key", key)
                 if checkpoint_every is not None:

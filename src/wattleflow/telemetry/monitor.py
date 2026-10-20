@@ -454,7 +454,7 @@ class Monitor(GenericAudit):
             self._report(self._baseline, self._last)
             self._publish()
         except Exception as e:
-            self.warning(msg=Event.Completed, target=MetricTarget.Measure, error=str(e))
+            self.warning(msg=Event.Completed, target=MetricTarget.Measure, error=type(e).__name__)
 
     def _publish(self) -> None:
         """Every sink is visited; a failing destination is reported, never raised (BR-07)."""
@@ -467,7 +467,7 @@ class Monitor(GenericAudit):
                 published = bool(sink.publish(samples))
             except Exception as e:
                 self.warning(
-                    msg=Event.Completed, target=MetricTarget.Export, sink=name, error=str(e)
+                    msg=Event.Completed, target=MetricTarget.Export, sink=name, error=type(e).__name__
                 )
                 continue
             self.info(

@@ -171,7 +171,7 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
             self._preset = None
             self.debug(msg=Event.Delete, step=Event.Completed)
         except Exception as e:
-            reason = "Destructor %s error: %s" % (self.__class__.__name__, str(e))
+            reason = "Destructor %s error: %s" % (self.__class__.__name__, type(e).__name__)
             try:
                 self.error(msg=Event.Delete, reason=reason)
             except Exception:

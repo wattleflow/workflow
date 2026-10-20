@@ -139,7 +139,7 @@ class ResourceManager(GenericAudit):  # below the root, as SyRS-PTR-root-base
                 )
         except Exception as e:
             # Measuring must not be what stops a workflow (`BR-07`).
-            self.warning(msg=Event.Configure, target=MetricTarget.Limit, error=str(e))
+            self.warning(msg=Event.Configure, target=MetricTarget.Limit, error=type(e).__name__)
 
 
 # --------------------------------------------------------------------------- #

@@ -127,7 +127,8 @@ class ParserFailureTest(unittest.TestCase):
         with self.assertRaises(ParserError) as caught:
             Failing().parse(payload=b"x")
         self.assertIsInstance(caught.exception.__cause__, ValueError)
-        self.assertIn("Failing.parse error: bad bytes", str(caught.exception))
+        self.assertIn("Failing.parse error: ValueError", str(caught.exception))
+        self.assertNotIn("bad bytes", str(caught.exception))
 
     def test_an_exception_of_the_layers_own_family_passes_unchanged(self):
         with self.assertRaises(KeyError):
@@ -207,7 +208,8 @@ class FormatterTest(unittest.TestCase):
         with self.assertRaises(FormatterError) as caught:
             Boom().render(content=1)
         self.assertIsInstance(caught.exception.__cause__, ValueError)
-        self.assertIn("Boom.render error: cannot", str(caught.exception))
+        self.assertIn("Boom.render error: ValueError", str(caught.exception))
+        self.assertNotIn("cannot", str(caught.exception))
 
     def test_an_exception_of_the_layers_own_family_passes_unchanged(self):
         class Own(Upper):
@@ -335,7 +337,8 @@ class ConverterTest(unittest.TestCase):
         with self.assertRaises(ConverterError) as caught:
             converter.convert(1)
         self.assertIsInstance(caught.exception.__cause__, ValueError)
-        self.assertIn("Adder.convert error: no", str(caught.exception))
+        self.assertIn("Adder.convert error: ValueError", str(caught.exception))
+        self.assertNotIn("error: no", str(caught.exception))
 
     def test_an_exception_of_the_layers_own_family_passes_unchanged(self):
         own = ConverterError(caller=None, error="own")

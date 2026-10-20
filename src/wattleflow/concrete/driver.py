@@ -210,7 +210,7 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
         except Exception as e:
             if self._fsm.can(DriverAction.LOAD_FAIL):
                 self._fsm.apply(DriverAction.LOAD_FAIL)
-            self.debug(msg=Event.Load, step=Event.Failed, error=str(e))
+            self.debug(msg=Event.Load, step=Event.Failed, error=type(e).__name__)
             raise
 
     def ensure_unloaded(self) -> None:
@@ -229,7 +229,7 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
             # Same guard as ensure_live: never let bookkeeping mask the error.
             if self._fsm.can(DriverAction.UNLOAD_FAIL):
                 self._fsm.apply(DriverAction.UNLOAD_FAIL)
-            self.debug(msg=Event.Close, step=Event.Failed, error=str(e))
+            self.debug(msg=Event.Close, step=Event.Failed, error=type(e).__name__)
             raise
 
     def operation(self, action: Operation, **kwargs) -> bool:

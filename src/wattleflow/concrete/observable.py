@@ -67,7 +67,7 @@ class ThreadSafeObservable(Wattleflow, IObservableReactive):
                     msg=Event.Notify,
                     reason="Observer raised during update",
                     observer=observer,
-                    error=str(e),
+                    error=type(e).__name__,
                 )
 
 

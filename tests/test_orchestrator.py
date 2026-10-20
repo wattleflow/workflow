@@ -343,7 +343,8 @@ class ListenerDeliveryTest(unittest.TestCase):
         orchestrator = make(Proc("a", [], fail=True), listeners=(Broken(),))
         with self.assertRaises(OrchestratorException) as caught:
             orchestrator.start()
-        self.assertIn("a down", str(caught.exception))
+        self.assertIn("RuntimeError", str(caught.exception))
+        self.assertNotIn("a down", str(caught.exception))
 
     def test_the_listener_failure_is_logged(self):
         orchestrator = Orchestrator(connection_manager=ConnectionManager(), level=logging.DEBUG)

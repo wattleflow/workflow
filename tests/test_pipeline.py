@@ -89,7 +89,8 @@ class FailureTest(unittest.TestCase):
         with self.assertRaises(PipelineError) as caught:
             pipeline.process(processor, facade)
         self.assertIsInstance(caught.exception.__cause__, ValueError)
-        self.assertIn("Failing.process error: transform down", str(caught.exception))
+        self.assertIn("Failing.process error: ValueError", str(caught.exception))
+        self.assertNotIn("transform down", str(caught.exception))
 
     def test_the_error_names_the_pipeline_that_failed(self):
         pipeline, (processor, facade) = Failing(), inputs()

@@ -72,7 +72,7 @@ class ConnectionManager(Wattleflow, IObserver):
             try:
                 self._release(conn)
             except Exception as e:
-                errors.append(f"{name}: {e}")
+                errors.append(f"{name}: {type(e).__name__}")
 
         if errors:
             reason = "%s.__del__ errors: %s" % (self.__class__.__name__, errors)
@@ -147,7 +147,7 @@ class ConnectionManager(Wattleflow, IObserver):
                     msg=Event.Disconnect,
                     reason="Failed to disconnect on unregister!",
                     name=name,
-                    error=str(e),
+                    error=type(e).__name__,
                 )
         else:
             self.warning(
@@ -168,10 +168,10 @@ class ConnectionManager(Wattleflow, IObserver):
         try:
             connected = new_connection.operation(Operation.Connect)
         except Exception as e:
-            self.debug(msg=Event.Swap, step=Event.Failed, name=name, error=str(e))
+            self.debug(msg=Event.Swap, step=Event.Failed, name=name, error=type(e).__name__)
             raise ManagerException(
                 caller=self,
-                error=f"Hot swap failed, the old connection '{name}' stays active: {e}",
+                error=f"Hot swap failed, the old connection '{name}' stays active: {type(e).__name__}",
                 name=name,
             ) from e
         if not connected:
@@ -192,7 +192,7 @@ class ConnectionManager(Wattleflow, IObserver):
             self.warning(
                 msg=Event.Swap,
                 name=name,
-                error=f"Old connection was not closed properly: {e}",
+                error=f"Old connection was not closed properly: {type(e).__name__}",
             )
         self.debug(msg=Event.Swap, step=Event.Completed, name=name)
 
@@ -235,7 +235,7 @@ class DriverManager(Wattleflow, IObserver):
             try:
                 driver.ensure_unloaded()
             except Exception as e:
-                errors.append(f"{name}: {e}")
+                errors.append(f"{name}: {type(e).__name__}")
 
         if errors:
             reason = "%s.__del__ error: %s" % (self.__class__.__name__, errors)
@@ -313,7 +313,7 @@ class DriverManager(Wattleflow, IObserver):
                     msg=Event.Unregister,
                     step=Event.Failed,
                     name=name,
-                    error=str(e),
+                    error=type(e).__name__,
                 )
         else:
             self.warning(
@@ -369,7 +369,7 @@ class ProcessorManager(Wattleflow, IObserver):
             try:
                 self.unregister_processor(name)
             except Exception as e:
-                errors.append(f"{name}: {e}")
+                errors.append(f"{name}: {type(e).__name__}")
                 continue
 
         if errors:

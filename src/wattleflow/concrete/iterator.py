@@ -43,7 +43,7 @@ class LazyIterator(Wattleflow, IIterator[Element]):
             source = self.create_iterator()
             Attribute.evaluate(self, source, Iterator)
         except Exception as error:
-            self.debug(msg=Event.Create, step=Event.Failed, error=str(error))
+            self.debug(msg=Event.Create, step=Event.Failed, error=type(error).__name__)
             raise
         self.debug(msg=Event.Create, step=Event.Completed)
         return source
@@ -89,7 +89,7 @@ class LazyAsyncIterator(Wattleflow, IAsyncIterator[Element]):
             source = self.create_iterator()
             Attribute.evaluate(self, source, AsyncIterator)
         except Exception as error:
-            self.debug(msg=Event.Create, step=Event.Failed, error=str(error))
+            self.debug(msg=Event.Create, step=Event.Failed, error=type(error).__name__)
             raise
         self.debug(msg=Event.Create, step=Event.Completed)
         return source

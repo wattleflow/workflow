@@ -97,8 +97,8 @@ class SchedulerCronJob(Scheduler):
             return True
         except Exception as e:
             self._failures += 1
-            self.exception(msg=Event.Failed, cycle=self._passes, error=str(e))
-            self.emit_event(event=Event.CronJobSchedulerError, error=str(e))
+            self.exception(msg=Event.Failed, cycle=self._passes, error=type(e).__name__)
+            self.emit_event(event=Event.CronJobSchedulerError, error=type(e).__name__)
             return False
 
     # `cycles` exists so the loop is testable: an unbounded loop cannot be

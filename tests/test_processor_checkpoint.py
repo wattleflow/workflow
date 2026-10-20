@@ -148,7 +148,8 @@ class StoreFailureTest(unittest.TestCase):
                 processor.start()
         text = "\n".join(logged.output)
         self.assertIn("Save", text)
-        self.assertIn("disk full", text)
+        self.assertIn("MementoStoreException", text)
+        self.assertNotIn("disk full", text)
 
     def test_an_unreadable_checkpoint_stops_the_start(self):
         store = MemoryMementoStore()

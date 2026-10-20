@@ -101,7 +101,7 @@ class Scheduler(Wattleflow, IScheduler, ABC):
             orchestrator.start(parallel)
         except Exception as error:
             # Started is always closed: Completed on success, Failed otherwise.
-            self.emit_event(Event.Failed, error=str(error))
+            self.emit_event(Event.Failed, error=type(error).__name__)
             raise
         finally:
             with self._lock:
@@ -143,7 +143,7 @@ class Scheduler(Wattleflow, IScheduler, ABC):
                     msg=Event.Notify,
                     reason="Listener raised during on_event",
                     listener=listener,
-                    error=str(error),
+                    error=type(error).__name__,
                 )
 
     # Must be implemented if using PresetDecorator.

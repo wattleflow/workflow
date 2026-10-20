@@ -87,7 +87,7 @@ class TextMacros:
         try:
             pattern.sub(replacement, "")
         except re.error as e:
-            return str(e)
+            return type(e).__name__
         return None
 
     @property

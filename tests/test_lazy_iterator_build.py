@@ -48,7 +48,8 @@ class BuildAuditTest(unittest.TestCase):
     def test_a_failed_build_is_audited_with_the_reason(self):
         text = audit(self, Down)
         self.assertIn("Failed", text)
-        self.assertIn("source down", text)
+        self.assertIn("RuntimeError", text)
+        self.assertNotIn("source down", text)
 
     def test_only_the_first_fetch_is_audited(self):
         text = audit(self, Good, fetches=2)
@@ -121,7 +122,8 @@ class AsyncBuildTest(unittest.TestCase):
     def test_a_failed_build_is_audited_with_the_reason(self):
         _, text = self.fetch(AsyncDown)
         self.assertIn("Failed", text)
-        self.assertIn("source down", text)
+        self.assertIn("RuntimeError", text)
+        self.assertNotIn("source down", text)
 
 
 if __name__ == "__main__":

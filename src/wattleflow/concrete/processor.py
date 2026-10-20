@@ -328,7 +328,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             memento = self._memento_store.read(self._memento_key)
         except Exception as error:
             raise ProcessorException(
-                caller=self, error=f"Cannot read checkpoint {self._memento_key!r}: {error}"
+                caller=self, error=f"Cannot read checkpoint {self._memento_key!r}: {type(error).__name__}"
             ) from error
         if memento is None:
             return
@@ -348,7 +348,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             )
         except Exception as error:
             self.warning(
-                msg=Event.Save, step=Event.Failed, key=self._memento_key, error=str(error)
+                msg=Event.Save, step=Event.Failed, key=self._memento_key, error=type(error).__name__
             )
 
     def _release(self) -> None:
@@ -357,7 +357,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             self._memento_store.clear(self._memento_key)
         except Exception as error:
             self.warning(
-                msg=Event.Clear, step=Event.Failed, key=self._memento_key, error=str(error)
+                msg=Event.Clear, step=Event.Failed, key=self._memento_key, error=type(error).__name__
             )
 
     # endregion Memento
@@ -435,7 +435,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                 except Exception as e:
                     reason = "%s.start error: Pipeline processing failed: %s" % (
                         self.__class__.__name__,
-                        str(e),
+                        type(e).__name__,
                     )
                     self.debug(
                         msg=Event.Start,
@@ -467,9 +467,9 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                 msg=Event.Start,
                 step=Event.Failed,
                 cycles=self._cycle,
-                error=str(e),
+                error=type(e).__name__,
             )
-            raise ProcessorException(caller=self, error=str(e)) from e
+            raise ProcessorException(caller=self, error=type(e).__name__) from e
 
         self.debug(msg=Event.Start, step=Event.Completed, cycles=self._cycle)
         self.info(

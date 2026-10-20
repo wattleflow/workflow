@@ -114,16 +114,16 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
         except Exception as e:
             # The listener stream and the audit stream have different readers:
             # emit_event notifies, the trace records the step.
-            self.emit_event(Event.Failed, processor=proc_name, error=str(e))
+            self.emit_event(Event.Failed, processor=proc_name, error=type(e).__name__)
             self.debug(
                 msg=Event.Process,
                 step=Event.Failed,
                 processor=proc_name,
-                error=str(e),
+                error=type(e).__name__,
             )
             raise OrchestratorException(
                 self,
-                f"Error processing {proc_name}: {e}",
+                f"Error processing {proc_name}: {type(e).__name__}",
             ) from e
 
     # endregion Internal
@@ -186,7 +186,7 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
                     msg=Event.Notify,
                     reason="Listener raised during on_event",
                     listener=listener,
-                    error=str(error),
+                    error=type(error).__name__,
                 )
 
     def dispatch(self, action: Operation, **kwargs):

@@ -298,7 +298,7 @@ class RetryInvoker(GenericInvoker):
             except Exception as error:
                 delay = self._policy.algorithm(self, attempt=attempt, error=error)
                 if delay is None:
-                    self._publish(RETRY_GAVE_UP, {"attempts": attempt, "error": repr(error)})
+                    self._publish(RETRY_GAVE_UP, {"attempts": attempt, "error": type(error).__name__})
                     self.debug(
                         msg=Event.Execute,
                         step=Event.Failed,
@@ -310,7 +310,7 @@ class RetryInvoker(GenericInvoker):
                     raise RetryExhaustedError(self, attempt, error) from error
                 self._publish(
                     RETRY_SCHEDULED,
-                    {"attempt": attempt, "delay": delay, "error": repr(error)},
+                    {"attempt": attempt, "delay": delay, "error": type(error).__name__},
                 )
                 self._sleep(delay)
 

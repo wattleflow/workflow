@@ -76,7 +76,7 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
         try:
             del self._preset
         except Exception as e:
-            reason = "%s.__del__ error: %s" % (self.__class__.__name__, str(e))
+            reason = "%s.__del__ error: %s" % (self.__class__.__name__, type(e).__name__)
             self.error(
                 msg=Event.Delete,
                 step=Event.Failed,
@@ -152,12 +152,12 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
             )
         except PipelineError as e:
             # The input check above: already the right exception; this layer leaves the trace.
-            self.debug(msg=Event.Transform, step=Event.Failed, error=str(e))
+            self.debug(msg=Event.Transform, step=Event.Failed, error=type(e).__name__)
             raise
         except Exception as e:
             # The caller stops the propagation and owns the ERROR; this layer leaves the trace and
             # carries the cause (and with it the traceback) in the exception.
-            error = "%s.process error: %s" % (self.__class__.__name__, str(e))
+            error = "%s.process error: %s" % (self.__class__.__name__, type(e).__name__)
             self.debug(msg=Event.Transform, step=Event.Failed, error=error)
             raise PipelineError(caller=self, error=error) from e
 

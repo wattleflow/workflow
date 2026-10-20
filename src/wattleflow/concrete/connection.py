@@ -343,7 +343,7 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
             self._fsm.apply(ConnectionAction.CREATE_OK)
         except Exception as e:
             self._fsm.apply(ConnectionAction.CREATE_FAIL)
-            self.debug(msg=Event.Create, step=Event.Failed, error=str(e))
+            self.debug(msg=Event.Create, step=Event.Failed, error=type(e).__name__)
             raise
 
     def ensure_closed(self) -> None:
@@ -357,7 +357,7 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
             self._fsm.apply(ConnectionAction.CLOSE_OK)
         except Exception as e:
             self._fsm.apply(ConnectionAction.CLOSE_FAIL)
-            self.debug(msg=Event.Close, step=Event.Failed, error=str(e))
+            self.debug(msg=Event.Close, step=Event.Failed, error=type(e).__name__)
             raise
 
     def reset(self) -> None:

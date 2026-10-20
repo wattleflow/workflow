@@ -164,7 +164,7 @@ class FileMementoStore(MementoStore):
         try:
             text = json.dumps(self._plain(payload))
         except (TypeError, ValueError) as error:
-            raise MementoStoreException(self, f"Cannot store memento {key!r}: {error}") from error
+            raise MementoStoreException(self, f"Cannot store memento {key!r}: {type(error).__name__}") from error
         temporary: str | None = None
         try:
             self._path.mkdir(parents=True, exist_ok=True)
@@ -176,7 +176,7 @@ class FileMementoStore(MementoStore):
             os.replace(temporary, target)
             temporary = None
         except OSError as error:
-            raise MementoStoreException(self, f"Cannot write memento {key!r}: {error}") from error
+            raise MementoStoreException(self, f"Cannot write memento {key!r}: {type(error).__name__}") from error
         finally:
             if temporary is not None:
                 Path(temporary).unlink(missing_ok=True)
@@ -189,11 +189,11 @@ class FileMementoStore(MementoStore):
         except FileNotFoundError:
             return None
         except OSError as error:
-            raise MementoStoreException(self, f"Cannot read memento {key!r}: {error}") from error
+            raise MementoStoreException(self, f"Cannot read memento {key!r}: {type(error).__name__}") from error
         try:
             payload = json.loads(text)
         except ValueError as error:
-            raise MementoStoreException(self, f"Memento {key!r} is corrupt: {error}") from error
+            raise MementoStoreException(self, f"Memento {key!r} is corrupt: {type(error).__name__}") from error
         if not isinstance(payload, dict):
             raise MementoStoreException(
                 self, f"Memento {key!r} is corrupt: expected an object, found {type(payload).__name__}"
@@ -206,7 +206,7 @@ class FileMementoStore(MementoStore):
         try:
             target.unlink(missing_ok=True)
         except OSError as error:
-            raise MementoStoreException(self, f"Cannot clear memento {key!r}: {error}") from error
+            raise MementoStoreException(self, f"Cannot clear memento {key!r}: {type(error).__name__}") from error
 
 
 # --------------------------------------------------------------------------- #

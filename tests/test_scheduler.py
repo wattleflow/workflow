@@ -197,7 +197,7 @@ class LifecycleTest(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             scheduler.start_orchestration()
         self.assertEqual(events(listener), [Event.Started, Event.Failed])
-        self.assertIn("orchestrator down", listener.log[-1][2]["error"])
+        self.assertEqual("RuntimeError", listener.log[-1][2]["error"])
 
     def test_after_a_failure_the_scheduler_can_start_again(self):
         orchestrator = StubOrchestrator(fail=True)

@@ -153,7 +153,7 @@ class GenericRepository(Wattleflow, IRepository, ABC):
                 facade=facade,
             )
         except Exception as e:
-            reason = f"[{self.name}] Read strategy failed: {e}"
+            reason = f"[{self.name}] Read strategy failed: {type(e).__name__}"
             self.debug(
                 msg=Event.Read,
                 step=Event.Failed,
