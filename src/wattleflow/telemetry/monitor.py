@@ -171,7 +171,7 @@ class Monitor(GenericAudit):
         )
         if interval is not None:
             self._interval = max(float(interval), 0.0)
-        # A sink formats for one destination and a driver ships it (SyRS-METRIC-COLLECTION);
+        # A sink formats for one destination and a driver ships it (SyRS-MTR-COLLECTION);
         # the monitor only hands over the samples, once, after the report.
         self._sinks = list(sinks)
         # Constant labels on every exported series: the workflow this pass belongs to.
@@ -676,7 +676,7 @@ class Monitor(GenericAudit):
             for frame in stack:
                 self._defects[(frame[0], frame[1], "open at end of pass")] += 1
         for (component, operation, defect), count in sorted(self._defects.items()):
-            # SyRS-METRIC-COLLECTION: an incomplete pair is a finding against the code (D-11).
+            # SyRS-MTR-COLLECTION: an incomplete pair is a finding against the code (D-11).
             self.warning(
                 msg=Event.Check,
                 target=MetricTarget.Pair,

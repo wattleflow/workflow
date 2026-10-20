@@ -90,7 +90,7 @@ class Config(Wattleflow, IConfig):
                 result = result[key]  # type: ignore
             return result
         except (KeyError, IndexError, TypeError) as e:
-            self.warning(msg=Event.Find, missing=str(e))
+            self.warning(msg=Event.Find, missing=".".join(map(str, keys)), kind=type(e).__name__)
             return default
 
     def get(self, section: str, key: str, name=None, default=None) -> dict | str | list:
@@ -165,7 +165,7 @@ class Config(Wattleflow, IConfig):
                 self.error(
                     msg=Event.Configure,
                     reason=f"{caller}._load_settings",
-                    error=f"{caller}.validate error: {str(e)}",
+                    error=f"{caller}.validate error: {type(e).__name__}",
                 )
 
         except FileNotFoundError as e:
@@ -173,7 +173,7 @@ class Config(Wattleflow, IConfig):
                 msg=Event.Configure,
                 step=Event.Failed,
                 target="file",
-                error=str(e),
+                error=type(e).__name__,
             )
             raise FileNotFoundError(f"Configuration file not found: {self.config_file}") from e
         except self.ERRORS as e:
@@ -181,9 +181,9 @@ class Config(Wattleflow, IConfig):
                 msg=Event.Configure,
                 step=Event.Failed,
                 target=self.FORMAT,
-                error=str(e),
+                error=type(e).__name__,
             )
-            raise ValueError(f"Invalid {self.FORMAT} file: {self.config_file}. Error: {e}") from e
+            raise ValueError(f"Invalid {self.FORMAT} file: {self.config_file}. Error: {type(e).__name__}") from e
 
     @classmethod
     def flatten_config(cls, config: dict, parent_key: str = "", sep: str = "_") -> dict:
@@ -209,7 +209,7 @@ class Config(Wattleflow, IConfig):
 
         for item in config:
             if not isinstance(item, dict):
-                raise ValueError("Unexpeced item type in a list!")
+                raise ValueError("Unexpected item type in a list!")
             found = item.get(key, None)
             if found and found == value:
                 return item

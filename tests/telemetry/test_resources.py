@@ -3,7 +3,7 @@
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
-"""Limits, thresholds and extensions of `Monitor` (SyRS-MNT-monitor, SyRS-RESOURCE-MANAGER)."""
+"""Limits, thresholds and extensions of `Monitor` (SyRS-MNT-monitor, SyRS-RSR-MANAGER)."""
 
 from __future__ import annotations
 

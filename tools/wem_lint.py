@@ -27,8 +27,7 @@ stays under documentation governance. Report strings live in `tools/messages.jso
 the tool (a criterion may still carry them inline); `report_language` picks the
 default (en) and --lang overrides it per run.
 
-The tool dogfoods the framework it checks (self-reference — `dictionary.yaml:
-wem-lint`), consuming both distributions:
+The tool dogfoods the framework it checks (self-reference — `wem-lint`), consuming both distributions:
   * Iterator/Aggregate (ISyncAggregate, LazyIterator) — SourceTree walks the .py tree
   * Builder (IBuilder)                                — ImportGraphBuilder (ORG-01)
   * Strategy/Context (IStrategy, IStrategyContext)    — one rule per NFR, run by WemLint
@@ -1922,7 +1921,7 @@ class WemLint(Wattleflow, IStrategyContext):
         return out
 
     def blind_spots(self) -> list[Finding]:
-        """Declared unmeasured territory — dictionary.yaml: `slijepa-pjega`.
+        """Declared unmeasured territory (`slijepa-pjega`).
 
         A blind spot is declared, never silenced. Two sources feed this:
         modules the clean-core scope filter dropped (they import third-party, so
@@ -2238,7 +2237,7 @@ class Application:
         triple = self._triple(reg, args)
         # --quiet trims the detailed listing only. The vector and the snapshot keep
         # every INFO, because blind spots are declared, never silenced
-        # (dictionary.yaml: slijepa-pjega) — a switch must not be able to turn
+        # (slijepa-pjega) — a switch must not be able to turn
         # "not measured" into "measured clean".
         shown = [f for f in findings if f.severity != INFO] if args.quiet else findings
         rc = self._report(args, selected, shown, findings, triple)
@@ -2272,8 +2271,8 @@ class Application:
     def _load_registry(path: Path) -> dict:
         """Read the code vocabulary from the criterion dictionary.
 
-        The vocabularies are split by audience: `dictionary.yaml` governs the
-        discourse (entries/acronyms, read by people), `dictionary.json` governs
+        The vocabularies are split by audience: the discourse registry (entries/acronyms)
+        is read by people, `dictionary.json` governs
         code identifiers (read by this lint). Only the latter is a criterion, so
         only it is loaded here — in JSON, because a quality gate must not depend
         on a third-party parser. Two keys are derived:
@@ -2355,7 +2354,7 @@ class Application:
 
     @staticmethod
     def _triple(reg: dict, args) -> dict[str, str]:
-        # Reproducibility triple — dictionary.yaml: `trojka-reproducibilnosti`.
+        # Reproducibility triple (`trojka-reproducibilnosti`).
         # A finding without it is not reproducible, so it is printed with every
         # report and stored with every snapshot.
         return {
@@ -2371,7 +2370,7 @@ class Application:
             # The criterion is the code vocabulary: one JSON per distribution,
             # named with its version so a snapshot pins the exact file. It
             # has no second source — the discourse registry
-            # (dictionary.yaml) versions the terms people read, nothing the lint
+            # versions the terms people read, nothing the lint
             # measures against.
             "criterion": (
                 f"{reg.get('criterion_path', 'dictionary.json')} {reg.get('registry_version', 'unversioned')}"
@@ -2464,7 +2463,7 @@ class Application:
     def _vector(findings) -> list[tuple[str, str, str, int]]:
         # Conformance vector: counts per (NFR, kind, severity). Counting is the only
         # operation a nominal scale admits — no weighted sum, no aggregate score
-        # (METHODOLOGY §3b/§6.1; dictionary.yaml: `vektorski-nalaz`).
+        # (METHODOLOGY §3b/§6.1; `vektorski-nalaz`).
         counts: dict[tuple[str, str, str], int] = defaultdict(int)
         for f in findings:
             counts[(f.nfr, f.kind or "-", logging.getLevelName(f.severity))] += 1
@@ -2523,7 +2522,7 @@ class Application:
     def _write_snapshot(self, args, selected, findings, triple) -> None:
         """Write the run as a machine-readable vector.
 
-        Only an all-green run is a C-snapshot (dictionary.yaml: `c-snimka` — an
+        Only an all-green run is a C-snapshot (`c-snimka` — an
         ARCHIVED GREEN vector). A run with errors is archived too, but labelled
         `finding-vector`, so the archive can never be mistaken for a conformance
         record it has not earned.
