@@ -59,7 +59,6 @@ class MementoStore(Wattleflow, IStrategy, ABC):
 
     __slots__ = ()
 
-    # A key becomes a file name, so it is a plain name and never a path.
     _KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
     @classmethod
@@ -78,7 +77,6 @@ class MementoStore(Wattleflow, IStrategy, ABC):
 
     @classmethod
     def _plain(cls, value: Any) -> Any:
-        # SyRS-MST-memento-store: plain data for every backend.
         if isinstance(value, Enum):
             return value.name
         if isinstance(value, dict):
@@ -164,7 +162,7 @@ class FileMementoStore(MementoStore):
         try:
             text = json.dumps(self._plain(payload))
         except (TypeError, ValueError) as error:
-            raise MementoStoreException(self, f"Cannot store memento {key!r}: {type(error).__name__}") from error
+            raise MementoStoreException(self, f"Cannot store memento {key!r}: {type(error).__name__}") from None
         temporary: str | None = None
         try:
             self._path.mkdir(parents=True, exist_ok=True)
@@ -176,7 +174,7 @@ class FileMementoStore(MementoStore):
             os.replace(temporary, target)
             temporary = None
         except OSError as error:
-            raise MementoStoreException(self, f"Cannot write memento {key!r}: {type(error).__name__}") from error
+            raise MementoStoreException(self, f"Cannot write memento {key!r}: {type(error).__name__}") from None
         finally:
             if temporary is not None:
                 Path(temporary).unlink(missing_ok=True)
@@ -189,11 +187,11 @@ class FileMementoStore(MementoStore):
         except FileNotFoundError:
             return None
         except OSError as error:
-            raise MementoStoreException(self, f"Cannot read memento {key!r}: {type(error).__name__}") from error
+            raise MementoStoreException(self, f"Cannot read memento {key!r}: {type(error).__name__}") from None
         try:
             payload = json.loads(text)
         except ValueError as error:
-            raise MementoStoreException(self, f"Memento {key!r} is corrupt: {type(error).__name__}") from error
+            raise MementoStoreException(self, f"Memento {key!r} is corrupt: {type(error).__name__}") from None
         if not isinstance(payload, dict):
             raise MementoStoreException(
                 self, f"Memento {key!r} is corrupt: expected an object, found {type(payload).__name__}"
@@ -206,7 +204,7 @@ class FileMementoStore(MementoStore):
         try:
             target.unlink(missing_ok=True)
         except OSError as error:
-            raise MementoStoreException(self, f"Cannot clear memento {key!r}: {type(error).__name__}") from error
+            raise MementoStoreException(self, f"Cannot clear memento {key!r}: {type(error).__name__}") from None
 
 
 # --------------------------------------------------------------------------- #

@@ -62,7 +62,6 @@ class ConnectionManager(Wattleflow, IObserver):
             conn.request(action=Operation.Disconnect)
 
     def __del__(self):
-        # A construction that failed before `_connections` was set has nothing to release.
         try:
             object.__getattribute__(self, "_connections")
         except AttributeError:
@@ -173,7 +172,7 @@ class ConnectionManager(Wattleflow, IObserver):
                 caller=self,
                 error=f"Hot swap failed, the old connection '{name}' stays active: {type(e).__name__}",
                 name=name,
-            ) from e
+            ) from None
         if not connected:
             self.debug(msg=Event.Swap, step=Event.Failed, name=name)
             raise ManagerException(
@@ -210,7 +209,6 @@ class ConnectionManager(Wattleflow, IObserver):
         return self._connections[name].operation(action, **kwargs)
 
     def update(self, *args, **kwargs):
-        # The manager observes nothing yet: the hook exists for the IObserver contract.
         self.debug(msg=Event.Update, kwargs=kwargs, note="Not implemented yet.")
 
 
@@ -346,7 +344,6 @@ class DriverManager(Wattleflow, IObserver):
         return result
 
     def update(self, *args, **kwargs):
-        # The manager observes nothing yet: the hook exists for the IObserver contract.
         self.debug(msg=Event.Update, kwargs=kwargs, note="Not implemented yet.")
 
 
@@ -452,7 +449,6 @@ class ProcessorManager(Wattleflow, IObserver):
         return self._processors[name].operation(action, **kwargs)
 
     def update(self, *args, **kwargs):
-        # The manager observes nothing yet: the hook exists for the IObserver contract.
         self.debug(msg=Event.Update, kwargs=kwargs, note="Not implemented yet.")
 
 

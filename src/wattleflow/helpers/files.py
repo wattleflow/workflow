@@ -163,15 +163,12 @@ class FileSourceScanner:
 
     @property
     def rule(self):
-        # The routing rule parsed from pattern.labels (None for a plain glob).
         return self.spec.rule
 
     def __iter__(self) -> Iterator[Path]:
         if not self._source.exists():
             raise FileNotFoundError(f"source_path '{self._source}' does not exist")
         for filepath in FileScanner.scan(self._source, self.spec.glob, self._recursive):
-            # Name-based exclusion (on the stem): the processor searches by file
-            # NAME, not by path.
             if self._exclude and self._exclude.findall(filepath.stem):
                 continue
             yield filepath

@@ -35,7 +35,6 @@ from wattleflow.enums.log import LogFormat
 # --------------------------------------------------------------------------- #
 
 
-# The record a processor writes once per finished unit of work.
 _UNIT_CLOSED: str = Event.Processed
 
 
@@ -44,7 +43,7 @@ class GenericAudit(ILogger, IObserver):
 
     _lock = RLock()
     _instances: set[type] = set()
-    _handlers: dict[str, Handler] = {}  # one shared handler per logger name
+    _handlers: dict[str, Handler] = {}
     _observer: Any = None
 
     def __init__(self, **kwargs):
@@ -139,7 +138,6 @@ class GenericAudit(ILogger, IObserver):
 
     @classmethod
     def observe(cls, observer: Any) -> Any:
-        # Single observer shared by every subclass; _log_msg reads it here.
         previous, GenericAudit._observer = GenericAudit._observer, observer
         return previous
 
@@ -194,7 +192,6 @@ class GenericAudit(ILogger, IObserver):
                 try:
                     observer(self, msg, step, kwargs)
                 except Exception:
-                    # An observer failure must never suppress the audit record.
                     self._logger.exception("Audit observer failed.")
 
         if not self._logger.isEnabledFor(level):

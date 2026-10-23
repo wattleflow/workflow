@@ -31,7 +31,6 @@ from wattleflow.helpers.validation import SchemaValidator
 # --------------------------------------------------------------------------- #
 
 
-# Distinguishes "no such key" from a key holding a falsy value.
 _MISSING: Any = object()
 
 # --------------------------------------------------------------------------- #
@@ -94,9 +93,6 @@ class Config(Wattleflow, IConfig):
             return default
 
     def get(self, section: str, key: str, name=None, default=None) -> dict | str | list:
-        # Absence is signalled by _MISSING, never by falsiness: `[]`, `{}`, `0`,
-        # `False` and `""` are values a config may legitimately hold, and testing
-        # them with `not` reported them as missing and returned the parent node.
         def find_root(branch, name):
             if branch is None:
                 return _MISSING
@@ -175,7 +171,7 @@ class Config(Wattleflow, IConfig):
                 target="file",
                 error=type(e).__name__,
             )
-            raise FileNotFoundError(f"Configuration file not found: {self.config_file}") from e
+            raise FileNotFoundError(f"Configuration file not found: {self.config_file}") from None
         except self.ERRORS as e:
             self.debug(
                 msg=Event.Configure,
@@ -183,7 +179,7 @@ class Config(Wattleflow, IConfig):
                 target=self.FORMAT,
                 error=type(e).__name__,
             )
-            raise ValueError(f"Invalid {self.FORMAT} file: {self.config_file}. Error: {type(e).__name__}") from e
+            raise ValueError(f"Invalid {self.FORMAT} file: {self.config_file}. Error: {type(e).__name__}") from None
 
     @classmethod
     def flatten_config(cls, config: dict, parent_key: str = "", sep: str = "_") -> dict:
@@ -219,7 +215,6 @@ class Config(Wattleflow, IConfig):
 
 @final
 class JSONConfig(Config):
-    # RFC 8259 fixes the encoding; the platform default must not decide it.
     FORMAT = "JSON"
     ENCODING = "utf-8"
     ERRORS = (json.JSONDecodeError, UnicodeDecodeError)

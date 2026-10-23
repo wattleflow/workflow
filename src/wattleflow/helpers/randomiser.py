@@ -53,8 +53,7 @@ import threading
 
 class Snowflake:
     def __init__(self, node_id: int):
-        # 41 bits timestamp, 10 bits node id, 12 bits sequence = 63 bits
-        self._epoch = 1609459200000  # custom epoch (ms) e.g. 2021-01-01
+        self._epoch = 1609459200000
         self._node_id_bits = 10
         self._seq_bits = 12
         self._max_node = (1 << self._node_id_bits) - 1
@@ -75,12 +74,10 @@ class Snowflake:
         with self._lock:
             ts = self._timestamp()
             if ts < self._last_ts:
-                # clock moved backwards — needs stronger handling in production
                 raise RuntimeError("Clock moved backwards")
             if ts == self._last_ts:
                 self._sequence = (self._sequence + 1) & self._max_seq
                 if self._sequence == 0:
-                    # under load, wait for the next millisecond
                     while ts <= self._last_ts:
                         ts = self._timestamp()
             else:
@@ -102,7 +99,7 @@ class Timestamp:
 
     def next_id(self) -> int:
         with self.lock:
-            ts = int(time.time() * 1000)  # ms
+            ts = int(time.time() * 1000)
             if ts != self.last_ts:
                 self.counter = 0
                 self.last_ts = ts

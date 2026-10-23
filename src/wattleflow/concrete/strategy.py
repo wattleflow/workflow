@@ -23,7 +23,6 @@ from wattleflow.core import IWattleflow, IStrategy, ITarget
 from wattleflow.concrete.base import Wattleflow
 from wattleflow.concrete.exception import StrategyException
 from wattleflow.enums.event import Event
-# from wattleflow.decorators.measure import measured  # retired
 
 # --------------------------------------------------------------------------- #
 # endregion Imports                                                           #
@@ -34,7 +33,6 @@ from wattleflow.enums.event import Event
 # --------------------------------------------------------------------------- #
 
 
-# @measured()
 class Strategy(Wattleflow, IStrategy, ABC):
     __slots__ = ()
 
@@ -43,7 +41,7 @@ class Strategy(Wattleflow, IStrategy, ABC):
         pass
 
     def _run(self, operation: str, **kwargs):
-        """`algorithm` with every failure carried as StrategyException (BR-PTR-05)."""
+        """BR-05: ../../../../../documentation/requirements/02-SyRS/SyRS-PTR-root-base.md#7-business-rules"""
         try:
             return self.algorithm(**kwargs)
         except StrategyException:
@@ -51,7 +49,7 @@ class Strategy(Wattleflow, IStrategy, ABC):
         except Exception as e:
             error = "%s.%s error: %s: %s" % (type(self).__name__, operation, type(e).__name__, e)
             self.debug(msg=Event.Executing, step=Event.Failed, operation=operation, error=error)
-            raise StrategyException(caller=self, error=error) from e
+            raise StrategyException(caller=self, error=error) from None
 
 
 class StrategyGenerate(Strategy, ABC):

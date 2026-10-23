@@ -35,7 +35,6 @@ class Moment(_MomentSlots):
 
     __slots__ = ()
 
-    #: 0001-01-01T00:00:00 and 9999-12-31T23:59:59.999999999, both kinds.
     MIN_NS = -62_135_596_800 * 1_000_000_000
     MAX_NS = 253_402_300_800 * 1_000_000_000 - 1
 
@@ -73,7 +72,7 @@ class Moment(_MomentSlots):
         if tz is None:
             return None
         if isinstance(tz, str):
-            ZoneInfo(tz)  # validates (ZoneInfo keeps its own cache)
+            ZoneInfo(tz)
             return tz
         return getattr(tz, "key", None)
 
@@ -97,7 +96,6 @@ class Moment(_MomentSlots):
         _st(o, tz)
         return o
 
-    # ---- immutability and copying ----
     def __setattr__(self, k, v):
         raise AttributeError("Moment is immutable")
 
@@ -113,7 +111,6 @@ class Moment(_MomentSlots):
     def __deepcopy__(self, memo):
         return self
 
-    # ---- comparison (tz is not compared; naive and aware never mix) ----
     def __eq__(self, o):
         if not isinstance(o, Moment):
             return NotImplemented
@@ -150,7 +147,6 @@ class Moment(_MomentSlots):
             raise TypeError("cannot compare a naive and an aware Moment")
         return self.ns >= o.ns
 
-    # ---- arithmetic ----
     def __add__(self, d):
         if not isinstance(d, timedelta):
             return NotImplemented
@@ -175,9 +171,6 @@ class Moment(_MomentSlots):
             return timedelta(microseconds=(self.ns - o.ns) // 1000)
         return NotImplemented
 
-    # ---- display ----
-    # The helper is imported at call time: Moment does not depend on it at module level
-    # (no import cycle), and str/repr are not a hot path.
     def __str__(self):
         from .helper import MomentHelper
 

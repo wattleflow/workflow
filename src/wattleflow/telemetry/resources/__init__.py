@@ -4,14 +4,6 @@
 # License: Apache 2 Licence
 
 # --------------------------------------------------------------------------- #
-# Lazy public API (PEP 562).
-#
-# One resource per module, so adding one is adding a file rather than growing a
-# class. The package carries an `__init__.py` to belong to THIS distribution and
-# not merge with a same-named directory another ships (CLAUDE.md 2.6, 2.7 t.1).
-# Nothing here needs an optional library today; the deferred form is
-# kept because the GPU resource that will join arrives from a distribution that
-# does (`StRS-RESOURCE`).
 # --------------------------------------------------------------------------- #
 
 from __future__ import annotations
@@ -29,8 +21,6 @@ __all__ = [
 from importlib import import_module
 from typing import Any
 
-# Public name -> defining submodule. The single declaration of what this package
-# exposes and from where; extend it when a resource is added.
 _EXPORTS: dict[str, str] = {
     "Resource": "base",
     "ResourceSnapshot": "base",
@@ -40,14 +30,14 @@ _EXPORTS: dict[str, str] = {
     "ResourceStorage": "storage",
 }
 
-def __getattr__(name: str) -> Any:  # NFRQ-ORG-11: pep562
+def __getattr__(name: str) -> Any:
     module = _EXPORTS.get(name)
     if module is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     value = getattr(import_module(f".{module}", __name__), name)
-    globals()[name] = value  # resolve once; subsequent lookups skip __getattr__
+    globals()[name] = value
     return value
 
 
-def __dir__() -> list[str]:  # NFRQ-ORG-11: pep562
+def __dir__() -> list[str]:
     return sorted(__all__)

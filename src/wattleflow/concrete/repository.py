@@ -78,9 +78,7 @@ class GenericRepository(Wattleflow, IRepository, ABC):
 
         self.debug(msg=Event.Constructor, step=Event.Completed)
 
-    # Must be implemented if using PresetDecorator
     def __getattr__(self, name: str) -> Any:
-        # Before `_preset` exists the lookup answers with the name asked for, not with `_preset`.
         try:
             preset: PresetDecorator = object.__getattribute__(self, "_preset")
         except AttributeError:
@@ -164,7 +162,7 @@ class GenericRepository(Wattleflow, IRepository, ABC):
                 caller=self,
                 error=reason,
                 id=identifier,
-            ) from e
+            ) from None
 
         return facade
 
@@ -232,7 +230,7 @@ class GenericRepository(Wattleflow, IRepository, ABC):
                 error=reason,
                 context=owned,
             )
-            raise RepositoryException(caller=self, error=reason, facade=facade) from e
+            raise RepositoryException(caller=self, error=reason, facade=facade) from None
 
     # endregion Public
 

@@ -37,8 +37,6 @@ class ResourceStorage(Resource):
 
     def usage(self) -> tuple[int, int] | None:
         """(free, total) bytes, or None when the path cannot be reached."""
-        # A run may declare a write path before anything creates it, so walk up
-        # to the nearest parent that exists: the file system is the same one.
         probe = Path(self.path)
         while not probe.exists() and probe != probe.parent:
             probe = probe.parent

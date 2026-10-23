@@ -44,41 +44,34 @@ from wattleflow.concrete.exception import PipelineException, ProcessorException
 
 class ProcessorState(str, Enum):
     IDLE = "idle"
-    STATE_LOADED = "state_loaded"  # restore
+    STATE_LOADED = "state_loaded"
     RUNNING = "running"
     COMPLETED = "completed"
-    FAILED = "failed"  # resumable
+    FAILED = "failed"
 
 
 class ProcessorAction(str, Enum):
-    LOAD = "load"  # restore state
-    START = "start"  # start / resume
-    NEXT_ITEM = "next_item"  # iteration
-    CYCLE_COMPLETED = "cycle_completed"  # record went through pipeline
-    RECORDS_PROCESSED = "records_processed"  # dataset finished
-    FAIL = "fail"  # error
-    STORE = "store"  # save memento
+    LOAD = "load"
+    START = "start"
+    NEXT_ITEM = "next_item"
+    CYCLE_COMPLETED = "cycle_completed"
+    RECORDS_PROCESSED = "records_processed"
+    FAIL = "fail"
+    STORE = "store"
 
 
 TRANSITIONS = {
-    # --- INIT ---
     (ProcessorState.IDLE, ProcessorAction.LOAD): ProcessorState.STATE_LOADED,
     (ProcessorState.IDLE, ProcessorAction.START): ProcessorState.RUNNING,
-    # --- RESUME ---
     (ProcessorState.STATE_LOADED, ProcessorAction.START): ProcessorState.RUNNING,
-    # --- MAIN LOOP ---
     (ProcessorState.RUNNING, ProcessorAction.NEXT_ITEM): ProcessorState.RUNNING,
     (ProcessorState.RUNNING, ProcessorAction.CYCLE_COMPLETED): ProcessorState.RUNNING,
-    # --- COMPLETE ---
     (
         ProcessorState.RUNNING,
         ProcessorAction.RECORDS_PROCESSED,
     ): ProcessorState.COMPLETED,
-    # --- FAILURE ---
     (ProcessorState.RUNNING, ProcessorAction.FAIL): ProcessorState.FAILED,
-    # --- RECOVERY ---
     (ProcessorState.FAILED, ProcessorAction.LOAD): ProcessorState.STATE_LOADED,
-    # --- STORE ---
     (ProcessorState.COMPLETED, ProcessorAction.STORE): ProcessorState.COMPLETED,
     (ProcessorState.FAILED, ProcessorAction.STORE): ProcessorState.FAILED,
 }
@@ -122,10 +115,10 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         if flush_per_cycle is None:
             flush_per_cycle = True
 
-        # Explicit checks, not `assert`: assertions are removed under `python -O`.
         if blackboard is not None and not isinstance(blackboard, IBlackboard):
             raise ProcessorException(
-                caller=type(self), error="Expected IBlackboard. Found %s" % type(blackboard)
+                caller=type(self),
+                error="Expected IBlackboard. Found %s" % type(blackboard),
             )
         if pipelines is not None and not isinstance(pipelines, list):
             raise ProcessorException(
@@ -135,14 +128,12 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         super().__init__(**kwargs)
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
 
-        # Checkpointing is opt-in: without a store the processor saves and reads nothing.
         if memento_store is not None:
             if not isinstance(memento_store, MementoStore):
                 raise ProcessorException(
                     caller=self,
                     error=f"Expected MementoStore. Found {type(memento_store).__name__}",
                 )
-            # A checkpoint says "this many items are done"; without a flush they are not.
             if flush_per_cycle is False:
                 raise ProcessorException(
                     caller=self,
@@ -189,7 +180,6 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             preset=self._preset,
         )
 
-    # Must be implemented if using PresetDecorator
     def __getattr__(self, name: str) -> Any:
         preset: PresetDecorator = object.__getattribute__(self, "_preset")
         if preset is None:
@@ -200,11 +190,10 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         return f"{self.name}: [{len(self._pipelines)}]:[{self.levelname}]"
 
     def __del__(self):
-        # FR-PRC-11: the processor owns its blackboard and clears it; a failure is recorded, never raised.
         try:
             object.__getattribute__(self, "_pipelines")
         except AttributeError:
-            return  # construction failed before the members were set
+            return
         if self._blackboard is not None:
             try:
                 self._blackboard.clear()
@@ -282,7 +271,6 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                 caller=self,
                 error=f"Cannot restore: saved state {saved_state!r} is not a ProcessorState",
             )
-        # LOAD recovery only valid from IDLE or FAILED.
         if (saved_state, ProcessorAction.LOAD) not in TRANSITIONS:
             raise ProcessorException(
                 caller=self,
@@ -294,7 +282,6 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                 error=f"Cannot restore: saved cycle {saved_cycle!r} is not a non-negative int",
             )
 
-        # StateMachine.state is read-only: restart the machine from the saved state.
         fsm = StateMachine(TRANSITIONS, saved_state, name="ProcessorFSM")
         fsm.apply(ProcessorAction.LOAD)
 
@@ -328,15 +315,22 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             memento = self._memento_store.read(self._memento_key)
         except Exception as error:
             raise ProcessorException(
-                caller=self, error=f"Cannot read checkpoint {self._memento_key!r}: {type(error).__name__}"
-            ) from error
+                caller=self,
+                error=f"Cannot read checkpoint {self._memento_key!r}: {type(error).__name__}",
+            ) from None
         if memento is None:
             return
         state = memento.get_state()
         if isinstance(state, str) and not isinstance(state, ProcessorState):
             state = ProcessorState.__members__.get(state, state)
-        self.info(msg=Event.Restore, key=self._memento_key, cycle=memento.to_dict().get("cycle"))
-        self.restore_state(GenericMemento(cycle=memento.to_dict().get("cycle"), state=state))
+        self.info(
+            msg=Event.Restore,
+            key=self._memento_key,
+            cycle=memento.to_dict().get("cycle"),
+        )
+        self.restore_state(
+            GenericMemento(cycle=memento.to_dict().get("cycle"), state=state)
+        )
 
     def _checkpoint(self) -> None:
         """An interrupted run is a failed one, so the checkpoint records FAILED: the state a
@@ -348,7 +342,10 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             )
         except Exception as error:
             self.warning(
-                msg=Event.Save, step=Event.Failed, key=self._memento_key, error=type(error).__name__
+                msg=Event.Save,
+                step=Event.Failed,
+                key=self._memento_key,
+                error=type(error).__name__,
             )
 
     def _release(self) -> None:
@@ -357,7 +354,10 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             self._memento_store.clear(self._memento_key)
         except Exception as error:
             self.warning(
-                msg=Event.Clear, step=Event.Failed, key=self._memento_key, error=type(error).__name__
+                msg=Event.Clear,
+                step=Event.Failed,
+                key=self._memento_key,
+                error=type(error).__name__,
             )
 
     # endregion Memento
@@ -366,9 +366,10 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
 
     def operation(self, action: Operation, **kwargs) -> bool:
         if action is Operation.Start:
-            # The manager forwards its keywords without interpreting them; `start` takes none.
             if kwargs:
-                self.debug(msg=Event.Operation, step=Event.Check, ignored=sorted(kwargs))
+                self.debug(
+                    msg=Event.Operation, step=Event.Check, ignored=sorted(kwargs)
+                )
             self.start()
             return True
         self.warning(
@@ -379,7 +380,6 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
         return False
 
     def start(self) -> None:
-        # Checked before `Started`: a refusal opens no span the monitor would wait to see closed.
         if self._blackboard is None:
             raise ProcessorException(self, f"Missing {self.name!r} blackboard!")
 
@@ -395,7 +395,6 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             repositories=self._repository_names(),
         )
 
-        # A processor that already has a generator is mid-run or restored: only a fresh one resumes.
         if self._memento_store is not None and self._generator is None:
             self._resume()
 
@@ -417,9 +416,12 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                     self._cycle += 1
                     self._fsm.apply(ProcessorAction.CYCLE_COMPLETED)
                     if self._flush_per_cycle:
-                        outcome = self.blackboard.flush(caller=self, **self.write_context)
-                        # A blackboard that answers nothing has not confirmed anything.
-                        self._flush_outcome = outcome if isinstance(outcome, bool) else None
+                        outcome = self.blackboard.flush(
+                            caller=self, **self.write_context
+                        )
+                        self._flush_outcome = (
+                            outcome if isinstance(outcome, bool) else None
+                        )
                     if (
                         self._memento_store is not None
                         and self._cycle % self._checkpoint_every == 0
@@ -445,9 +447,8 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                     raise PipelineException(
                         caller=self,
                         error=reason,
-                    ) from e
+                    ) from None
 
-            # Without a flush per cycle the canvas is emptied once, here, when every item is done.
             if not self._flush_per_cycle and self._cycle > 0:
                 self.blackboard.flush(caller=self, **self.write_context)
 
@@ -455,8 +456,7 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
             if self._memento_store is not None:
                 self._release()
 
-        except PipelineException:
-            # A failure inside an item leaves the machine FAILED, the state a resume loads from.
+        except (PipelineException, ProcessorException):
             if self._fsm.can(ProcessorAction.FAIL):
                 self._fsm.apply(ProcessorAction.FAIL)
             raise
@@ -469,7 +469,9 @@ class GenericProcessor(Wattleflow, IProcessor, IOriginator, ABC):
                 cycles=self._cycle,
                 error=type(e).__name__,
             )
-            raise ProcessorException(caller=self, error=type(e).__name__) from e
+            raise ProcessorException(
+                caller=self, error=type(e).__name__, err=str(e)
+            ) from None
 
         self.debug(msg=Event.Start, step=Event.Completed, cycles=self._cycle)
         self.info(

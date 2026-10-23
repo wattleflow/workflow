@@ -28,7 +28,6 @@ from wattleflow.concrete.loader import ClassLoader
 # region Private helpers                                                      #
 # --------------------------------------------------------------------------- #
 
-# Types that are never loaded from a class path given as a string.
 _PRIMITIVES = (int, float, bool, bytes, dict, list, set, frozenset, str, tuple)
 _RESERVED = frozenset({"caller", "error", "name", "cls", "obj"})
 
@@ -72,7 +71,6 @@ class Attribute:
     def find_object_by_name(obj):
         return NameHelper.obj_name(obj) or "Unknown"
 
-    # --- validation -------------------------------------------------------- #
 
     @classmethod
     def evaluate(
@@ -139,7 +137,6 @@ class Attribute:
 
         Attribute.evaluate(caller, attr, cls)  # type: ignore
 
-    # --- conversion -------------------------------------------------------- #
 
     @staticmethod
     def convert(caller: object, name: str, cls: type, **kwargs) -> Any:
@@ -174,7 +171,6 @@ class Attribute:
             **_extra(kwargs),
         )
 
-    # --- loading / resolving ----------------------------------------------- #
 
     @staticmethod
     def _class_at(path: str) -> object:
@@ -197,9 +193,9 @@ class Attribute:
         except ModuleNotFoundError as e:
             raise ModuleNotFoundError(
                 f"Class {obj!r} could not be loaded: module {e.name!r} not found."
-            ) from e
+            ) from None
         except Exception as e:
-            raise ValueError(f"Failed to load {obj}: {type(e).__name__}") from e
+            raise ValueError(f"Failed to load {obj}: {type(e).__name__}") from None
 
         if not (isinstance(klass, type) and issubclass(klass, cls)):
             error = f"Loaded class {obj} is not a subclass of {cls.__name__}"
@@ -215,7 +211,7 @@ class Attribute:
         try:
             return ClassLoader(obj, **kwargs).instance
         except Exception as e:
-            raise ValueError(f"Failed to instantiate {obj}: {type(e).__name__}") from e
+            raise ValueError(f"Failed to instantiate {obj}: {type(e).__name__}") from None
 
     @classmethod
     def _resolve(
@@ -249,7 +245,7 @@ class Attribute:
                     name=name,
                     cls=expected,
                     **_extra(params),
-                ) from e
+                ) from None
 
         raise AttributeException(
             caller=caller,
@@ -316,7 +312,7 @@ class Attribute:
 
         instance = Attribute._resolve(caller, name, item, cls, kwargs)
         if instance is not item:
-            setattr(caller, name, instance)  # a value that was loaded is kept on the caller
+            setattr(caller, name, instance)
         return instance
 
     @staticmethod
@@ -340,7 +336,6 @@ class Attribute:
         if d is not None and name in d:
             return d[name]
 
-        # Go through the MRO and check if the name is in __slots__
         for cls in type(caller).__mro__:
             slots = cls.__dict__.get("__slots__")
             if not slots:
@@ -348,8 +343,6 @@ class Attribute:
             if isinstance(slots, str):
                 slots = (slots,)
             if name in slots:
-                # if exists, try to get it - can still throw AttributeError
-                # if the slot is unallocated.
                 return object.__getattribute__(caller, name)
 
         error = f"{caller!r} is missing attribute {name!r}."
@@ -416,7 +409,7 @@ class NameHelper:
                 try:
                     result[slot] = object.__getattribute__(o, slot)
                 except AttributeError:
-                    pass  # unallocated slot
+                    pass
 
         return result
 

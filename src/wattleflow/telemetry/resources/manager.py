@@ -40,7 +40,7 @@ from wattleflow.telemetry.resources.storage import ResourceStorage
 # --------------------------------------------------------------------------- #
 
 
-class ResourceManager(GenericAudit):  # below the root, as SyRS-PTR-root-base
+class ResourceManager(GenericAudit):
     """Resolve and announce the limits a pass will be measured against."""
 
     def __init__(
@@ -55,8 +55,6 @@ class ResourceManager(GenericAudit):  # below the root, as SyRS-PTR-root-base
         self._thresholds = dict(thresholds or {})
         self.memory = ResourceMemory()
         self.cpu = ResourceCpu()
-        # A resource the standard library cannot see arrives from the
-        # distribution allowed to import its library (`BR-08`).
         self._resources: dict[str, Resource] = {
             self.memory.RESOURCE: self.memory,
             self.cpu.RESOURCE: self.cpu,
@@ -82,8 +80,6 @@ class ResourceManager(GenericAudit):  # below the root, as SyRS-PTR-root-base
         return {name: self.limit(name) for name in self._resources}
 
     def _resolve(self, name: str) -> tuple[Any, str]:
-        # Declared beats discovered: an operator who states a ceiling knows
-        # something the platform does not, such as a quota enforced elsewhere.
         if name in self._declared:
             return self._declared[name], "declared"
         resource = self._resources.get(name)
@@ -138,7 +134,6 @@ class ResourceManager(GenericAudit):  # below the root, as SyRS-PTR-root-base
                     threshold=self._thresholds.get("storage"),
                 )
         except Exception as e:
-            # Measuring must not be what stops a workflow (`BR-07`).
             self.warning(msg=Event.Configure, target=MetricTarget.Limit, error=type(e).__name__)
 
 

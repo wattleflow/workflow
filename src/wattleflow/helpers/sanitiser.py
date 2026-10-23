@@ -33,19 +33,15 @@ from urllib.parse import urlparse, urlunparse
 
 
 class UrlSanitiser:
-    # Keys of a mapping that name a place; everything else in a mapping is dropped.
     KEEP = ("host", "port", "scheme", "url_prefix")
 
     @staticmethod
     def _host_part(netloc: str) -> str:
-        # host[:port] taken from netloc directly to preserve the original casing;
-        # ParseResult.hostname lowercases the host, which would silently alter the URI.
         return netloc.rsplit("@", 1)[-1]
 
     @classmethod
     def mask(cls, uri: str) -> str:
         """``uri`` with the password replaced by ``***``; user name, query and fragment stay.
-
         For readable logs only. Use ``redact`` for audit records.
         """
         parsed = urlparse(uri)
@@ -58,7 +54,7 @@ class UrlSanitiser:
     def redact(cls, value: Any) -> Any:
         """Reduced to ``scheme://host:port/path``.
         ``value`` without user name, password, query or fragment.
-        the keys that name a place (``host``, ``port``, ``scheme``, ``url_prefix``).
+        (``host``, ``port``, ``scheme``, ``url_prefix``).
         """
         if isinstance(value, str):
             parsed = urlparse(value)

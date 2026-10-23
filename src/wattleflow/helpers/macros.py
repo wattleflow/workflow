@@ -2,10 +2,6 @@
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-#
-# History:
-#   2024-06-01: Initial version created.
-#   2026-03-16: Updated run: error handling for invalid macro formats.
 
 
 # --------------------------------------------------------------------------- #
@@ -23,11 +19,8 @@ import re
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
 CompiledMacros = list[tuple[re.Pattern, str]]
-# What one substitution pass replaced: {"text", "replacement", "entity"}.
 Replacements = list[dict[str, str]]
 
-# v0.0.0.97 (NFRQ-ORG-05): the ReDoS guard and its pattern are members of the
-# class that applies them, not module-level helpers.
 class TextMacros:
     __slot__ = ("_compiled", "log")
 
@@ -35,12 +28,8 @@ class TextMacros:
         "Tuple macro must be: (pattern, replacement) or (pattern, replacement, flags)."
     )
 
-    # Default placeholder series for anonymise(); Croatian-facing corpora read
-    # ENTITET1, ENTITET2 … A caller that needs another series passes `prefix`.
     PLACEHOLDER_PREFIX = "ENTITET"
 
-    # Detects common catastrophic backtracking structures:
-    #   (a+)+  (a*)* (a+)* (a?)+  and quantified groups followed by { repetition
     REDOS = re.compile(r"\([^()]*[+*?][^()]*\)[+*{]")
 
     def __init__(self, list_of_macros: list = None, flag=re.IGNORECASE):
@@ -82,8 +71,6 @@ class TextMacros:
 
     @staticmethod
     def _replacement_error(pattern: re.Pattern, replacement) -> str | None:
-        # A probe, not a gate: the branch reports the fault to its caller instead
-        # of wrapping and re-raising it.
         try:
             pattern.sub(replacement, "")
         except re.error as e:
@@ -120,8 +107,6 @@ class TextMacros:
                     raise ValueError(f"Macro must be tuple or dict, got {type(macro).__name__}")
 
                 self._check_redos(pattern)
-                # re.error travels to the handler below unwrapped: it already
-                # names the pattern, and the record there carries the macro.
                 compiled = re.compile(pattern, flags)
 
                 self._compiled.append((compiled, replacement))
@@ -135,9 +120,6 @@ class TextMacros:
                 continue
 
     def run(self, text: str) -> str:
-        # Flags are baked into each compiled pattern during add().
-        # Pattern.sub's 3rd positional arg is `count`, not flags — passing
-        # re.IGNORECASE (int value 2) here silently capped substitutions at 2.
         result = text
         for pattern, replacement in self._compiled:
             result = pattern.sub(replacement, result)
@@ -186,8 +168,6 @@ class TextMacros:
                 )
 
         result = text
-        # Longest surface first: a shorter form that is a substring of a longer
-        # one would otherwise consume part of it and leave a broken remainder.
         for surface in sorted(placeholders, key=len, reverse=True):
             result = result.replace(surface, placeholders[surface])
         return result, replaced

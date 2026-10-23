@@ -43,14 +43,13 @@ class Singleton(IWattleflow):
     (NFRQ-SCR-01).
     """
 
-    # The base declares the init flag, so a subclass with __slots__ needs no extra slot.
     __slots__ = ("_wf_initialized",)
 
     _instances: dict = {}
-    _lock = threading.Lock()  # base lock; each subclass gets its own (see below)
-    _init_lock = threading.RLock()  # held for the whole of __init__; each subclass gets its own
-    _init_calls: dict = {}  # class -> (args, kwargs) of the call that initialised it
-    _initialising = threading.local()  # ids of the instances whose __init__ this thread is in
+    _lock = threading.Lock()
+    _init_lock = threading.RLock()
+    _init_calls: dict = {}
+    _initialising = threading.local()
 
     @property
     def name(self) -> str:
@@ -70,7 +69,7 @@ class Singleton(IWattleflow):
         try:
             same = cls._init_calls.get(cls) == (args, kwargs)
         except Exception:
-            same = False  # arguments that cannot be compared are reported, not trusted
+            same = False
         if not same:
             warnings.warn(
                 f"{cls.__name__} is already initialised; the arguments of this call are ignored",
@@ -91,8 +90,6 @@ class Singleton(IWattleflow):
             owner = type(self)
             active = Singleton._initialising.__dict__.setdefault("ids", set())
             if id(self) in active:
-                # a parent's guarded __init__ reached through super() inside this one:
-                # still the same initialisation, so it runs and the outermost call sets the flag
                 original(self, *args, **kwargs)
                 return
             with owner._init_lock:

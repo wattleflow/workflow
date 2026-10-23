@@ -13,7 +13,6 @@ __all__ = [
 # --------------------------------------------------------------------------- #
 # region Constants                                                            #
 # --------------------------------------------------------------------------- #
-# Fault tolerance event types.
 RETRY_SCHEDULED = "retry.scheduled"
 RETRY_GAVE_UP = "retry.gave_up"
 CIRCUIT_STATE_CHANGED = "circuit.state_changed"

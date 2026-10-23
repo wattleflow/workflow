@@ -71,7 +71,6 @@ class GenericMemento(Wattleflow, IMemento):
 
     def __repr__(self) -> str:
         name = self.name or self.__class__.__name__
-        # Keys only: the payload is arbitrary and may carry secrets (NFRQ-SCR-06).
         return f"{name}(keys=[{', '.join(self._data)}])"
 
     def get_state(self) -> Any:

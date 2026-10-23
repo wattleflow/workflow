@@ -26,7 +26,6 @@ from typing import ClassVar
 # --------------------------------------------------------------------------- #
 
 
-# NFRQ-ORG-05): the environment key
 class SourcePath:
     """Locates a source tree and prepends it to `sys.path`."""
 

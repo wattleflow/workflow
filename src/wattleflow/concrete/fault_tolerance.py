@@ -182,7 +182,7 @@ class RetryExhaustedError(FaultToleranceException):
 
     def __init__(self, caller: object, attempts: int, last_error: BaseException) -> None:
         super().__init__(
-            caller, f"Operation failed after {attempts} attempts: {last_error!r}", exc=last_error
+            caller, f"Operation failed after {attempts} attempts: {type(last_error).__name__}", exc=last_error
         )
         self.attempts = attempts
         self.last_error = last_error
@@ -307,7 +307,7 @@ class RetryInvoker(GenericInvoker):
                     )
                     if attempt == 1:
                         raise
-                    raise RetryExhaustedError(self, attempt, error) from error
+                    raise RetryExhaustedError(self, attempt, error) from None
                 self._publish(
                     RETRY_SCHEDULED,
                     {"attempt": attempt, "delay": delay, "error": type(error).__name__},

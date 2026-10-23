@@ -39,8 +39,6 @@ class ValidationError(ValueError, TypeError):
     """
 
 
-# v0.0.0.97 (NFRQ-ORG-05): the keyword table and the checks that read it are one
-# qualified unit — constants as class attributes, no module-level helpers.
 class SchemaValidator:
     """Validates an instance against a JSON Schema subset."""
 
@@ -84,8 +82,6 @@ class SchemaValidator:
         cls._check_choice(instance, schema)
         cls._check_combinators(instance, schema)
 
-        # Applied on the instance, not on a sibling `type` declaration — JSON
-        # Schema keywords are conditional on the instance itself.
         if isinstance(instance, dict):
             cls._check_object(instance, schema)
         if isinstance(instance, list):
@@ -167,7 +163,6 @@ class SchemaValidator:
     def _check_array(cls, instance: list, schema: dict) -> None:
         items_schema = schema.get("items")
         if isinstance(items_schema, list):
-            # Positional schemas; surplus items stay unconstrained.
             for item, sub in zip(instance, items_schema, strict=False):
                 cls.validate(item, sub)
         elif items_schema is not None:
@@ -225,8 +220,6 @@ class SchemaValidator:
     def _is_type(cls, instance: Any, name: str) -> bool:
         if name not in cls.TYPES:
             raise ValueError(f"Unsupported type: {name}")
-        # JSON Schema keeps booleans out of the numeric types even though Python
-        # makes bool a subclass of int.
         if isinstance(instance, bool):
             return name == "boolean"
         if name == "integer":

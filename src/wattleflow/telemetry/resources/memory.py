@@ -19,8 +19,6 @@ from pathlib import Path
 from typing import ClassVar
 from wattleflow.telemetry.resources.base import Resource
 
-# Absent on Windows, where the peak is then reported unmeasured. The name is the
-# standard library's, not this package: an absolute import reaches past us.
 try:
     import resource as rusage
 except ImportError:
@@ -64,7 +62,6 @@ class ResourceMemory(Resource):
         if rusage is None:
             return None
         highest = rusage.getrusage(rusage.RUSAGE_SELF).ru_maxrss
-        # Linux reports KiB, macOS bytes.
         return highest if sys.platform == "darwin" else highest * 1024
 
 

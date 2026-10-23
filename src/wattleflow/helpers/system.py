@@ -51,7 +51,6 @@ from wattleflow.helpers.normaliser import Normaliser
 # --------------------------------------------------------------------------- #
 # region Constants                                                            #
 # --------------------------------------------------------------------------- #
-# The core is JSON-only; the name follows the reader.
 KEY_CONFIG_FILE_NAME = "config.json"
 # --------------------------------------------------------------------------- #
 # endregion Constants                                                         #
@@ -180,7 +179,6 @@ class Proxy:
                 return self.after_call(result)
             return self.after_call(result, *args, **kwargs)
         except Exception:
-            # Swallow after-call failures so the target's result is preserved.
             return
 
     def __call__(self, *args, **kwargs):
@@ -211,10 +209,6 @@ class ShellExecutor:
     def detect_shell(self) -> str:
         if self.os_name == "windows":
             return "powershell" if self.is_powershell_available() else "cmd"
-        # FIX: os.sep is '\\' on Windows, but the SHELL environment variable always
-        # uses forward-slash separators (e.g. '/usr/bin/bash').  Using os.sep as the
-        # split delimiter returns the full path unchanged on Windows.  Path.name is
-        # platform-agnostic and correctly extracts just the executable name.
         shell_path = os.environ.get("SHELL", "bash")
         return Path(shell_path).name
 
@@ -242,9 +236,6 @@ class ShellExecutor:
         elif isinstance(command, (list, tuple)):
             cmd_list = list(command)
         elif isinstance(command, str) and use_shell:
-            # SECURITY: passing a raw string to a shell interpreter enables command
-            # injection. Pass the full command as a list instead, e.g.:
-            #   ["bash", "-c", "ls | grep foo"]
             raise TypeError(
                 "use_shell=True with a string command is not permitted. "
                 "Pass command as a list to retain shell features safely, e.g. "
@@ -298,9 +289,6 @@ class TempPathHelper:
             raise ValueError("TempPathHelper.file_path is empty!")
 
         if path_like.startswith("TEMP"):
-            # Joining as paths, not strings: "TEMPdata" concatenated to
-            # "/tmpdata" — a sibling of the temp directory, not a child — and
-            # "TEMP/../etc" walked out of it entirely.
             base = Path(gettempdir()).resolve()
             source = (base / path_like[len("TEMP") :].lstrip("/\\")).resolve()
             if not source.is_relative_to(base):
@@ -317,8 +305,6 @@ class TempPathHelper:
     def full_path(self) -> Path:
         return self.source_path.absolute()
 
-    # FIX: previously annotated as `-> Path` but returns a str — annotation
-    # corrected to match the actual return type.
     @property
     def str_path(self) -> str:
         return str(self.source_path.absolute())

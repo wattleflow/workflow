@@ -30,7 +30,6 @@ from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.enums.event import Event
 from wattleflow.enums.operation import Operation
 from wattleflow.decorators.preset import PresetDecorator
-# from wattleflow.decorators.measure import measured  # retired
 
 # --------------------------------------------------------------------------- #
 # endregion imports                                                           #
@@ -85,14 +84,11 @@ class ConnectionState(str, Enum):
     FAILED = "failed"
 
 
-# (current_state, action) -> next_state
 TRANSITIONS = {
-    # create lifecycle
     (ConnectionState.NEW, ConnectionAction.CREATE): ConnectionState.CREATING,
     (ConnectionState.CLOSED, ConnectionAction.CREATE): ConnectionState.CREATING,
     (ConnectionState.CREATING, ConnectionAction.CREATE_OK): ConnectionState.CREATED,
     (ConnectionState.CREATING, ConnectionAction.CREATE_FAIL): ConnectionState.FAILED,
-    # session lifecycle (within connect() context manager)
     (ConnectionState.CREATED, ConnectionAction.CONNECT): ConnectionState.CONNECTING,
     (
         ConnectionState.CONNECTING,
@@ -103,7 +99,6 @@ TRANSITIONS = {
         ConnectionAction.CONNECT_FAIL,
     ): ConnectionState.CREATED,
     (ConnectionState.CONNECTED, ConnectionAction.DISCONNECT): ConnectionState.CREATED,
-    # close lifecycle (engine teardown)
     (ConnectionState.CREATING, ConnectionAction.CLOSE): ConnectionState.CLOSING,
     (ConnectionState.CREATED, ConnectionAction.CLOSE): ConnectionState.CLOSING,
     (ConnectionState.CONNECTING, ConnectionAction.CLOSE): ConnectionState.CLOSING,
@@ -111,7 +106,6 @@ TRANSITIONS = {
     (ConnectionState.FAILED, ConnectionAction.CLOSE): ConnectionState.CLOSING,
     (ConnectionState.CLOSING, ConnectionAction.CLOSE_OK): ConnectionState.CLOSED,
     (ConnectionState.CLOSING, ConnectionAction.CLOSE_FAIL): ConnectionState.FAILED,
-    # reset
     (ConnectionState.CLOSED, ConnectionAction.RESET): ConnectionState.NEW,
     (ConnectionState.FAILED, ConnectionAction.RESET): ConnectionState.NEW,
 }
@@ -194,7 +188,6 @@ class GenericConnection(ConnectionObserverInterface, Generic[Connection], ABC):
             error = "`connection_name` must be provided in connection kwargs!"
             raise ConnectionException(caller=self, error=error, **kwargs)
 
-        # PresetDecorator resolves it from the type (NFRQ-ORG-07)
         self._preset: PresetDecorator = PresetDecorator(self, **kwargs)
         self._connection_name = connection_name
         self._lazy_loading = kwargs.pop("lazy_loading", False)

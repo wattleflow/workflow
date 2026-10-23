@@ -105,24 +105,19 @@ class DriverState(str, Enum):
     UNLOADED = "unloaded"
 
 
-# (current_state, action) -> next_state
 TRANSITIONS: dict[tuple[DriverState, DriverAction], DriverState] = {
-    # --- load lifecycle ---
     (DriverState.PENDING, DriverAction.LOAD): DriverState.LOADING,
     (DriverState.UNLOADED, DriverAction.LOAD): DriverState.LOADING,
     (DriverState.PAUSED, DriverAction.LOAD): DriverState.LOADING,
     (DriverState.DEGRADED, DriverAction.LOAD): DriverState.LOADING,
     (DriverState.LOADING, DriverAction.LOAD_OK): DriverState.LIVE,
     (DriverState.LOADING, DriverAction.LOAD_FAIL): DriverState.DEGRADED,
-    # --- pause ---
     (DriverState.LIVE, DriverAction.PAUSE): DriverState.PAUSED,
-    # --- unload lifecycle ---
     (DriverState.LIVE, DriverAction.UNLOAD): DriverState.UNLOADING,
     (DriverState.PAUSED, DriverAction.UNLOAD): DriverState.UNLOADING,
     (DriverState.DEGRADED, DriverAction.UNLOAD): DriverState.UNLOADING,
     (DriverState.UNLOADING, DriverAction.UNLOAD_OK): DriverState.UNLOADED,
     (DriverState.UNLOADING, DriverAction.UNLOAD_FAIL): DriverState.DEGRADED,
-    # --- reset ---
     (DriverState.UNLOADED, DriverAction.RESET): DriverState.PENDING,
 }
 
@@ -136,7 +131,6 @@ TRANSITIONS: dict[tuple[DriverState, DriverAction], DriverState] = {
 # --------------------------------------------------------------------------- #
 
 
-# @measured()
 class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
     __slots__ = ("_fsm", "_preset")
 
@@ -150,9 +144,6 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
         self._preset = PresetDecorator(parent=self, **kwargs)
 
     def __del__(self):
-        # A failed __init__ still triggers __del__, and the interpreter may
-        # already be tearing down its logging machinery. Bail out quietly
-        # rather than emit "Exception ignored in __del__" noise.
         try:
             object.__getattribute__(self, "_fsm")
         except AttributeError:
@@ -165,10 +156,6 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
             pass
 
     def __getattr__(self, name: str) -> Any:
-        # PresetDecorator resolves real attributes on the parent first, so the
-        # slot lookup needs no separate branch here. During partial
-        # construction _preset is missing: raise a plain AttributeError so
-        # callers (and Python itself) treat the attribute as absent.
         try:
             preset: PresetDecorator | None = object.__getattribute__(self, "_preset")
         except AttributeError:
@@ -226,7 +213,6 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
             self.close()
             self._fsm.apply(DriverAction.UNLOAD_OK)
         except Exception as e:
-            # Same guard as ensure_live: never let bookkeeping mask the error.
             if self._fsm.can(DriverAction.UNLOAD_FAIL):
                 self._fsm.apply(DriverAction.UNLOAD_FAIL)
             self.debug(msg=Event.Close, step=Event.Failed, error=type(e).__name__)
@@ -271,8 +257,6 @@ class GenericDriver(Wattleflow, IDriver, IObserver, ABC):
             kwargs=kwargs,
         )
         if event == Event.Swap and kwargs.get("name") == getattr(self, "connection_name", None):
-            # The connection behind this driver was replaced: unload, so the next
-            # ensure_live() runs load(), which resolves the swapped connection.
             self.ensure_unloaded()
         self.debug(msg=Event.Update, step=Event.Completed)
 
@@ -291,11 +275,10 @@ class LazyDriverProxy(Wattleflow, IDriver, IObserver, ABC):
         conn_name: str,
         **kwargs,
     ):
-        # A proxy is chatty by nature; quieter than the framework default.
         kwargs.setdefault("level", logging.WARNING)
         super().__init__(**kwargs)
 
-        self._factory = factory  # callable → GenericDriver
+        self._factory = factory
         self._driver: GenericDriver | None = None
         self._conn_mgr = conn_mgr
         self._conn_name = conn_name

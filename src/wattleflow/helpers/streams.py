@@ -2,11 +2,6 @@
 # Author: (wattleflow@outlook.com)
 # Copyright: © 2022–2025 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
-#
-# History:
-#   2024-06-01: Initial creation of the TextStream and TextFile. Stream classes for handling
-#   text-based streams with macro processing capabilities.
-#   2026-03-16: Added file size limit check to TextFileStream to prevent OOM issues with large files
 
 
 """
@@ -32,7 +27,7 @@ from .macros import TextMacros
 # --------------------------------------------------------------------------- #
 
 
-__FILE_SIZE_LIMIT__ = 50 * 1024 * 1024  # 50 MB
+__FILE_SIZE_LIMIT__ = 50 * 1024 * 1024
 
 # --------------------------------------------------------------------------- #
 # region Streans                                                              #
@@ -104,7 +99,6 @@ class TextFileStream(TextStream):
         if not self.filename.exists():
             raise FileNotFoundError(f"File not found: {self.filename}")
 
-        # Security check: limit file size to prevent memory issues - OOM
         file_size = self.filename.stat().st_size
         if file_size > __FILE_SIZE_LIMIT__:
             raise ValueError(f"File too large: {file_size} bytes (max {__FILE_SIZE_LIMIT__})")

@@ -3,11 +3,6 @@
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
-# Eager aggregate (CLAUDE.md §2.7 form (a)): every module here resolves inside
-# the clean core tier, so importing a name pulls in nothing third-party.
-# This entry point serves consumers outside the distribution; framework code
-# imports the submodule directly, because importing through the package would
-# make the internal dependency graph cyclic.
 
 from . import (
     base,

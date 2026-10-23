@@ -4,15 +4,6 @@
 # License: Apache 2 Licence
 
 # --------------------------------------------------------------------------- #
-# Routing capability — sending an artefact to a destination at persistence time.
-# Two facets over one neutral `route` key:
-#   * classification: source name -> route label        (RoutingRule, producers)
-#   * resolution:     route label -> transport address  (DestinationRouter, sinks)
-# Modelled as a capability (helper), not a Strategy: a Strategy is invoked by its
-# context and cannot be reused by peer strategies, whereas routing must be
-# callable by any producer or sink. Stdlib-only, so it honours the clean-core
-# (zero-trust) boundary. `route` is deliberately NOT `partition` — the latter is
-# a Kafka/Spark term for a physical shard, not a logical routing label.
 # --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
@@ -42,7 +33,6 @@ from collections.abc import Callable, Mapping
 # endregion Imports                                                           #
 # --------------------------------------------------------------------------- #
 
-# Neutral metadata key carrying the logical routing label (e.g. "09-FOI").
 ROUTE_KEY = "route"
 
 # --------------------------------------------------------------------------- #
@@ -52,21 +42,11 @@ ROUTE_KEY = "route"
 
 @dataclass(frozen=True)
 class RoutingLabel:
-    # name  — token substituted into the rule format and matched against a source.
-    # target — transport-neutral destination the route resolves to (subdir/index/topic).
     name: str
     target: str
 
 
 class RoutingRule:
-    # Declarative classifier: a file is assigned to the FIRST label whose pattern
-    # matches its NAME. Each label chooses its matcher, in precedence order:
-    #   regex  — a raw regular expression (`re.search`)
-    #   match  — a GLOB (fnmatch, case-insensitive) e.g. "2026-05*.pdf"
-    #   format — shared regex template with a {label} placeholder → label name
-    #   (fallback) the label name treated as a glob
-    # Globs are first-class because that is the framework convention (FileScanner,
-    # `pattern: "2026-06*.pdf"`) and how filing dates are usually expressed.
     def __init__(
         self,
         fmt: str | None,
@@ -88,8 +68,6 @@ class RoutingRule:
             needle = glob.lower()
             return lambda candidate: fnmatch.fnmatchcase(candidate.lower(), needle)
         if fmt:
-            # {label} is a LITERAL token → escaped so a name with a regex
-            # metacharacter cannot compile into an unintended pattern.
             compiled = re.compile(fmt.replace("{label}", re.escape(name)))
             return lambda candidate: compiled.search(candidate) is not None
         needle = name.lower()
@@ -134,9 +112,6 @@ class RoutingRule:
 
 @dataclass(frozen=True)
 class PatternSpec:
-    # Normalised `pattern` config: a scan glob plus an optional routing rule.
-    # Simple form  ->  pattern: "*.pdf"            (glob only, no routing)
-    # Complex form ->  pattern: {glob, format, labels}  (glob + classification)
     glob: str
     rule: RoutingRule | None = None
 
@@ -155,15 +130,11 @@ class PatternSpec:
 
 
 def route_label(metadata: Mapping[str, Any]) -> str | None:
-    # The classified label name (category), stamped under ROUTE_KEY.
     value = metadata.get(ROUTE_KEY)
     return str(value) if value else None
 
 
 def route_target(metadata: Mapping[str, Any]) -> str | None:
-    # The destination the label maps to. The processor stamps the pair
-    # {label.name: label.target} plus ROUTE_KEY -> label.name, so the target is
-    # one hop away: metadata[ metadata[ROUTE_KEY] ].
     name = route_label(metadata)
     if not name:
         return None
@@ -181,15 +152,11 @@ def route_target(metadata: Mapping[str, Any]) -> str | None:
 
 
 class DestinationRouter(ABC):
-    # Maps a route label to the keyword arguments a driver's `write` expects.
-    # One concrete router per transport; the route label is transport-neutral.
     @abstractmethod
     def resolve(self, route: str, *, filename: str, **kwargs: Any) -> Mapping[str, Any]: ...
 
 
 class LocalStorageDestinationRouter(DestinationRouter):
-    # Filesystem: the route label becomes a subdirectory under the driver's
-    # write_path. `extra` nests further (e.g. "evidence") inside the route dir.
     def resolve(
         self,
         route: str,

@@ -28,7 +28,6 @@ from typing import Any
 # --------------------------------------------------------------------------- #
 
 
-# NFRQ-ORG-05
 class Normaliser(str):
     """`str` subclass whose transformations return a new instance, so calls chain."""
 
@@ -70,9 +69,7 @@ class Normaliser(str):
 
     TSEP = r"(?:\s+at\s+|[\sT,_-]+)"
 
-    # (regex, kind)
     PATTERNS: list[tuple[re.Pattern[str], str]] = [
-        # ISO: 2024-01-24 [T 14:30[:00]]
         (
             re.compile(
                 r"(?P<y>\d{4})-(?P<m>\d{1,2})-(?P<d>\d{1,2})"
@@ -80,7 +77,6 @@ class Normaliser(str):
             ),
             "numeric",
         ),
-        # compact numeric: 20240124[T1430 | _1430]
         (
             re.compile(
                 r"(?<!\d)(?P<y>\d{4})(?P<m>\d{2})(?P<d>\d{2})"
@@ -88,7 +84,6 @@ class Normaliser(str):
             ),
             "numeric",
         ),
-        # DMY with separators: 24/01/2024 [ 14:30]
         (
             re.compile(
                 r"(?<!\d)(?P<d>\d{1,2})[./](?P<m>\d{1,2})[./](?P<y>\d{2,4})"
@@ -96,7 +91,6 @@ class Normaliser(str):
             ),
             "numeric",
         ),
-        # 24 Jan 2024 [ 14:30]
         (
             re.compile(
                 r"(?<!\w)(?P<d>\d{1,2})\s+(?P<mon>[A-Za-z]{3,9})\.?\s+(?P<y>\d{2,4})"
@@ -104,7 +98,6 @@ class Normaliser(str):
             ),
             "textual",
         ),
-        # Jan 24, 2024 [ 14:30]
         (
             re.compile(
                 r"(?<!\w)(?P<mon>[A-Za-z]{3,9})\.?\s+(?P<d>\d{1,2}),?\s+(?P<y>\d{2,4})"
@@ -112,7 +105,6 @@ class Normaliser(str):
             ),
             "textual",
         ),
-        # compact textual, no spaces: 24JAN20, 24Jan2020
         (re.compile(r"(?<!\w)(?P<d>\d{1,2})(?P<mon>[A-Za-z]{3})(?P<y>\d{2,4})(?!\w)"), "textual"),
     ]
 
@@ -149,8 +141,6 @@ class Normaliser(str):
     def _wrap(self, value: str) -> "Normaliser":
         return self if value == str(self) else Normaliser(value)
 
-    # str methods are overridden to return Normaliser; otherwise the chain
-    # breaks after the first transformation.
     def upper(self) -> "Normaliser":  # type: ignore[override]
         return self._wrap(str.upper(self))
 
@@ -163,7 +153,6 @@ class Normaliser(str):
     def capitalize(self) -> "Normaliser":  # type: ignore[override]
         return self._wrap(str.capitalize(self))
 
-    # Croatian spelling alias
     def capitalise(self) -> "Normaliser":
         return self.capitalize()
 
@@ -184,7 +173,7 @@ class Normaliser(str):
                 nonlocal changed
                 result = self._format_match(m, _kind, pivot)
                 if result is None:
-                    return m.group(0)  # invalid date — leave as written
+                    return m.group(0)
                 changed = True
                 return result
 
@@ -197,8 +186,6 @@ class Normaliser(str):
         if not self:
             return self
 
-        # The whole content is a basename: separators become part of the name
-        # rather than being dropped.
         raw = str(self).strip().lower().replace("\\", "/")
         if "/" in raw:
             head, _, tail = raw.rpartition("/")
@@ -368,27 +355,21 @@ class NormaliserFormatSpec(str):
         basename = p.name.strip().lower()
         stem, ext = Path(basename).stem, Path(basename).suffix
 
-        # 1) Remove diacritics (NFKD → ASCII)
         norm = unicodedata.normalize("NFKD", stem)
         norm = norm.encode("ascii", "ignore").decode("ascii")
 
-        # 2) Replace any non-alphanumeric character with the separator
         norm = re.sub(r"[^a-z0-9]+", replacement, norm)
 
-        # 3) Merge multiple separators into one and trim edges
         if replacement:
             rep_esc = re.escape(replacement)
             norm = re.sub(rf"{rep_esc}{{2,}}", replacement, norm).strip(replacement)
 
-        # 4) Fallback if empty
         if not norm:
             norm = "file"
 
-        # 5) Reserved Windows names – add suffix
         if norm in Normaliser.RESERVED:
             norm = f"{norm}_"
 
-        # 6) Limit stem length
         if len(norm) > max_len:
             norm = norm[:max_len].rstrip(replacement) or "file"
 

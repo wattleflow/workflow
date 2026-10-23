@@ -39,10 +39,8 @@ class MomentHelper:
     _E_NA = datetime(1970, 1, 1)
     _G = 1_000_000_000
     _PK = Struct(">qIB")  # seconds int64, nanoseconds uint32, aware uint8 (13 B)
-    #: The int64 ns of numpy, pandas and Arrow; -2**63 is their NaT, not a value.
     INT64_MIN_NS = -(2**63) + 1
     INT64_MAX_NS = 2**63 - 1
-    #: The global setting of the workflow zone (NFRQ-DFN-04).
     ENV_ZONE = "WATTLEFLOW_TIME_ZONE"
     _workflow_zone: str | None = None
 
@@ -73,7 +71,6 @@ class MomentHelper:
 
     @staticmethod
     def _system_zone() -> str | None:
-        # The standard library names the system zone only through TZ or /etc/localtime.
         name = (os.environ.get("TZ") or "").lstrip(":")
         if not name:
             link = Path("/etc/localtime")
@@ -90,7 +87,7 @@ class MomentHelper:
     def zone(name: str) -> ZoneInfo:
         return ZoneInfo(name)
 
-    key = staticmethod(Moment._key)  # alias: the one source of truth is Moment
+    key = staticmethod(Moment._key)
 
     # ---------- choice of helper ----------
     @classmethod
@@ -207,18 +204,17 @@ class MomentHelper:
 
     @staticmethod
     def _shown(make):
-        # Past years 1-9999 (zone edge, inf) datetime fails; it is named a range error.
         try:
             return make()
         except (OverflowError, ValueError) as e:
-            raise MomentRangeError(f"outside years 1-9999 in this form ({type(e).__name__})") from e
+            raise MomentRangeError(f"outside years 1-9999 in this form ({type(e).__name__})") from None
 
 
 class MomentAwareHelper(MomentHelper):
     """Aware time: a UTC moment (+ a zone for display). A bare int = UTC ns."""
 
     AWARE = True
-    _JD_UNIX = 2440587.5  # JD of 1970-01-01T00:00:00 UTC
+    _JD_UNIX = 2440587.5
 
     # ================= input -> Moment =================
     @classmethod
@@ -227,7 +223,7 @@ class MomentAwareHelper(MomentHelper):
 
         `tz` sets the display zone.
         """
-        if tz is None and type(x) is datetime:  # the common path
+        if tz is None and type(x) is datetime:
             z = x.tzinfo
             if z is None:
                 raise cls._wrong()

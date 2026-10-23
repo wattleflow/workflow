@@ -34,7 +34,6 @@ from wattleflow.concrete.state_machine import StateMachine
 from wattleflow.concrete.strategy import StrategyCreate
 from wattleflow.enums.event import Event
 from wattleflow.decorators.preset import PresetDecorator
-# from wattleflow.decorators.measure import measured  # retired
 
 
 # --------------------------------------------------------------------------- #
@@ -49,40 +48,34 @@ Repositories = list[IRepository]
 
 
 class BlackboardState(str, Enum):
-    IDLE = "idle"  # constructed, no repositories yet
-    READY = "ready"  # repositories attached, canvas in sync
-    DIRTY = "dirty"  # canvas holds an unflushed facade
+    IDLE = "idle"
+    READY = "ready"
+    DIRTY = "dirty"
     FAILED = "failed"
-    CLEARED = "cleared"  # terminal
+    CLEARED = "cleared"
 
 
 class BlackboardAction(str, Enum):
-    REGISTER = "register"  # repository attached
+    REGISTER = "register"
     WRITE = "write"
-    FLUSH = "flush"  # broadcast to repositories
-    LOAD = "load"  # restore from memento
+    FLUSH = "flush"
+    LOAD = "load"
     FAIL = "fail"
-    CLEAR = "clear"  # terminal reset
+    CLEAR = "clear"
 
 
 TRANSITIONS = {
-    # --- INIT ---
     (BlackboardState.IDLE, BlackboardAction.REGISTER): BlackboardState.READY,
     (BlackboardState.IDLE, BlackboardAction.LOAD): BlackboardState.READY,
-    # --- READY ---
     (BlackboardState.READY, BlackboardAction.REGISTER): BlackboardState.READY,
     (BlackboardState.READY, BlackboardAction.WRITE): BlackboardState.DIRTY,
     (BlackboardState.READY, BlackboardAction.FLUSH): BlackboardState.READY,
-    # --- DIRTY ---
     (BlackboardState.DIRTY, BlackboardAction.WRITE): BlackboardState.DIRTY,
     (BlackboardState.DIRTY, BlackboardAction.FLUSH): BlackboardState.READY,
-    # --- RECOVERY ---
     (BlackboardState.FAILED, BlackboardAction.LOAD): BlackboardState.READY,
-    # --- FAILURE ---
     (BlackboardState.IDLE, BlackboardAction.FAIL): BlackboardState.FAILED,
     (BlackboardState.READY, BlackboardAction.FAIL): BlackboardState.FAILED,
     (BlackboardState.DIRTY, BlackboardAction.FAIL): BlackboardState.FAILED,
-    # --- CLEAR (terminal, from any state) ---
     (BlackboardState.IDLE, BlackboardAction.CLEAR): BlackboardState.CLEARED,
     (BlackboardState.READY, BlackboardAction.CLEAR): BlackboardState.CLEARED,
     (BlackboardState.DIRTY, BlackboardAction.CLEAR): BlackboardState.CLEARED,
@@ -99,12 +92,6 @@ TRANSITIONS = {
 # --------------------------------------------------------------------------- #
 
 
-# Wattleflow precedes Generic[Item] so IWattleflow lands before Generic in the MRO,
-# matching IOriginator's ordering; otherwise LargeBlackboard (GenericBlackboard +
-# IOriginator) cannot linearise a consistent MRO.
-
-
-# @measured()
 class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
     __slots__ = (
         "_canvas",
@@ -114,8 +101,6 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
         "_strategy_create",
     )
 
-    # The generic layer injects this key, so it declares it; PresetGate unions
-    # ALLOWED across the MRO, so a specialisation adds only its own keys.
     ALLOWED = ["defer_flush"]
 
     # region Private
@@ -125,14 +110,12 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
         canvas: Item,
         **kwargs,
     ):
-        # Explicit checks, not `assert`: assertions are removed under `python -O`.
         if not isinstance(strategy_create, StrategyCreate):
             raise BlackboardException(
                 caller=type(self),
                 error="Expected StrategyCreate. Found %s" % type(strategy_create),
             )
 
-        # Default to caching through the cycle and flushing at the end.
         if "defer_flush" not in kwargs:
             kwargs["defer_flush"] = True
 
@@ -158,8 +141,6 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
         self.debug(msg=Event.Constructor, step=Event.Completed)
 
     def __del__(self):
-        # __init__ may have raised before _preset was set — in that case any
-        # debug/clear call would hit __getattr__ and mask the real exception.
         try:
             object.__getattribute__(self, "_preset")
         except AttributeError:
@@ -178,9 +159,6 @@ class GenericBlackboard(Wattleflow, IBlackboard, Generic[Item], ABC):
                 pass
 
     def __getattr__(self, name: str) -> Any:
-        # During partial construction _preset is not set yet; raise a plain
-        # AttributeError so callers (and Python itself) can treat the attribute
-        # as missing instead of seeing a confusing internal trace.
         try:
             preset: PresetDecorator | None = object.__getattribute__(self, "_preset")
         except AttributeError:

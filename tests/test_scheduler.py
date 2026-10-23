@@ -1,10 +1,6 @@
 # Module name: tests/test_scheduler.py
-# Tests for Scheduler (SyRS-SCH-scheduler): lifecycle events around the orchestrator, a stop that is not blocked by a
-# running start, closure of the Started event on failure, listener isolation and delivery outside the lock,
-# the orchestration counter and running flag, and slots (BR-PTR-07).
-#
-# Run from `workflow/`:
-#   PYTHONPATH=src:../core/src python -m unittest tests.test_scheduler -v
+# BR-07: ../../documentation/requirements/02-SyRS/SyRS-PTR-root-base.md#7-business-rules
+
 import logging
 import threading
 import unittest

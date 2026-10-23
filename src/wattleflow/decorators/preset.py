@@ -55,7 +55,6 @@ class PresetGate:
 
 
 class PresetDecorator:
-    # NFRQ-ORG-07
     DECLARATION = PresetGate.DECLARATION
 
     __slots__ = ("_allowed", "_values", "_parent")

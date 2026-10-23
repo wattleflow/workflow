@@ -8,7 +8,6 @@ __all__ = ["TARGET_ATTRIBUTE"]
 # --------------------------------------------------------------------------- #
 # region Constants                                                            #
 # --------------------------------------------------------------------------- #
-# The log record attribute that carries a record's `target=` field.
 TARGET_ATTRIBUTE = "wf_target"
 # --------------------------------------------------------------------------- #
 # endregion Constants                                                         #

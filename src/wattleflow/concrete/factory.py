@@ -73,17 +73,12 @@ class WorkflowFactoryLogger(Wattleflow):
     """Standalone audit logger for WorkflowFactory, not framework object."""
 
     __slots__ = ()
-    # ERROR until a workflow is built: before the YAML is read there is no declared
-    # level to honour, and a library that talks on import is a nuisance. `build()`
-    # raises it to the workflow's own level as soon as it knows one.
 
 
 logger = WorkflowFactoryLogger(level="ERROR", logger=getLogger("WorkflowFactory"))
 
 
 class WorkflowFactory:
-    # Class-level registry only: the factory is never instantiated, so it has no
-    # per-instance slots (a slot named like a class variable is a ValueError).
     __slots__ = ()
 
     _registry: dict[str, type] = {}
@@ -100,7 +95,6 @@ class WorkflowFactory:
             )
         known = cls._registry.get(name)
         if known is not None and known is not class_name:
-            # A name taken by another class is a decision somebody should see.
             logger.warning(
                 msg=Event.Register,
                 name=name,
@@ -157,14 +151,11 @@ class WorkflowFactory:
 
         sections = kwargs.pop("sections", None)
 
-        # Optional hook: called with a component class, returns the extra keywords for its
-        # constructor ({} for none). The factory does not know what they are (BR-OSCAL-21).
         component_kwargs = kwargs.pop("component_kwargs", None)
 
         if sections is None:
             raise WorkflowFactoryException(cls, "`sections` must be scoped to a specific path, got None.")
 
-        # Workflow class ----------------------------------------------- #
         workflow_name = kwargs.pop("workflow_name", None)
         workflow: dict = adapter.find(*sections, "workflows", default=None)
 
@@ -218,7 +209,6 @@ class WorkflowFactory:
         cls._configure_monitor(adapter, sections, built, workflow)
         return built
 
-    # Stores a `memento:` section can name without registering anything.
     _MEMENTO_STORES: ClassVar[dict[str, type]] = {
         "memory": MemoryMementoStore,
         "file": FileMementoStore,
@@ -247,7 +237,7 @@ class WorkflowFactory:
         try:
             store = store_class(**options)
         except Exception as error:
-            cls._fail("workflows.memento", workflow, type(error).__name__, cause=error)
+            cls._fail("workflows.memento", workflow, type(error).__name__)
         return store, section.get("checkpoint_every")
 
     @classmethod
@@ -287,7 +277,6 @@ class WorkflowFactory:
         if level == MonitorLevel.OFF:
             return
         workflow_name = (workflow or {}).get("name")
-        # never accept.
         manager = ResourceManager(
             limits=monitoring.get("limits"),
             thresholds=monitoring.get("thresholds"),
@@ -317,8 +306,6 @@ class WorkflowFactory:
     # region Component builders
     # ------------------------------------------------------------------ #
 
-    # Known runtime keys map to env-vars consumed by external libraries.
-    # Anything not in this map is exported verbatim under runtime.env.
     _MONITORING_KEYS: frozenset[str] = frozenset(
         {
             "level",
@@ -351,7 +338,6 @@ class WorkflowFactory:
             if value is None or value == "":
                 continue
             os.environ[env_name] = str(value)
-            # The known keys are installation paths; the value is part of the trace.
             logger.debug(
                 msg=Event.Configure,
                 stage="runtime",
@@ -440,20 +426,18 @@ class WorkflowFactory:
         return {**inline, **nested}
 
     @classmethod
-    def _fail(cls, section: str, item: dict, error: str, cause: Exception | None = None) -> NoReturn:
+    def _fail(cls, section: str, item: dict, error: str) -> NoReturn:
         """Report a configuration failure with the offending section and item name."""
         item_name = item.get("name", "<no-name>") if isinstance(item, dict) else "<not-a-dict>"
         reason = f"{section}[name={item_name!r}]: {error}"
 
-        # `exception()` forces exc_info; without a cause it would log "NoneType: None".
-        report = logger.exception if cause is not None else logger.error
-        report(
+        logger.error(
             msg=Event.Resolve,
             section=section,
             item_name=item_name,
             error=reason,
         )
-        raise WorkflowFactoryException(cls, reason) from cause
+        raise WorkflowFactoryException(cls, reason) from None
 
     @classmethod
     def _resolve_section(cls, section: str, item: dict, key: str = "type") -> type:
@@ -461,7 +445,7 @@ class WorkflowFactory:
         try:
             return cls.resolve(item.get(key, None) if isinstance(item, dict) else None)
         except WorkflowFactoryException as e:
-            cls._fail(section, item, type(e).__name__, cause=e)
+            cls._fail(section, item, type(e).__name__)
 
     @classmethod
     def _driver_context(
@@ -490,12 +474,11 @@ class WorkflowFactory:
 
         try:
             return {"driver": drivers.get_driver(name)}
-        except ManagerException as e:
+        except ManagerException:
             cls._fail(
                 section,
                 item,
                 f"driver {name!r} is not registered under managers.drivers",
-                cause=e,
             )
 
     @classmethod
@@ -542,9 +525,6 @@ class WorkflowFactory:
             driver_audit = cls._audit(driver, global_audit)
             configuration = cls._configuration(driver)
 
-            # Inject ConnectionManager when driver declares a connection_name
-            # so connection-backed drivers (Elasticsearch, Postgres, Kafka, ...)
-            # can resolve their connection at load time.
             if "connection_name" in configuration:
                 configuration.setdefault("connection_manager", connections)
 
@@ -563,7 +543,6 @@ class WorkflowFactory:
         manager = ProcessorManager(**global_audit)
         memento_store, checkpoint_every = cls._build_memento(workflow)
 
-        # Processors config ------------------------------------------------- #
         processors = workflow.get("processors", [])
         if not processors or not isinstance(processors, list):
             raise WorkflowFactoryException(cls, "No processors found in the workflow!")
@@ -571,15 +550,11 @@ class WorkflowFactory:
         for config in processors:
             if not config or isinstance(config, dict) is False:
                 raise WorkflowFactoryException(cls, "Configuration is missing for processors")
-            # processor class ----------------------------------------------- #
             processor_class = cls._resolve_section("workflows.processors", config)
             cls._report_inline("workflows.processors", config, {"driver", "blackboard"})
             proc_audit = cls._audit(config, global_audit)
             configuration = cls._configuration(config)
 
-            # The driver may be named at processor top-level or inside configuration. It is
-            # resolved only when the processor declares `driver` in ALLOWED (NFRQ-ORG-07 c.6);
-            # otherwise the name is forwarded and the processor discards it.
             driver_name = configuration.pop("driver", None) or config.get("driver", None)
             if driver_name:
                 configuration["driver"] = driver_name
@@ -588,12 +563,11 @@ class WorkflowFactory:
             )
 
             if memento_store is not None:
-                # The registered name is the checkpoint's key: it is what a restart finds again.
                 key = config.get("name") or processor_class.__name__
                 try:
                     MementoStore._check_key(key)
                 except MementoStoreException as error:
-                    cls._fail("workflows.processors", config, type(error).__name__, cause=error)
+                    cls._fail("workflows.processors", config, type(error).__name__)
                 configuration.setdefault("memento_store", memento_store)
                 configuration.setdefault("memento_key", key)
                 if checkpoint_every is not None:
@@ -601,7 +575,6 @@ class WorkflowFactory:
 
             processor = processor_class(**proc_audit, **configuration, **cls._extra(component_kwargs, processor_class))
 
-            # pipeline classes ---------------------------------------------- #
             pipelines_config = config.get("pipelines", [])
             for pipeline in pipelines_config:
                 pipeline_class = cls._resolve_section("processors.pipelines", pipeline)
@@ -610,7 +583,6 @@ class WorkflowFactory:
                 pipeline_configuration = cls._configuration(pipeline)
                 processor.register_pipeline(pipeline=pipeline_class(**pipeline_audit, **pipeline_configuration))
 
-            # Blackboard & strategy_create class ---------------------------- #
             blackboard_config = config.get("blackboard", {}) or {}
             strategy_class = cls._resolve_section(
                 "blackboard.strategy_create",
@@ -619,24 +591,18 @@ class WorkflowFactory:
             )
             logger.debug(msg=Event.Build, target="processors", strategy=strategy_class)
 
-            # blackboard ------------------------------------------------------
             blackboard_class = cls._resolve_section("processors.blackboard", blackboard_config)
             logger.debug(msg=Event.Build, target="processors", blackboard=blackboard_class)
             configuration = cls._settings(blackboard_config)
             blackboard_audit = cls._audit(blackboard_config, global_audit)
             processor.register_blackboard(
                 blackboard=blackboard_class(
-                    # The create strategy has no entry of its own in the YAML —
-                    # it is named as a string on the blackboard — so the
-                    # blackboard's audit settings are the ones it can inherit.
-                    # Built bare, it could not be configured at all.
                     strategy_create=strategy_class(**blackboard_audit),
                     **blackboard_audit,
                     **configuration,
                 )
             )
 
-            # repositories ----------------------------------------------------
             repositories = blackboard_config.get("repositories", []) or []
             for repository in repositories:
                 audit = cls._audit(repository, global_audit)
@@ -653,7 +619,6 @@ class WorkflowFactory:
                     configuration,
                     key="strategy_write",
                 )
-                # Optional: a repository that is only written to declares none.
                 strategy_read = None
                 if configuration.get("strategy_read"):
                     strategy_read = cls._resolve_section(

@@ -46,9 +46,6 @@ _AUDIT_KEYS: frozenset = frozenset({"last_change_key", "last_change_time"})
 # --------------------------------------------------------------------------- #
 
 
-# Wattleflow precedes Generic[Content] so IWattleflow lands before Generic in the
-# MRO (same constraint as GenericBlackboard); otherwise a subclass mixing in
-# IOriginator cannot linearise.
 class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
     __slots__ = (
         "_content",
@@ -63,11 +60,9 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
 
         self.debug(msg=Event.Constructor, step=Event.Started, kwargs=kwargs)
 
-        # internal interface
         self._identifier: str = str(uuid4())
         self._content: Content | None = None
         self._metadata: dict[str, object] = {}
-        # lock after first assignment
         self._expected_type: type[object] | None = None
 
         self.update_metadata(key="created_at", value=MomentAwareHelper.now())
@@ -110,8 +105,6 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
             content=type(content),
         )
 
-        # v0.0.1.23:, None is not content: it leaves a document only through `clear()`,
-        # so `content` can fail fast on use after clearing and never in a state the class allowed
         if content is None:
             raise ValueError(f"{self.name}.update_content: content must not be None")
 
@@ -125,17 +118,12 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
 
         self._content = content
         self._metadata["last_change_key"] = "content"
-        # SyRS-DCM-document: one route to the time, MomentAwareHelper.now() (no per-document clock)
         self._metadata["last_change_time"] = MomentAwareHelper.now()
 
     def update_metadata(self, key: str, value: object) -> None:
-        # v0.0.1.14: no audit record per key — a key is not a unit of
-        # work (NFRQ-OBS-03); the change itself is evidenced by the metadata below.
         if not key or not key.strip():
             raise ValueError(f"{self.name}.update_metadata: key must be non-empty")
 
-        # Reserved audit keys are written internally only; a caller able to set
-        # them could falsify the change history.
         if key in _AUDIT_KEYS:
             raise ValueError(
                 f"{self.name}.update_metadata: '{key}' is a reserved audit key "
@@ -146,7 +134,6 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
         self._metadata["last_change_key"] = key
         self._metadata["last_change_time"] = MomentAwareHelper.now()
 
-    # v0.0.1.42: no __del__; clearing on collection emptied metadata views outliving the document.
 
     def __eq__(self, other: object) -> bool:
         return (
@@ -155,8 +142,6 @@ class Document(Wattleflow, IAdaptee, Generic[Content], ABC):
             and type(self) is type(other)  # noqa: W503
         )
 
-    # v0.0.1.23:, defining `__eq__` alone sets `__hash__` to None; the hash uses the
-    # same two facets as `__eq__` and the identifier never changes after construction
     def __hash__(self) -> int:
         return hash((type(self), self.identifier))
 
@@ -176,7 +161,6 @@ class DocumentAdapter(Wattleflow, IAdapter, Generic[Adaptee]):
         super().__init__(**kwargs)
         self._adaptee = adaptee
 
-    # IAdapter contract: the adapter exposes the adaptee it wraps.
     @property
     def adaptee(self) -> Adaptee:
         return self._adaptee
@@ -189,12 +173,9 @@ class DocumentFacade(Wattleflow, ITarget, Generic[Adaptee], ABC):
     __slots__ = ("_adapter",)
 
     def __init__(self, adaptee: IAdaptee, **kwargs):
-        # v0.0.1.23:, refuse before any base initialisation, as DocumentAdapter does
         if not isinstance(adaptee, IAdaptee):
             raise TypeError("IAdaptee must be used.")
         super().__init__(**kwargs)
-        # The adapter is an implementation detail of this facade, so it audits
-        # under the same configuration rather than falling back to defaults.
         self._adapter = DocumentAdapter(adaptee, **kwargs)
 
     def request(self) -> Adaptee:
@@ -206,15 +187,13 @@ class DocumentFacade(Wattleflow, ITarget, Generic[Adaptee], ABC):
     def __getattr__(self, attr: str):
         if attr.startswith("_"):
             raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
-        # v0.0.1.23:, one lookup: `hasattr` followed by `getattr` evaluated a property
-        # twice. The adaptee is still resolved on every miss; the adapter may resolve it lazily.
         adaptee = self._adapter.request()
         try:
             return getattr(adaptee, attr)
-        except AttributeError as error:
+        except AttributeError :
             raise AttributeError(
                 f"'{self.__class__.__name__}' object has no attribute '{attr}'"
-            ) from error
+            ) from None
 
     def __repr__(self) -> str:
         return f"{self.name}:{getattr(self, 'identifier', '')}"

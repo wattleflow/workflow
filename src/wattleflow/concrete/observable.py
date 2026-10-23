@@ -33,8 +33,6 @@ __license__ = "Apache 2 Licence"
 class ThreadSafeObservable(Wattleflow, IObservableReactive):
     """ThreadSafeObservable - canonical IObservableReactive policy."""
 
-    # Not `_lock`: a slot of that name shadows GenericAudit._lock, which GenericAudit.__init__ takes before this
-    # constructor could assign one, so the observable could not be built at all.
     __slots__ = ("_observers", "_observers_lock")
 
     def __init__(self, **kwargs) -> None:
@@ -45,7 +43,6 @@ class ThreadSafeObservable(Wattleflow, IObservableReactive):
     def add_observer(self, observer: IObserverReactive) -> None:
         Attribute.evaluate(self, observer, IObserverReactive)
         with self._observers_lock:
-            # Identity, not ==: an observer is subscribed as an object, so two equal ones are two.
             if not any(known is observer for known in self._observers):
                 self._observers.append(observer)
 

@@ -1,9 +1,6 @@
 # Module name: tests/test_memento_repr.py
-# SyRS-MST-memento-store : repr(GenericMemento) names the snapshot and its keys, never the values
-# (BR-PTR-04, NFRQ-SCR-06); the values stay reachable through get_state() and to_dict().
+# BR-04: ../../documentation/requirements/02-SyRS/SyRS-PTR-root-base.md#7-business-rules
 #
-# Run from `workflow/`:
-#   PYTHONPATH=src:../core/src python -m unittest tests.test_memento_repr -v
 import unittest
 
 from wattleflow.concrete.memento import GenericMemento

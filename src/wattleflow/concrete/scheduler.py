@@ -56,11 +56,6 @@ class Scheduler(Wattleflow, IScheduler, ABC):
         return self._running
 
     def __init__(self, level: int, handler: Handler | None = None, **kwargs):
-        # The base constructor audits under `self._lock`, and `__slots__` above
-        # shadows the class-level lock it would otherwise inherit from GenericAudit, so
-        # the instance lock has to exist before the base runs. Reentrant because
-        # start_orchestration/stop_orchestration hold it and then call emit_event,
-        # which takes it again.
         if not hasattr(self, "_lock"):
             self._lock = threading.RLock()
 
@@ -88,8 +83,6 @@ class Scheduler(Wattleflow, IScheduler, ABC):
     def setup_orchestrator(self) -> None:
         self.debug(msg=Event.Configuring, name=self.name)
 
-    # The lock guards state, never the orchestrator's run: a start that held it for the whole run
-    # would make stop_orchestration wait for the very thing it is meant to stop.
     def start_orchestration(self, parallel: bool = False):
         with self._lock:
             orchestrator = self._orchestrator
@@ -100,7 +93,6 @@ class Scheduler(Wattleflow, IScheduler, ABC):
         try:
             orchestrator.start(parallel)
         except Exception as error:
-            # Started is always closed: Completed on success, Failed otherwise.
             self.emit_event(Event.Failed, error=type(error).__name__)
             raise
         finally:
@@ -118,10 +110,8 @@ class Scheduler(Wattleflow, IScheduler, ABC):
         self.emit_event(Event.Stopped)
         orchestrator.stop()
 
-    # Event Source Pattern Implementation
     def register_listener(self, listener: IEventListener) -> None:
         with self._lock:
-            # Identity, not ==: a listener is registered as an object, so two equal ones are two.
             if not any(known is listener for known in self._listeners):
                 self._listeners.append(listener)
 
@@ -132,9 +122,6 @@ class Scheduler(Wattleflow, IScheduler, ABC):
     def emit_event(self, event: Event, **kwargs):
         with self._lock:
             listeners = list(self._listeners)
-        # Delivery is outside the lock and isolated: a listener may register another or call
-        # back into the scheduler, and one that fails must not hide the event from the rest
-        # (SchedulerCronJob emits its error event from inside the handler of that very error).
         for listener in listeners:
             try:
                 listener.on_event(event, **kwargs)
@@ -146,10 +133,6 @@ class Scheduler(Wattleflow, IScheduler, ABC):
                     error=type(error).__name__,
                 )
 
-    # Must be implemented if using PresetDecorator.
-    # The guards matter during construction: the base constructor touches
-    # attributes before `_preset` exists, and an unguarded lookup re-enters this
-    # hook looking for `_preset` itself, which recurses until the stack ends.
     def __getattr__(self, name: str) -> Any:
         if name.startswith("_"):
             raise AttributeError(name)

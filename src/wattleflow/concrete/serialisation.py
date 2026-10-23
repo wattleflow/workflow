@@ -123,7 +123,7 @@ class GenericParser(IParser[Content], ABC):
             raise
         except Exception as e:
             error = "%s.parse error: %s" % (self.name, type(e).__name__)
-            raise self.ERROR(caller=self, error=error) from e
+            raise self.ERROR(caller=self, error=error) from None
 
     @contextmanager
     def _reader(self, kwargs: dict) -> Iterator[BinaryIO]:
@@ -203,7 +203,7 @@ class GenericFormatter(IFormatter[Content], ABC):
             raise
         except Exception as e:
             error = "%s.render error: %s" % (self.name, type(e).__name__)
-            raise self.ERROR(caller=self, error=error) from e
+            raise self.ERROR(caller=self, error=error) from None
 
     def check(self, content: Content) -> None:
         """The content gate: `content` must be an instance of CONTENT."""
@@ -225,7 +225,7 @@ class GenericFormatter(IFormatter[Content], ABC):
             raise
         except Exception as e:
             error = "%s.stream error: %s" % (self.name, type(e).__name__)
-            raise self.ERROR(caller=self, error=error) from e
+            raise self.ERROR(caller=self, error=error) from None
 
     def encoding_of(self, **kwargs) -> str:
         return kwargs.get("encoding") or self.ENCODING
@@ -254,8 +254,6 @@ class GenericConverter(IStrategyContext, ABC):
     ERROR: ClassVar[type[Exception]] = ConverterError
     ERRORS: ClassVar[tuple[type[BaseException], ...]] = (ConverterError,)
 
-    # Empty slots: `_strategy` lives in the instance dictionary, so the converter can be mixed with
-    # other bases that declare slots (two non-empty slot layouts cannot be combined).
     __slots__ = ()
 
     def __init__(self, strategy: IStrategy | None = None):
@@ -289,7 +287,7 @@ class GenericConverter(IStrategyContext, ABC):
             raise
         except Exception as e:
             error = "%s.convert error: %s" % (self.name, type(e).__name__)
-            raise self.ERROR(caller=self, error=error) from e
+            raise self.ERROR(caller=self, error=error) from None
 
     def convert(self, source: Any, **kwargs) -> Any:
         return self.execute_strategy(self, source=source, **kwargs)

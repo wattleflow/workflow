@@ -3,8 +3,6 @@
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
-# The audit package depends on `core` and `enums` only: every tier below it may
-# import it without closing a cycle.
 __all__ = [
     "AsyncHandler",
     "AuditException",

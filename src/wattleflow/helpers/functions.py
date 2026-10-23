@@ -27,11 +27,6 @@ from typing import Any, ClassVar
 # --------------------------------------------------------------------------- #
 
 
-# v0.0.0.97 (NFRQ-ORG-05): the naming primitives and the type list they screen
-# against belong to the class, not to the module namespace.
-# NOTE: concrete/helper.py carries `NameHelper`, a domain-local copy of the
-# same trio; the duplication is deliberate — concrete/ must not import back
-# into helpers/ (ORG-01 cycle).
 class ObjectName:
     """Object-name primitives and attribute listings."""
 

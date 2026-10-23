@@ -41,9 +41,6 @@ class SchedulerCronJob(Scheduler):
 
     __slots__ = ("_adapter", "_heartbeat", "_sections", "_passes", "_failures")
 
-    # The adapter is injected rather than read from a path: the YAML adapter
-    # lives in a downstream distribution, and this package must not import it
-    # (NFRQ-SCR-03, the dependency arrow points one way only).
     def __init__(
         self,
         adapter: Any,
@@ -54,9 +51,6 @@ class SchedulerCronJob(Scheduler):
     ):
         sections = tuple(sections)
 
-        # Level, handler and format are configuration, not arguments of this
-        # class: they live in `infrastructure.<env>.logging`, the same keys the
-        # factory reads for every other component.
         for key, entry in (("level", "level"), ("handler", "handler"), ("formatting", "format")):
             if kwargs.get(key) is None:
                 declared = adapter.find(*sections, "logging", entry, default=None)
@@ -101,12 +95,8 @@ class SchedulerCronJob(Scheduler):
             self.emit_event(event=Event.CronJobSchedulerError, error=type(e).__name__)
             return False
 
-    # `cycles` exists so the loop is testable: an unbounded loop cannot be
-    # asserted on. Left at None it runs forever, which is the cron job case.
     def run(self, cycles: int | None = None) -> None:
         """Run the workflow every ``heartbeat`` seconds, ``cycles`` times or forever."""
-        # Not `cycles=`: that field name is a Measure, and the collector would
-        # add this limit into the cycle counter as if it were a count.
         self.info(msg=Event.Started, heartbeat=self._heartbeat, limit=cycles)
         while cycles is None or self._passes < cycles:
             self.run_once()

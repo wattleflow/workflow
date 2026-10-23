@@ -45,7 +45,6 @@ class PipelineError(PipelineException):
 # --------------------------------------------------------------------------- #
 
 
-# @measured()
 class GenericPipeline(Wattleflow, IPipeline, ABC):
     __slots__ = ("_preset",)
 
@@ -68,7 +67,6 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
 
     # region Private
     def __del__(self):
-        # A construction that failed before `_preset` was set has nothing to release.
         try:
             object.__getattribute__(self, "_preset")
         except AttributeError:
@@ -83,9 +81,7 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
                 reason=reason,
             )
 
-    # Must be implemented if using PresetDecorator
     def __getattr__(self, name: str) -> Any:
-        # Before `_preset` exists the lookup answers with the name asked for, not with `_preset`.
         try:
             preset: PresetDecorator = object.__getattribute__(self, "_preset")
         except AttributeError:
@@ -111,15 +107,12 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
         facade: ITarget,
         **kwargs,
     ) -> None:
-        # v0.0.1.14: no `step` — the operation opens once, below,
-        # after the arguments are known to be what they claim.
         self.debug(
             msg=Event.Transform,
             processor=processor,
             facade=facade,
         )
         try:
-            # Explicit checks, not `assert`: assertions are removed under `python -O`.
             if not isinstance(processor, IProcessor):
                 raise PipelineError(
                     caller=self, error="Expected IProcessor. Found %s" % type(processor)
@@ -129,13 +122,6 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
                     caller=self, error="Expected ITarget. Found %s" % type(facade)
                 )
 
-            # Reported on ENTRY, so the audit stream reads top-down in the order
-            # the activity diagram draws: pipeline -> blackboard -> repository ->
-            # strategy -> driver. DEBUG, not INFO: processing a document is the
-            # processor's unit of work, so the one INFO record that stands for a
-            # document belongs to GenericProcessor.start — a pipeline is a step
-            # inside that unit, and reporting it at INFO multiplies the stream by
-            # the number of pipelines the processor drives.
             self.debug(
                 msg=Event.Transform,
                 step=Event.Started,
@@ -151,15 +137,12 @@ class GenericPipeline(Wattleflow, IPipeline, ABC):
                 result=result,
             )
         except PipelineError as e:
-            # The input check above: already the right exception; this layer leaves the trace.
             self.debug(msg=Event.Transform, step=Event.Failed, error=type(e).__name__)
             raise
         except Exception as e:
-            # The caller stops the propagation and owns the ERROR; this layer leaves the trace and
-            # carries the cause (and with it the traceback) in the exception.
             error = "%s.process error: %s" % (self.__class__.__name__, type(e).__name__)
             self.debug(msg=Event.Transform, step=Event.Failed, error=error)
-            raise PipelineError(caller=self, error=error) from e
+            raise PipelineError(caller=self, error=error) from None
 
 
 # --------------------------------------------------------------------------- #

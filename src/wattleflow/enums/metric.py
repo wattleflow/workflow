@@ -20,18 +20,17 @@ from enum import Enum, StrEnum
 class MetricKind(str, Enum):
     """How a series behaves, in Prometheus' own terms."""
 
-    COUNTER = "counter"  # monotonic; `rate()` is meaningful
-    GAUGE = "gauge"  # a level that rises and falls
-    HISTOGRAM = "histogram"  # a distribution: buckets + sum + count
+    COUNTER = "counter"
+    GAUGE = "gauge"
+    HISTOGRAM = "histogram"
 
 
 class Measure(str, Enum):
     """A quantity an audit record may state, with its unit and its series."""
 
     Bytes = ("bytes", "bytes", "wf_bytes_total")
-    Size = ("size", "bytes", "wf_bytes_total")  # what the file drivers already write
+    Size = ("size", "bytes", "wf_bytes_total")
     Documents = ("documents", "documents", "wf_documents_total")
-    # Emitted by the processor.
     Cycles = ("cycles", "cycles", "wf_cycles_total")
     Characters = ("chars", "characters", "wf_characters_total")
     Pages = ("pages", "pages", "wf_pages_total")

@@ -39,8 +39,6 @@ class ResourceCpu(Resource):
             quota, _, period = text.partition(" ")
             if quota != "max" and period:
                 return int(quota) / int(period), "cgroup cpu.max"
-        # Affinity before `cpu_count`: a process pinned to two cores of a
-        # sixty-core host is limited by the pinning, not by the machine.
         if hasattr(os, "sched_getaffinity"):
             return float(len(os.sched_getaffinity(0))), "affinity"
         count = os.cpu_count()

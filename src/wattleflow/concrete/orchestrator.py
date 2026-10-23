@@ -94,8 +94,6 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
         proc_name = getattr(processor, "name", "unknown")
         try:
             start_time = MomentAwareHelper.now()
-            # IProcessor contract uses start(); fall back to operation(Start)
-            # if a custom processor only exposes the facade signature.
             if callable(getattr(processor, "start", None)):
                 processor.start()
             elif callable(getattr(processor, "operation", None)):
@@ -112,8 +110,6 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
                 duration=duration,
             )
         except Exception as e:
-            # The listener stream and the audit stream have different readers:
-            # emit_event notifies, the trace records the step.
             self.emit_event(Event.Failed, processor=proc_name, error=type(e).__name__)
             self.debug(
                 msg=Event.Process,
@@ -124,7 +120,7 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
             raise OrchestratorException(
                 self,
                 f"Error processing {proc_name}: {type(e).__name__}",
-            ) from e
+            ) from None
 
     # endregion Internal
 
@@ -143,13 +139,11 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
                 ),
             )
         with self._state_lock:
-            # Identity: the same processor twice would run twice.
             if not any(known is processor for known in self._processors):
                 self._processors.append(processor)
 
     def register_listener(self, listener: IEventListener) -> None:
         with self._emit_lock:
-            # Identity, not ==: a listener is registered as an object.
             if not any(known is listener for known in self._listeners):
                 self._listeners.append(listener)
 
@@ -166,15 +160,13 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
             inspect.signature(listener.on_event).bind(event, **kwargs)
         except TypeError:
             return False
-        except ValueError:  # no signature available: pass everything, as the contract allows
+        except ValueError:
             return True
         return True
 
     def emit_event(self, event: Event, **kwargs) -> None:
         with self._emit_lock:
             listeners = list(self._listeners)
-        # A listener that fails must not turn a processor that ran into a failure, hide the
-        # error of one that did not, or keep the others from hearing the event.
         for listener in listeners:
             try:
                 if self._accepts_metadata(listener, event, kwargs):
@@ -240,7 +232,7 @@ class Orchestrator(Wattleflow, IEventSource, IFacade):
                         raise errors[0]
                     raise OrchestratorException(
                         self,
-                        f"{len(errors)} processors failed: " + "; ".join(str(e) for e in errors),
+                        f"{len(errors)} processors failed: " + "; ".join(type(e).__name__ for e in errors),
                     ) from errors[0]
             else:
                 for processor in self._processors:

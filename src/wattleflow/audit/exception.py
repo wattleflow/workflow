@@ -32,8 +32,9 @@ class AuditException(Exception):
     """Base exception carrying the caller and source location of the failure.
 
     `error` aliases `reason`; the legacy kwargs level, handler, exc, exc_info,
-    internal_funcs and extra_skip are consumed silently, and `exc=` chains
-    __cause__ as `raise ... from` would.
+    internal_funcs and extra_skip are consumed silently. `exc=` only locates the
+    failure; it is not chained as `__cause__`, so the foreign text never reaches a traceback
+    (NFRQ-SCR-18 c.2).
     """
 
     filename: str = ""
@@ -50,9 +51,6 @@ class AuditException(Exception):
         kwargs.pop("extra_skip", None)
 
         self._extract_location(exc, exc_info)
-
-        if isinstance(exc, BaseException) and self.__cause__ is None:
-            self.__cause__ = exc
 
         self.caller = caller
         self.name = (
@@ -122,7 +120,6 @@ class AuditException(Exception):
     def __reduce__(self):
         return (type(self)._rebuild, (self.reason,))
 
-    # (NFRQ-ORG-05)
     @classmethod
     def _rebuild(cls, reason):
         obj = cls.__new__(cls)

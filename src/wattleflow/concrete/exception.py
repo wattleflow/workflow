@@ -43,8 +43,6 @@ __all__ = [
 import inspect
 from wattleflow.constants.errors import ERROR_UNEXPECTED_TYPE
 
-# Taxonomy root lives one layer down; re-exported so it stays a
-# member of this module's public API.
 from wattleflow.audit.exception import AuditException
 
 # --------------------------------------------------------------------------- #
@@ -102,8 +100,6 @@ class NotFoundException(AttributeError):
 
 class UnexpectedTypeException(TypeError):
     def __init__(self, caller, found, expected_type):
-        # Lazy: concrete.helper imports AttributeException from this module at
-        # module level — a top-level import here would be a circular import.
         from wattleflow.concrete.helper import NameHelper
 
         try:
@@ -115,7 +111,6 @@ class UnexpectedTypeException(TypeError):
         except Exception:
             var_name = "Unknown Variable"
 
-        # ERROR_UNEXPECTED_TYPE is a %-style template; str.format would leave it unfilled.
         error = ERROR_UNEXPECTED_TYPE % (
             NameHelper.nc(caller),
             var_name,

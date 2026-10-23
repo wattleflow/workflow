@@ -33,17 +33,16 @@ _CLOSING: frozenset[str] = frozenset({Event.Completed, Event.Failed})
 _FAILED: str = Event.Failed
 _BY_FIELD: Mapping[str, Measure] = Measure.by_field()
 
-# Aggregated row per (component, operation): calls, failed, ns, exclusive ns, max ns, units.
 _CALLS, _FAILS, _NS, _EXCLUSIVE, _MAX, _UNITS = range(6)
 
 
 class MonitorLevel:
     """What is measured, per role; the same idea as a logger level."""
 
-    OFF: ClassVar[int] = 0  # no monitor at all: zero cost
-    SUMMARY: ClassVar[int] = 1  # cycles and resources only
-    OPERATIONS: ClassVar[int] = 2  # every Started/Completed pair, aggregated
-    TRACE: ClassVar[int] = 3  # plus individual spans, bounded
+    OFF: ClassVar[int] = 0
+    SUMMARY: ClassVar[int] = 1
+    OPERATIONS: ClassVar[int] = 2
+    TRACE: ClassVar[int] = 3
     NAMES: ClassVar[dict[str, int]] = {"OFF": 0, "SUMMARY": 1, "OPERATIONS": 2, "TRACE": 3}
 
     @classmethod
@@ -101,10 +100,9 @@ class Monitor(GenericAudit):
         ("strategy", IStrategy),
         ("driver", IDriver),
     )
-    OTHER: ClassVar[str] = "other"  # documents, formatters, managers, connections
-    #: Resources a threshold may name; a share of the limit, 0 < t <= 1 (BR-03).
+    OTHER: ClassVar[str] = "other"
     THRESHOLDS: ClassVar[frozenset[str]] = frozenset({"memory", "storage", "gpu"})
-    DEFAULT_INTERVAL: ClassVar[float] = 1.0  # seconds between resource samples
+    DEFAULT_INTERVAL: ClassVar[float] = 1.0
     TRACE_LIMIT: ClassVar[int] = 10_000
     CYCLE_LIMIT: ClassVar[int] = 10_000
     HOTSPOTS: ClassVar[int] = 5
@@ -115,8 +113,6 @@ class Monitor(GenericAudit):
         self._level: int = MonitorLevel.SUMMARY
         self._roles: dict[str, int] = {}
         self._thresholds: dict[str, float] = {}
-        # Limits belong to the manager; this side only watches against them. A
-        # default stands in until `configure` is handed the one the factory built.
         self._manager = ResourceManager()
         self._interval: float = self.DEFAULT_INTERVAL
         self._sinks: list[Any] = []
@@ -164,17 +160,12 @@ class Monitor(GenericAudit):
                 )
                 continue
             self._thresholds[resource_name] = share
-        # The manager the factory built, or one made from what was declared here.
-        # Either way a single authority, so no limit is resolved twice.
         self._manager = limits or ResourceManager(
             thresholds=self._thresholds, extensions=extensions
         )
         if interval is not None:
             self._interval = max(float(interval), 0.0)
-        # A sink formats for one destination and a driver ships it (SyRS-MTR-COLLECTION);
-        # the monitor only hands over the samples, once, after the report.
         self._sinks = list(sinks)
-        # Constant labels on every exported series: the workflow this pass belongs to.
         self._labels = {str(k): str(v) for k, v in (labels or {}).items() if v not in (None, "")}
         self._levels = {}
 
@@ -193,13 +184,10 @@ class Monitor(GenericAudit):
     def _level_for(self, cls: type) -> tuple[int, str]:
         role = next((name for name, interface in self.ROLES if issubclass(cls, interface)), None)
         if role is None:
-            # Everything else is summary-only unless the configuration says so.
             return self._roles.get(self.OTHER, min(self._level, MonitorLevel.SUMMARY)), self.OTHER
         return self._roles.get(role, self._level), role
 
     def _limit(self, resource_name: str) -> tuple[Any, str]:
-        # Asked, not discovered. Resolution — declared, container, host — is the
-        # manager's, so a limit cannot come out differently on the two sides.
         return self._manager.limit(resource_name)
 
     def announce(self, paths: Iterable[str] = ()) -> None:
@@ -236,7 +224,6 @@ class Monitor(GenericAudit):
                 entry = self._levels[cls] = self._level_for(cls)
             level, role = entry
             if step is None:
-                # A `Processed` record: the processor closed a unit of work.
                 if level and role == "processor":
                     self._cycle()
                 return
@@ -247,7 +234,6 @@ class Monitor(GenericAudit):
             if stack is None:
                 stack = self._stacks[tid] = []
             if step in _OPENING:
-                # [component, operation, started ns, child ns]
                 stack.append([cls.__name__, msg, perf_counter_ns(), 0])
             elif step in _CLOSING:
                 self._close(stack, cls.__name__, msg, step == _FAILED, fields, level)
@@ -280,7 +266,6 @@ class Monitor(GenericAudit):
                 self._defects[(component, msg, "close without open")] += 1
                 return
             frame = stack[index]
-            # The frames above never closed: the code's defect, counted and named, not hidden.
             for above in stack[index + 1 :]:
                 self._defects[(above[0], above[1], "open without close")] += 1
             self._dropped += len(stack) - index - 1
@@ -395,7 +380,6 @@ class Monitor(GenericAudit):
             and current.throttled is not None
             and current.throttled > previous.throttled
         ):
-            # A signal, not a threshold: throttling is the bottleneck itself (BR-04).
             self._alerts += 1
             self.warning(
                 msg=Event.Check,
@@ -621,7 +605,6 @@ class Monitor(GenericAudit):
                 limit_source=gpu_source,
             )
         else:
-            # BR-08: without an extension nothing in the standard library sees a GPU.
             self.info(
                 msg=Event.Completed, target=MetricTarget.Resource, resource="gpu", measured=False
             )
@@ -632,7 +615,6 @@ class Monitor(GenericAudit):
             for row in rows.values():
                 for measure, amount in row[_UNITS].items():
                     totals[measure.unit] += amount
-            # Named, never splatted (NFRQ-SCR-06 k.5): the units are the `Measure` vocabulary.
             self.info(
                 msg=Event.Completed,
                 target=MetricTarget.Volume,
@@ -676,7 +658,6 @@ class Monitor(GenericAudit):
             for frame in stack:
                 self._defects[(frame[0], frame[1], "open at end of pass")] += 1
         for (component, operation, defect), count in sorted(self._defects.items()):
-            # SyRS-MTR-COLLECTION: an incomplete pair is a finding against the code (D-11).
             self.warning(
                 msg=Event.Check,
                 target=MetricTarget.Pair,
@@ -701,12 +682,6 @@ class Monitor(GenericAudit):
     def samples(self) -> list[MetricSample]:
         """Series for a sink: operations, units and the resource gauges of the pass."""
         out: list[MetricSample] = []
-        # Accumulated across the whole loop, not per row. A quantity is labelled
-        # by component alone while rows are keyed by component AND operation, and
-        # aliases of one quantity share a series (Bytes/Size, Records/Rows) — so
-        # emitting inside the loop gives one component the same series twice. A
-        # Pushgateway rejects the WHOLE push for a repeated series, which made a
-        # pass publish nothing at all.
         quantities: dict[tuple[str, str, str], float] = {}
         for (component, operation), row in sorted(self.rows().items()):
             labels = {"component": component, "operation": operation}
@@ -750,8 +725,6 @@ class Monitor(GenericAudit):
                     series, MetricKind.COUNTER, {"component": component}, amount, unit=unit
                 )
             )
-        # The pass total is a gauge of the run; `wf_documents_total{component}` stays the
-        # per-component counter read off the closing records.
         out.append(
             MetricSample(
                 "wf_run_documents", MetricKind.GAUGE, {}, float(self._documents), unit="documents"

@@ -51,8 +51,6 @@ class StateMachine(IStateMachine, Generic[State, Action], ABC):
     ) -> None:
         IStateMachine.__init__(self)
         self._name: str | None = name
-        # A read-only copy: the owner keeps its dictionary,
-        # but the FSM cannot change it. The mapping is from (state, action) to state.
         table = MappingProxyType(dict(transitions))
         known = {source for source, _ in table} | set(table.values())
         if initial not in known:
@@ -73,7 +71,6 @@ class StateMachine(IStateMachine, Generic[State, Action], ABC):
         return (self._state, action) in self._transitions
 
     def apply(self, action: Action) -> None:
-        # Check and write are one step: two threads cannot both take the same transition.
         with self._lock:
             key = (self._state, action)
             if key not in self._transitions:
@@ -106,7 +103,6 @@ class GuardedStateMachine(IStateMachine, Generic[State, Action], ABC):
         name: str | None = None,
     ) -> None:
         IStateMachine.__init__(self)
-        # Preserve the inner FSM's name so logs stay consistent.
         self._name: str | None = name or getattr(inner, "name", None)
         self._inner = inner
         self._guard = guard
@@ -129,8 +125,6 @@ class GuardedStateMachine(IStateMachine, Generic[State, Action], ABC):
         return self._inner.can(action)
 
     def _check(self) -> None:
-        # The guard runs once, before the first transition, also when threads arrive together:
-        # the others wait for it.
         with self._guard_lock:
             if not self._consumed:
                 self._guard(self._inner)

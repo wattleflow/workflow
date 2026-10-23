@@ -4,12 +4,6 @@
 # License: Apache 2 Licence
 
 # --------------------------------------------------------------------------- #
-# Content digest (protective hash) of a FILE — a fingerprint computed over the
-# file's BYTES, never its path, so identical content yields the same digest
-# regardless of name or location. Streaming (bounded memory) for large files.
-# Used to fingerprint originals for evidence integrity and to verify a file (by
-# CONTENT, not path) against a known digest. Stdlib-only (hashlib/hmac) → clean
-# core / zero-trust safe.
 # --------------------------------------------------------------------------- #
 
 # --------------------------------------------------------------------------- #
@@ -38,7 +32,7 @@ class FileDigest:
     """Content digest of a file (or raw bytes / a binary stream)."""
 
     DEFAULT_ALGORITHM = "sha256"
-    CHUNK_SIZE = 1 << 20  # 1 MiB streaming granularity
+    CHUNK_SIZE = 1 << 20
 
     @classmethod
     def of(cls, source: Source, *, algorithm: str = DEFAULT_ALGORITHM) -> str:
@@ -46,7 +40,6 @@ class FileDigest:
         if isinstance(source, (bytes, bytearray, memoryview)):
             digest.update(source)
         elif hasattr(source, "read"):
-            # Binary stream (already open) — consumed in chunks.
             while True:
                 chunk = source.read(cls.CHUNK_SIZE)  # type: ignore[attr-defined]
                 if not chunk:
@@ -60,7 +53,6 @@ class FileDigest:
 
     @classmethod
     def labelled(cls, source: Source, *, algorithm: str = DEFAULT_ALGORITHM) -> str:
-        # e.g. "sha256:9f86d0…" — algorithm travels with the digest.
         return f"{algorithm}:{cls.of(source, algorithm=algorithm)}"
 
     @classmethod
