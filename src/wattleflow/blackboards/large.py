@@ -1,0 +1,341 @@
+# Module name: blackboards/large.py
+# Author: (wattleflow@outlook.com)
+# Copyright: © 2022–2026 WattleFlow. All rights reserved.
+# License: Apache 2 Licence
+
+
+# --------------------------------------------------------------------------- #
+# region Imports                                                              #
+# --------------------------------------------------------------------------- #
+from __future__ import annotations
+
+# v0.0.1.57: moved from blackwattle; it needs only the standard library.
+__all__ = ["LargeBlackboard"]
+
+from typing import Dict, Optional
+from wattleflow.core import (
+    IBlackboard,
+    IOriginator,
+    IPipeline,
+    IRepository,
+    IProcessor,
+    ITarget,
+    IWattleflow,
+)
+from wattleflow.concrete.blackboard import (
+    TRANSITIONS,
+    BlackboardAction,
+    BlackboardState,
+    GenericBlackboard,
+)
+from wattleflow.concrete.exception import BlackboardException
+from wattleflow.concrete.memento import GenericMemento
+from wattleflow.concrete.state_machine import StateMachine
+from wattleflow.enums.event import Event
+# --------------------------------------------------------------------------- #
+# endregion Imports                                                           #
+# --------------------------------------------------------------------------- #
+
+Documents = Dict[str, ITarget]
+
+# --------------------------------------------------------------------------- #
+# region Blackboards                                                          #
+# --------------------------------------------------------------------------- #
+
+
+class LargeBlackboard(GenericBlackboard[Documents], IOriginator):
+    __slots__ = ("_fsm",)
+    ALLOWED = ["configuration", "defer_flush", "strategy_create"]
+
+    # region Private
+
+    def __init__(self, **kwargs):
+        super().__init__(canvas={}, **kwargs)
+        self._fsm: StateMachine = StateMachine(
+            TRANSITIONS,
+            BlackboardState.IDLE,
+            name="BlackboardFSM",
+        )
+        self.debug(msg=Event.Constructor, step=Event.Completed)
+
+    def __broadcast__(
+        self,
+        facade: ITarget,
+        **kwargs,
+    ) -> None:
+        self.debug(
+            msg=Event.Emit,
+            step=Event.Started,
+            facade=facade,
+            state=self._fsm.state.name,
+            kwargs=kwargs,
+        )
+
+        try:
+            for repository in self._repositories:
+                repository.write(caller=self, facade=facade, **kwargs)
+        except Exception as e:
+            if self._fsm.can(BlackboardAction.FAIL):
+                self._fsm.apply(BlackboardAction.FAIL)
+            self.debug(msg=Event.Emit, step=Event.Failed, error=type(e).__name__)
+            raise
+
+        if self._fsm.can(BlackboardAction.FLUSH):
+            self._fsm.apply(BlackboardAction.FLUSH)
+
+        self.debug(
+            msg=Event.Emit,
+            step=Event.Completed,
+            state=self._fsm.state.name,
+            broadcasted=True,
+        )
+
+    def __repr__(self) -> str:
+        state = self._fsm.state.name or "UNKNOWN"
+        return "%s:%s" % (super().__repr__(), state)
+
+    # endregion Private
+
+    # region Property
+
+    @property
+    def count(self) -> int:
+        if self._canvas:
+            return len(self._canvas)
+        return 0
+
+    # endregion Properties
+
+    # region Public
+
+    def clear(self):
+        self.debug(
+            msg=Event.Clear,
+            step=Event.Started,
+            state=self._fsm.state.name,
+        )
+
+        try:
+            if self._canvas and self._fsm.can(BlackboardAction.FLUSH):
+                self.warning(
+                    msg=Event.Clear,
+                    reason="canvas has unflushed facades at lifecycle end",
+                    cause="defer_flush=%s" % self.defer_flush,
+                    count=len(self._canvas),
+                    state=self._fsm.state.name,
+                )
+                self.flush(caller=self)
+
+            self._repositories.clear()
+
+            if self._fsm.can(BlackboardAction.CLEAR):
+                self._fsm.apply(BlackboardAction.CLEAR)
+        except Exception as e:
+            self.debug(
+                msg=Event.Clear,
+                step=Event.Failed,
+                error=type(e).__name__,
+            )
+            if self._fsm.can(BlackboardAction.FAIL):
+                self._fsm.apply(BlackboardAction.FAIL)
+            raise
+
+        self.debug(
+            msg=Event.Clear,
+            step=Event.Completed,
+            state=self._fsm.state.name,
+            repositories=len(self._repositories),
+        )
+
+    def create(self, caller: IProcessor, **kwargs) -> Optional[ITarget]:
+        self.debug(
+            msg=Event.Create,
+            step=Event.Started,
+            caller=caller.name,
+        )
+
+        assert isinstance(caller, IProcessor), "Expected IProcessor. Found %s" % type(caller)
+
+        if not self._strategy_create:
+            self.warning(
+                msg=Event.Create,
+                error=f"{self.name}._strategy_create is missing!",
+            )
+            return None
+
+        self.debug(msg=Event.Create, step=Event.Completed)
+
+        return self._strategy_create.create(
+            caller=self, processor=caller, blackboard=self, **kwargs
+        )
+
+    def delete(self, identifier: str, **kwargs) -> None:
+        self.debug(
+            msg=Event.Delete,
+            step=Event.Started,
+            id=identifier,
+            kwargs=kwargs,
+        )
+
+        if identifier in self._canvas:
+            del self._canvas[identifier]
+            self.debug(msg=Event.Deleted, identifier=identifier)
+        else:
+            self.warning(
+                msg=Event.Delete,
+                reason="The blackboard neither confirms nor denies the existence!",
+                identifier=identifier,
+            )
+
+        self.debug(
+            msg=Event.Delete,
+            step=Event.Completed,
+            id=identifier,
+        )
+
+    def flush(self, caller: IWattleflow, **kwargs) -> None:
+        pending = self.count
+        (self.info if pending else self.debug)(
+            msg=Event.Flush,
+            step=Event.Started,
+            documents=pending,
+        )
+        self.debug(
+            msg=Event.Flush,
+            step=Event.Started,
+            caller=caller,
+            kwargs=kwargs,
+        )
+
+        assert isinstance(caller, (IProcessor, IBlackboard)), (
+            "Expected IProcessor or IBlackboard. Found %s" % type(caller)
+        )
+
+        if self._fsm.state == BlackboardState.DIRTY:
+            for facade in list(self._canvas.values()):
+                self.__broadcast__(facade=facade, **kwargs)
+
+        self._canvas.clear()
+
+        if self._fsm.can(BlackboardAction.FLUSH):
+            self._fsm.apply(BlackboardAction.FLUSH)
+
+        self.debug(msg=Event.Flush, step=Event.Completed)
+
+    def read(self, identifier: str, **kwargs) -> ITarget:
+        self.debug(
+            msg=Event.Read,
+            step=Event.Started,
+            state=self._fsm.state.name,
+            identifier=identifier,
+            kwargs=kwargs,
+        )
+
+        if identifier not in self._canvas:
+            raise BlackboardException(self, f"Document {identifier} not found!")
+
+        facade: ITarget = self._canvas[identifier]
+
+        self.debug(
+            msg=Event.Read,
+            step=Event.Completed,
+            state=self._fsm.state.name,
+            identifier=identifier,
+        )
+        return facade
+
+    def register(self, repository: IRepository) -> None:
+        self.debug(msg=Event.Register, step=Event.Started)
+
+        assert isinstance(repository, IRepository), "Expected IRepository. Found %s" % type(
+            repository
+        )
+
+        if repository in self._repositories:
+            self.warning(
+                msg=Event.Register,
+                repository=repository,
+                error="Repository already registered!",
+            )
+            return
+
+        self._repositories.append(repository)
+
+        if self._fsm.can(BlackboardAction.REGISTER):
+            self._fsm.apply(BlackboardAction.REGISTER)
+
+        self.debug(
+            msg=Event.Register,
+            step=Event.Completed,
+            added=repository,
+        )
+
+    def write(self, pipeline: IPipeline, facade: ITarget, **kwargs) -> str:
+        self.debug(
+            msg=Event.Write,
+            step=Event.Started,
+            facade=facade,
+            kwargs=kwargs,
+        )
+        assert isinstance(pipeline, IPipeline), "Expected IPipeline. Found %s" % type(pipeline)
+        assert isinstance(facade, ITarget), "Expected ITarget. Found %s" % type(facade)
+
+        if not getattr(facade, "identifier", None):
+            raise BlackboardException(self, f"Document:{facade} is missing identifier!")
+
+        if self._fsm.can(BlackboardAction.WRITE):
+            self._fsm.apply(BlackboardAction.WRITE)
+            self._canvas[facade.identifier] = facade
+            self.debug(
+                msg=Event.Write,
+                action=Event.Stored,
+                identifier=facade.identifier,
+            )
+
+        if not self._repositories:
+            self.warning(
+                msg=Event.Write,
+                error="No repositories have been registered.",
+            )
+            return ""
+
+        if not self.defer_flush:
+            self.__broadcast__(facade=facade, **kwargs)
+
+        self.debug(msg=Event.Write, step=Event.Completed)
+        return facade.identifier
+
+    # endregion Public
+
+    # region Memento
+
+    def save_state(self) -> GenericMemento:
+        self.debug(msg=Event.Save, state=self._fsm.state.name, count=len(self._canvas))
+        return GenericMemento(canvas=dict(self._canvas), state=self._fsm.state)
+
+    def restore_state(self, memento: GenericMemento) -> None:
+        self.debug(msg=Event.Restore, state=self._fsm.state.name, memento=memento)
+
+        if not isinstance(memento, GenericMemento):
+            raise BlackboardException(self, "Invalid memento")
+
+        saved_state = memento.get_state()
+
+        if (saved_state, BlackboardAction.LOAD) not in TRANSITIONS:
+            raise BlackboardException(
+                self,
+                f"Cannot restore: LOAD not allowed from saved state {saved_state.name}",
+            )
+
+        self._fsm.state = saved_state
+        self._fsm.apply(BlackboardAction.LOAD)
+        self._canvas = dict(memento.canvas)
+
+        self.debug(msg=Event.Restore, state=self._fsm.state.name, count=len(self._canvas))
+
+    # endregion Memento
+
+
+# --------------------------------------------------------------------------- #
+# endregion Blackboards                                                       #
+# --------------------------------------------------------------------------- #

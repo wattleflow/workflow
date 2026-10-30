@@ -30,6 +30,15 @@
   "registry": "wattleflow-code-vocabulary",
   "distribution": "wattleflow-workflow",
   "_criterion_version": [
+    "0.16.0 (2026-10-30) — domains gains connections, drivers and pipelines:",
+    "stdlib-only MemoryConnection, DriverIdentity and the entity pipelines",
+    "(STANDARDS §2.6.1). Authority: SyRS-CNC-memory v0.0.1, SyRS-DRV-identity",
+    "v0.0.6, SyRS-PPL-entity v0.0.5; STANDARDS §2.6.1; 2026-10-30. Proven by",
+    "wem_criterion 0.3.0: 0 finding(s) removed, none added.",
+    "0.15.0 (2026-10-30) — domains gains blackboards: SmallBlackboard and",
+    "LargeBlackboard moved to wattleflow-workflow; they need only the standard",
+    "library. Authority: SyRS-BLC-blackboard v0.0.10, 2026-10-30. Proven by",
+    "wem_criterion 0.3.0: 0 finding(s) removed, none added.",
     "0.14.0 (2026-10-17) — rule id SEC-03a becomes SCR-03a: the NFRQ family is SCR",
     "since 2026-10-12. Authority: odluka autora 2026-10-17: uskladiti imena pravila",
     "wem_lint s obitelji NFRQ-SCR (SEC-03a → SCR-03a). Proven by wem_criterion",
@@ -84,7 +93,7 @@
     "PENDING: this revision must be enacted in the documentation — until then the criterion is a",
     "draft and its findings are conformant, not descriptive (D-08)."
   ],
-  "criterion_version": "0.14.0",
+  "criterion_version": "0.16.0",
   "documentation_version": "v0.0.5",
   "_python_reference": "Defines the 'stdlib' set for ORG-01; must track requires-python in pyproject.toml.",
   "python_reference": "3.12",
@@ -232,7 +241,11 @@
     "orchestrators",
     "schedulers",
     "telemetry",
-    "converters"
+    "converters",
+    "blackboards",
+    "connections",
+    "drivers",
+    "pipelines"
   ],
   "shared_namespace": "helpers",
   "_report_language": [

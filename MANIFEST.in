@@ -9,8 +9,11 @@
 # ships unless it is explicitly re-added below. Delete that line and packaging
 # silently reverts to "whatever git tracks" — the boundary stops being enforced.
 #
-# Ships: the import-clean package set — concrete, constants, decorators, enums,
-#        helpers, managers, orchestrators, schedulers.
+# Ships: the import-clean package set — blackboards, concrete, connections,
+#        constants, decorators, drivers, enums, helpers, managers,
+#        orchestrators, pipelines, schedulers.
+# v0.0.1.57: blackboards/, connections/, drivers/ and pipelines/ hold stdlib-only classes;
+#            they share the subtree with blackwattle as namespace portions.
 #
 # Everything third-party-coupled — specialisations (connections/, drivers/,
 # processors/, pipelines/, documents/, strategies/, blackboards/, mappers/,
@@ -43,13 +46,17 @@ global-exclude __pycache__/*
 # Every package `[tool.setuptools.packages.find]` declares must appear here;
 # see the invariant in that file.
 recursive-include src/wattleflow/audit *.py
+recursive-include src/wattleflow/blackboards *.py
 recursive-include src/wattleflow/concrete *.py
+recursive-include src/wattleflow/connections *.py
 recursive-include src/wattleflow/constants *.py
 recursive-include src/wattleflow/decorators *.py
+recursive-include src/wattleflow/drivers *.py
 recursive-include src/wattleflow/enums *.py
 recursive-include src/wattleflow/helpers *.py
 recursive-include src/wattleflow/managers *.py
 recursive-include src/wattleflow/orchestrators *.py
+recursive-include src/wattleflow/pipelines *.py
 recursive-include src/wattleflow/schedulers *.py
 recursive-include src/wattleflow/telemetry *.py
 

@@ -1,6 +1,6 @@
 [project]
 name = "wattleflow-workflow"
-version = "0.0.1.56"
+version = "0.0.1.57"
 description = "Wattleflow Workflow - Data engineering framework."
 readme = "README.md"
 license = "Apache-2.0"
@@ -19,7 +19,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "wattleflow>=0.0.0.61",
+    "wattleflow>=0.0.0.62",
 ]
 
 [build-system]
@@ -41,13 +41,17 @@ namespaces = true
 
 include = [
     "wattleflow.audit*",
+    "wattleflow.blackboards*",
     "wattleflow.concrete*",
+    "wattleflow.connections*",
     "wattleflow.constants*",
     "wattleflow.decorators*",
+    "wattleflow.drivers*",
     "wattleflow.enums*",
     "wattleflow.helpers*",
     "wattleflow.managers*",
     "wattleflow.orchestrators*",
+    "wattleflow.pipelines*",
     "wattleflow.schedulers*",
     "wattleflow.telemetry*",
 ]

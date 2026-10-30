@@ -3,7 +3,7 @@
 # Copyright: © 2022–2026 WattleFlow. All rights reserved.
 # License: Apache 2 Licence
 
-"""`Monitor` as the observer of audit records — spans, units, cycles, levels (SyRS-MTR-COLLECTION)."""
+"""`Monitor` as the observer of audit records — spans, units, cycles, levels (SyRS-MNT-monitor)."""
 
 from __future__ import annotations
 
